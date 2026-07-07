@@ -38,7 +38,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const st = planStatus(c);
   const pNormal = precioNormal(data.precios, c.plan || "");
   const pPromo = precioPreferencial(data.precios, c.plan || "");
-  const showOffer = st.cls === "warn" && pNormal > 0;
+  const showOffer = st.cls === "warn" && pNormal > 0 && c.origen !== "WEB";
   const ahorro = pNormal - pPromo;
   const planVigente = st.cls !== "bad";
 

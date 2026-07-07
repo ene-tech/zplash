@@ -136,6 +136,7 @@ export default function ClientesTab() {
             <th>Patente</th>
             <th>Nombre</th>
             <th>Vehículo</th>
+            <th>Origen</th>
             <th>Plan</th>
             <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => sortHeader("vencimiento")}>
               Vencimiento{flecha("vencimiento")}
@@ -150,7 +151,7 @@ export default function ClientesTab() {
         <tbody>
           {filtered.length === 0 ? (
             <tr>
-              <td colSpan={8}>
+              <td colSpan={9}>
                 <div className="empty">No hay clientes que coincidan</div>
               </td>
             </tr>
@@ -162,6 +163,7 @@ export default function ClientesTab() {
                   <td className="plate-tag">{c.patente}</td>
                   <td>{c.nombre}</td>
                   <td>{c.vehiculo || "-"}</td>
+                  <td>{c.origen || "LOCAL"}</td>
                   <td>{c.plan || "-"}</td>
                   <td>{c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"}</td>
                   <td>
