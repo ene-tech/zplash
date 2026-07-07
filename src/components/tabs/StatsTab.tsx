@@ -9,7 +9,7 @@ export default function StatsTab() {
   const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
   const vencidos = data.clientes.filter((c) => planStatus(c).cls === "bad").length;
   const porVencer = data.clientes.filter((c) => planStatus(c).cls === "warn").length;
-  const vigentes = data.clientes.filter((c) => planStatus(c).cls === "ok");
+  const vigentes = data.clientes.filter((c) => planStatus(c).cls !== "bad");
   const vigentesWeb = vigentes.filter((c) => c.origen === "WEB").length;
   const vigentesLocal = vigentes.length - vigentesWeb;
 
