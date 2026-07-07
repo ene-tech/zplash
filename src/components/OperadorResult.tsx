@@ -32,7 +32,6 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const { data, ui, commit, patchUi } = useApp();
   const nombreRef = useRef<HTMLInputElement>(null);
   const vehiculoRef = useRef<HTMLInputElement>(null);
-  const vencRef = useRef<HTMLInputElement>(null);
   const [guardarErr, setGuardarErr] = useState("");
 
   const c = cliente;
@@ -128,39 +127,6 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     updateResult(updated);
   };
 
-  const guardarVenc = () => {
-    const val = vencRef.current?.value;
-    if (!val) return;
-    const plan = c.plan || PLANES[0];
-    const precio = precioNormal(data.precios, plan);
-    pedirPago(precio, `Contratación de plan (${plan}) para ${c.nombre}`, async (pago) => {
-      const updated = { ...c, vencimiento: new Date(val).toISOString(), plan };
-      const venta: Venta = {
-        id: "v" + Date.now(),
-        clienteId: c.id,
-        patente: c.patente,
-        nombre: c.nombre,
-        plan,
-        precio,
-        tipo: "Plan nuevo",
-        fecha: new Date().toISOString(),
-        operador: ui.operadorActual || "",
-        metodoPago: pago.metodo,
-        voucher: pago.voucher,
-      };
-      const ok = await commit({
-        clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
-        ventas: [venta, ...data.ventas],
-      });
-      if (!ok) {
-        setGuardarErr(ERROR_GUARDADO);
-        return;
-      }
-      setGuardarErr("");
-      updateResult(updated);
-    });
-  };
-
   const renovar = () => {
     pedirPago(pPromo, `Renovación temprana del plan de ${c.nombre} a precio preferencial`, async (pago) => {
       const patch = renovarPlan(data, c, ui.operadorActual, pago);
@@ -205,8 +171,6 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
       updateResult(updated);
     });
   };
-
-  const defaultVenc = vencimientoPorDefectoISO().substring(0, 10);
 
   return (
     <>
@@ -295,29 +259,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
           </div>
           <div>
             <div className="k">Vence</div>
-            {c.vencimiento ? (
-              <div className="v">{new Date(c.vencimiento).toLocaleDateString("es-CL")}</div>
-            ) : (
-              <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
-                <input
-                  ref={vencRef}
-                  type="date"
-                  defaultValue={defaultVenc}
-                  style={{
-                    flex: 1,
-                    background: "var(--bg)",
-                    border: "1px solid var(--border)",
-                    color: "var(--white)",
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    fontSize: 13,
-                  }}
-                />
-                <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarVenc}>
-                  Activar
-                </button>
-              </div>
-            )}
+            <div className="v">{c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"}</div>
           </div>
           <div>
             <div className="k">Visitas totales</div>
