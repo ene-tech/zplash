@@ -28,6 +28,7 @@ export default function CierreTab() {
     { tipo: "Lavado único", label: "Lavado único" },
     { tipo: "Plan nuevo", label: "Contratación de plan" },
     { tipo: "Renovación preferencial", label: "Renovación temprana" },
+    { tipo: "Renovación manual", label: "Renovación manual" },
   ];
   const ventasPorTipo = PRODUCTOS.map((p) => {
     const items = ventasPeriodo.filter((v) => v.tipo === p.tipo);
