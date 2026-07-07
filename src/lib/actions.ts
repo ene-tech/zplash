@@ -1,4 +1,4 @@
-import type { AppData, Cliente, Ingreso, Venta } from "@/types";
+import type { AppData, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
 import { PLANES, normPlate, planStatus, precioPreferencial, uid } from "@/lib/helpers";
 
 export function registrarIngreso(data: AppData, cliente: Cliente, operadorActual: string | null): Partial<AppData> {
@@ -23,7 +23,12 @@ export function registrarIngreso(data: AppData, cliente: Cliente, operadorActual
   };
 }
 
-export function renovarPlan(data: AppData, cliente: Cliente, operadorActual: string | null): Partial<AppData> {
+export function renovarPlan(
+  data: AppData,
+  cliente: Cliente,
+  operadorActual: string | null,
+  pago?: PagoInfo
+): Partial<AppData> {
   const base = cliente.vencimiento && new Date(cliente.vencimiento) > new Date() ? new Date(cliente.vencimiento) : new Date();
   base.setDate(base.getDate() + 30);
   const clienteActualizado: Cliente = {
@@ -41,6 +46,8 @@ export function renovarPlan(data: AppData, cliente: Cliente, operadorActual: str
     tipo: "Renovación preferencial",
     fecha: new Date().toISOString(),
     operador: operadorActual || "",
+    metodoPago: pago?.metodo,
+    voucher: pago?.voucher,
   };
   return {
     clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),

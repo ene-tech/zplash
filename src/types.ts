@@ -39,6 +39,13 @@ export interface Venta {
   tipo: string;
   fecha: string;
   operador?: string;
+  metodoPago?: "efectivo" | "tarjeta";
+  voucher?: string;
+}
+
+export interface PagoInfo {
+  metodo: "efectivo" | "tarjeta";
+  voucher?: string;
 }
 
 export interface Operador {
@@ -76,6 +83,7 @@ export type ModalState =
   | { type: "confirm"; mensaje: string; onConfirm: () => void; confirmLabel?: string; danger?: boolean }
   | { type: "operador"; data: Operador | null }
   | { type: "bulk" }
+  | { type: "pago"; monto: number; descripcion: string; onConfirm: (pago: PagoInfo) => void }
   | null;
 
 export interface UIState {

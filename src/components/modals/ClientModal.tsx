@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, normPlate, precioNormal, vencimientoPorDefectoISO } from "@/lib/helpers";
-import type { Cliente, Venta } from "@/types";
+import { PLANES, PRECIO_LAVADO_UNICO, normPlate, precioNormal, vencimientoPorDefectoISO } from "@/lib/helpers";
+import type { Cliente, PagoInfo, Venta } from "@/types";
 
 export default function ClientModal({ data: c, contexto }: { data: Cliente | null; contexto?: "operador" | "admin" }) {
   const { data, commit, patchUi, ui } = useApp();
@@ -25,7 +25,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   const [tipoCliente, setTipoCliente] = useState("plan");
   const [err, setErr] = useState("");
 
-  const guardar = async () => {
+  const guardar = () => {
     const nombre = nombreRef.current?.value.trim() || "";
     const patente = normPlate(patenteRef.current?.value || "");
     if (!nombre || !patente) {
@@ -65,76 +65,107 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     }
 
     const vencimientoAnterior = cli.vencimiento || null;
-    let clientes: Cliente[];
-    let ventas = data.ventas;
 
-    if (c) {
-      const actualizado: Cliente = {
-        ...(c as Cliente),
-        nombre,
-        patente,
-        telefono,
-        email,
-        vehiculo,
-        plan,
-        tipoDocumento,
-        razonSocial,
-        rut,
-        direccion,
-        giro,
-        vencimiento,
-      };
-      clientes = data.clientes.map((x) => (x.id === c.id ? actualizado : x));
-      if (vencimiento && vencimiento !== vencimientoAnterior) {
-        const venta: Venta = {
-          id: "v" + Date.now(),
-          clienteId: actualizado.id,
-          patente: actualizado.patente,
-          nombre: actualizado.nombre,
-          plan: actualizado.plan || "",
-          precio: precioNormal(data.precios, plan),
-          tipo: "Renovación manual",
-          fecha: new Date().toISOString(),
+    const persistir = async (pago?: PagoInfo) => {
+      let clientes: Cliente[];
+      let ventas = data.ventas;
+
+      if (c) {
+        const actualizado: Cliente = {
+          ...(c as Cliente),
+          nombre,
+          patente,
+          telefono,
+          email,
+          vehiculo,
+          plan,
+          tipoDocumento,
+          razonSocial,
+          rut,
+          direccion,
+          giro,
+          vencimiento,
         };
-        ventas = [venta, ...ventas];
+        clientes = data.clientes.map((x) => (x.id === c.id ? actualizado : x));
+        if (vencimiento && vencimiento !== vencimientoAnterior) {
+          const venta: Venta = {
+            id: "v" + Date.now(),
+            clienteId: actualizado.id,
+            patente: actualizado.patente,
+            nombre: actualizado.nombre,
+            plan: actualizado.plan || "",
+            precio: precioNormal(data.precios, plan),
+            tipo: "Renovación manual",
+            fecha: new Date().toISOString(),
+            metodoPago: pago?.metodo,
+            voucher: pago?.voucher,
+          };
+          ventas = [venta, ...ventas];
+        }
+      } else {
+        const nuevo: Cliente = {
+          id: "c" + Date.now() + Math.floor(Math.random() * 1000),
+          nombre,
+          patente,
+          telefono,
+          email,
+          vehiculo,
+          plan,
+          tipoDocumento,
+          razonSocial,
+          rut,
+          direccion,
+          giro,
+          vencimiento,
+          visitas: 0,
+          creadoEn: new Date().toISOString(),
+        };
+        clientes = [...data.clientes, nuevo];
+        if (vencimiento) {
+          const venta: Venta = {
+            id: "v" + Date.now(),
+            clienteId: nuevo.id,
+            patente: nuevo.patente,
+            nombre: nuevo.nombre,
+            plan: nuevo.plan || "",
+            precio: precioNormal(data.precios, plan),
+            tipo: "Plan nuevo",
+            fecha: new Date().toISOString(),
+            operador: ui.operadorActual || "",
+            metodoPago: pago?.metodo,
+            voucher: pago?.voucher,
+          };
+          ventas = [venta, ...ventas];
+        } else if (contexto === "operador") {
+          // Tipo "unico" (sin plan): igual se cobra un lavado único.
+          const venta: Venta = {
+            id: "v" + Date.now(),
+            clienteId: nuevo.id,
+            patente: nuevo.patente,
+            nombre: nuevo.nombre,
+            plan: "",
+            precio: PRECIO_LAVADO_UNICO,
+            tipo: "Lavado único",
+            fecha: new Date().toISOString(),
+            operador: ui.operadorActual || "",
+            metodoPago: pago?.metodo,
+            voucher: pago?.voucher,
+          };
+          ventas = [venta, ...ventas];
+        }
       }
+
+      await commit({ clientes, ventas });
+      patchUi({ modal: null });
+    };
+
+    if (contexto === "operador") {
+      const monto = vencimiento ? precioNormal(data.precios, plan) : PRECIO_LAVADO_UNICO;
+      const descripcion = vencimiento ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
+      patchUi({ modal: { type: "pago", monto, descripcion, onConfirm: (pago) => persistir(pago) } });
     } else {
-      const nuevo: Cliente = {
-        id: "c" + Date.now() + Math.floor(Math.random() * 1000),
-        nombre,
-        patente,
-        telefono,
-        email,
-        vehiculo,
-        plan,
-        tipoDocumento,
-        razonSocial,
-        rut,
-        direccion,
-        giro,
-        vencimiento,
-        visitas: 0,
-        creadoEn: new Date().toISOString(),
-      };
-      clientes = [...data.clientes, nuevo];
-      if (vencimiento) {
-        const venta: Venta = {
-          id: "v" + Date.now(),
-          clienteId: nuevo.id,
-          patente: nuevo.patente,
-          nombre: nuevo.nombre,
-          plan: nuevo.plan || "",
-          precio: precioNormal(data.precios, plan),
-          tipo: "Plan nuevo",
-          fecha: new Date().toISOString(),
-          operador: ui.operadorActual || "",
-        };
-        ventas = [venta, ...ventas];
-      }
+      persistir();
     }
-
-    await commit({ clientes, ventas });
-    patchUi({ modal: null });
   };
 
   return (

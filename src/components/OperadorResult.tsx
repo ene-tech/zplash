@@ -15,7 +15,7 @@ import {
   uid,
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
-import type { Cliente, Ingreso, Venta } from "@/types";
+import type { Cliente, Ingreso, PagoInfo, Venta } from "@/types";
 
 export default function OperadorResult({ clearPlate }: { clearPlate: () => void }) {
   const { ui } = useApp();
@@ -44,6 +44,10 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
+  const pedirPago = (monto: number, descripcion: string, onConfirm: (pago: PagoInfo) => void) => {
+    patchUi({ modal: { type: "pago", monto, descripcion, onConfirm } });
+  };
+
   const registrar = async () => {
     const patch = registrarIngreso(data, c, ui.operadorActual);
     const ok = await commit(patch);
@@ -55,26 +59,30 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     patchUi({ operResult: null });
   };
 
-  const registrarPagado = async () => {
-    const patch = registrarIngreso(data, c, ui.operadorActual);
-    const venta: Venta = {
-      id: "v" + Date.now(),
-      clienteId: c.id,
-      patente: c.patente,
-      nombre: c.nombre,
-      plan: c.plan || "",
-      precio: PRECIO_LAVADO_UNICO,
-      tipo: "Lavado único",
-      fecha: new Date().toISOString(),
-      operador: ui.operadorActual || "",
-    };
-    const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
-    if (!ok) {
-      setGuardarErr(ERROR_GUARDADO);
-      return;
-    }
-    clearPlate();
-    patchUi({ operResult: null });
+  const registrarPagado = () => {
+    pedirPago(PRECIO_LAVADO_UNICO, `Lavado único para ${c.nombre} (${c.patente})`, async (pago) => {
+      const patch = registrarIngreso(data, c, ui.operadorActual);
+      const venta: Venta = {
+        id: "v" + Date.now(),
+        clienteId: c.id,
+        patente: c.patente,
+        nombre: c.nombre,
+        plan: c.plan || "",
+        precio: PRECIO_LAVADO_UNICO,
+        tipo: "Lavado único",
+        fecha: new Date().toISOString(),
+        operador: ui.operadorActual || "",
+        metodoPago: pago.metodo,
+        voucher: pago.voucher,
+      };
+      const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
+      if (!ok) {
+        setGuardarErr(ERROR_GUARDADO);
+        return;
+      }
+      clearPlate();
+      patchUi({ operResult: null });
+    });
   };
 
   const guardarNombre = async () => {
@@ -103,70 +111,82 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     updateResult(updated);
   };
 
-  const guardarVenc = async () => {
+  const guardarVenc = () => {
     const val = vencRef.current?.value;
     if (!val) return;
     const plan = c.plan || PLANES[0];
-    const updated = { ...c, vencimiento: new Date(val).toISOString(), plan };
-    const venta = {
-      id: "v" + Date.now(),
-      clienteId: c.id,
-      patente: c.patente,
-      nombre: c.nombre,
-      plan,
-      precio: precioNormal(data.precios, plan),
-      tipo: "Plan nuevo",
-      fecha: new Date().toISOString(),
-      operador: ui.operadorActual || "",
-    };
-    const ok = await commit({
-      clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
-      ventas: [venta, ...data.ventas],
+    const precio = precioNormal(data.precios, plan);
+    pedirPago(precio, `Contratación de plan (${plan}) para ${c.nombre}`, async (pago) => {
+      const updated = { ...c, vencimiento: new Date(val).toISOString(), plan };
+      const venta: Venta = {
+        id: "v" + Date.now(),
+        clienteId: c.id,
+        patente: c.patente,
+        nombre: c.nombre,
+        plan,
+        precio,
+        tipo: "Plan nuevo",
+        fecha: new Date().toISOString(),
+        operador: ui.operadorActual || "",
+        metodoPago: pago.metodo,
+        voucher: pago.voucher,
+      };
+      const ok = await commit({
+        clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
+        ventas: [venta, ...data.ventas],
+      });
+      if (!ok) {
+        setGuardarErr(ERROR_GUARDADO);
+        return;
+      }
+      setGuardarErr("");
+      updateResult(updated);
     });
-    if (!ok) {
-      setGuardarErr(ERROR_GUARDADO);
-      return;
-    }
-    setGuardarErr("");
-    updateResult(updated);
   };
 
-  const renovar = async () => {
-    const patch = renovarPlan(data, c, ui.operadorActual);
-    const ok = await commit(patch);
-    if (!ok) {
-      setGuardarErr(ERROR_GUARDADO);
-      return;
-    }
-    setGuardarErr("");
-    const updated = patch.clientes?.find((x) => x.id === c.id);
-    if (updated) updateResult(updated);
+  const renovar = () => {
+    pedirPago(pPromo, `Renovación temprana del plan de ${c.nombre} a precio preferencial`, async (pago) => {
+      const patch = renovarPlan(data, c, ui.operadorActual, pago);
+      const ok = await commit(patch);
+      if (!ok) {
+        setGuardarErr(ERROR_GUARDADO);
+        return;
+      }
+      setGuardarErr("");
+      const updated = patch.clientes?.find((x) => x.id === c.id);
+      if (updated) updateResult(updated);
+    });
   };
 
-  const contratarPlan = async () => {
+  const contratarPlan = () => {
     const plan = c.plan || PLANES[0];
-    const updated = { ...c, vencimiento: vencimientoPorDefectoISO(), plan };
-    const venta: Venta = {
-      id: "v" + Date.now(),
-      clienteId: c.id,
-      patente: c.patente,
-      nombre: c.nombre,
-      plan,
-      precio: precioNormal(data.precios, plan),
-      tipo: "Plan nuevo",
-      fecha: new Date().toISOString(),
-      operador: ui.operadorActual || "",
-    };
-    const ok = await commit({
-      clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
-      ventas: [venta, ...data.ventas],
+    const precio = precioNormal(data.precios, plan);
+    pedirPago(precio, `Contratación de plan (${plan}) para ${c.nombre}`, async (pago) => {
+      const updated = { ...c, vencimiento: vencimientoPorDefectoISO(), plan };
+      const venta: Venta = {
+        id: "v" + Date.now(),
+        clienteId: c.id,
+        patente: c.patente,
+        nombre: c.nombre,
+        plan,
+        precio,
+        tipo: "Plan nuevo",
+        fecha: new Date().toISOString(),
+        operador: ui.operadorActual || "",
+        metodoPago: pago.metodo,
+        voucher: pago.voucher,
+      };
+      const ok = await commit({
+        clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
+        ventas: [venta, ...data.ventas],
+      });
+      if (!ok) {
+        setGuardarErr(ERROR_GUARDADO);
+        return;
+      }
+      setGuardarErr("");
+      updateResult(updated);
     });
-    if (!ok) {
-      setGuardarErr(ERROR_GUARDADO);
-      return;
-    }
-    setGuardarErr("");
-    updateResult(updated);
   };
 
   const defaultVenc = vencimientoPorDefectoISO().substring(0, 10);
@@ -190,20 +210,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
             <span className="new">{fmtCLP(pPromo)}</span>
             <span className="save">Ahorra {fmtCLP(ahorro)}</span>
           </div>
-          <button
-            className="btn secondary"
-            onClick={() =>
-              patchUi({
-                modal: {
-                  type: "confirm",
-                  mensaje: `¿Confirmas renovar el plan de ${c.nombre} a precio preferencial (${fmtCLP(pPromo)})?`,
-                  confirmLabel: "Sí, renovar",
-                  danger: false,
-                  onConfirm: renovar,
-                },
-              })
-            }
-          >
+          <button className="btn secondary" onClick={renovar}>
             Renovar plan a precio preferencial
           </button>
         </div>
@@ -343,7 +350,11 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
   const qDireccionRef = useRef<HTMLInputElement>(null);
   const qGiroRef = useRef<HTMLInputElement>(null);
 
-  const quickAdd = async () => {
+  const pedirPago = (monto: number, descripcion: string, onConfirm: (pago: PagoInfo) => void) => {
+    patchUi({ modal: { type: "pago", monto, descripcion, onConfirm } });
+  };
+
+  const quickAdd = () => {
     const nombre = qNombreRef.current?.value.trim() || "Cliente sin nombre";
     const telefono = qTelefonoRef.current?.value.trim() || "";
     const email = qEmailRef.current?.value.trim() || "";
@@ -378,64 +389,71 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
       visitas: 0,
       creadoEn: new Date().toISOString(),
     };
-    let ventas = data.ventas;
-    if (tipoCliente === "plan") {
-      ventas = [
-        {
-          id: "v" + Date.now(),
-          clienteId: nuevo.id,
-          patente: nuevo.patente,
-          nombre: nuevo.nombre,
-          plan: nuevo.plan || "",
-          precio: precioNormal(data.precios, plan),
-          tipo: "Plan nuevo",
-          fecha: new Date().toISOString(),
-          operador: ui.operadorActual || "",
-        },
-        ...ventas,
-      ];
-    }
-    const tempData = { ...data, clientes: [...data.clientes, nuevo], ventas };
-    const ingresoPatch = registrarIngreso(tempData, nuevo, ui.operadorActual);
-    const ok = await commit({ clientes: ingresoPatch.clientes, ventas, ingresos: ingresoPatch.ingresos });
-    if (!ok) {
-      setErr(ERROR_GUARDADO);
-      return;
-    }
-    clearPlate();
-    patchUi({ operResult: null });
+    const precio = tipoCliente === "plan" ? precioNormal(data.precios, plan) : PRECIO_LAVADO_UNICO;
+    const tipoVenta = tipoCliente === "plan" ? "Plan nuevo" : "Lavado único";
+    const descripcion =
+      tipoCliente === "plan" ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
+
+    pedirPago(precio, descripcion, async (pago) => {
+      const venta: Venta = {
+        id: "v" + Date.now(),
+        clienteId: nuevo.id,
+        patente: nuevo.patente,
+        nombre: nuevo.nombre,
+        plan: nuevo.plan || "",
+        precio,
+        tipo: tipoVenta,
+        fecha: new Date().toISOString(),
+        operador: ui.operadorActual || "",
+        metodoPago: pago.metodo,
+        voucher: pago.voucher,
+      };
+      const tempData = { ...data, clientes: [...data.clientes, nuevo], ventas: [venta, ...data.ventas] };
+      const ingresoPatch = registrarIngreso(tempData, nuevo, ui.operadorActual);
+      const ok = await commit({ clientes: ingresoPatch.clientes, ventas: tempData.ventas, ingresos: ingresoPatch.ingresos });
+      if (!ok) {
+        setErr(ERROR_GUARDADO);
+        return;
+      }
+      clearPlate();
+      patchUi({ operResult: null });
+    });
   };
 
-  const ingresarSinRegistro = async () => {
+  const ingresarSinRegistro = () => {
     const patente = normPlate(plate);
-    const ahora = new Date().toISOString();
-    const ingreso: Ingreso = {
-      id: "i" + Date.now(),
-      clienteId: "",
-      patente,
-      nombre: "Sin registro",
-      fecha: ahora,
-      planEstadoAlIngreso: "bad",
-      operador: ui.operadorActual || "",
-    };
-    const venta: Venta = {
-      id: "v" + Date.now(),
-      clienteId: "",
-      patente,
-      nombre: "Sin registro",
-      plan: "",
-      precio: PRECIO_LAVADO_UNICO,
-      tipo: "Lavado único",
-      fecha: ahora,
-      operador: ui.operadorActual || "",
-    };
-    const ok = await commit({ ingresos: [ingreso, ...data.ingresos], ventas: [venta, ...data.ventas] });
-    if (!ok) {
-      setErr(ERROR_GUARDADO);
-      return;
-    }
-    clearPlate();
-    patchUi({ operResult: null });
+    pedirPago(PRECIO_LAVADO_UNICO, `Lavado único sin registro (${patente})`, async (pago) => {
+      const ahora = new Date().toISOString();
+      const ingreso: Ingreso = {
+        id: "i" + Date.now(),
+        clienteId: "",
+        patente,
+        nombre: "Sin registro",
+        fecha: ahora,
+        planEstadoAlIngreso: "bad",
+        operador: ui.operadorActual || "",
+      };
+      const venta: Venta = {
+        id: "v" + Date.now(),
+        clienteId: "",
+        patente,
+        nombre: "Sin registro",
+        plan: "",
+        precio: PRECIO_LAVADO_UNICO,
+        tipo: "Lavado único",
+        fecha: ahora,
+        operador: ui.operadorActual || "",
+        metodoPago: pago.metodo,
+        voucher: pago.voucher,
+      };
+      const ok = await commit({ ingresos: [ingreso, ...data.ingresos], ventas: [venta, ...data.ventas] });
+      if (!ok) {
+        setErr(ERROR_GUARDADO);
+        return;
+      }
+      clearPlate();
+      patchUi({ operResult: null });
+    });
   };
 
   return (
