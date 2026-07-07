@@ -386,6 +386,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
       direccion,
       giro,
       vencimiento,
+      origen: "LOCAL",
       visitas: 0,
       creadoEn: new Date().toISOString(),
     };

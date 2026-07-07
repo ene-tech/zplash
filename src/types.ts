@@ -13,6 +13,7 @@ export interface Cliente {
   giro?: string;
   vencimiento?: string | null;
   fechaContratacion?: string | null;
+  origen?: "WEB" | "LOCAL";
   visitas?: number;
   ultimaVisita?: string;
   ultimaRenovacion?: string;

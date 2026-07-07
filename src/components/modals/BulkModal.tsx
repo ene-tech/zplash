@@ -43,7 +43,7 @@ export default function BulkModal() {
       <div className="bulk-drop">
         Sube un archivo Excel (.xlsx) con las columnas:
         <br />
-        <strong>Nombre, Patente, Telefono, Email, Vehiculo, Fecha Contratacion, Tipo Documento, Razon Social, RUT, Direccion, Giro</strong>
+        <strong>Nombre, Patente, Telefono, Email, Vehiculo, Fecha Contratacion, Tipo Documento, Razon Social, RUT, Direccion, Giro, Origen</strong>
         <br />
         <br />
         Todos los clientes quedan asignados automáticamente al &quot;Plan Ilimitado Mensual&quot;.
@@ -51,6 +51,9 @@ export default function BulkModal() {
         El vencimiento del plan se calcula automáticamente: 1 mes desde la Fecha de Contratación.
         <br />
         Las columnas de facturación son opcionales y solo se guardan si Tipo Documento es &quot;Factura&quot;.
+        <br />
+        La columna Origen es opcional: escribe &quot;Web&quot; si el cliente llegó por la web, o déjala vacía / escribe
+        &quot;Local&quot; si fue presencial.
         <br />
         Si la patente ya existe, se actualizan sus datos. Si no existe, se crea un cliente nuevo.
       </div>

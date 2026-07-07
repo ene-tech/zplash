@@ -21,6 +21,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   const direccionRef = useRef<HTMLInputElement>(null);
   const giroRef = useRef<HTMLInputElement>(null);
   const vencRef = useRef<HTMLInputElement>(null);
+  const origenRef = useRef<HTMLSelectElement>(null);
   const [tipoDoc, setTipoDoc] = useState(cli.tipoDocumento === "Factura" ? "Factura" : "Boleta");
   const [tipoCliente, setTipoCliente] = useState("plan");
   const [err, setErr] = useState("");
@@ -65,6 +66,8 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     }
 
     const vencimientoAnterior = cli.vencimiento || null;
+    const origen: "WEB" | "LOCAL" =
+      contexto === "operador" ? "LOCAL" : origenRef.current?.value === "WEB" ? "WEB" : "LOCAL";
 
     const persistir = async (pago?: PagoInfo) => {
       let clientes: Cliente[];
@@ -85,6 +88,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           direccion,
           giro,
           vencimiento,
+          origen,
         };
         clientes = data.clientes.map((x) => (x.id === c.id ? actualizado : x));
         if (vencimiento && vencimiento !== vencimientoAnterior) {
@@ -117,6 +121,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           direccion,
           giro,
           vencimiento,
+          origen,
           visitas: 0,
           creadoEn: new Date().toISOString(),
         };
@@ -208,6 +213,15 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
                 {p}
               </option>
             ))}
+          </select>
+        </div>
+      )}
+      {contexto !== "operador" && (
+        <div className="field">
+          <label>Origen</label>
+          <select ref={origenRef} defaultValue={cli.origen || "LOCAL"}>
+            <option value="LOCAL">Local</option>
+            <option value="WEB">Web</option>
           </select>
         </div>
       )}

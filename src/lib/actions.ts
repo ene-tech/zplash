@@ -112,6 +112,8 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
     const rut = tipoDocumento === "Factura" ? getField(row, "rut") : "";
     const direccion = tipoDocumento === "Factura" ? getField(row, "direccion", "dirección") : "";
     const giro = tipoDocumento === "Factura" ? getField(row, "giro") : "";
+    const origenRaw = getField(row, "origen", "canal");
+    const origen: "WEB" | "LOCAL" = origenRaw.toLowerCase().startsWith("web") ? "WEB" : "LOCAL";
 
     const existenteIdx = clientes.findIndex((c) => normPlate(c.patente) === patente);
     if (existenteIdx !== -1) {
@@ -130,6 +132,7 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
         giro,
         fechaContratacion: fechaContratacion || existente.fechaContratacion,
         vencimiento: vencimiento || existente.vencimiento,
+        origen: origenRaw ? origen : existente.origen,
       };
       actualizados++;
     } else {
@@ -148,6 +151,7 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
         giro,
         fechaContratacion,
         vencimiento,
+        origen,
         visitas: 0,
         creadoEn: new Date().toISOString(),
       });

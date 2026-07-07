@@ -16,6 +16,7 @@ create table if not exists clientes (
   giro text,
   vencimiento timestamptz,
   fecha_contratacion timestamptz,
+  origen text not null default 'LOCAL',
   visitas integer not null default 0,
   ultima_visita timestamptz,
   ultima_renovacion timestamptz,
