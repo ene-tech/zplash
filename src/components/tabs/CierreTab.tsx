@@ -24,6 +24,34 @@ export default function CierreTab() {
   });
   const listaPorCliente = Object.values(porCliente).sort((a, b) => b.cantidad - a.cantidad);
 
+  const PRODUCTOS = [
+    { tipo: "Lavado único", label: "Lavado único" },
+    { tipo: "Plan nuevo", label: "Contratación de plan" },
+    { tipo: "Renovación preferencial", label: "Renovación temprana" },
+  ];
+  const ventasPorTipo = PRODUCTOS.map((p) => {
+    const items = ventasPeriodo.filter((v) => v.tipo === p.tipo);
+    return { ...p, cantidad: items.length, monto: items.reduce((s, v) => s + (v.precio || 0), 0) };
+  });
+  const tiposConocidos = new Set(PRODUCTOS.map((p) => p.tipo));
+  const otrasVentas = ventasPeriodo.filter((v) => !tiposConocidos.has(v.tipo));
+  const filasVenta = [
+    ...ventasPorTipo,
+    ...(otrasVentas.length
+      ? [{ tipo: "otros", label: "Otros", cantidad: otrasVentas.length, monto: otrasVentas.reduce((s, v) => s + (v.precio || 0), 0) }]
+      : []),
+  ];
+  const totalCantidadVentas = filasVenta.reduce((s, f) => s + f.cantidad, 0);
+  const totalMontoVentas = filasVenta.reduce((s, f) => s + f.monto, 0);
+
+  const facturaPendientesPeriodo = clientes
+    .filter((c) => c.tipoDocumento === "Factura")
+    .map((c) => {
+      const ventPeriodo = ventas.filter((v) => v.clienteId === c.id && inRange(v.fecha, desde, hasta));
+      return { cliente: c, monto: ventPeriodo.reduce((s, v) => s + (v.precio || 0), 0), cantidad: ventPeriodo.length };
+    })
+    .filter((x) => x.cantidad > 0);
+
   const facturaSearch = (ui.facturaSearch || "").toLowerCase();
   const facturaFiltrados = clientes
     .filter((c) => c.tipoDocumento === "Factura")
@@ -90,6 +118,72 @@ export default function CierreTab() {
           <div className="lbl">Planes vendidos</div>
         </div>
       </div>
+
+      <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Detalle de venta del período</h3>
+      <table style={{ marginBottom: 12 }}>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th>Monto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filasVenta.map((f) => (
+            <tr key={f.tipo}>
+              <td>{f.label}</td>
+              <td>{f.cantidad}</td>
+              <td>{fmtCLP(f.monto)}</td>
+            </tr>
+          ))}
+          <tr>
+            <td style={{ fontWeight: 700 }}>Total</td>
+            <td style={{ fontWeight: 700 }}>{totalCantidadVentas}</td>
+            <td style={{ fontWeight: 700 }}>{fmtCLP(totalMontoVentas)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div className="stat-grid" style={{ marginBottom: 24 }}>
+        <div className="stat-card">
+          <div className="num">{ingresosPeriodo.length}</div>
+          <div className="lbl">Vehículos ingresados</div>
+        </div>
+        <div className="stat-card">
+          <div className="num">{facturaPendientesPeriodo.length}</div>
+          <div className="lbl">Facturas pendientes de emitir</div>
+        </div>
+      </div>
+
+      {facturaPendientesPeriodo.length > 0 && (
+        <>
+          <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>
+            Clientes esperando documento tributario
+          </h3>
+          <table style={{ marginBottom: 24 }}>
+            <thead>
+              <tr>
+                <th>Patente</th>
+                <th>Cliente</th>
+                <th>Razón Social</th>
+                <th>RUT</th>
+                <th>Monto período</th>
+              </tr>
+            </thead>
+            <tbody>
+              {facturaPendientesPeriodo.map(({ cliente: c, monto }) => (
+                <tr key={c.id}>
+                  <td className="plate-tag">{c.patente}</td>
+                  <td>{c.nombre}</td>
+                  <td>{c.razonSocial || "-"}</td>
+                  <td>{c.rut || "-"}</td>
+                  <td>{fmtCLP(monto)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
       <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Ingresos por cliente</h3>
       <table style={{ marginBottom: 24 }}>
         <thead>
