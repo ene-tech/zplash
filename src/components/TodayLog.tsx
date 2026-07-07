@@ -17,7 +17,14 @@ export default function TodayLog() {
       {list.map((i) => (
         <div className="log-row" key={i.id}>
           <span className="plate">{i.patente}</span>
-          <span>{i.nombre}</span>
+          <span>
+            {i.nombre}
+            {i.esGarantia && (
+              <span className="status-pill warn" style={{ marginLeft: 8 }}>
+                Garantía
+              </span>
+            )}
+          </span>
           <span>{new Date(i.fecha).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</span>
         </div>
       ))}

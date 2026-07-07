@@ -30,12 +30,13 @@ export default function IngresosTab() {
             <th>Patente</th>
             <th>Cliente</th>
             <th>Operador</th>
+            <th>Garantía</th>
           </tr>
         </thead>
         <tbody>
           {filtered.length === 0 ? (
             <tr>
-              <td colSpan={5}>
+              <td colSpan={6}>
                 <div className="empty">Sin registros</div>
               </td>
             </tr>
@@ -47,6 +48,7 @@ export default function IngresosTab() {
                 <td className="plate-tag">{i.patente}</td>
                 <td>{i.nombre}</td>
                 <td>{i.operador || "-"}</td>
+                <td>{i.esGarantia ? "Sí" : "-"}</td>
               </tr>
             ))
           )}

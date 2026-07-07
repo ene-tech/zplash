@@ -1,7 +1,12 @@
 import type { AppData, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
 import { PLANES, normPlate, planStatus, precioPreferencial, uid } from "@/lib/helpers";
 
-export function registrarIngreso(data: AppData, cliente: Cliente, operadorActual: string | null): Partial<AppData> {
+export function registrarIngreso(
+  data: AppData,
+  cliente: Cliente,
+  operadorActual: string | null,
+  esGarantia?: boolean
+): Partial<AppData> {
   const estadoPlan = planStatus(cliente).cls;
   const ingreso: Ingreso = {
     id: "i" + Date.now(),
@@ -11,6 +16,7 @@ export function registrarIngreso(data: AppData, cliente: Cliente, operadorActual
     fecha: new Date().toISOString(),
     planEstadoAlIngreso: estadoPlan,
     operador: operadorActual || "",
+    esGarantia: esGarantia || undefined,
   };
   const clienteActualizado: Cliente = {
     ...cliente,

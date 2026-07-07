@@ -28,6 +28,7 @@ export interface Ingreso {
   fecha: string;
   planEstadoAlIngreso: "ok" | "warn" | "bad";
   operador?: string;
+  esGarantia?: boolean;
 }
 
 export interface Venta {

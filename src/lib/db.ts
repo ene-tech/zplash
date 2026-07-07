@@ -61,6 +61,7 @@ function ingresoToRow(i: Ingreso): Row {
     fecha: i.fecha,
     plan_estado_al_ingreso: i.planEstadoAlIngreso,
     operador: i.operador || null,
+    es_garantia: i.esGarantia || false,
   };
 }
 
@@ -73,6 +74,7 @@ function ingresoFromRow(r: Row): Ingreso {
     fecha: r.fecha as string,
     planEstadoAlIngreso: r.plan_estado_al_ingreso as Ingreso["planEstadoAlIngreso"],
     operador: (r.operador as string) || undefined,
+    esGarantia: (r.es_garantia as boolean) || undefined,
   };
 }
 

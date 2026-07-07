@@ -1,4 +1,4 @@
-import type { Cliente, PlanStatus, Precios } from "@/types";
+import type { Cliente, Ingreso, PlanStatus, Precios } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 export const DIAS_AVISO_VENCIMIENTO = 7;
@@ -78,6 +78,12 @@ export function normPlate(p: string | null | undefined): string {
 
 export function findClient(clientes: Cliente[], plate: string): Cliente | undefined {
   return clientes.find((c) => normPlate(c.patente) === normPlate(plate));
+}
+
+/** Si el cliente ya registró un ingreso hoy (para limitar a 1 pasada diaria por plan vigente). */
+export function yaIngresoHoy(ingresos: Ingreso[], clienteId: string): boolean {
+  const hoy = todayStr();
+  return ingresos.some((i) => i.clienteId === clienteId && new Date(i.fecha).toDateString() === hoy);
 }
 
 /** La carga masiva por Excel deja "Sin nombre" quemado cuando la fila no trae nombre. */

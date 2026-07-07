@@ -34,7 +34,8 @@ create table if not exists ingresos (
   nombre text not null,
   fecha timestamptz not null default now(),
   plan_estado_al_ingreso text not null,
-  operador text
+  operador text,
+  es_garantia boolean not null default false
 );
 create index if not exists ingresos_fecha_idx on ingresos (fecha desc);
 create index if not exists ingresos_cliente_idx on ingresos (cliente_id);

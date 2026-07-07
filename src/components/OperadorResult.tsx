@@ -14,6 +14,7 @@ import {
   precioPreferencial,
   uid,
   vencimientoPorDefectoISO,
+  yaIngresoHoy,
 } from "@/lib/helpers";
 import type { Cliente, Ingreso, PagoInfo, Venta } from "@/types";
 
@@ -48,8 +49,8 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     patchUi({ modal: { type: "pago", monto, descripcion, onConfirm } });
   };
 
-  const registrar = async () => {
-    const patch = registrarIngreso(data, c, ui.operadorActual);
+  const hacerRegistro = async (esGarantia: boolean) => {
+    const patch = registrarIngreso(data, c, ui.operadorActual, esGarantia);
     const ok = await commit(patch);
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO);
@@ -57,6 +58,22 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     }
     clearPlate();
     patchUi({ operResult: null });
+  };
+
+  const registrar = () => {
+    if (yaIngresoHoy(data.ingresos, c.id)) {
+      patchUi({
+        modal: {
+          type: "confirm",
+          mensaje: `Este cliente ya pasó una vez hoy. ¿Desea que pase nuevamente por garantía?`,
+          confirmLabel: "Sí, ingresar por garantía",
+          danger: false,
+          onConfirm: () => hacerRegistro(true),
+        },
+      });
+      return;
+    }
+    hacerRegistro(false);
   };
 
   const registrarPagado = () => {
