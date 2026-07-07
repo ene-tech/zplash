@@ -439,7 +439,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         </div>
         <div>
           <label>Teléfono</label>
-          <input ref={qTelefonoRef} placeholder="+56 9 ..." />
+          <input ref={qTelefonoRef} defaultValue="+569" placeholder="+56 9 ..." />
         </div>
         <div>
           <label>Correo electrónico</label>

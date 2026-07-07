@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, PRECIO_LAVADO_UNICO, normPlate, precioNormal, vencimientoPorDefectoISO } from "@/lib/helpers";
+import { PLANES, PRECIO_LAVADO_UNICO, normPlate, precioNormal, todayYMD, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
 
 export default function ClientModal({ data: c, contexto }: { data: Cliente | null; contexto?: "operador" | "admin" }) {
@@ -186,7 +186,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       </div>
       <div className="field">
         <label>Teléfono</label>
-        <input ref={telefonoRef} defaultValue={cli.telefono || ""} />
+        <input ref={telefonoRef} defaultValue={cli.telefono || "+569"} />
       </div>
       <div className="field">
         <label>Correo electrónico</label>
@@ -273,7 +273,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       ) : (
         <div className="field">
           <label>Vencimiento del plan</label>
-          <input ref={vencRef} type="date" defaultValue={cli.vencimiento ? cli.vencimiento.substring(0, 10) : ""} />
+          <input ref={vencRef} type="date" defaultValue={cli.vencimiento ? cli.vencimiento.substring(0, 10) : todayYMD()} />
         </div>
       )}
       <div className="err">{err}</div>
