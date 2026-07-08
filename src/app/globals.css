@@ -151,6 +151,45 @@ h3,
   font-size: 17px;
 }
 
+.estado-pago-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.estado-pago-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  color: var(--gray);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: 0.15s;
+}
+.estado-pago-btn:hover {
+  border-color: var(--white);
+}
+.estado-pago-btn.ok.selected {
+  border-color: var(--green);
+  background: rgba(61, 214, 140, 0.15);
+  color: var(--green);
+}
+.estado-pago-btn.warn.selected {
+  border-color: var(--gold);
+  background: rgba(255, 199, 44, 0.15);
+  color: var(--gold);
+}
+.estado-pago-btn.bad.selected {
+  border-color: var(--red);
+  background: rgba(229, 72, 77, 0.15);
+  color: var(--red);
+}
+
 .pin-box {
   display: flex;
   flex-direction: column;

@@ -45,6 +45,8 @@ export interface Venta {
   voucher?: string;
   horaEntrega?: string;
   notas?: string;
+  estadoPago?: "pagado" | "abono50" | "pendiente";
+  montoCobrado?: number;
 }
 
 export interface PagoInfo {

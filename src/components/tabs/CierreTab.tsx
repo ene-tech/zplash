@@ -58,12 +58,17 @@ export default function CierreTab() {
   const tiposConocidos = new Set([...PRODUCTOS.map((p) => p.tipo), "Renovación manual", ...NOMBRES_SERVICIOS_ADICIONALES]);
   const otrasVentas = ventasPeriodo.filter((v) => !tiposConocidos.has(v.tipo));
 
+  const cobrado = (v: (typeof ventasPeriodo)[number]) => v.montoCobrado ?? v.precio ?? 0;
   const efectivoItems = ventasPeriodo.filter((v) => v.metodoPago === "efectivo");
   const tarjetaItems = ventasPeriodo.filter((v) => v.metodoPago === "tarjeta");
-  const sinMetodoItems = ventasPeriodo.filter((v) => !v.metodoPago);
+  const porPagarItems = ventasPeriodo.filter((v) => v.estadoPago === "pendiente");
+  const sinMetodoItems = ventasPeriodo.filter((v) => !v.metodoPago && v.estadoPago !== "pendiente");
   const metodosPago = [
-    { metodo: "Efectivo", cantidad: efectivoItems.length, monto: efectivoItems.reduce((s, v) => s + (v.precio || 0), 0) },
-    { metodo: "Tarjeta", cantidad: tarjetaItems.length, monto: tarjetaItems.reduce((s, v) => s + (v.precio || 0), 0) },
+    { metodo: "Efectivo", cantidad: efectivoItems.length, monto: efectivoItems.reduce((s, v) => s + cobrado(v), 0) },
+    { metodo: "Tarjeta", cantidad: tarjetaItems.length, monto: tarjetaItems.reduce((s, v) => s + cobrado(v), 0) },
+    ...(porPagarItems.length
+      ? [{ metodo: "Por pagar", cantidad: porPagarItems.length, monto: porPagarItems.reduce((s, v) => s + (v.precio || 0), 0) }]
+      : []),
     ...(sinMetodoItems.length
       ? [{ metodo: "Sin especificar", cantidad: sinMetodoItems.length, monto: sinMetodoItems.reduce((s, v) => s + (v.precio || 0), 0) }]
       : []),

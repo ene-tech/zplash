@@ -4,12 +4,14 @@ import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import { SERVICIOS_ADICIONALES, findClient, fmtCLP, normPlate, todayStr } from "@/lib/helpers";
-import type { Cliente, PagoInfo, Venta } from "@/types";
+import type { Cliente, Venta } from "@/types";
 
 const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
 const NOMBRES_SERVICIOS = new Set(SERVICIOS_ADICIONALES.map((s) => s.nombre));
 const CATEGORIA_DETAILING = "Lavado Completo Detailing";
 const AJUSTES = [5000, 10000] as const;
+
+type EstadoPago = "pagado" | "abono50" | "pendiente";
 
 export default function ServiciosAdicionalesView() {
   const { data, ui, commit, patchUi } = useApp();
@@ -24,19 +26,41 @@ export default function ServiciosAdicionalesView() {
   const giroRef = useRef<HTMLInputElement>(null);
   const horaEntregaRef = useRef<HTMLInputElement>(null);
   const notasRef = useRef<HTMLTextAreaElement>(null);
+  const voucherRef = useRef<HTMLInputElement>(null);
 
   const [patenteBuscada, setPatenteBuscada] = useState<string | null>(null);
-  const [servicioId, setServicioId] = useState<string | null>(null);
+  const [serviciosSeleccionados, setServiciosSeleccionados] = useState<string[]>([]);
   const [ajuste, setAjuste] = useState<0 | 5000 | 10000>(0);
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
+  const [estadoPago, setEstadoPago] = useState<EstadoPago | null>(null);
+  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | null>(null);
   const [err, setErr] = useState("");
 
   const clienteExistente = patenteBuscada ? findClient(data.clientes, patenteBuscada) || null : null;
-
   const categorias = Array.from(new Set(SERVICIOS_ADICIONALES.map((s) => s.categoria)));
-  const servicio = SERVICIOS_ADICIONALES.find((s) => s.id === servicioId) || null;
-  const aplicaAjuste = servicio?.categoria === CATEGORIA_DETAILING;
-  const precioFinal = servicio ? servicio.precio + (aplicaAjuste ? ajuste : 0) : 0;
+
+  const hayDetailingSeleccionado = serviciosSeleccionados.some(
+    (id) => SERVICIOS_ADICIONALES.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING
+  );
+
+  let ajusteAsignado = false;
+  const lineas = serviciosSeleccionados.map((id) => {
+    const s = SERVICIOS_ADICIONALES.find((x) => x.id === id)!;
+    let precio = s.precio;
+    if (!ajusteAsignado && s.categoria === CATEGORIA_DETAILING && ajuste > 0) {
+      precio += ajuste;
+      ajusteAsignado = true;
+    }
+    return { servicio: s, precio };
+  });
+  const totalListado = lineas.reduce((s, l) => s + l.precio, 0);
+  const montoCobradoTotal = estadoPago === "pagado" ? totalListado : estadoPago === "abono50" ? Math.round(totalListado / 2) : 0;
+
+  const toggleServicio = (id: string, categoria: string) => {
+    setServiciosSeleccionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setErr("");
+    if (categoria !== CATEGORIA_DETAILING) return;
+  };
 
   const buscarPatente = () => {
     const patente = normPlate(patenteRef.current?.value || "");
@@ -48,21 +72,25 @@ export default function ServiciosAdicionalesView() {
     const cliente = findClient(data.clientes, patente);
     setPatenteBuscada(patente);
     setTipoDoc(cliente?.tipoDocumento === "Factura" ? "Factura" : "Boleta");
-    setServicioId(null);
+    setServiciosSeleccionados([]);
     setAjuste(0);
+    setEstadoPago(null);
+    setMetodoPago(null);
   };
 
   const cambiarPatente = () => {
     setPatenteBuscada(null);
-    setServicioId(null);
+    setServiciosSeleccionados([]);
     setAjuste(0);
+    setEstadoPago(null);
+    setMetodoPago(null);
     setErr("");
   };
 
-  const registrar = () => {
+  const registrar = async () => {
     if (!patenteBuscada) return;
-    if (!servicio) {
-      setErr("Selecciona un servicio");
+    if (lineas.length === 0) {
+      setErr("Selecciona al menos un servicio");
       return;
     }
     const nombre = (nombreRef.current?.value.trim() || "").toUpperCase();
@@ -70,6 +98,25 @@ export default function ServiciosAdicionalesView() {
       setErr("El nombre es obligatorio");
       return;
     }
+    if (!estadoPago) {
+      setErr("Indica si está pagado, con abono del 50% o por pagar");
+      return;
+    }
+    let voucher: string | undefined;
+    if (estadoPago !== "pendiente") {
+      if (!metodoPago) {
+        setErr("Selecciona efectivo o tarjeta");
+        return;
+      }
+      if (metodoPago === "tarjeta") {
+        voucher = voucherRef.current?.value.trim();
+        if (!voucher) {
+          setErr("Ingresa el código de voucher");
+          return;
+        }
+      }
+    }
+
     const telefono = telefonoRef.current?.value.trim() || "";
     const email = emailRef.current?.value.trim() || "";
     const vehiculo = vehiculoRef.current?.value.trim() || "";
@@ -83,84 +130,79 @@ export default function ServiciosAdicionalesView() {
     setErr("");
     const patente = patenteBuscada;
     const existente = clienteExistente;
-    const montoFinal = precioFinal;
 
-    patchUi({
-      modal: {
-        type: "pago",
-        monto: montoFinal,
-        descripcion: `${servicio.nombre} para ${nombre} (${patente})`,
-        onConfirm: async (pago: PagoInfo) => {
-          let clientes = data.clientes;
-          let clienteId: string;
+    let clientes = data.clientes;
+    let clienteId: string;
 
-          if (existente) {
-            const actualizado: Cliente = {
-              ...existente,
-              nombre,
-              telefono: telefono || existente.telefono,
-              email: email || existente.email,
-              vehiculo: vehiculo || existente.vehiculo,
-              tipoDocumento: tipoDoc,
-              razonSocial: tipoDoc === "Factura" ? razonSocial : existente.razonSocial,
-              rut: tipoDoc === "Factura" ? rut : existente.rut,
-              direccion: tipoDoc === "Factura" ? direccion : existente.direccion,
-              giro: tipoDoc === "Factura" ? giro : existente.giro,
-            };
-            clientes = data.clientes.map((c) => (c.id === existente.id ? actualizado : c));
-            clienteId = existente.id;
-          } else {
-            const nuevo: Cliente = {
-              id: "c" + Date.now() + Math.floor(Math.random() * 1000),
-              nombre,
-              patente,
-              telefono,
-              email,
-              vehiculo,
-              tipoDocumento: tipoDoc,
-              razonSocial,
-              rut,
-              direccion,
-              giro,
-              vencimiento: null,
-              fechaContratacion: null,
-              origen: "LOCAL",
-              visitas: 0,
-              creadoEn: new Date().toISOString(),
-            };
-            clientes = [...data.clientes, nuevo];
-            clienteId = nuevo.id;
-          }
+    if (existente) {
+      const actualizado: Cliente = {
+        ...existente,
+        nombre,
+        telefono: telefono || existente.telefono,
+        email: email || existente.email,
+        vehiculo: vehiculo || existente.vehiculo,
+        tipoDocumento: tipoDoc,
+        razonSocial: tipoDoc === "Factura" ? razonSocial : existente.razonSocial,
+        rut: tipoDoc === "Factura" ? rut : existente.rut,
+        direccion: tipoDoc === "Factura" ? direccion : existente.direccion,
+        giro: tipoDoc === "Factura" ? giro : existente.giro,
+      };
+      clientes = data.clientes.map((c) => (c.id === existente.id ? actualizado : c));
+      clienteId = existente.id;
+    } else {
+      const nuevo: Cliente = {
+        id: "c" + Date.now() + Math.floor(Math.random() * 1000),
+        nombre,
+        patente,
+        telefono,
+        email,
+        vehiculo,
+        tipoDocumento: tipoDoc,
+        razonSocial,
+        rut,
+        direccion,
+        giro,
+        vencimiento: null,
+        fechaContratacion: null,
+        origen: "LOCAL",
+        visitas: 0,
+        creadoEn: new Date().toISOString(),
+      };
+      clientes = [...data.clientes, nuevo];
+      clienteId = nuevo.id;
+    }
 
-          const venta: Venta = {
-            id: "v" + Date.now(),
-            clienteId,
-            patente,
-            nombre,
-            plan: "",
-            precio: montoFinal,
-            tipo: servicio.nombre,
-            fecha: new Date().toISOString(),
-            operador: ui.operadorActual || "",
-            metodoPago: pago.metodo,
-            voucher: pago.voucher,
-            horaEntrega: horaEntrega || undefined,
-            notas: notas || undefined,
-          };
+    const ahora = new Date().toISOString();
+    const ventasNuevas: Venta[] = lineas.map((l, idx) => ({
+      id: "v" + Date.now() + "-" + idx,
+      clienteId,
+      patente,
+      nombre,
+      plan: "",
+      precio: l.precio,
+      tipo: l.servicio.nombre,
+      fecha: ahora,
+      operador: ui.operadorActual || "",
+      metodoPago: estadoPago === "pendiente" ? undefined : metodoPago || undefined,
+      voucher: metodoPago === "tarjeta" ? voucher : undefined,
+      horaEntrega: horaEntrega || undefined,
+      notas: notas || undefined,
+      estadoPago,
+      montoCobrado: totalListado > 0 ? Math.round((l.precio / totalListado) * montoCobradoTotal) : 0,
+    }));
 
-          const ok = await commit({ clientes, ventas: [venta, ...data.ventas] });
-          if (!ok) {
-            setErr(ERROR_GUARDADO);
-            return;
-          }
-          if (patenteRef.current) patenteRef.current.value = "";
-          setPatenteBuscada(null);
-          setServicioId(null);
-          setAjuste(0);
-          setTipoDoc("Boleta");
-        },
-      },
-    });
+    const ok = await commit({ clientes, ventas: [...ventasNuevas, ...data.ventas] });
+    if (!ok) {
+      setErr(ERROR_GUARDADO);
+      return;
+    }
+    if (patenteRef.current) patenteRef.current.value = "";
+    setPatenteBuscada(null);
+    setServiciosSeleccionados([]);
+    setAjuste(0);
+    setTipoDoc("Boleta");
+    setEstadoPago(null);
+    setMetodoPago(null);
   };
 
   const hoy = todayStr();
@@ -225,19 +267,15 @@ export default function ServiciosAdicionalesView() {
                       <button
                         key={s.id}
                         type="button"
-                        className={`service-btn${servicioId === s.id ? " selected" : ""}`}
-                        onClick={() => {
-                          setServicioId(s.id);
-                          setErr("");
-                          if (s.categoria !== CATEGORIA_DETAILING) setAjuste(0);
-                        }}
+                        className={`service-btn${serviciosSeleccionados.includes(s.id) ? " selected" : ""}`}
+                        onClick={() => toggleServicio(s.id, s.categoria)}
                       >
                         <div className="nombre">{s.nombre}</div>
                         <div className="precio">{fmtCLP(s.precio)}</div>
                       </button>
                     ))}
                   </div>
-                  {cat === CATEGORIA_DETAILING && (
+                  {cat === CATEGORIA_DETAILING && hayDetailingSeleccionado && (
                     <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
                       {AJUSTES.map((a) => (
                         <button
@@ -255,7 +293,7 @@ export default function ServiciosAdicionalesView() {
                 </div>
               ))}
 
-              {servicio && (
+              {lineas.length > 0 && (
                 <div
                   style={{
                     padding: "10px 12px",
@@ -266,9 +304,25 @@ export default function ServiciosAdicionalesView() {
                     fontSize: 14,
                   }}
                 >
-                  {servicio.nombre}
-                  {aplicaAjuste && ajuste > 0 ? ` (${fmtCLP(servicio.precio)} + ${fmtCLP(ajuste)})` : ""} —{" "}
-                  <strong style={{ color: "var(--gold)" }}>{fmtCLP(precioFinal)}</strong>
+                  {lineas.map((l) => (
+                    <div key={l.servicio.id} style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>{l.servicio.nombre}</span>
+                      <span>{fmtCLP(l.precio)}</span>
+                    </div>
+                  ))}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginTop: 6,
+                      paddingTop: 6,
+                      borderTop: "1px solid var(--border)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    <span>Total</span>
+                    <span style={{ color: "var(--gold)" }}>{fmtCLP(totalListado)}</span>
+                  </div>
                 </div>
               )}
 
@@ -331,6 +385,92 @@ export default function ServiciosAdicionalesView() {
                 </div>
               </div>
 
+              <div className="field">
+                <label>Estado de pago</label>
+                <div className="estado-pago-grid">
+                  <button
+                    type="button"
+                    className={`estado-pago-btn ok${estadoPago === "pagado" ? " selected" : ""}`}
+                    onClick={() => {
+                      setEstadoPago("pagado");
+                      setErr("");
+                    }}
+                  >
+                    Pagado 100%
+                  </button>
+                  <button
+                    type="button"
+                    className={`estado-pago-btn warn${estadoPago === "abono50" ? " selected" : ""}`}
+                    onClick={() => {
+                      setEstadoPago("abono50");
+                      setErr("");
+                    }}
+                  >
+                    Abono 50%
+                  </button>
+                  <button
+                    type="button"
+                    className={`estado-pago-btn bad${estadoPago === "pendiente" ? " selected" : ""}`}
+                    onClick={() => {
+                      setEstadoPago("pendiente");
+                      setMetodoPago(null);
+                      setErr("");
+                    }}
+                  >
+                    Por pagar
+                  </button>
+                </div>
+                {estadoPago && estadoPago !== "pendiente" && (
+                  <div
+                    style={{
+                      marginTop: -4,
+                      marginBottom: 8,
+                      fontSize: 13,
+                      color: "var(--gray)",
+                    }}
+                  >
+                    Se cobra ahora: <strong style={{ color: "var(--gold)" }}>{fmtCLP(montoCobradoTotal)}</strong>
+                    {estadoPago === "abono50" ? ` de ${fmtCLP(totalListado)}` : ""}
+                  </div>
+                )}
+              </div>
+
+              {estadoPago && estadoPago !== "pendiente" && (
+                <div className="field">
+                  <label>Forma de pago</label>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button
+                      type="button"
+                      className={metodoPago === "efectivo" ? "btn" : "btn ghost"}
+                      style={{ flex: 1, marginTop: 0 }}
+                      onClick={() => {
+                        setMetodoPago("efectivo");
+                        setErr("");
+                      }}
+                    >
+                      Efectivo
+                    </button>
+                    <button
+                      type="button"
+                      className={metodoPago === "tarjeta" ? "btn" : "btn ghost"}
+                      style={{ flex: 1, marginTop: 0 }}
+                      onClick={() => {
+                        setMetodoPago("tarjeta");
+                        setErr("");
+                      }}
+                    >
+                      Tarjeta
+                    </button>
+                  </div>
+                  {metodoPago === "tarjeta" && (
+                    <div className="field" style={{ marginTop: 10 }}>
+                      <label>Código Voucher</label>
+                      <input ref={voucherRef} placeholder="N° de voucher" />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="err">{err}</div>
               <button className="btn" onClick={registrar}>
                 Registrar servicio
@@ -350,6 +490,13 @@ export default function ServiciosAdicionalesView() {
                 <span>
                   {v.nombre} — {v.tipo}
                 </span>
+                {v.estadoPago && (
+                  <span
+                    className={`status-pill ${v.estadoPago === "pagado" ? "ok" : v.estadoPago === "abono50" ? "warn" : "bad"}`}
+                  >
+                    {v.estadoPago === "pagado" ? "Pagado" : v.estadoPago === "abono50" ? "Abono 50%" : "Por pagar"}
+                  </span>
+                )}
                 {v.horaEntrega && <span>Entrega {v.horaEntrega}</span>}
                 <span>{fmtCLP(v.precio)}</span>
               </div>

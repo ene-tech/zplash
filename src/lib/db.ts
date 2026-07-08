@@ -93,6 +93,8 @@ function ventaToRow(v: Venta): Row {
     voucher: v.voucher || null,
     hora_entrega: v.horaEntrega || null,
     notas: v.notas || null,
+    estado_pago: v.estadoPago || null,
+    monto_cobrado: v.montoCobrado ?? null,
   };
 }
 
@@ -111,6 +113,8 @@ function ventaFromRow(r: Row): Venta {
     voucher: (r.voucher as string) || undefined,
     horaEntrega: (r.hora_entrega as string) || undefined,
     notas: (r.notas as string) || undefined,
+    estadoPago: (r.estado_pago as Venta["estadoPago"]) || undefined,
+    montoCobrado: r.monto_cobrado === null || r.monto_cobrado === undefined ? undefined : (r.monto_cobrado as number),
   };
 }
 
