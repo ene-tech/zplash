@@ -54,6 +54,15 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const firma = request.headers.get("x-wc-webhook-signature");
   if (!verificarFirma(rawBody, firma, secreto)) {
+    const calculada = crypto.createHmac("sha256", secreto).update(rawBody, "utf8").digest("base64");
+    console.error("Firma invalida en webhook WooCommerce", {
+      largoSecreto: secreto.length,
+      largoBody: rawBody.length,
+      headerRecibida: firma,
+      firmaCalculada: calculada,
+      inicioBody: rawBody.slice(0, 80),
+      headers: Object.fromEntries(request.headers.entries()),
+    });
     return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
   }
 
