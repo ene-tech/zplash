@@ -130,63 +130,65 @@ export default function ClientesTab() {
           + Nuevo cliente
         </button>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Patente</th>
-            <th>Nombre</th>
-            <th>Vehículo</th>
-            <th>Origen</th>
-            <th>Plan</th>
-            <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => sortHeader("vencimiento")}>
-              Vencimiento{flecha("vencimiento")}
-            </th>
-            <th>Estado</th>
-            <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => sortHeader("visitas")}>
-              Visitas{flecha("visitas")}
-            </th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.length === 0 ? (
+      <div className="table-scroll">
+        <table>
+          <thead>
             <tr>
-              <td colSpan={9}>
-                <div className="empty">No hay clientes que coincidan</div>
-              </td>
+              <th>Patente</th>
+              <th>Nombre</th>
+              <th>Vehículo</th>
+              <th>Origen</th>
+              <th>Plan</th>
+              <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => sortHeader("vencimiento")}>
+                Vencimiento{flecha("vencimiento")}
+              </th>
+              <th>Estado</th>
+              <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => sortHeader("visitas")}>
+                Visitas{flecha("visitas")}
+              </th>
+              <th></th>
             </tr>
-          ) : (
-            filtered.map((c, idx) => {
-              const st = planStatus(c);
-              return (
-                <tr key={`${c.id}-${c.patente}-${idx}`}>
-                  <td className="plate-tag">{c.patente}</td>
-                  <td>{c.nombre}</td>
-                  <td>{c.vehiculo || "-"}</td>
-                  <td>{c.origen || "LOCAL"}</td>
-                  <td>{c.plan || "-"}</td>
-                  <td>{c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"}</td>
-                  <td>
-                    <span className={`status-pill ${st.cls}`}>{st.label}</span>
-                  </td>
-                  <td>{c.visitas || 0}</td>
-                  <td className="row-actions">
-                    <button className="icon-btn" onClick={() => patchUi({ modal: { type: "clienteInfo", data: c } })}>
-                      Info
-                    </button>
-                    <button className="icon-btn" onClick={() => patchUi({ modal: { type: "client", data: c } })}>
-                      Editar
-                    </button>
-                    <button className="icon-btn" onClick={() => eliminar(c)}>
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={9}>
+                  <div className="empty">No hay clientes que coincidan</div>
+                </td>
+              </tr>
+            ) : (
+              filtered.map((c, idx) => {
+                const st = planStatus(c);
+                return (
+                  <tr key={`${c.id}-${c.patente}-${idx}`}>
+                    <td className="plate-tag">{c.patente}</td>
+                    <td>{c.nombre}</td>
+                    <td>{c.vehiculo || "-"}</td>
+                    <td>{c.origen || "LOCAL"}</td>
+                    <td>{c.plan || "-"}</td>
+                    <td>{c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"}</td>
+                    <td>
+                      <span className={`status-pill ${st.cls}`}>{st.label}</span>
+                    </td>
+                    <td>{c.visitas || 0}</td>
+                    <td className="row-actions">
+                      <button className="icon-btn" onClick={() => patchUi({ modal: { type: "clienteInfo", data: c } })}>
+                        Info
+                      </button>
+                      <button className="icon-btn" onClick={() => patchUi({ modal: { type: "client", data: c } })}>
+                        Editar
+                      </button>
+                      <button className="icon-btn" onClick={() => eliminar(c)}>
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

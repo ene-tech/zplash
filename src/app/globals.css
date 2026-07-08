@@ -619,9 +619,13 @@ tr:hover td {
   letter-spacing: 0.05em;
   font-size: 14px;
 }
+.table-scroll {
+  overflow-x: auto;
+}
 .row-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: nowrap;
 }
 .icon-btn {
   background: none;
@@ -631,6 +635,8 @@ tr:hover td {
   padding: 5px 9px;
   cursor: pointer;
   font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .icon-btn:hover {
   color: var(--white);
