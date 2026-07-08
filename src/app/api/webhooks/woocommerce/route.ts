@@ -52,6 +52,13 @@ export async function POST(request: NextRequest) {
   }
 
   const rawBody = await request.text();
+
+  // Al crear/activar el webhook, WooCommerce manda un ping de conectividad
+  // "webhook_id=N" sin firma (no trae datos sensibles, solo confirma la URL).
+  if (/^webhook_id=\d+$/.test(rawBody.trim())) {
+    return NextResponse.json({ ok: true, ping: true });
+  }
+
   const firma = request.headers.get("x-wc-webhook-signature");
   if (!verificarFirma(rawBody, firma, secreto)) {
     const calculada = crypto.createHmac("sha256", secreto).update(rawBody, "utf8").digest("base64");
@@ -61,12 +68,10 @@ export async function POST(request: NextRequest) {
       headerRecibida: firma,
       firmaCalculada: calculada,
       inicioBody: rawBody.slice(0, 80),
-      headers: Object.fromEntries(request.headers.entries()),
     });
     return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
   }
 
-  // WooCommerce manda un cuerpo vacío al activar el webhook, solo para confirmar la URL.
   if (!rawBody.trim()) {
     return NextResponse.json({ ok: true });
   }
