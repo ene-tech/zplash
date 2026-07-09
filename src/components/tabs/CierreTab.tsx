@@ -64,11 +64,31 @@ export default function CierreTab() {
   const cobrado = (v: (typeof ventasPeriodo)[number]) => v.montoCobrado ?? v.precio ?? 0;
   const efectivoItems = ventasPeriodo.filter((v) => v.metodoPago === "efectivo");
   const tarjetaItems = ventasPeriodo.filter((v) => v.metodoPago === "tarjeta");
-  const porPagarItems = ventasPeriodo.filter((v) => v.estadoPago === "pendiente");
+  const transferenciaItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago !== "pendiente");
+  const cuentasPorCobrarItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago === "pendiente");
+  const porPagarItems = ventasPeriodo.filter((v) => v.estadoPago === "pendiente" && v.metodoPago !== "transferencia");
   const sinMetodoItems = ventasPeriodo.filter((v) => !v.metodoPago && v.estadoPago !== "pendiente");
   const metodosPago = [
     { metodo: "Efectivo", cantidad: efectivoItems.length, monto: efectivoItems.reduce((s, v) => s + cobrado(v), 0) },
     { metodo: "Tarjeta", cantidad: tarjetaItems.length, monto: tarjetaItems.reduce((s, v) => s + cobrado(v), 0) },
+    ...(transferenciaItems.length
+      ? [
+          {
+            metodo: "Transferencia bancaria",
+            cantidad: transferenciaItems.length,
+            monto: transferenciaItems.reduce((s, v) => s + cobrado(v), 0),
+          },
+        ]
+      : []),
+    ...(cuentasPorCobrarItems.length
+      ? [
+          {
+            metodo: "Cuentas por cobrar (transferencia pendiente)",
+            cantidad: cuentasPorCobrarItems.length,
+            monto: cuentasPorCobrarItems.reduce((s, v) => s + (v.precio || 0), 0),
+          },
+        ]
+      : []),
     ...(porPagarItems.length
       ? [{ metodo: "Por pagar", cantidad: porPagarItems.length, monto: porPagarItems.reduce((s, v) => s + (v.precio || 0), 0) }]
       : []),

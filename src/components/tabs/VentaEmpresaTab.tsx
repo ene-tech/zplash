@@ -22,6 +22,9 @@ export default function VentaEmpresaTab() {
   const direccionRef = useRef<HTMLInputElement>(null);
   const giroRef = useRef<HTMLInputElement>(null);
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
+  const [hayValor, setHayValor] = useState(false);
+  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
+  const [estadoTransferencia, setEstadoTransferencia] = useState<"pagado" | "pendiente" | null>(null);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [busqueda, setBusqueda] = useState("");
 
@@ -45,6 +48,14 @@ export default function VentaEmpresaTab() {
         setErr({ msg: "Completa Razón Social y RUT para la factura", ok: false });
         return;
       }
+    }
+    if (valorTotal > 0 && !metodoPago) {
+      setErr({ msg: "Selecciona la forma de pago", ok: false });
+      return;
+    }
+    if (valorTotal > 0 && metodoPago === "transferencia" && !estadoTransferencia) {
+      setErr({ msg: "Indica si la transferencia está pagada o por pagar", ok: false });
+      return;
     }
 
     const valorPorCupon = Math.round(valorTotal / cantidad);
@@ -84,6 +95,8 @@ export default function VentaEmpresaTab() {
         rut: tipoDoc === "Factura" ? rutRef.current?.value.trim() || "" : "",
         direccion: tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "",
         giro: tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "",
+        metodoPago: metodoPago || undefined,
+        estadoPago: metodoPago === "transferencia" ? estadoTransferencia || undefined : "pagado",
       };
       ventas = [venta, ...ventas];
     }
@@ -108,6 +121,9 @@ export default function VentaEmpresaTab() {
     if (direccionRef.current) direccionRef.current.value = "";
     if (giroRef.current) giroRef.current.value = "";
     setTipoDoc("Boleta");
+    setHayValor(false);
+    setMetodoPago(null);
+    setEstadoTransferencia(null);
   };
 
   const eliminar = (cup: Cupon) => {
@@ -166,7 +182,13 @@ export default function VentaEmpresaTab() {
         </div>
         <div className="field">
           <label>Valor total del lote (0 = gratis)</label>
-          <input ref={valorRef} type="number" min={0} placeholder="0" />
+          <input
+            ref={valorRef}
+            type="number"
+            min={0}
+            placeholder="0"
+            onChange={(e) => setHayValor(Number(e.target.value) > 0)}
+          />
         </div>
         <div className="field">
           <label>Fecha de caducidad</label>
@@ -197,6 +219,61 @@ export default function VentaEmpresaTab() {
               <label>Giro</label>
               <input ref={giroRef} />
             </div>
+          </div>
+        )}
+        {hayValor && (
+          <div className="field">
+            <label>Forma de pago</label>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={metodoPago === "efectivo" ? "btn" : "btn ghost"}
+                style={{ flex: 1, marginTop: 0 }}
+                onClick={() => {
+                  setMetodoPago("efectivo");
+                  setEstadoTransferencia(null);
+                }}
+              >
+                Efectivo
+              </button>
+              <button
+                type="button"
+                className={metodoPago === "tarjeta" ? "btn" : "btn ghost"}
+                style={{ flex: 1, marginTop: 0 }}
+                onClick={() => {
+                  setMetodoPago("tarjeta");
+                  setEstadoTransferencia(null);
+                }}
+              >
+                Tarjeta
+              </button>
+              <button
+                type="button"
+                className={metodoPago === "transferencia" ? "btn" : "btn ghost"}
+                style={{ flex: 1, marginTop: 0 }}
+                onClick={() => setMetodoPago("transferencia")}
+              >
+                Transferencia bancaria
+              </button>
+            </div>
+            {metodoPago === "transferencia" && (
+              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                <button
+                  type="button"
+                  className={`estado-pago-btn ok${estadoTransferencia === "pagado" ? " selected" : ""}`}
+                  onClick={() => setEstadoTransferencia("pagado")}
+                >
+                  Pagada
+                </button>
+                <button
+                  type="button"
+                  className={`estado-pago-btn bad${estadoTransferencia === "pendiente" ? " selected" : ""}`}
+                  onClick={() => setEstadoTransferencia("pendiente")}
+                >
+                  Por pagar
+                </button>
+              </div>
+            )}
           </div>
         )}
         <div className="err" style={{ color: err?.ok ? "var(--green)" : undefined }}>

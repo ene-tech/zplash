@@ -44,7 +44,7 @@ export interface Venta {
   tipo: string;
   fecha: string;
   operador?: string;
-  metodoPago?: "efectivo" | "tarjeta";
+  metodoPago?: "efectivo" | "tarjeta" | "transferencia";
   voucher?: string;
   horaEntrega?: string;
   notas?: string;
