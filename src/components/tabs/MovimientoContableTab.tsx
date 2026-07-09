@@ -10,7 +10,6 @@ const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   ingreso: "Cliente / Origen",
   egreso: "Nombre del Proveedor",
   cuenta_por_cobrar: "Cliente",
-  cuenta_por_pagar: "Proveedor",
 };
 
 const GLOSAS_GASTO = GASTO_GRUPOS.flatMap((g) => g.categorias.map((c) => ({ categoria: c, grupo: g.grupo })));

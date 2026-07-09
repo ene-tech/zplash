@@ -352,7 +352,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 
 function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () => void }) {
   const { data, ui, commit, patchUi } = useApp();
-  const [tipoDoc, setTipoDoc] = useState("Boleta");
+  const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
   const [err, setErr] = useState("");
   const qNombreRef = useRef<HTMLInputElement>(null);
   const qTelefonoRef = useRef<HTMLInputElement>(null);
@@ -514,7 +514,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         </div>
         <div>
           <label>Tipo de documento</label>
-          <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value)}>
+          <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value as "Boleta" | "Factura")}>
             <option value="Boleta">Boleta</option>
             <option value="Factura">Factura</option>
           </select>

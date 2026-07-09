@@ -6,7 +6,7 @@ export interface Cliente {
   email?: string;
   vehiculo?: string;
   plan?: string;
-  tipoDocumento?: "Boleta" | "Factura" | string;
+  tipoDocumento?: "Boleta" | "Factura";
   razonSocial?: string;
   rut?: string;
   direccion?: string;
@@ -94,7 +94,10 @@ export interface Administrador {
 
 export interface MovimientoContable {
   id: string;
-  tipo: "ingreso" | "egreso" | "cuenta_por_cobrar" | "cuenta_por_pagar";
+  // "cuenta_por_pagar" existió como tipo creable hasta que esa pestaña pasó
+  // a derivarse de egresos con estado x_rendir/pendiente_pago (ver
+  // CuentasPorPagarTab). No quedan filas con ese tipo, así que se retiró.
+  tipo: "ingreso" | "egreso" | "cuenta_por_cobrar";
   fecha: string;
   descripcion: string;
   categoria?: string;

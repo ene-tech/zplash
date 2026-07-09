@@ -136,6 +136,25 @@ create table if not exists movimientos_contables (
 create index if not exists movimientos_contables_fecha_idx on movimientos_contables (fecha desc);
 create index if not exists movimientos_contables_tipo_idx on movimientos_contables (tipo);
 
+-- Restricciones a nivel de base de datos que reflejan los union types de
+-- TypeScript: sin esto, nada impedía guardar un "tipo" o "estado" inválido
+-- (o una combinación imposible, como un cuenta_por_cobrar con estado
+-- "x_rendir") insertando directo contra la API de Supabase.
+alter table movimientos_contables drop constraint if exists movimientos_contables_tipo_check;
+alter table movimientos_contables add constraint movimientos_contables_tipo_check
+  check (tipo in ('ingreso', 'egreso', 'cuenta_por_cobrar'));
+
+alter table movimientos_contables drop constraint if exists movimientos_contables_estado_check;
+alter table movimientos_contables add constraint movimientos_contables_estado_check
+  check (
+    (tipo = 'egreso' and estado in ('pagado_cc', 'x_rendir', 'pendiente_pago'))
+    or (tipo <> 'egreso' and estado in ('pagado', 'pendiente'))
+  );
+
+alter table movimientos_contables drop constraint if exists movimientos_contables_tipo_documento_check;
+alter table movimientos_contables add constraint movimientos_contables_tipo_documento_check
+  check (tipo_documento is null or tipo_documento in ('Boleta', 'Factura'));
+
 -- Tabla "singleton" (una sola fila) para configuración global.
 create table if not exists config (
   id boolean primary key default true check (id),
@@ -157,14 +176,25 @@ alter table config enable row level security;
 alter table cupones enable row level security;
 alter table movimientos_contables enable row level security;
 
+-- Cada política se recrea (drop + create) para que este archivo se pueda
+-- correr completo las veces que sea necesario sin errores de "ya existe".
+drop policy if exists "anon full access" on clientes;
 create policy "anon full access" on clientes for all to anon using (true) with check (true);
+drop policy if exists "anon full access" on ingresos;
 create policy "anon full access" on ingresos for all to anon using (true) with check (true);
+drop policy if exists "anon full access" on ventas;
 create policy "anon full access" on ventas for all to anon using (true) with check (true);
+drop policy if exists "anon full access" on operadores;
 create policy "anon full access" on operadores for all to anon using (true) with check (true);
+drop policy if exists "anon full access" on administradores;
 create policy "anon full access" on administradores for all to anon using (true) with check (true);
+drop policy if exists "anon full access" on precios;
 create policy "anon full access" on precios for all to anon using (true) with check (true);
+drop policy if exists "anon full access" on config;
 create policy "anon full access" on config for all to anon using (true) with check (true);
+drop policy if exists "anon full access" on cupones;
 create policy "anon full access" on cupones for all to anon using (true) with check (true);
+drop policy if exists "anon full access" on movimientos_contables;
 create policy "anon full access" on movimientos_contables for all to anon using (true) with check (true);
 
 -- Bucket de Storage para adjuntar el comprobante (boleta/factura escaneada)
@@ -173,6 +203,7 @@ insert into storage.buckets (id, name, public)
 values ('comprobantes-gastos', 'comprobantes-gastos', true)
 on conflict (id) do nothing;
 
+drop policy if exists "anon full access comprobantes-gastos" on storage.objects;
 create policy "anon full access comprobantes-gastos" on storage.objects
   for all to anon
   using (bucket_id = 'comprobantes-gastos')

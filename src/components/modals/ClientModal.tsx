@@ -22,7 +22,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   const giroRef = useRef<HTMLInputElement>(null);
   const vencRef = useRef<HTMLInputElement>(null);
   const origenRef = useRef<HTMLSelectElement>(null);
-  const [tipoDoc, setTipoDoc] = useState(cli.tipoDocumento === "Factura" ? "Factura" : "Boleta");
+  const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">(cli.tipoDocumento === "Factura" ? "Factura" : "Boleta");
   const [tipoCliente, setTipoCliente] = useState("plan");
   const [err, setErr] = useState("");
 
@@ -232,7 +232,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       )}
       <div className="field">
         <label>Tipo de documento</label>
-        <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value)}>
+        <select value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value as "Boleta" | "Factura")}>
           <option value="Boleta">Boleta</option>
           <option value="Factura">Factura</option>
         </select>

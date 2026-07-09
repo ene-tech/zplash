@@ -112,8 +112,8 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
       v.setDate(v.getDate() + 30);
       vencimiento = v.toISOString();
     }
-    let tipoDocumento = getField(row, "tipo documento", "tipodocumento", "documento");
-    tipoDocumento = tipoDocumento && tipoDocumento.toLowerCase().startsWith("fact") ? "Factura" : "Boleta";
+    const tipoDocRaw = getField(row, "tipo documento", "tipodocumento", "documento");
+    const tipoDocumento: "Boleta" | "Factura" = tipoDocRaw && tipoDocRaw.toLowerCase().startsWith("fact") ? "Factura" : "Boleta";
     const razonSocial = tipoDocumento === "Factura" ? getField(row, "razon social", "razón social") : "";
     const rut = tipoDocumento === "Factura" ? getField(row, "rut") : "";
     const direccion = tipoDocumento === "Factura" ? getField(row, "direccion", "dirección") : "";

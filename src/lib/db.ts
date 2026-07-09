@@ -38,7 +38,7 @@ function clienteFromRow(r: Row): Cliente {
     email: (r.email as string) || undefined,
     vehiculo: (r.vehiculo as string) || undefined,
     plan: (r.plan as string) || undefined,
-    tipoDocumento: (r.tipo_documento as string) || undefined,
+    tipoDocumento: (r.tipo_documento as Cliente["tipoDocumento"]) || undefined,
     razonSocial: (r.razon_social as string) || undefined,
     rut: (r.rut as string) || undefined,
     direccion: (r.direccion as string) || undefined,
