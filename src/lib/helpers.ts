@@ -119,6 +119,16 @@ export const CATEGORIA_GASTO_A_GRUPO: Record<string, string> = Object.fromEntrie
   GASTO_GRUPOS.flatMap((g) => g.categorias.map((c) => [c, g.grupo] as const))
 );
 
+/** Clave "YYYY-MM" de una fecha ISO, usada para filtrar movimientos por mes. */
+export function mesKey(fecha: string): string {
+  const d = new Date(fecha);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+}
+
+export function mesActualKey(): string {
+  return mesKey(new Date().toISOString());
+}
+
 export function fmtCLP(n: number): string {
   return "$" + Math.round(n).toLocaleString("es-CL");
 }

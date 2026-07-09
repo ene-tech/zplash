@@ -101,8 +101,9 @@ export interface MovimientoContable {
   contraparte?: string;
   rutProveedor?: string;
   numeroFactura?: string;
+  tipoDocumento?: "Boleta" | "Factura";
   monto: number;
-  estado: "pagado" | "pendiente";
+  estado: "pagado" | "pendiente" | "pagado_cc" | "x_rendir" | "pendiente_pago";
   notas?: string;
   creadoEn: string;
   creadoPor?: string;

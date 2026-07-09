@@ -3,10 +3,12 @@
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import MovimientoContableTab from "@/components/tabs/MovimientoContableTab";
+import GastoEstadoTab from "@/components/tabs/GastoEstadoTab";
 import EERRTab from "@/components/tabs/EERRTab";
 
 const TABS = [
   { id: "egreso", label: "Egresos / Gastos" },
+  { id: "rendiciones", label: "Rendiciones" },
   { id: "ingreso", label: "Ingresos" },
   { id: "cuenta_por_cobrar", label: "Cuentas por Cobrar" },
   { id: "cuenta_por_pagar", label: "Cuentas por Pagar" },
@@ -38,6 +40,10 @@ export default function ContabilidadView() {
         </div>
         {tabActual.id === "eerr" ? (
           <EERRTab />
+        ) : tabActual.id === "rendiciones" ? (
+          <GastoEstadoTab estado="x_rendir" titulo="Rendiciones" />
+        ) : tabActual.id === "cuenta_por_pagar" ? (
+          <GastoEstadoTab estado="pendiente_pago" titulo="Cuentas por Pagar" />
         ) : (
           <MovimientoContableTab tipo={tabActual.id} titulo={tabActual.label} />
         )}

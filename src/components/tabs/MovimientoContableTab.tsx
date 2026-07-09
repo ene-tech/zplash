@@ -12,6 +12,71 @@ const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   cuenta_por_pagar: "Proveedor",
 };
 
+const GLOSAS_GASTO = GASTO_GRUPOS.flatMap((g) => g.categorias.map((c) => ({ categoria: c, grupo: g.grupo })));
+
+const ESTADO_EGRESO_LABEL: Record<string, string> = {
+  pagado_cc: "Pagado desde CC",
+  x_rendir: "X Rendir",
+  pendiente_pago: "Pendiente de Pago",
+};
+
+const ESTADO_EGRESO_CLASE: Record<string, "ok" | "warn" | "bad"> = {
+  pagado_cc: "ok",
+  x_rendir: "warn",
+  pendiente_pago: "bad",
+};
+
+function BuscadorGlosa({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const q = value.trim().toLowerCase();
+  const filtradas = q ? GLOSAS_GASTO.filter((o) => o.categoria.toLowerCase().includes(q)) : GLOSAS_GASTO;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setAbierto(true);
+        }}
+        onFocus={() => setAbierto(true)}
+        onBlur={() => setTimeout(() => setAbierto(false), 150)}
+        placeholder="Escribe para buscar un tipo de gasto..."
+      />
+      {abierto && filtradas.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 20,
+            top: "calc(100% + 4px)",
+            left: 0,
+            right: 0,
+            maxHeight: 220,
+            overflowY: "auto",
+            background: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+          }}
+        >
+          {filtradas.map((o) => (
+            <div
+              key={o.categoria}
+              onMouseDown={() => {
+                onChange(o.categoria);
+                setAbierto(false);
+              }}
+              style={{ padding: "8px 12px", cursor: "pointer" }}
+            >
+              <div>{o.categoria}</div>
+              <div style={{ fontSize: 11, color: "var(--gray)" }}>{o.grupo}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MovimientoContableTab({
   tipo,
   titulo,
@@ -23,13 +88,14 @@ export default function MovimientoContableTab({
   const fechaRef = useRef<HTMLInputElement>(null);
   const descripcionRef = useRef<HTMLInputElement>(null);
   const categoriaRef = useRef<HTMLInputElement>(null);
-  const categoriaSelectRef = useRef<HTMLSelectElement>(null);
+  const [categoriaGasto, setCategoriaGasto] = useState("");
   const contraparteRef = useRef<HTMLInputElement>(null);
   const rutProveedorRef = useRef<HTMLInputElement>(null);
   const numeroFacturaRef = useRef<HTMLInputElement>(null);
   const montoRef = useRef<HTMLInputElement>(null);
   const notasRef = useRef<HTMLTextAreaElement>(null);
-  const [estado, setEstado] = useState<"pagado" | "pendiente">("pagado");
+  const [tipoDocumento, setTipoDocumento] = useState<"Boleta" | "Factura" | null>(null);
+  const [estado, setEstado] = useState<MovimientoContable["estado"]>(tipo === "egreso" ? "pagado_cc" : "pagado");
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [busqueda, setBusqueda] = useState("");
 
@@ -47,13 +113,16 @@ export default function MovimientoContableTab({
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
   const total = items.reduce((s, m) => s + m.monto, 0);
-  const totalPagado = items.filter((m) => m.estado === "pagado").reduce((s, m) => s + m.monto, 0);
-  const totalPendiente = items.filter((m) => m.estado === "pendiente").reduce((s, m) => s + m.monto, 0);
+  const totalPagado = items.filter((m) => m.estado === (tipo === "egreso" ? "pagado_cc" : "pagado")).reduce((s, m) => s + m.monto, 0);
+  const totalXRendir = items.filter((m) => m.estado === "x_rendir").reduce((s, m) => s + m.monto, 0);
+  const totalPendiente = items
+    .filter((m) => m.estado === (tipo === "egreso" ? "pendiente_pago" : "pendiente"))
+    .reduce((s, m) => s + m.monto, 0);
 
   const agregar = async () => {
     const fecha = fechaRef.current?.value || todayYMD();
     const descripcion = descripcionRef.current?.value.trim() || "";
-    const categoria = tipo === "egreso" ? categoriaSelectRef.current?.value || "" : categoriaRef.current?.value.trim() || "";
+    const categoria = tipo === "egreso" ? categoriaGasto.trim() : categoriaRef.current?.value.trim() || "";
     const contraparte = contraparteRef.current?.value.trim() || "";
     const rutProveedor = tipo === "egreso" ? rutProveedorRef.current?.value.trim() || "" : "";
     const numeroFactura = tipo === "egreso" ? numeroFacturaRef.current?.value.trim() || "" : "";
@@ -64,8 +133,12 @@ export default function MovimientoContableTab({
       setErr({ msg: "Completa la descripción y un monto válido", ok: false });
       return;
     }
-    if (tipo === "egreso" && !categoria) {
-      setErr({ msg: "Selecciona un tipo de gasto", ok: false });
+    if (tipo === "egreso" && !GLOSAS_GASTO.some((g) => g.categoria === categoria)) {
+      setErr({ msg: "Selecciona un tipo de gasto de la lista", ok: false });
+      return;
+    }
+    if (tipo === "egreso" && !tipoDocumento) {
+      setErr({ msg: "Selecciona Boleta o Factura", ok: false });
       return;
     }
 
@@ -78,6 +151,7 @@ export default function MovimientoContableTab({
       contraparte: contraparte || undefined,
       rutProveedor: rutProveedor || undefined,
       numeroFactura: numeroFactura || undefined,
+      tipoDocumento: tipoDocumento || undefined,
       monto,
       estado,
       notas: notas || undefined,
@@ -94,18 +168,23 @@ export default function MovimientoContableTab({
     if (fechaRef.current) fechaRef.current.value = "";
     if (descripcionRef.current) descripcionRef.current.value = "";
     if (categoriaRef.current) categoriaRef.current.value = "";
-    if (categoriaSelectRef.current) categoriaSelectRef.current.value = "";
+    setCategoriaGasto("");
     if (contraparteRef.current) contraparteRef.current.value = "";
     if (rutProveedorRef.current) rutProveedorRef.current.value = "";
     if (numeroFacturaRef.current) numeroFacturaRef.current.value = "";
     if (montoRef.current) montoRef.current.value = "";
     if (notasRef.current) notasRef.current.value = "";
-    setEstado("pagado");
+    setTipoDocumento(null);
+    setEstado(tipo === "egreso" ? "pagado_cc" : "pagado");
   };
 
   const toggleEstado = (m: MovimientoContable) => {
     const actualizado: MovimientoContable = { ...m, estado: m.estado === "pagado" ? "pendiente" : "pagado" };
     commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? actualizado : x)) });
+  };
+
+  const cambiarEstadoEgreso = (m: MovimientoContable, nuevoEstado: MovimientoContable["estado"]) => {
+    commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? { ...x, estado: nuevoEstado } : x)) });
   };
 
   const eliminar = (m: MovimientoContable) => {
@@ -127,20 +206,7 @@ export default function MovimientoContableTab({
         <div className="field">
           <label>{tipo === "egreso" ? "Tipo de gasto" : "Categoría"}</label>
           {tipo === "egreso" ? (
-            <select ref={categoriaSelectRef} defaultValue="">
-              <option value="" disabled>
-                Selecciona un tipo de gasto
-              </option>
-              {GASTO_GRUPOS.map((g) => (
-                <optgroup key={g.grupo} label={g.grupo}>
-                  {g.categorias.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            <BuscadorGlosa value={categoriaGasto} onChange={setCategoriaGasto} />
           ) : (
             <input ref={categoriaRef} placeholder="Ej: Arriendo, Insumos, Sueldos..." />
           )}
@@ -161,6 +227,29 @@ export default function MovimientoContableTab({
             <input ref={numeroFacturaRef} />
           </div>
         )}
+        {tipo === "egreso" && (
+          <div className="field">
+            <label>Tipo de documento</label>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                className={tipoDocumento === "Boleta" ? "btn" : "btn ghost"}
+                style={{ flex: 1, marginTop: 0 }}
+                onClick={() => setTipoDocumento("Boleta")}
+              >
+                Boleta
+              </button>
+              <button
+                type="button"
+                className={tipoDocumento === "Factura" ? "btn" : "btn ghost"}
+                style={{ flex: 1, marginTop: 0 }}
+                onClick={() => setTipoDocumento("Factura")}
+              >
+                Factura
+              </button>
+            </div>
+          </div>
+        )}
         <div className="field">
           <label>{tipo === "egreso" ? "Monto Total (IVA Incl.)" : "Monto"}</label>
           <input ref={montoRef} type="number" min={0} placeholder="0" />
@@ -168,22 +257,53 @@ export default function MovimientoContableTab({
         <div className="field">
           <label>Estado</label>
           <div style={{ display: "flex", gap: 10 }}>
-            <button
-              type="button"
-              className={estado === "pagado" ? "btn" : "btn ghost"}
-              style={{ flex: 1, marginTop: 0 }}
-              onClick={() => setEstado("pagado")}
-            >
-              Pagado
-            </button>
-            <button
-              type="button"
-              className={estado === "pendiente" ? "btn" : "btn ghost"}
-              style={{ flex: 1, marginTop: 0 }}
-              onClick={() => setEstado("pendiente")}
-            >
-              Pendiente
-            </button>
+            {tipo === "egreso" ? (
+              <>
+                <button
+                  type="button"
+                  className={estado === "pagado_cc" ? "btn" : "btn ghost"}
+                  style={{ flex: 1, marginTop: 0 }}
+                  onClick={() => setEstado("pagado_cc")}
+                >
+                  Pagado desde CC
+                </button>
+                <button
+                  type="button"
+                  className={estado === "x_rendir" ? "btn" : "btn ghost"}
+                  style={{ flex: 1, marginTop: 0 }}
+                  onClick={() => setEstado("x_rendir")}
+                >
+                  X Rendir
+                </button>
+                <button
+                  type="button"
+                  className={estado === "pendiente_pago" ? "btn" : "btn ghost"}
+                  style={{ flex: 1, marginTop: 0 }}
+                  onClick={() => setEstado("pendiente_pago")}
+                >
+                  Pendiente de Pago
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={estado === "pagado" ? "btn" : "btn ghost"}
+                  style={{ flex: 1, marginTop: 0 }}
+                  onClick={() => setEstado("pagado")}
+                >
+                  Pagado
+                </button>
+                <button
+                  type="button"
+                  className={estado === "pendiente" ? "btn" : "btn ghost"}
+                  style={{ flex: 1, marginTop: 0 }}
+                  onClick={() => setEstado("pendiente")}
+                >
+                  Pendiente
+                </button>
+              </>
+            )}
           </div>
         </div>
         <div className="field">
@@ -205,11 +325,17 @@ export default function MovimientoContableTab({
         </div>
         <div className="stat-card">
           <div className="num">{fmtCLP(totalPagado)}</div>
-          <div className="lbl">Pagado</div>
+          <div className="lbl">{tipo === "egreso" ? "Pagado desde CC" : "Pagado"}</div>
         </div>
+        {tipo === "egreso" && (
+          <div className="stat-card">
+            <div className="num">{fmtCLP(totalXRendir)}</div>
+            <div className="lbl">X Rendir</div>
+          </div>
+        )}
         <div className="stat-card">
           <div className="num">{fmtCLP(totalPendiente)}</div>
-          <div className="lbl">Pendiente</div>
+          <div className="lbl">{tipo === "egreso" ? "Pendiente de Pago" : "Pendiente"}</div>
         </div>
       </div>
 
@@ -230,6 +356,7 @@ export default function MovimientoContableTab({
               {tipo === "egreso" && <th>RUT</th>}
               <th>{CONTRAPARTE_LABEL[tipo]}</th>
               {tipo === "egreso" && <th>N° Factura</th>}
+              {tipo === "egreso" && <th>Documento</th>}
               <th>Monto</th>
               <th>Estado</th>
               <th></th>
@@ -238,7 +365,7 @@ export default function MovimientoContableTab({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={tipo === "egreso" ? 9 : 7}>
+                <td colSpan={tipo === "egreso" ? 10 : 7}>
                   <div className="empty">Sin registros</div>
                 </td>
               </tr>
@@ -251,16 +378,34 @@ export default function MovimientoContableTab({
                   {tipo === "egreso" && <td>{m.rutProveedor || "-"}</td>}
                   <td>{m.contraparte || "-"}</td>
                   {tipo === "egreso" && <td>{m.numeroFactura || "-"}</td>}
+                  {tipo === "egreso" && <td>{m.tipoDocumento || "-"}</td>}
                   <td>{fmtCLP(m.monto)}</td>
                   <td>
-                    <span className={`status-pill ${m.estado === "pagado" ? "ok" : "warn"}`}>
-                      {m.estado === "pagado" ? "Pagado" : "Pendiente"}
-                    </span>
+                    {tipo === "egreso" ? (
+                      <span className={`status-pill ${ESTADO_EGRESO_CLASE[m.estado] || "warn"}`}>
+                        {ESTADO_EGRESO_LABEL[m.estado] || m.estado}
+                      </span>
+                    ) : (
+                      <span className={`status-pill ${m.estado === "pagado" ? "ok" : "warn"}`}>
+                        {m.estado === "pagado" ? "Pagado" : "Pendiente"}
+                      </span>
+                    )}
                   </td>
                   <td className="row-actions">
-                    <button className="icon-btn" onClick={() => toggleEstado(m)}>
-                      {m.estado === "pagado" ? "Marcar pendiente" : "Marcar pagado"}
-                    </button>
+                    {tipo === "egreso" ? (
+                      <select
+                        value={m.estado}
+                        onChange={(e) => cambiarEstadoEgreso(m, e.target.value as MovimientoContable["estado"])}
+                      >
+                        <option value="pagado_cc">Pagado desde CC</option>
+                        <option value="x_rendir">X Rendir</option>
+                        <option value="pendiente_pago">Pendiente de Pago</option>
+                      </select>
+                    ) : (
+                      <button className="icon-btn" onClick={() => toggleEstado(m)}>
+                        {m.estado === "pagado" ? "Marcar pendiente" : "Marcar pagado"}
+                      </button>
+                    )}
                     <button className="icon-btn" onClick={() => eliminar(m)}>
                       Eliminar
                     </button>

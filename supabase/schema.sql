@@ -124,6 +124,7 @@ create table if not exists movimientos_contables (
   contraparte text,
   rut_proveedor text,
   numero_factura text,
+  tipo_documento text,
   monto numeric not null default 0,
   estado text not null default 'pendiente',
   notas text,

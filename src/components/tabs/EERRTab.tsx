@@ -2,12 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { CATEGORIA_GASTO_A_GRUPO, fmtCLP, GASTO_GRUPOS } from "@/lib/helpers";
-
-function mesKey(fecha: string): string {
-  const d = new Date(fecha);
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-}
+import { CATEGORIA_GASTO_A_GRUPO, fmtCLP, GASTO_GRUPOS, mesActualKey, mesKey } from "@/lib/helpers";
 
 function Fila({
   label,
@@ -40,10 +35,7 @@ function Fila({
 
 export default function EERRTab() {
   const { data } = useApp();
-  const [mes, setMes] = useState(() => {
-    const d = new Date();
-    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-  });
+  const [mes, setMes] = useState(mesActualKey);
 
   const { ingresosExplotacion, totalesPorCategoria, totalesPorGrupo } = useMemo(() => {
     const ingresos = data.movimientosContables.filter((m) => m.tipo === "ingreso" && mesKey(m.fecha) === mes);
