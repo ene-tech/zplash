@@ -13,3 +13,8 @@ create or replace view administradores_publicos as
 
 drop policy if exists "anon full access" on administradores;
 grant select on administradores_publicos to anon;
+
+-- Fuerza a PostgREST a refrescar su caché de esquema ahora mismo, en vez de
+-- esperar a que lo note solo (evita un "table not found" pasajero justo
+-- después de crear la vista).
+notify pgrst, 'reload schema';
