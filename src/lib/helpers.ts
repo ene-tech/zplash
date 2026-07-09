@@ -49,6 +49,76 @@ export const ADMINISTRADORES_DEFAULT = [
   { id: "adm2", nombre: "Juan" as const, clave: "5678", esGerente: true },
 ];
 
+/**
+ * Estructura del Estado de Resultados (EERR): cada grupo de gasto pertenece
+ * a una sección (operacional / no operacional) y agrupa las glosas
+ * seleccionables del formulario de Egresos/Gastos. Basado en el formato de
+ * EERR entregado por el usuario (cuentas que suman vs. cuentas que restan).
+ */
+export interface GastoGrupo {
+  grupo: string;
+  seccion: "operacional" | "no_operacional";
+  categorias: string[];
+}
+
+export const GASTO_GRUPOS: GastoGrupo[] = [
+  {
+    grupo: "Otros Costos Directos",
+    seccion: "operacional",
+    categorias: [
+      "Comisiones por Venta",
+      "Insumos de Lavado",
+      "Mantención de Maquinarias",
+      "Mantención de Instalaciones",
+      "Aseo y Limpieza",
+      "Gastos de Electricidad",
+      "Gastos de Agua Potable",
+      "Ropa y Útiles de Trabajo",
+      "Gastos de Combustibles",
+      "Otros Gastos Directos",
+    ],
+  },
+  {
+    grupo: "Gasto de Remuneraciones",
+    seccion: "operacional",
+    categorias: ["Sueldo Base", "Gratificación", "Aguinaldos", "Aporte Patronal", "Servicios de Terceros", "Vacaciones"],
+  },
+  {
+    grupo: "Gastos de Administración",
+    seccion: "operacional",
+    categorias: [
+      "Honorarios Profesionales",
+      "Gastos Notariales",
+      "Gastos y Artículos de Oficina",
+      "Gastos de Publicidad - Papelería",
+      "Gastos de Internet y Transmisión de Datos",
+      "Fletes y Embalajes",
+      "Seguros",
+      "Arriendos",
+      "Gastos de Pasajes - Peajes",
+      "Gastos de Cafetería y Similares",
+      "Gastos en Seguridad",
+    ],
+  },
+  {
+    grupo: "Gastos Financieros Bancarios",
+    seccion: "no_operacional",
+    categorias: ["Gastos Bancarios"],
+  },
+  {
+    grupo: "Otros Egresos Fuera de la Explotación",
+    seccion: "no_operacional",
+    categorias: ["Costo de Venta por Enajenación de Activos Fijos"],
+  },
+];
+
+/** Mapa inverso categoría → grupo, para sumar cada egreso registrado dentro
+ * del grupo correcto del EERR. Las glosas que no calzan con ninguna
+ * categoría conocida (datos antiguos) caen en "Otros Gastos Directos". */
+export const CATEGORIA_GASTO_A_GRUPO: Record<string, string> = Object.fromEntries(
+  GASTO_GRUPOS.flatMap((g) => g.categorias.map((c) => [c, g.grupo] as const))
+);
+
 export function fmtCLP(n: number): string {
   return "$" + Math.round(n).toLocaleString("es-CL");
 }

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP, todayYMD } from "@/lib/helpers";
+import { fmtCLP, GASTO_GRUPOS, todayYMD } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 
 const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
@@ -11,19 +11,6 @@ const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   cuenta_por_cobrar: "Cliente",
   cuenta_por_pagar: "Proveedor",
 };
-
-const CATEGORIAS_GASTO = [
-  "Comisiones por Venta",
-  "Insumos de Lavado",
-  "Mantención de Maquinarias",
-  "Mantención de Instalaciones",
-  "Aseo y Limpieza",
-  "Gastos de Electricidad",
-  "Gastos de Agua Potable",
-  "Ropa y Útiles de Trabajo",
-  "Gastos de Combustibles",
-  "Otros Gastos Directos",
-];
 
 export default function MovimientoContableTab({
   tipo,
@@ -144,10 +131,14 @@ export default function MovimientoContableTab({
               <option value="" disabled>
                 Selecciona un tipo de gasto
               </option>
-              {CATEGORIAS_GASTO.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+              {GASTO_GRUPOS.map((g) => (
+                <optgroup key={g.grupo} label={g.grupo}>
+                  {g.categorias.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           ) : (
