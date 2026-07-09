@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import type { AppData, Cliente, Cupon, MovimientoContable, Operador, UIState } from "@/types";
-import { ADMINISTRADORES_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
+import type { AppData, CategoriaGasto, Cliente, Cupon, MovimientoContable, Operador, UIState } from "@/types";
+import { ADMINISTRADORES_DEFAULT, CATEGORIAS_GASTO_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
 import {
   deleteClientes,
   deleteCupones,
@@ -12,6 +12,7 @@ import {
   insertVentas,
   loadAll,
   setPinAdmin,
+  upsertCategoriasGasto,
   upsertClientes,
   upsertCupones,
   upsertMovimientosContables,
@@ -30,6 +31,7 @@ const initialData: AppData = {
   administradores: JSON.parse(JSON.stringify(ADMINISTRADORES_DEFAULT)),
   cupones: [],
   movimientosContables: [],
+  categoriasGasto: JSON.parse(JSON.stringify(CATEGORIAS_GASTO_DEFAULT)),
 };
 
 const initialUI: UIState = {
@@ -142,6 +144,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const { cambiados, eliminados } = diffPorId<MovimientoContable>(previous.movimientosContables, patch.movimientosContables);
       if (cambiados.length) ops.push(upsertMovimientosContables(cambiados));
       if (eliminados.length) ops.push(deleteMovimientosContables(eliminados));
+    }
+    if (patch.categoriasGasto) {
+      const { cambiados } = diffPorId<CategoriaGasto>(previous.categoriasGasto, patch.categoriasGasto);
+      if (cambiados.length) ops.push(upsertCategoriasGasto(cambiados));
     }
     if (patch.precios) {
       ops.push(upsertPrecios(patch.precios));

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { subirComprobanteGasto } from "@/lib/db";
-import { fmtCLP, GASTO_GRUPOS, todayYMD } from "@/lib/helpers";
+import { fmtCLP, todayYMD } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 
 const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
@@ -11,8 +11,6 @@ const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   egreso: "Nombre del Proveedor",
   cuenta_por_cobrar: "Cliente",
 };
-
-const GLOSAS_GASTO = GASTO_GRUPOS.flatMap((g) => g.categorias.map((c) => ({ categoria: c, grupo: g.grupo })));
 
 const ESTADO_EGRESO_LABEL: Record<string, string> = {
   pagado_cc: "Pagado desde CC",
@@ -26,10 +24,18 @@ const ESTADO_EGRESO_CLASE: Record<string, "ok" | "warn" | "bad"> = {
   pendiente_pago: "bad",
 };
 
-function BuscadorGlosa({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function BuscadorGlosa({
+  value,
+  onChange,
+  opciones,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  opciones: { categoria: string; grupo: string }[];
+}) {
   const [abierto, setAbierto] = useState(false);
   const q = value.trim().toLowerCase();
-  const filtradas = q ? GLOSAS_GASTO.filter((o) => o.categoria.toLowerCase().includes(q)) : GLOSAS_GASTO;
+  const filtradas = q ? opciones.filter((o) => o.categoria.toLowerCase().includes(q)) : opciones;
 
   return (
     <div style={{ position: "relative" }}>
@@ -97,6 +103,7 @@ export default function MovimientoContableTab({
   titulo: string;
 }) {
   const { data, commit } = useApp();
+  const glosasGasto = data.categoriasGasto.filter((c) => c.activa).map((c) => ({ categoria: c.nombre, grupo: c.grupo }));
   const fechaRef = useRef<HTMLInputElement>(null);
   const descripcionRef = useRef<HTMLInputElement>(null);
   const categoriaRef = useRef<HTMLInputElement>(null);
@@ -148,7 +155,7 @@ export default function MovimientoContableTab({
       setErr({ msg: "Completa la descripción y un monto válido", ok: false });
       return;
     }
-    if (tipo === "egreso" && !GLOSAS_GASTO.some((g) => g.categoria === categoria)) {
+    if (tipo === "egreso" && !glosasGasto.some((g) => g.categoria === categoria)) {
       setErr({ msg: "Selecciona un tipo de gasto de la lista", ok: false });
       return;
     }
@@ -240,7 +247,7 @@ export default function MovimientoContableTab({
         <div className="field">
           <label>{tipo === "egreso" ? "Tipo de gasto" : "Categoría"}</label>
           {tipo === "egreso" ? (
-            <BuscadorGlosa value={categoriaGasto} onChange={setCategoriaGasto} />
+            <BuscadorGlosa value={categoriaGasto} onChange={setCategoriaGasto} opciones={glosasGasto} />
           ) : (
             <input ref={categoriaRef} placeholder="Ej: Arriendo, Insumos, Sueldos..." />
           )}

@@ -123,6 +123,18 @@ export interface MovimientoContable {
   creadoPor?: string;
 }
 
+// Glosa seleccionable para el formulario de Egresos/Gastos. "grupo" debe ser
+// uno de los 5 grupos fijos del EERR (ver GRUPOS_GASTO_EERR en helpers.ts);
+// "activa" permite retirarla del selector de nuevos gastos sin borrarla
+// (borrarla de verdad dejaría huérfanos los movimientos históricos que ya
+// la usan).
+export interface CategoriaGasto {
+  id: string;
+  nombre: string;
+  grupo: string;
+  activa: boolean;
+}
+
 export type Precios = Record<string, { normal: number; promo: number }>;
 
 export interface AppData {
@@ -135,6 +147,7 @@ export interface AppData {
   administradores: AdministradorPublico[];
   cupones: Cupon[];
   movimientosContables: MovimientoContable[];
+  categoriasGasto: CategoriaGasto[];
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";

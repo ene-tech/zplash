@@ -1,6 +1,17 @@
 import { supabase } from "@/lib/supabase";
-import { ADMINISTRADORES_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
-import type { AdministradorPublico, AppData, Cliente, Cupon, Ingreso, MovimientoContable, Operador, Precios, Venta } from "@/types";
+import { ADMINISTRADORES_DEFAULT, CATEGORIAS_GASTO_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
+import type {
+  AdministradorPublico,
+  AppData,
+  CategoriaGasto,
+  Cliente,
+  Cupon,
+  Ingreso,
+  MovimientoContable,
+  Operador,
+  Precios,
+  Venta,
+} from "@/types";
 
 type Row = Record<string, unknown>;
 
@@ -155,6 +166,19 @@ function administradorPublicoFromRow(r: Row): AdministradorPublico {
   };
 }
 
+function categoriaGastoToRow(c: CategoriaGasto): Row {
+  return { id: c.id, nombre: c.nombre, grupo: c.grupo, activa: c.activa };
+}
+
+function categoriaGastoFromRow(r: Row): CategoriaGasto {
+  return {
+    id: r.id as string,
+    nombre: r.nombre as string,
+    grupo: r.grupo as string,
+    activa: (r.activa as boolean) ?? true,
+  };
+}
+
 function cuponToRow(c: Cupon): Row {
   return {
     id: c.id,
@@ -258,6 +282,7 @@ export async function loadAll(): Promise<AppData> {
     configRes,
     cuponesRes,
     movimientosRes,
+    categoriasGastoRes,
   ] = await Promise.all([
     supabase.from("clientes").select("*"),
     supabase.from("ingresos").select("*").order("fecha", { ascending: false }),
@@ -268,6 +293,7 @@ export async function loadAll(): Promise<AppData> {
     supabase.from("config").select("*").maybeSingle(),
     supabase.from("cupones").select("*").order("creado_en", { ascending: false }),
     supabase.from("movimientos_contables").select("*").order("fecha", { ascending: false }),
+    supabase.from("categorias_gasto").select("*").order("nombre", { ascending: true }),
   ]);
 
   for (const res of [
@@ -280,6 +306,7 @@ export async function loadAll(): Promise<AppData> {
     configRes,
     cuponesRes,
     movimientosRes,
+    categoriasGastoRes,
   ]) {
     if (res.error) console.error("Error cargando datos de Supabase", res.error);
   }
@@ -289,6 +316,9 @@ export async function loadAll(): Promise<AppData> {
     ? administradoresRes.data.map(administradorPublicoFromRow)
     : ADMINISTRADORES_DEFAULT;
   const precios = preciosRes.data?.length ? preciosFromRows(preciosRes.data) : PRECIOS_DEFAULT;
+  const categoriasGasto = categoriasGastoRes.data?.length
+    ? categoriasGastoRes.data.map(categoriaGastoFromRow)
+    : CATEGORIAS_GASTO_DEFAULT;
 
   return {
     clientes: (clientesRes.data || []).map(clienteFromRow),
@@ -297,6 +327,7 @@ export async function loadAll(): Promise<AppData> {
     operadores,
     administradores,
     precios,
+    categoriasGasto,
     pinAdmin: (configRes.data?.pin_admin as string) || "1234",
     cupones: (cuponesRes.data || []).map(cuponFromRow),
     movimientosContables: (movimientosRes.data || []).map(movimientoFromRow),
@@ -384,6 +415,13 @@ export async function deleteMovimientosContables(ids: string[]): Promise<boolean
   if (!ids.length) return true;
   const { error } = await supabase.from("movimientos_contables").delete().in("id", ids);
   if (error) console.error("Error eliminando movimientos contables", error);
+  return !error;
+}
+
+export async function upsertCategoriasGasto(rows: CategoriaGasto[]): Promise<boolean> {
+  if (!rows.length) return true;
+  const { error } = await supabase.from("categorias_gasto").upsert(rows.map(categoriaGastoToRow));
+  if (error) console.error("Error guardando categorías de gasto", error);
   return !error;
 }
 

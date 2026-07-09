@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { CATEGORIA_GASTO_A_GRUPO, fmtCLP, GASTO_GRUPOS, mesActualKey, mesKey } from "@/lib/helpers";
+import { categoriaAGrupo, fmtCLP, GRUPOS_GASTO_EERR, mesActualKey, mesKey } from "@/lib/helpers";
 
 function Fila({
   label,
@@ -43,11 +43,11 @@ export default function EERRTab() {
 
     const totalesPorCategoria: Record<string, number> = {};
     const totalesPorGrupo: Record<string, number> = {};
-    for (const g of GASTO_GRUPOS) totalesPorGrupo[g.grupo] = 0;
+    for (const g of GRUPOS_GASTO_EERR) totalesPorGrupo[g.grupo] = 0;
 
     for (const m of egresos) {
       const categoria = m.categoria || "Otros Gastos Directos";
-      const grupo = CATEGORIA_GASTO_A_GRUPO[categoria] || "Otros Costos Directos";
+      const grupo = categoriaAGrupo(data.categoriasGasto, categoria);
       totalesPorCategoria[categoria] = (totalesPorCategoria[categoria] || 0) + m.monto;
       totalesPorGrupo[grupo] = (totalesPorGrupo[grupo] || 0) + m.monto;
     }
@@ -55,7 +55,7 @@ export default function EERRTab() {
     const ingresosExplotacion = ingresos.reduce((s, m) => s + m.monto, 0);
 
     return { ingresosExplotacion, totalesPorCategoria, totalesPorGrupo };
-  }, [data.movimientosContables, mes]);
+  }, [data.movimientosContables, data.categoriasGasto, mes]);
 
   const otrosCostosDirectos = totalesPorGrupo["Otros Costos Directos"] || 0;
   const remuneraciones = totalesPorGrupo["Gasto de Remuneraciones"] || 0;
@@ -68,8 +68,9 @@ export default function EERRTab() {
   const resultadoNoOperacional = otrosIngresosFuera - financierosBancarios - otrosEgresosFuera;
   const total = resultadoOperacional + resultadoNoOperacional;
 
-  const grupoOperacional = GASTO_GRUPOS.filter((g) => g.seccion === "operacional");
-  const grupoNoOperacional = GASTO_GRUPOS.filter((g) => g.seccion === "no_operacional");
+  const grupoOperacional = GRUPOS_GASTO_EERR.filter((g) => g.seccion === "operacional");
+  const grupoNoOperacional = GRUPOS_GASTO_EERR.filter((g) => g.seccion === "no_operacional");
+  const categoriasDeGrupo = (grupo: string) => data.categoriasGasto.filter((c) => c.grupo === grupo);
 
   const nombreMes = new Date(mes + "-01T12:00:00").toLocaleDateString("es-CL", { month: "long", year: "numeric" });
 
@@ -102,8 +103,8 @@ export default function EERRTab() {
             {grupoOperacional.map((g) => (
               <Fragment key={g.grupo}>
                 <Fila label={g.grupo} valor={-(totalesPorGrupo[g.grupo] || 0)} nivel={1} bold destacado />
-                {g.categorias.map((c) => (
-                  <Fila key={c} label={c} valor={-(totalesPorCategoria[c] || 0)} nivel={2} />
+                {categoriasDeGrupo(g.grupo).map((c) => (
+                  <Fila key={c.id} label={c.nombre} valor={-(totalesPorCategoria[c.nombre] || 0)} nivel={2} />
                 ))}
               </Fragment>
             ))}
@@ -116,8 +117,8 @@ export default function EERRTab() {
             {grupoNoOperacional.map((g) => (
               <Fragment key={g.grupo}>
                 <Fila label={g.grupo} valor={-(totalesPorGrupo[g.grupo] || 0)} nivel={1} bold destacado />
-                {g.categorias.map((c) => (
-                  <Fila key={c} label={c} valor={-(totalesPorCategoria[c] || 0)} nivel={2} />
+                {categoriasDeGrupo(g.grupo).map((c) => (
+                  <Fila key={c.id} label={c.nombre} valor={-(totalesPorCategoria[c.nombre] || 0)} nivel={2} />
                 ))}
               </Fragment>
             ))}

@@ -51,74 +51,76 @@ export const ADMINISTRADORES_DEFAULT = [
 ];
 
 /**
- * Estructura del Estado de Resultados (EERR): cada grupo de gasto pertenece
- * a una sección (operacional / no operacional) y agrupa las glosas
- * seleccionables del formulario de Egresos/Gastos. Basado en el formato de
- * EERR entregado por el usuario (cuentas que suman vs. cuentas que restan).
+ * Estructura del Estado de Resultados (EERR): los 5 grupos de gasto y a qué
+ * sección pertenecen (operacional / no operacional) son fijos — vienen del
+ * formato de EERR entregado por el usuario y determinan qué suma y qué
+ * resta en el reporte. Lo que SÍ es editable son las glosas (categorías)
+ * dentro de cada grupo — ver CategoriaGasto en types.ts y la tabla
+ * categorias_gasto.
  */
-export interface GastoGrupo {
+export interface GrupoGastoEERR {
   grupo: string;
   seccion: "operacional" | "no_operacional";
-  categorias: string[];
 }
 
-export const GASTO_GRUPOS: GastoGrupo[] = [
+export const GRUPOS_GASTO_EERR: GrupoGastoEERR[] = [
+  { grupo: "Otros Costos Directos", seccion: "operacional" },
+  { grupo: "Gasto de Remuneraciones", seccion: "operacional" },
+  { grupo: "Gastos de Administración", seccion: "operacional" },
+  { grupo: "Gastos Financieros Bancarios", seccion: "no_operacional" },
+  { grupo: "Otros Egresos Fuera de la Explotación", seccion: "no_operacional" },
+];
+
+/** Semilla/fallback para cuando la tabla categorias_gasto está vacía o la
+ * migración todavía no corrió — mismo patrón que OPERADORES_DEFAULT. */
+export const CATEGORIAS_GASTO_DEFAULT: { id: string; nombre: string; grupo: string; activa: boolean }[] = [
+  { id: "cg-comisiones-por-venta", nombre: "Comisiones por Venta", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-insumos-de-lavado", nombre: "Insumos de Lavado", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-mantencion-maquinarias", nombre: "Mantención de Maquinarias", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-mantencion-instalaciones", nombre: "Mantención de Instalaciones", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-aseo-limpieza", nombre: "Aseo y Limpieza", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-electricidad", nombre: "Gastos de Electricidad", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-agua-potable", nombre: "Gastos de Agua Potable", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-ropa-utiles", nombre: "Ropa y Útiles de Trabajo", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-combustibles", nombre: "Gastos de Combustibles", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-otros-gastos-directos", nombre: "Otros Gastos Directos", grupo: "Otros Costos Directos", activa: true },
+  { id: "cg-sueldo-base", nombre: "Sueldo Base", grupo: "Gasto de Remuneraciones", activa: true },
+  { id: "cg-gratificacion", nombre: "Gratificación", grupo: "Gasto de Remuneraciones", activa: true },
+  { id: "cg-aguinaldos", nombre: "Aguinaldos", grupo: "Gasto de Remuneraciones", activa: true },
+  { id: "cg-aporte-patronal", nombre: "Aporte Patronal", grupo: "Gasto de Remuneraciones", activa: true },
+  { id: "cg-servicios-terceros", nombre: "Servicios de Terceros", grupo: "Gasto de Remuneraciones", activa: true },
+  { id: "cg-vacaciones", nombre: "Vacaciones", grupo: "Gasto de Remuneraciones", activa: true },
+  { id: "cg-honorarios-profesionales", nombre: "Honorarios Profesionales", grupo: "Gastos de Administración", activa: true },
+  { id: "cg-gastos-notariales", nombre: "Gastos Notariales", grupo: "Gastos de Administración", activa: true },
+  { id: "cg-articulos-oficina", nombre: "Gastos y Artículos de Oficina", grupo: "Gastos de Administración", activa: true },
+  { id: "cg-publicidad-papeleria", nombre: "Gastos de Publicidad - Papelería", grupo: "Gastos de Administración", activa: true },
   {
-    grupo: "Otros Costos Directos",
-    seccion: "operacional",
-    categorias: [
-      "Comisiones por Venta",
-      "Insumos de Lavado",
-      "Mantención de Maquinarias",
-      "Mantención de Instalaciones",
-      "Aseo y Limpieza",
-      "Gastos de Electricidad",
-      "Gastos de Agua Potable",
-      "Ropa y Útiles de Trabajo",
-      "Gastos de Combustibles",
-      "Otros Gastos Directos",
-    ],
-  },
-  {
-    grupo: "Gasto de Remuneraciones",
-    seccion: "operacional",
-    categorias: ["Sueldo Base", "Gratificación", "Aguinaldos", "Aporte Patronal", "Servicios de Terceros", "Vacaciones"],
-  },
-  {
+    id: "cg-internet-transmision",
+    nombre: "Gastos de Internet y Transmisión de Datos",
     grupo: "Gastos de Administración",
-    seccion: "operacional",
-    categorias: [
-      "Honorarios Profesionales",
-      "Gastos Notariales",
-      "Gastos y Artículos de Oficina",
-      "Gastos de Publicidad - Papelería",
-      "Gastos de Internet y Transmisión de Datos",
-      "Fletes y Embalajes",
-      "Seguros",
-      "Arriendos",
-      "Gastos de Pasajes - Peajes",
-      "Gastos de Cafetería y Similares",
-      "Gastos en Seguridad",
-    ],
+    activa: true,
   },
+  { id: "cg-fletes-embalajes", nombre: "Fletes y Embalajes", grupo: "Gastos de Administración", activa: true },
+  { id: "cg-seguros", nombre: "Seguros", grupo: "Gastos de Administración", activa: true },
+  { id: "cg-arriendos", nombre: "Arriendos", grupo: "Gastos de Administración", activa: true },
+  { id: "cg-pasajes-peajes", nombre: "Gastos de Pasajes - Peajes", grupo: "Gastos de Administración", activa: true },
+  { id: "cg-cafeteria", nombre: "Gastos de Cafetería y Similares", grupo: "Gastos de Administración", activa: true },
+  { id: "cg-seguridad", nombre: "Gastos en Seguridad", grupo: "Gastos de Administración", activa: true },
+  { id: "cg-gastos-bancarios", nombre: "Gastos Bancarios", grupo: "Gastos Financieros Bancarios", activa: true },
   {
-    grupo: "Gastos Financieros Bancarios",
-    seccion: "no_operacional",
-    categorias: ["Gastos Bancarios"],
-  },
-  {
+    id: "cg-costo-venta-activos-fijos",
+    nombre: "Costo de Venta por Enajenación de Activos Fijos",
     grupo: "Otros Egresos Fuera de la Explotación",
-    seccion: "no_operacional",
-    categorias: ["Costo de Venta por Enajenación de Activos Fijos"],
+    activa: true,
   },
 ];
 
-/** Mapa inverso categoría → grupo, para sumar cada egreso registrado dentro
- * del grupo correcto del EERR. Las glosas que no calzan con ninguna
- * categoría conocida (datos antiguos) caen en "Otros Gastos Directos". */
-export const CATEGORIA_GASTO_A_GRUPO: Record<string, string> = Object.fromEntries(
-  GASTO_GRUPOS.flatMap((g) => g.categorias.map((c) => [c, g.grupo] as const))
-);
+/** Grupo de una categoría de gasto ya cargada; si no calza con ninguna
+ * conocida (dato antiguo, o la categoría fue borrada) cae en "Otros Costos
+ * Directos" para no perder el monto del EERR. */
+export function categoriaAGrupo(categorias: { nombre: string; grupo: string }[], nombre: string): string {
+  return categorias.find((c) => c.nombre === nombre)?.grupo || "Otros Costos Directos";
+}
 
 /** Clave "YYYY-MM" de una fecha ISO, usada para filtrar movimientos por mes. */
 export function mesKey(fecha: string): string {
