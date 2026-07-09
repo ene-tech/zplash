@@ -7,7 +7,7 @@ import type { MovimientoContable } from "@/types";
 
 const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   ingreso: "Cliente / Origen",
-  egreso: "Proveedor / Destino",
+  egreso: "Nombre del Proveedor",
   cuenta_por_cobrar: "Cliente",
   cuenta_por_pagar: "Proveedor",
 };
@@ -38,6 +38,8 @@ export default function MovimientoContableTab({
   const categoriaRef = useRef<HTMLInputElement>(null);
   const categoriaSelectRef = useRef<HTMLSelectElement>(null);
   const contraparteRef = useRef<HTMLInputElement>(null);
+  const rutProveedorRef = useRef<HTMLInputElement>(null);
+  const numeroFacturaRef = useRef<HTMLInputElement>(null);
   const montoRef = useRef<HTMLInputElement>(null);
   const notasRef = useRef<HTMLTextAreaElement>(null);
   const [estado, setEstado] = useState<"pagado" | "pendiente">("pagado");
@@ -66,6 +68,8 @@ export default function MovimientoContableTab({
     const descripcion = descripcionRef.current?.value.trim() || "";
     const categoria = tipo === "egreso" ? categoriaSelectRef.current?.value || "" : categoriaRef.current?.value.trim() || "";
     const contraparte = contraparteRef.current?.value.trim() || "";
+    const rutProveedor = tipo === "egreso" ? rutProveedorRef.current?.value.trim() || "" : "";
+    const numeroFactura = tipo === "egreso" ? numeroFacturaRef.current?.value.trim() || "" : "";
     const monto = Number(montoRef.current?.value || 0);
     const notas = notasRef.current?.value.trim() || "";
 
@@ -85,6 +89,8 @@ export default function MovimientoContableTab({
       descripcion,
       categoria: categoria || undefined,
       contraparte: contraparte || undefined,
+      rutProveedor: rutProveedor || undefined,
+      numeroFactura: numeroFactura || undefined,
       monto,
       estado,
       notas: notas || undefined,
@@ -103,6 +109,8 @@ export default function MovimientoContableTab({
     if (categoriaRef.current) categoriaRef.current.value = "";
     if (categoriaSelectRef.current) categoriaSelectRef.current.value = "";
     if (contraparteRef.current) contraparteRef.current.value = "";
+    if (rutProveedorRef.current) rutProveedorRef.current.value = "";
+    if (numeroFacturaRef.current) numeroFacturaRef.current.value = "";
     if (montoRef.current) montoRef.current.value = "";
     if (notasRef.current) notasRef.current.value = "";
     setEstado("pagado");
@@ -146,12 +154,24 @@ export default function MovimientoContableTab({
             <input ref={categoriaRef} placeholder="Ej: Arriendo, Insumos, Sueldos..." />
           )}
         </div>
+        {tipo === "egreso" && (
+          <div className="field">
+            <label>Rut proveedor</label>
+            <input ref={rutProveedorRef} placeholder="Ej: 76.543.210-K" />
+          </div>
+        )}
         <div className="field">
           <label>{CONTRAPARTE_LABEL[tipo]}</label>
           <input ref={contraparteRef} />
         </div>
+        {tipo === "egreso" && (
+          <div className="field">
+            <label>N° de factura</label>
+            <input ref={numeroFacturaRef} />
+          </div>
+        )}
         <div className="field">
-          <label>Monto</label>
+          <label>{tipo === "egreso" ? "Monto Total (IVA Incl.)" : "Monto"}</label>
           <input ref={montoRef} type="number" min={0} placeholder="0" />
         </div>
         <div className="field">
@@ -216,7 +236,9 @@ export default function MovimientoContableTab({
               <th>Fecha</th>
               <th>Descripción</th>
               <th>Categoría</th>
+              {tipo === "egreso" && <th>RUT</th>}
               <th>{CONTRAPARTE_LABEL[tipo]}</th>
+              {tipo === "egreso" && <th>N° Factura</th>}
               <th>Monto</th>
               <th>Estado</th>
               <th></th>
@@ -225,7 +247,7 @@ export default function MovimientoContableTab({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={tipo === "egreso" ? 9 : 7}>
                   <div className="empty">Sin registros</div>
                 </td>
               </tr>
@@ -235,7 +257,9 @@ export default function MovimientoContableTab({
                   <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
                   <td>{m.descripcion}</td>
                   <td>{m.categoria || "-"}</td>
+                  {tipo === "egreso" && <td>{m.rutProveedor || "-"}</td>}
                   <td>{m.contraparte || "-"}</td>
+                  {tipo === "egreso" && <td>{m.numeroFactura || "-"}</td>}
                   <td>{fmtCLP(m.monto)}</td>
                   <td>
                     <span className={`status-pill ${m.estado === "pagado" ? "ok" : "warn"}`}>

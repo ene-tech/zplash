@@ -99,6 +99,8 @@ export interface MovimientoContable {
   descripcion: string;
   categoria?: string;
   contraparte?: string;
+  rutProveedor?: string;
+  numeroFactura?: string;
   monto: number;
   estado: "pagado" | "pendiente";
   notas?: string;
