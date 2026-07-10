@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { findClient, normPlate } from "@/lib/helpers";
+import { PATENTE_FORMATO_MSG, findClient, isValidPatente, normPlate } from "@/lib/helpers";
 import Topbar from "@/components/Topbar";
 import OperadorResult from "@/components/OperadorResult";
 import TodayLog from "@/components/TodayLog";
@@ -14,6 +14,7 @@ export default function OperadorView() {
   const codigoCuponRef = useRef<HTMLInputElement>(null);
   const patenteCuponRef = useRef<HTMLInputElement>(null);
   const [cuponErr, setCuponErr] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [plateErr, setPlateErr] = useState("");
 
   const clearPlate = () => {
     if (plateInputRef.current) plateInputRef.current.value = "";
@@ -22,6 +23,11 @@ export default function OperadorView() {
   const doValidate = () => {
     const plate = plateInputRef.current?.value.trim();
     if (!plate) return;
+    if (!isValidPatente(plate)) {
+      setPlateErr(PATENTE_FORMATO_MSG);
+      return;
+    }
+    setPlateErr("");
     const c = findClient(data.clientes, plate);
     patchUi({ operResult: c ? { found: true, cliente: c } : { found: false, plate } });
   };
@@ -31,6 +37,10 @@ export default function OperadorView() {
     const patente = normPlate(patenteCuponRef.current?.value || "");
     if (!codigo || !patente) {
       setCuponErr({ msg: "Ingresa el código del cupón y la patente", ok: false });
+      return;
+    }
+    if (!isValidPatente(patente)) {
+      setCuponErr({ msg: PATENTE_FORMATO_MSG, ok: false });
       return;
     }
     const cupon = data.cupones.find((c) => c.codigo === codigo);
@@ -53,7 +63,7 @@ export default function OperadorView() {
       usado: true,
       patenteUso: patente,
       fechaUso: ahora,
-      operadorUso: ui.operadorActual || "",
+      operadorUso: ui.perfilActual?.nombre || "",
     };
     const nombreIngreso = `Cupón · ${cupon.nombreLote} (${cupon.numeroLote}/${cupon.totalLote})`;
     const ingreso: Ingreso = {
@@ -63,7 +73,7 @@ export default function OperadorView() {
       nombre: nombreIngreso,
       fecha: ahora,
       planEstadoAlIngreso: "ok",
-      operador: ui.operadorActual || "",
+      operador: ui.perfilActual?.nombre || "",
       viaCupon: true,
       cuponCodigo: cupon.codigo,
     };
@@ -86,8 +96,9 @@ export default function OperadorView() {
   return (
     <>
       <Topbar
-        mode={`Operador · ${ui.operadorActual || ""}`}
-        onLogout={() => patchUi({ view: "login", operResult: null, operadorActual: null, loginMode: null })}
+        mode={`Operador · ${ui.perfilActual?.nombre || ""}`}
+        onLogout={() => patchUi({ view: "login", operResult: null, perfilActual: null, perfilSeleccionadoId: null, loginMode: null })}
+        onBack={() => patchUi({ view: "hub", operResult: null })}
       />
       <div className="content">
         <div className="stat-card" style={{ width: "fit-content", margin: "0 auto 20px", textAlign: "center" }}>
@@ -108,6 +119,7 @@ export default function OperadorView() {
             }}
           />
           <br />
+          {plateErr && <div className="err">{plateErr}</div>}
           <button className="btn" onClick={doValidate}>
             Validar
           </button>

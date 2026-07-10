@@ -1,10 +1,10 @@
 import type { AppData, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
-import { PLANES, normPlate, planStatus, precioPreferencial, uid } from "@/lib/helpers";
+import { PLANES, formatRut, isValidPatente, normPlate, planStatus, precioPreferencial, uid } from "@/lib/helpers";
 
 export function registrarIngreso(
   data: AppData,
   cliente: Cliente,
-  operadorActual: string | null,
+  operadorActual: string | null | undefined,
   esGarantia?: boolean
 ): Partial<AppData> {
   const estadoPlan = planStatus(cliente).cls;
@@ -32,7 +32,7 @@ export function registrarIngreso(
 export function renovarPlan(
   data: AppData,
   cliente: Cliente,
-  operadorActual: string | null,
+  operadorActual: string | null | undefined,
   pago?: PagoInfo
 ): Partial<AppData> {
   const base = cliente.vencimiento && new Date(cliente.vencimiento) > new Date() ? new Date(cliente.vencimiento) : new Date();
@@ -94,7 +94,7 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
   rows.forEach((row, idx) => {
     const patenteRaw = getField(row, "patente", "placa", "placa patente");
     const patente = normPlate(patenteRaw);
-    if (!patente) {
+    if (!isValidPatente(patente)) {
       errores.push(idx + 2);
       return;
     }
@@ -115,7 +115,7 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
     const tipoDocRaw = getField(row, "tipo documento", "tipodocumento", "documento");
     const tipoDocumento: "Boleta" | "Factura" = tipoDocRaw && tipoDocRaw.toLowerCase().startsWith("fact") ? "Factura" : "Boleta";
     const razonSocial = tipoDocumento === "Factura" ? getField(row, "razon social", "razón social") : "";
-    const rut = tipoDocumento === "Factura" ? getField(row, "rut") : "";
+    const rut = tipoDocumento === "Factura" ? formatRut(getField(row, "rut")) : "";
     const direccion = tipoDocumento === "Factura" ? getField(row, "direccion", "dirección") : "";
     const giro = tipoDocumento === "Factura" ? getField(row, "giro") : "";
     const origenRaw = getField(row, "origen", "canal");

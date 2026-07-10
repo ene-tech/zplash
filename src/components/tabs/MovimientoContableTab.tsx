@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { subirComprobanteGasto } from "@/lib/db";
-import { fmtCLP, todayYMD } from "@/lib/helpers";
+import { RUT_FORMATO_MSG, fmtCLP, formatRut, isValidRut, todayYMD } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 
 const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
@@ -163,6 +163,10 @@ export default function MovimientoContableTab({
       setErr({ msg: "Selecciona Boleta o Factura", ok: false });
       return;
     }
+    if (rutProveedor && !isValidRut(rutProveedor)) {
+      setErr({ msg: RUT_FORMATO_MSG, ok: false });
+      return;
+    }
 
     const id = "mc" + Date.now() + Math.floor(Math.random() * 1000);
     let documentoUrl: string | undefined;
@@ -186,7 +190,7 @@ export default function MovimientoContableTab({
       descripcion,
       categoria: categoria || undefined,
       contraparte: contraparte || undefined,
-      rutProveedor: rutProveedor || undefined,
+      rutProveedor: rutProveedor ? formatRut(rutProveedor) : undefined,
       numeroFactura: numeroFactura || undefined,
       tipoDocumento: tipoDocumento || undefined,
       documentoUrl,

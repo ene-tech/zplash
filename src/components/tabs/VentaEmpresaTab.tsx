@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP, generarCodigoCupon } from "@/lib/helpers";
+import { RUT_FORMATO_MSG, fmtCLP, formatRut, generarCodigoCupon, isValidRut } from "@/lib/helpers";
 import type { Cupon, Venta } from "@/types";
 
 function estadoCupon(c: Cupon): { label: string; cls: "ok" | "warn" | "bad" } {
@@ -46,6 +46,10 @@ export default function VentaEmpresaTab() {
       const rut = rutRef.current?.value.trim();
       if (!razonSocial || !rut) {
         setErr({ msg: "Completa Razón Social y RUT para la factura", ok: false });
+        return;
+      }
+      if (!isValidRut(rut)) {
+        setErr({ msg: RUT_FORMATO_MSG, ok: false });
         return;
       }
     }
@@ -92,7 +96,7 @@ export default function VentaEmpresaTab() {
         operador: "Administrador",
         tipoDocumento: tipoDoc,
         razonSocial: tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "",
-        rut: tipoDoc === "Factura" ? rutRef.current?.value.trim() || "" : "",
+        rut: tipoDoc === "Factura" ? formatRut(rutRef.current?.value.trim() || "") : "",
         direccion: tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "",
         giro: tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "",
         metodoPago: metodoPago || undefined,

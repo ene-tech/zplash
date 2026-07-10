@@ -58,6 +58,23 @@ export interface Venta {
   giro?: string;
 }
 
+// Empresas de compra y venta para emitir/recibir facturas. contactoClienteId
+// referencia (informativamente, sin FK estricta, mismo criterio que
+// ingresos/ventas.clienteId) a un cliente de la tabla clientes; contactoNombre
+// queda denormalizado para no perder el dato si ese cliente se elimina.
+export interface Empresa {
+  id: string;
+  razonSocial: string;
+  rut: string;
+  giro?: string;
+  direccion?: string;
+  telefono?: string;
+  contactoClienteId?: string;
+  contactoNombre?: string;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
 export interface PagoInfo {
   metodo: "efectivo" | "tarjeta";
   voucher?: string;
@@ -79,26 +96,29 @@ export interface Cupon {
   creadoPor?: string;
 }
 
-export interface Operador {
+// Un módulo = una vista principal de la app. Determina qué ve cada perfil
+// una vez que inició sesión (ver PerfilPublico.modulos).
+export type Modulo =
+  | "operador"
+  | "servicios"
+  | "clientes"
+  | "ingresos"
+  | "cierre"
+  | "empresa"
+  | "empresas_facturacion"
+  | "perfiles"
+  | "stats"
+  | "config"
+  | "contabilidad"
+  | "permisos";
+
+// Lo que el cliente sí puede cargar: nombre y módulos permitidos, nunca la
+// contraseña. La clave solo se consulta/valida server-side, dentro de las
+// rutas /api/perfiles/*.
+export interface PerfilPublico {
   id: string;
   nombre: string;
-  clave: string;
-}
-
-// Forma completa (con clave) — solo se usa server-side, dentro de las rutas
-// /api/admin/*. El cliente nunca recibe esta forma; ver AdministradorPublico.
-export interface Administrador {
-  id: string;
-  nombre: "Evelyn" | "Juan";
-  clave: string;
-  esGerente?: boolean;
-}
-
-// Lo que el cliente sí puede cargar: nombre y rol, nunca la contraseña.
-export interface AdministradorPublico {
-  id: string;
-  nombre: "Evelyn" | "Juan";
-  esGerente?: boolean;
+  modulos: Modulo[];
 }
 
 export interface MovimientoContable {
@@ -143,11 +163,11 @@ export interface AppData {
   ventas: Venta[];
   pinAdmin: string;
   precios: Precios;
-  operadores: Operador[];
-  administradores: AdministradorPublico[];
+  perfiles: PerfilPublico[];
   cupones: Cupon[];
   movimientosContables: MovimientoContable[];
   categoriasGasto: CategoriaGasto[];
+  empresas: Empresa[];
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";
@@ -166,14 +186,15 @@ export type OperResult =
 export type ModalState =
   | { type: "client"; data: Cliente | null; contexto?: "operador" | "admin" }
   | { type: "confirm"; mensaje: string; onConfirm: () => void; confirmLabel?: string; danger?: boolean }
-  | { type: "operador"; data: Operador | null }
+  | { type: "perfil"; data: PerfilPublico | null }
   | { type: "bulk" }
   | { type: "pago"; monto: number; descripcion: string; onConfirm: (pago: PagoInfo) => void }
   | { type: "clienteInfo"; data: Cliente }
+  | { type: "empresa"; data: Empresa | null }
   | null;
 
 export interface UIState {
-  view: "login" | "operador" | "admin" | "servicios" | "adminHub" | "contabilidad";
+  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad";
   operResult: OperResult;
   adminTab: string;
   contabilidadTab: string;
@@ -183,11 +204,9 @@ export interface UIState {
   cierreDesde: string | null;
   cierreHasta: string | null;
   facturaSearch: string;
-  loginMode: "adminSelect" | "adminPin" | "operadorSelect" | "operadorPin" | "servSelect" | "servPin" | null;
-  operadorSeleccionado: string | null;
-  operadorActual: string | null;
-  adminSeleccionado: "Evelyn" | "Juan" | null;
-  adminActual: "Evelyn" | "Juan" | null;
+  loginMode: "select" | "pin" | null;
+  perfilSeleccionadoId: string | null;
+  perfilActual: PerfilPublico | null;
   clientesFiltroEstado: string;
   clientesOrden: string;
 }

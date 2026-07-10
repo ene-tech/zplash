@@ -1,4 +1,4 @@
-import type { Cliente, Ingreso, PlanStatus, Precios } from "@/types";
+import type { Cliente, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 export const DIAS_AVISO_VENCIMIENTO = 7;
@@ -32,22 +32,51 @@ export const SERVICIOS_ADICIONALES: ServicioAdicional[] = [
   { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Grafitado", precio: 59990 },
 ];
 
-export const OPERADORES_DEFAULT = [
-  { id: "op1", nombre: "Christian", clave: "1001" },
-  { id: "op2", nombre: "Verónica", clave: "1002" },
-  { id: "op3", nombre: "Patricio", clave: "1003" },
-  { id: "op4", nombre: "Emilio", clave: "1004" },
-  { id: "op5", nombre: "Evelyn", clave: "1005" },
-  { id: "op6", nombre: "Jota", clave: "1006" },
-  { id: "op7", nombre: "Juan", clave: "1007" },
+export const MODULOS_ADMIN: Modulo[] = [
+  "clientes",
+  "ingresos",
+  "cierre",
+  "empresa",
+  "empresas_facturacion",
+  "perfiles",
+  "stats",
+  "config",
+];
+export const TODOS_LOS_MODULOS: Modulo[] = [
+  "operador",
+  "servicios",
+  ...MODULOS_ADMIN,
+  "contabilidad",
+  "permisos",
 ];
 
-/** Identidades de ADMINISTRACIÓN (sin contraseña: eso ahora solo vive en el
- * servidor). Juan es el gerente: puede cambiar la contraseña de cualquiera;
- * Evelyn solo puede cambiar la suya. */
-export const ADMINISTRADORES_DEFAULT = [
-  { id: "adm1", nombre: "Evelyn" as const },
-  { id: "adm2", nombre: "Juan" as const, esGerente: true },
+export const MODULO_LABELS: Record<Modulo, string> = {
+  operador: "Operador (validar patente / ingreso)",
+  servicios: "Servicios Adicionales",
+  clientes: "Clientes",
+  ingresos: "Historial de Ingresos",
+  cierre: "Cierre de Caja",
+  empresa: "B2B/Tickets",
+  empresas_facturacion: "Empresas (Facturación)",
+  perfiles: "Perfiles",
+  stats: "Estadísticas",
+  config: "Configuración",
+  contabilidad: "Contabilidad",
+  permisos: "Permisos (asignar módulos)",
+};
+
+/** Identidades por defecto para un entorno nuevo sin filas en `perfiles`
+ * (sin contraseña real: eso ahora solo vive en el servidor una vez creado
+ * el perfil). Gerencia es el único con "permisos": puede asignar módulos y
+ * resetear la clave de cualquiera. */
+export const PERFILES_DEFAULT: PerfilPublico[] = [
+  { id: "p1", nombre: "Christian", modulos: ["operador", "servicios"] },
+  { id: "p2", nombre: "Verónica", modulos: ["operador", "servicios"] },
+  { id: "p3", nombre: "Patricio", modulos: ["operador", "servicios"] },
+  { id: "p4", nombre: "Emilio", modulos: ["operador", "servicios"] },
+  { id: "p5", nombre: "Evelyn", modulos: ["operador", "servicios", ...MODULOS_ADMIN] },
+  { id: "p6", nombre: "Jota", modulos: ["operador", "servicios"] },
+  { id: "p7", nombre: "Gerencia", modulos: TODOS_LOS_MODULOS },
 ];
 
 /**
@@ -72,7 +101,7 @@ export const GRUPOS_GASTO_EERR: GrupoGastoEERR[] = [
 ];
 
 /** Semilla/fallback para cuando la tabla categorias_gasto está vacía o la
- * migración todavía no corrió — mismo patrón que OPERADORES_DEFAULT. */
+ * migración todavía no corrió — mismo patrón que PERFILES_DEFAULT. */
 export const CATEGORIAS_GASTO_DEFAULT: { id: string; nombre: string; grupo: string; activa: boolean }[] = [
   { id: "cg-comisiones-por-venta", nombre: "Comisiones por Venta", grupo: "Otros Costos Directos", activa: true },
   { id: "cg-insumos-de-lavado", nombre: "Insumos de Lavado", grupo: "Otros Costos Directos", activa: true },
@@ -197,6 +226,39 @@ export function fmtHora(d: string): string {
 export function normPlate(p: string | null | undefined): string {
   return (p || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
+
+// Patente chilena: 6 caracteres, formato antiguo (2 letras + 4 números) o nuevo (4 letras + 2 números).
+const PATENTE_REGEX = /^([A-Z]{2}[0-9]{4}|[A-Z]{4}[0-9]{2})$/;
+
+export function isValidPatente(p: string | null | undefined): boolean {
+  return PATENTE_REGEX.test(normPlate(p));
+}
+
+export const PATENTE_FORMATO_MSG =
+  "Patente inválida. Debe tener 6 caracteres: 2 letras + 4 números (ej. AB1234) o 4 letras + 2 números (ej. ABCD12).";
+
+export function limpiarRut(rut: string | null | undefined): string {
+  return (rut || "").replace(/[^0-9kK]/g, "").toUpperCase();
+}
+
+/** Normaliza un RUT a formato canónico: separador de miles con puntos y dígito verificador al final tras un guion. */
+export function formatRut(rut: string | null | undefined): string {
+  const limpio = limpiarRut(rut);
+  if (limpio.length < 2) return limpio;
+  const cuerpo = limpio.slice(0, -1);
+  const dv = limpio.slice(-1);
+  const cuerpoConPuntos = cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${cuerpoConPuntos}-${dv}`;
+}
+
+const RUT_REGEX = /^\d{1,3}(\.\d{3})*-[0-9K]$/;
+
+export function isValidRut(rut: string | null | undefined): boolean {
+  return RUT_REGEX.test(formatRut(rut));
+}
+
+export const RUT_FORMATO_MSG =
+  "RUT inválido. Debe llevar separador de miles y el dígito verificador al final separado por un guion (ej. 12.345.678-9).";
 
 export function findClient(clientes: Cliente[], plate: string): Cliente | undefined {
   return clientes.find((c) => normPlate(c.patente) === normPlate(plate));

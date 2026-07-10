@@ -2,7 +2,19 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, normPlate, precioLavadoUnico, precioNormal, todayYMD, vencimientoPorDefectoISO } from "@/lib/helpers";
+import {
+  PATENTE_FORMATO_MSG,
+  PLANES,
+  RUT_FORMATO_MSG,
+  formatRut,
+  isValidPatente,
+  isValidRut,
+  normPlate,
+  precioLavadoUnico,
+  precioNormal,
+  todayYMD,
+  vencimientoPorDefectoISO,
+} from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
 
 export default function ClientModal({ data: c, contexto }: { data: Cliente | null; contexto?: "operador" | "admin" }) {
@@ -33,6 +45,10 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
       setErr("Nombre y patente son obligatorios");
       return;
     }
+    if (!isValidPatente(patente)) {
+      setErr(PATENTE_FORMATO_MSG);
+      return;
+    }
     const dup = data.clientes.find((x) => normPlate(x.patente) === patente && x.id !== cli.id);
     if (dup) {
       setErr("Ya existe un cliente con esa patente");
@@ -43,7 +59,12 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     const vehiculo = vehiculoRef.current?.value.trim() || "";
     const tipoDocumento = tipoDoc;
     const razonSocial = tipoDocumento === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
-    const rut = tipoDocumento === "Factura" ? rutRef.current?.value.trim() || "" : "";
+    const rutRaw = tipoDocumento === "Factura" ? rutRef.current?.value.trim() || "" : "";
+    if (tipoDocumento === "Factura" && !isValidRut(rutRaw)) {
+      setErr(RUT_FORMATO_MSG);
+      return;
+    }
+    const rut = tipoDocumento === "Factura" ? formatRut(rutRaw) : "";
     const direccion = tipoDocumento === "Factura" ? direccionRef.current?.value.trim() || "" : "";
     const giro = tipoDocumento === "Factura" ? giroRef.current?.value.trim() || "" : "";
 
@@ -124,7 +145,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           origen,
           visitas: 0,
           creadoEn: new Date().toISOString(),
-          creadoPor: contexto === "operador" ? ui.operadorActual || "" : "Administrador",
+          creadoPor: contexto === "operador" ? ui.perfilActual?.nombre || "" : "Administrador",
         };
         clientes = [...data.clientes, nuevo];
         if (vencimiento) {
@@ -137,7 +158,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
             precio: precioNormal(data.precios, plan),
             tipo: "Plan nuevo",
             fecha: new Date().toISOString(),
-            operador: ui.operadorActual || "",
+            operador: ui.perfilActual?.nombre || "",
             metodoPago: pago?.metodo,
             voucher: pago?.voucher,
           };
@@ -153,7 +174,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
             precio: precioLavadoUnico(data.precios),
             tipo: "Lavado único",
             fecha: new Date().toISOString(),
-            operador: ui.operadorActual || "",
+            operador: ui.perfilActual?.nombre || "",
             metodoPago: pago?.metodo,
             voucher: pago?.voucher,
           };

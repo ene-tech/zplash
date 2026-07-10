@@ -23,9 +23,9 @@ export default function ContabilidadView() {
   return (
     <>
       <Topbar
-        mode={`Contabilidad · ${ui.adminActual || ""}`}
-        onLogout={() => patchUi({ view: "login", adminActual: null })}
-        onBack={() => patchUi({ view: "adminHub" })}
+        mode={`Contabilidad · ${ui.perfilActual?.nombre || ""}`}
+        onLogout={() => patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null })}
+        onBack={() => patchUi({ view: "hub" })}
       />
       <div className="content">
         <div className="tabs">

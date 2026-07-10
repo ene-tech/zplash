@@ -24,6 +24,23 @@ create table if not exists clientes (
   creado_por text
 );
 
+-- Empresas de compra y venta para emitir/recibir facturas. contacto_cliente_id
+-- es informativo (sin foreign key estricta, mismo criterio que
+-- ingresos/ventas.cliente_id): contacto_nombre queda denormalizado por si el
+-- cliente referenciado se elimina después.
+create table if not exists empresas (
+  id text primary key,
+  razon_social text not null,
+  rut text not null unique,
+  giro text,
+  direccion text,
+  telefono text,
+  contacto_cliente_id text,
+  contacto_nombre text,
+  creado_en timestamptz not null default now(),
+  creado_por text
+);
+
 -- cliente_id es informativo (sin foreign key estricta): en Firestore nunca
 -- hubo integridad referencial, así que hay ingresos/ventas históricos que
 -- pueden apuntar a un cliente que ya fue eliminado. Se mantiene así a
@@ -69,32 +86,20 @@ create table if not exists ventas (
 create index if not exists ventas_fecha_idx on ventas (fecha desc);
 create index if not exists ventas_cliente_idx on ventas (cliente_id);
 
-create table if not exists operadores (
-  id text primary key,
-  nombre text not null unique,
-  clave text not null
-);
-
--- Credenciales de ADMINISTRACIÓN por persona. Juan es el gerente
--- (es_gerente = true): puede cambiar la contraseña de cualquiera;
--- Evelyn solo puede cambiar la suya propia (regla aplicada en la app).
-create table if not exists administradores (
+-- Un perfil por persona (reemplaza a las antiguas `operadores` y
+-- `administradores`, ver supabase/migrar-perfiles.sql). `modulos` es la
+-- lista de vistas principales a las que el perfil tiene acceso una vez
+-- que inicia sesión; solo quien tiene el módulo "permisos" (Gerencia por
+-- defecto) puede editar la de otros. El login y cualquier operación que
+-- toque `clave` corren server-side (rutas /api/perfiles/*) — el cliente
+-- (anon) nunca debe poder leer esa columna.
+create table if not exists perfiles (
   id text primary key,
   nombre text not null unique,
   clave text not null,
-  es_gerente boolean not null default false
+  modulos jsonb not null default '[]'::jsonb,
+  creado_en timestamptz not null default now()
 );
-insert into administradores (id, nombre, clave, es_gerente) values
-  ('adm1', 'Evelyn', '1234', false),
-  ('adm2', 'Juan', '5678', true)
-on conflict (id) do nothing;
-
--- Vista pública sin la columna clave: es lo único que el cliente (anon)
--- puede leer de administradores, para poder mostrar el selector "¿Quién
--- eres?" sin exponer las contraseñas. El login y el cambio de contraseña
--- corren server-side (rutas /api/admin/*) usando la service role key.
-create or replace view administradores_publicos as
-  select id, nombre, es_gerente from administradores;
 
 create table if not exists precios (
   plan text primary key,
@@ -225,19 +230,18 @@ insert into config (id, pin_admin) values (true, '1234') on conflict (id) do not
 
 -- RLS: esta app no usa Supabase Auth, así que por defecto habilitamos
 -- acceso completo al rol anónimo — el mismo modelo "abierto" que ya tenía
--- el proyecto en Firestore. La excepción es "administradores": esa tabla
--- guarda las contraseñas de Evelyn/Juan (que además dan acceso a todo lo
--- demás), así que al anon NO se le da ninguna política sobre la tabla base
--- (con RLS habilitada y sin políticas, el acceso queda denegado por
--- defecto) — solo puede leer administradores_publicos (sin la columna
--- clave). Las escrituras y la verificación de contraseña pasan por rutas
--- server-side (/api/admin/*) que usan la service role key, la cual sí
--- puede saltarse RLS.
+-- el proyecto en Firestore. La excepción es "perfiles": esa tabla guarda
+-- la clave de cada persona (que además da acceso al resto de módulos),
+-- así que al anon NO se le da ninguna política sobre esa tabla (con RLS
+-- habilitada y sin políticas, el acceso queda denegado por defecto). Todo
+-- lo que toca `clave` — login, alta de perfil, cambio de clave — pasa por
+-- rutas server-side (/api/perfiles/*) usando la conexión directa
+-- (DATABASE_URL), que sí puede saltarse RLS.
+alter table empresas enable row level security;
 alter table clientes enable row level security;
 alter table ingresos enable row level security;
 alter table ventas enable row level security;
-alter table operadores enable row level security;
-alter table administradores enable row level security;
+alter table perfiles enable row level security;
 alter table precios enable row level security;
 alter table config enable row level security;
 alter table cupones enable row level security;
@@ -246,19 +250,16 @@ alter table categorias_gasto enable row level security;
 
 -- Cada política se recrea (drop + create) para que este archivo se pueda
 -- correr completo las veces que sea necesario sin errores de "ya existe".
+drop policy if exists "anon full access" on empresas;
+create policy "anon full access" on empresas for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on clientes;
 create policy "anon full access" on clientes for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on ingresos;
 create policy "anon full access" on ingresos for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on ventas;
 create policy "anon full access" on ventas for all to anon using (true) with check (true);
-drop policy if exists "anon full access" on operadores;
-create policy "anon full access" on operadores for all to anon using (true) with check (true);
--- administradores: sin política para anon a propósito (ver comentario
--- arriba). Si esta migración corre sobre una base que ya tenía la política
--- abierta anterior, esto la elimina.
-drop policy if exists "anon full access" on administradores;
-grant select on administradores_publicos to anon;
+-- perfiles: sin política para anon a propósito (ver comentario arriba).
+drop policy if exists "anon full access" on perfiles;
 drop policy if exists "anon full access" on precios;
 create policy "anon full access" on precios for all to anon using (true) with check (true);
 drop policy if exists "anon full access" on config;

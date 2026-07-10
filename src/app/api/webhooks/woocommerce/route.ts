@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { createClient } from "@supabase/supabase-js";
+import { eq, ilike } from "drizzle-orm";
+import { getDb } from "@/db";
+import { clientes, ventas } from "@/db/schema";
 import { PLANES, normPlate } from "@/lib/helpers";
 
 export const runtime = "nodejs";
@@ -94,82 +96,84 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true });
   }
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-
+  const db = getDb();
   const ventaId = "wc-" + orderId;
-  const { data: ventaExistente } = await supabase.from("ventas").select("id").eq("id", ventaId).maybeSingle();
-  if (ventaExistente) {
-    console.log(`Pedido WooCommerce #${orderId} ya procesado, ignorado`);
-    return NextResponse.json({ ok: true, already_processed: true });
-  }
-
   const billing = (order.billing as Record<string, unknown>) || {};
   const patente = extraerPatente(order);
   const email = String(billing.email || "").trim().toLowerCase();
-  const nombre =
-    `${billing.first_name || ""} ${billing.last_name || ""}`.trim().toUpperCase() || "SIN NOMBRE";
+  const nombre = `${billing.first_name || ""} ${billing.last_name || ""}`.trim().toUpperCase() || "SIN NOMBRE";
   const telefono = String(billing.phone || "");
   const fechaOrden = order.date_created ? new Date(order.date_created as string).toISOString() : new Date().toISOString();
   const monto = Number(order.total) || 0;
 
-  let existente: Record<string, unknown> | null = null;
-  if (patente) {
-    const { data } = await supabase.from("clientes").select("*").eq("patente", patente).maybeSingle();
-    existente = data;
-  }
-  if (!existente && email) {
-    const { data } = await supabase.from("clientes").select("*").ilike("email", email).maybeSingle();
-    existente = data;
+  let existente: typeof clientes.$inferSelect | undefined;
+  try {
+    const [ventaExistente] = await db.select({ id: ventas.id }).from(ventas).where(eq(ventas.id, ventaId)).limit(1);
+    if (ventaExistente) {
+      console.log(`Pedido WooCommerce #${orderId} ya procesado, ignorado`);
+      return NextResponse.json({ ok: true, already_processed: true });
+    }
+
+    if (patente) {
+      [existente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
+    }
+    if (!existente && email) {
+      [existente] = await db.select().from(clientes).where(ilike(clientes.email, email)).limit(1);
+    }
+  } catch (error) {
+    console.error("Error consultando datos desde webhook WooCommerce", error);
+    return NextResponse.json({ error: "Error de servidor" }, { status: 500 });
   }
 
   let clienteId: string;
 
   if (existente) {
-    const vencActual = existente.vencimiento ? new Date(existente.vencimiento as string) : null;
+    const vencActual = existente.vencimiento ? new Date(existente.vencimiento) : null;
     const base = vencActual && vencActual > new Date() ? vencActual.toISOString() : new Date().toISOString();
     const nuevoVencimiento = addDaysISO(base, 30);
-    clienteId = existente.id as string;
-    const { error } = await supabase
-      .from("clientes")
-      .update({
-        nombre: nombre !== "SIN NOMBRE" ? nombre : existente.nombre,
-        telefono: telefono || existente.telefono,
-        email: email || existente.email,
-        vencimiento: nuevoVencimiento,
-        plan: existente.plan || PLANES[0],
-        origen: "WEB",
-      })
-      .eq("id", clienteId);
-    if (error) {
+    clienteId = existente.id;
+    try {
+      await db
+        .update(clientes)
+        .set({
+          nombre: nombre !== "SIN NOMBRE" ? nombre : existente.nombre,
+          telefono: telefono || existente.telefono,
+          email: email || existente.email,
+          vencimiento: nuevoVencimiento,
+          plan: existente.plan || PLANES[0],
+          origen: "WEB",
+        })
+        .where(eq(clientes.id, clienteId));
+    } catch (error) {
       console.error("Error actualizando cliente desde webhook WooCommerce", error);
       return NextResponse.json({ error: "Error actualizando cliente" }, { status: 500 });
     }
   } else {
     clienteId = "c" + Date.now() + Math.floor(Math.random() * 1000);
     const vencimiento = addDaysISO(fechaOrden, 30);
-    const { error } = await supabase.from("clientes").insert({
-      id: clienteId,
-      nombre,
-      patente: patente || `SIN-PATENTE-${orderId}`,
-      telefono,
-      email,
-      plan: PLANES[0],
-      vencimiento,
-      fecha_contratacion: fechaOrden,
-      origen: "WEB",
-      visitas: 0,
-      creado_en: new Date().toISOString(),
-      creado_por: "WooCommerce (automático)",
-    });
-    if (error) {
+    try {
+      await db.insert(clientes).values({
+        id: clienteId,
+        nombre,
+        patente: patente || `SIN-PATENTE-${orderId}`,
+        telefono,
+        email,
+        plan: PLANES[0],
+        vencimiento,
+        fechaContratacion: fechaOrden,
+        origen: "WEB",
+        visitas: 0,
+        creadoEn: new Date().toISOString(),
+        creadoPor: "WooCommerce (automático)",
+      });
+    } catch (error) {
       console.error("Error creando cliente desde webhook WooCommerce", error);
       return NextResponse.json({ error: "Error creando cliente" }, { status: 500 });
     }
   }
 
-  const { error: ventaError } = await supabase.from("ventas").upsert({
-    id: ventaId,
-    cliente_id: clienteId,
+  const ventaData = {
+    clienteId,
     patente: patente || "",
     nombre,
     plan: PLANES[0],
@@ -177,11 +181,16 @@ export async function POST(request: NextRequest) {
     tipo: existente ? "Renovación (Web)" : "Plan nuevo (Web)",
     fecha: fechaOrden,
     operador: "Automático (Web)",
-    metodo_pago: "tarjeta",
-    es_servicio_adicional: false,
-  });
-  if (ventaError) {
-    console.error("Error guardando venta desde webhook WooCommerce", ventaError);
+    metodoPago: "tarjeta",
+    esServicioAdicional: false,
+  };
+  try {
+    await db
+      .insert(ventas)
+      .values({ id: ventaId, ...ventaData })
+      .onConflictDoUpdate({ target: ventas.id, set: ventaData });
+  } catch (error) {
+    console.error("Error guardando venta desde webhook WooCommerce", error);
     return NextResponse.json({ error: "Error guardando venta" }, { status: 500 });
   }
 

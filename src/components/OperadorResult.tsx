@@ -5,8 +5,11 @@ import { useApp } from "@/context/AppContext";
 import { registrarIngreso, renovarPlan } from "@/lib/actions";
 import {
   PLANES,
+  RUT_FORMATO_MSG,
   esNombreVacio,
   fmtCLP,
+  formatRut,
+  isValidRut,
   normPlate,
   planStatus,
   precioLavadoUnico,
@@ -56,7 +59,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   };
 
   const hacerRegistro = async (esGarantia: boolean) => {
-    const patch = registrarIngreso(data, c, ui.operadorActual, esGarantia);
+    const patch = registrarIngreso(data, c, ui.perfilActual?.nombre, esGarantia);
     const ok = await commit(patch);
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO);
@@ -84,7 +87,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 
   const registrarPagado = () => {
     pedirPago(precioLavadoUnico(data.precios), `Lavado único para ${c.nombre} (${c.patente})`, async (pago) => {
-      const patch = registrarIngreso(data, c, ui.operadorActual);
+      const patch = registrarIngreso(data, c, ui.perfilActual?.nombre);
       const venta: Venta = {
         id: "v" + Date.now(),
         clienteId: c.id,
@@ -94,7 +97,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
         precio: precioLavadoUnico(data.precios),
         tipo: "Lavado único",
         fecha: new Date().toISOString(),
-        operador: ui.operadorActual || "",
+        operador: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
@@ -136,7 +139,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 
   const renovar = () => {
     pedirPago(pPromo, `Renovación temprana del plan de ${c.nombre} a precio preferencial`, async (pago) => {
-      const patch = renovarPlan(data, c, ui.operadorActual, pago);
+      const patch = renovarPlan(data, c, ui.perfilActual?.nombre, pago);
       const ok = await commit(patch);
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO);
@@ -161,7 +164,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
         precio: precioOfertaWeb,
         tipo: "Renovación Web (manual)",
         fecha: new Date().toISOString(),
-        operador: ui.operadorActual || "",
+        operador: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
@@ -192,7 +195,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
         precio,
         tipo: "Plan nuevo",
         fecha: new Date().toISOString(),
-        operador: ui.operadorActual || "",
+        operador: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
@@ -377,7 +380,12 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
     const plan = PLANES[0];
     const tipoDocumento = tipoDoc;
     const razonSocial = tipoDocumento === "Factura" ? qRazonSocialRef.current?.value.trim() || "" : "";
-    const rut = tipoDocumento === "Factura" ? qRutRef.current?.value.trim() || "" : "";
+    const rutRaw = tipoDocumento === "Factura" ? qRutRef.current?.value.trim() || "" : "";
+    if (tipoDocumento === "Factura" && !isValidRut(rutRaw)) {
+      setErr(RUT_FORMATO_MSG);
+      return;
+    }
+    const rut = tipoDocumento === "Factura" ? formatRut(rutRaw) : "";
     const direccion = tipoDocumento === "Factura" ? qDireccionRef.current?.value.trim() || "" : "";
     const giro = tipoDocumento === "Factura" ? qGiroRef.current?.value.trim() || "" : "";
     let vencimiento: string | null = null;
@@ -403,7 +411,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
       origen: "LOCAL",
       visitas: 0,
       creadoEn: new Date().toISOString(),
-      creadoPor: ui.operadorActual || "",
+      creadoPor: ui.perfilActual?.nombre || "",
     };
     const precio = tipoCliente === "plan" ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
     const tipoVenta = tipoCliente === "plan" ? "Plan nuevo" : "Lavado único";
@@ -420,12 +428,12 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         precio,
         tipo: tipoVenta,
         fecha: new Date().toISOString(),
-        operador: ui.operadorActual || "",
+        operador: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
       const tempData = { ...data, clientes: [...data.clientes, nuevo], ventas: [venta, ...data.ventas] };
-      const ingresoPatch = registrarIngreso(tempData, nuevo, ui.operadorActual);
+      const ingresoPatch = registrarIngreso(tempData, nuevo, ui.perfilActual?.nombre);
       const ok = await commit({ clientes: ingresoPatch.clientes, ventas: tempData.ventas, ingresos: ingresoPatch.ingresos });
       if (!ok) {
         setErr(ERROR_GUARDADO);
@@ -447,7 +455,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         nombre: "Sin registro",
         fecha: ahora,
         planEstadoAlIngreso: "bad",
-        operador: ui.operadorActual || "",
+        operador: ui.perfilActual?.nombre || "",
       };
       const venta: Venta = {
         id: "v" + Date.now(),
@@ -458,7 +466,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         precio: precioLavadoUnico(data.precios),
         tipo: "Lavado único",
         fecha: ahora,
-        operador: ui.operadorActual || "",
+        operador: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };

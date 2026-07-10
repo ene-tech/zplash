@@ -5,34 +5,39 @@ import Topbar from "@/components/Topbar";
 import ClientesTab from "@/components/tabs/ClientesTab";
 import IngresosTab from "@/components/tabs/IngresosTab";
 import CierreTab from "@/components/tabs/CierreTab";
-import OperadoresTab from "@/components/tabs/OperadoresTab";
+import PerfilesTab from "@/components/tabs/PerfilesTab";
 import StatsTab from "@/components/tabs/StatsTab";
 import ConfigTab from "@/components/tabs/ConfigTab";
 import VentaEmpresaTab from "@/components/tabs/VentaEmpresaTab";
+import EmpresasTab from "@/components/tabs/EmpresasTab";
+import type { Modulo } from "@/types";
 
-const TABS = [
+const TABS: { id: Modulo; label: string }[] = [
   { id: "clientes", label: "Clientes" },
   { id: "ingresos", label: "Historial de ingresos" },
   { id: "cierre", label: "Cierre de Caja" },
   { id: "empresa", label: "B2B/Tickets" },
-  { id: "operadores", label: "Operadores" },
+  { id: "empresas_facturacion", label: "Empresas" },
+  { id: "perfiles", label: "Perfiles" },
   { id: "stats", label: "Estadísticas" },
   { id: "config", label: "Configuración" },
 ];
 
 export default function AdminView() {
   const { ui, patchUi } = useApp();
+  const modulos = ui.perfilActual?.modulos || [];
+  const tabsPermitidas = TABS.filter((t) => modulos.includes(t.id));
 
   return (
     <>
       <Topbar
-        mode={`Administrador de ingresos · ${ui.adminActual || ""}`}
-        onLogout={() => patchUi({ view: "login", adminActual: null })}
-        onBack={() => patchUi({ view: "adminHub" })}
+        mode={`Administrador de ingresos · ${ui.perfilActual?.nombre || ""}`}
+        onLogout={() => patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null })}
+        onBack={() => patchUi({ view: "hub" })}
       />
       <div className="content">
         <div className="tabs">
-          {TABS.map((t) => (
+          {tabsPermitidas.map((t) => (
             <div
               key={t.id}
               className={`tab ${ui.adminTab === t.id ? "active" : ""}`}
@@ -46,7 +51,8 @@ export default function AdminView() {
         {ui.adminTab === "ingresos" && <IngresosTab />}
         {ui.adminTab === "cierre" && <CierreTab />}
         {ui.adminTab === "empresa" && <VentaEmpresaTab />}
-        {ui.adminTab === "operadores" && <OperadoresTab />}
+        {ui.adminTab === "empresas_facturacion" && <EmpresasTab />}
+        {ui.adminTab === "perfiles" && <PerfilesTab />}
         {ui.adminTab === "stats" && <StatsTab />}
         {ui.adminTab === "config" && <ConfigTab />}
       </div>

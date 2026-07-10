@@ -1,13 +1,14 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import type { AppData, CategoriaGasto, Cliente, Cupon, MovimientoContable, Operador, UIState } from "@/types";
-import { ADMINISTRADORES_DEFAULT, CATEGORIAS_GASTO_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
+import type { AppData, CategoriaGasto, Cliente, Cupon, Empresa, MovimientoContable, PerfilPublico, UIState } from "@/types";
+import { CATEGORIAS_GASTO_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
 import {
   deleteClientes,
   deleteCupones,
+  deleteEmpresas,
   deleteMovimientosContables,
-  deleteOperadores,
+  deletePerfiles,
   insertIngresos,
   insertVentas,
   loadAll,
@@ -15,8 +16,9 @@ import {
   upsertCategoriasGasto,
   upsertClientes,
   upsertCupones,
+  upsertEmpresas,
   upsertMovimientosContables,
-  upsertOperadores,
+  upsertPerfiles,
   upsertPrecios,
   waitForStorage,
 } from "@/lib/db";
@@ -27,11 +29,11 @@ const initialData: AppData = {
   ventas: [],
   pinAdmin: "1234",
   precios: JSON.parse(JSON.stringify(PRECIOS_DEFAULT)),
-  operadores: JSON.parse(JSON.stringify(OPERADORES_DEFAULT)),
-  administradores: JSON.parse(JSON.stringify(ADMINISTRADORES_DEFAULT)),
+  perfiles: JSON.parse(JSON.stringify(PERFILES_DEFAULT)),
   cupones: [],
   movimientosContables: [],
   categoriasGasto: JSON.parse(JSON.stringify(CATEGORIAS_GASTO_DEFAULT)),
+  empresas: [],
 };
 
 const initialUI: UIState = {
@@ -46,10 +48,8 @@ const initialUI: UIState = {
   cierreHasta: null,
   facturaSearch: "",
   loginMode: null,
-  operadorSeleccionado: null,
-  operadorActual: null,
-  adminSeleccionado: null,
-  adminActual: null,
+  perfilSeleccionadoId: null,
+  perfilActual: null,
   clientesFiltroEstado: "todos",
   clientesOrden: "estado",
 };
@@ -128,13 +128,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const nuevas = patch.ventas.filter((v) => !prevIds.has(v.id));
       if (nuevas.length) ops.push(insertVentas(nuevas));
     }
-    if (patch.operadores) {
-      const { cambiados, eliminados } = diffPorId<Operador>(previous.operadores, patch.operadores);
-      if (cambiados.length) ops.push(upsertOperadores(cambiados));
-      if (eliminados.length) ops.push(deleteOperadores(eliminados));
+    if (patch.perfiles) {
+      const { cambiados, eliminados } = diffPorId<PerfilPublico>(previous.perfiles, patch.perfiles);
+      if (cambiados.length) ops.push(upsertPerfiles(cambiados));
+      if (eliminados.length) ops.push(deletePerfiles(eliminados));
     }
-    // administradores no se escribe desde acá: la tabla ya no acepta escrituras
-    // del cliente (ver /api/admin/cambiar-clave, que usa la service role key).
+    // La clave de un perfil nunca se escribe desde acá (perfilToRow no la
+    // incluye) — crearla o cambiarla pasa por rutas server-side dedicadas
+    // (/api/perfiles/crear, /api/perfiles/cambiar-clave).
     if (patch.cupones) {
       const { cambiados, eliminados } = diffPorId<Cupon>(previous.cupones, patch.cupones);
       if (cambiados.length) ops.push(upsertCupones(cambiados));
@@ -148,6 +149,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (patch.categoriasGasto) {
       const { cambiados } = diffPorId<CategoriaGasto>(previous.categoriasGasto, patch.categoriasGasto);
       if (cambiados.length) ops.push(upsertCategoriasGasto(cambiados));
+    }
+    if (patch.empresas) {
+      const { cambiados, eliminados } = diffPorId<Empresa>(previous.empresas, patch.empresas);
+      if (cambiados.length) ops.push(upsertEmpresas(cambiados));
+      if (eliminados.length) ops.push(deleteEmpresas(eliminados));
     }
     if (patch.precios) {
       ops.push(upsertPrecios(patch.precios));

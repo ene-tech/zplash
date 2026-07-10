@@ -1,21 +1,46 @@
+"use server";
+
+import { asc, desc, eq, getTableColumns, inArray, sql, type SQL } from "drizzle-orm";
+import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import { getDb } from "@/db";
+import {
+  categoriasGasto,
+  clientes,
+  config,
+  cupones,
+  empresas,
+  ingresos,
+  movimientosContables,
+  perfiles,
+  precios,
+  ventas,
+} from "@/db/schema";
 import { supabase } from "@/lib/supabase";
-import { ADMINISTRADORES_DEFAULT, CATEGORIAS_GASTO_DEFAULT, OPERADORES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
+import { CATEGORIAS_GASTO_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
 import type {
-  AdministradorPublico,
   AppData,
   CategoriaGasto,
   Cliente,
   Cupon,
+  Empresa,
   Ingreso,
   MovimientoContable,
-  Operador,
+  PerfilPublico,
   Precios,
   Venta,
 } from "@/types";
 
-type Row = Record<string, unknown>;
+type ClienteRow = typeof clientes.$inferSelect;
+type IngresoRow = typeof ingresos.$inferSelect;
+type VentaRow = typeof ventas.$inferSelect;
+type PerfilPublicoRow = Pick<typeof perfiles.$inferSelect, "id" | "nombre" | "modulos">;
+type CategoriaGastoRow = typeof categoriasGasto.$inferSelect;
+type CuponRow = typeof cupones.$inferSelect;
+type MovimientoRow = typeof movimientosContables.$inferSelect;
+type PrecioRow = typeof precios.$inferSelect;
+type EmpresaRow = typeof empresas.$inferSelect;
 
-function clienteToRow(c: Cliente): Row {
+function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
   return {
     id: c.id,
     nombre: c.nombre,
@@ -24,81 +49,81 @@ function clienteToRow(c: Cliente): Row {
     email: c.email || null,
     vehiculo: c.vehiculo || null,
     plan: c.plan || null,
-    tipo_documento: c.tipoDocumento || null,
-    razon_social: c.razonSocial || null,
+    tipoDocumento: c.tipoDocumento || null,
+    razonSocial: c.razonSocial || null,
     rut: c.rut || null,
     direccion: c.direccion || null,
     giro: c.giro || null,
     vencimiento: c.vencimiento || null,
-    fecha_contratacion: c.fechaContratacion || null,
+    fechaContratacion: c.fechaContratacion || null,
     origen: c.origen || "LOCAL",
     visitas: c.visitas || 0,
-    ultima_visita: c.ultimaVisita || null,
-    ultima_renovacion: c.ultimaRenovacion || null,
-    creado_en: c.creadoEn,
-    creado_por: c.creadoPor || null,
+    ultimaVisita: c.ultimaVisita || null,
+    ultimaRenovacion: c.ultimaRenovacion || null,
+    creadoEn: c.creadoEn,
+    creadoPor: c.creadoPor || null,
   };
 }
 
-function clienteFromRow(r: Row): Cliente {
+function clienteFromRow(r: ClienteRow): Cliente {
   return {
-    id: r.id as string,
-    nombre: r.nombre as string,
-    patente: r.patente as string,
-    telefono: (r.telefono as string) || undefined,
-    email: (r.email as string) || undefined,
-    vehiculo: (r.vehiculo as string) || undefined,
-    plan: (r.plan as string) || undefined,
-    tipoDocumento: (r.tipo_documento as Cliente["tipoDocumento"]) || undefined,
-    razonSocial: (r.razon_social as string) || undefined,
-    rut: (r.rut as string) || undefined,
-    direccion: (r.direccion as string) || undefined,
-    giro: (r.giro as string) || undefined,
-    vencimiento: (r.vencimiento as string) || null,
-    fechaContratacion: (r.fecha_contratacion as string) || null,
+    id: r.id,
+    nombre: r.nombre,
+    patente: r.patente,
+    telefono: r.telefono || undefined,
+    email: r.email || undefined,
+    vehiculo: r.vehiculo || undefined,
+    plan: r.plan || undefined,
+    tipoDocumento: (r.tipoDocumento as Cliente["tipoDocumento"]) || undefined,
+    razonSocial: r.razonSocial || undefined,
+    rut: r.rut || undefined,
+    direccion: r.direccion || undefined,
+    giro: r.giro || undefined,
+    vencimiento: r.vencimiento || null,
+    fechaContratacion: r.fechaContratacion || null,
     origen: (r.origen as Cliente["origen"]) || "LOCAL",
-    visitas: (r.visitas as number) || 0,
-    ultimaVisita: (r.ultima_visita as string) || undefined,
-    ultimaRenovacion: (r.ultima_renovacion as string) || undefined,
-    creadoEn: r.creado_en as string,
-    creadoPor: (r.creado_por as string) || undefined,
+    visitas: r.visitas || 0,
+    ultimaVisita: r.ultimaVisita || undefined,
+    ultimaRenovacion: r.ultimaRenovacion || undefined,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
   };
 }
 
-function ingresoToRow(i: Ingreso): Row {
+function ingresoToRow(i: Ingreso): typeof ingresos.$inferInsert {
   return {
     id: i.id,
-    cliente_id: i.clienteId,
+    clienteId: i.clienteId,
     patente: i.patente,
     nombre: i.nombre,
     fecha: i.fecha,
-    plan_estado_al_ingreso: i.planEstadoAlIngreso,
+    planEstadoAlIngreso: i.planEstadoAlIngreso,
     operador: i.operador || null,
-    es_garantia: i.esGarantia || false,
-    via_cupon: i.viaCupon || false,
-    cupon_codigo: i.cuponCodigo || null,
+    esGarantia: i.esGarantia || false,
+    viaCupon: i.viaCupon || false,
+    cuponCodigo: i.cuponCodigo || null,
   };
 }
 
-function ingresoFromRow(r: Row): Ingreso {
+function ingresoFromRow(r: IngresoRow): Ingreso {
   return {
-    id: r.id as string,
-    clienteId: (r.cliente_id as string) || "",
-    patente: r.patente as string,
-    nombre: r.nombre as string,
-    fecha: r.fecha as string,
-    planEstadoAlIngreso: r.plan_estado_al_ingreso as Ingreso["planEstadoAlIngreso"],
-    operador: (r.operador as string) || undefined,
-    esGarantia: (r.es_garantia as boolean) || undefined,
-    viaCupon: (r.via_cupon as boolean) || undefined,
-    cuponCodigo: (r.cupon_codigo as string) || undefined,
+    id: r.id,
+    clienteId: r.clienteId || "",
+    patente: r.patente,
+    nombre: r.nombre,
+    fecha: r.fecha,
+    planEstadoAlIngreso: r.planEstadoAlIngreso as Ingreso["planEstadoAlIngreso"],
+    operador: r.operador || undefined,
+    esGarantia: r.esGarantia || undefined,
+    viaCupon: r.viaCupon || undefined,
+    cuponCodigo: r.cuponCodigo || undefined,
   };
 }
 
-function ventaToRow(v: Venta): Row {
+function ventaToRow(v: Venta): typeof ventas.$inferInsert {
   return {
     id: v.id,
-    cliente_id: v.clienteId,
+    clienteId: v.clienteId,
     patente: v.patente,
     nombre: v.nombre,
     plan: v.plan || "",
@@ -106,116 +131,103 @@ function ventaToRow(v: Venta): Row {
     tipo: v.tipo,
     fecha: v.fecha,
     operador: v.operador || null,
-    metodo_pago: v.metodoPago || null,
+    metodoPago: v.metodoPago || null,
     voucher: v.voucher || null,
-    hora_entrega: v.horaEntrega || null,
+    horaEntrega: v.horaEntrega || null,
     notas: v.notas || null,
-    estado_pago: v.estadoPago || null,
-    monto_cobrado: v.montoCobrado ?? null,
-    es_servicio_adicional: v.esServicioAdicional || false,
-    tipo_documento: v.tipoDocumento || null,
-    razon_social: v.razonSocial || null,
+    estadoPago: v.estadoPago || null,
+    montoCobrado: v.montoCobrado ?? null,
+    esServicioAdicional: v.esServicioAdicional || false,
+    tipoDocumento: v.tipoDocumento || null,
+    razonSocial: v.razonSocial || null,
     rut: v.rut || null,
     direccion: v.direccion || null,
     giro: v.giro || null,
   };
 }
 
-function ventaFromRow(r: Row): Venta {
+function ventaFromRow(r: VentaRow): Venta {
   return {
-    id: r.id as string,
-    clienteId: (r.cliente_id as string) || "",
-    patente: r.patente as string,
-    nombre: r.nombre as string,
-    plan: (r.plan as string) || "",
-    precio: (r.precio as number) || 0,
-    tipo: r.tipo as string,
-    fecha: r.fecha as string,
-    operador: (r.operador as string) || undefined,
-    metodoPago: (r.metodo_pago as Venta["metodoPago"]) || undefined,
-    voucher: (r.voucher as string) || undefined,
-    horaEntrega: (r.hora_entrega as string) || undefined,
-    notas: (r.notas as string) || undefined,
-    estadoPago: (r.estado_pago as Venta["estadoPago"]) || undefined,
-    montoCobrado: r.monto_cobrado === null || r.monto_cobrado === undefined ? undefined : (r.monto_cobrado as number),
-    esServicioAdicional: (r.es_servicio_adicional as boolean) || undefined,
-    tipoDocumento: (r.tipo_documento as Venta["tipoDocumento"]) || undefined,
-    razonSocial: (r.razon_social as string) || undefined,
-    rut: (r.rut as string) || undefined,
-    direccion: (r.direccion as string) || undefined,
-    giro: (r.giro as string) || undefined,
+    id: r.id,
+    clienteId: r.clienteId || "",
+    patente: r.patente,
+    nombre: r.nombre,
+    plan: r.plan || "",
+    precio: r.precio || 0,
+    tipo: r.tipo,
+    fecha: r.fecha,
+    operador: r.operador || undefined,
+    metodoPago: (r.metodoPago as Venta["metodoPago"]) || undefined,
+    voucher: r.voucher || undefined,
+    horaEntrega: r.horaEntrega || undefined,
+    notas: r.notas || undefined,
+    estadoPago: (r.estadoPago as Venta["estadoPago"]) || undefined,
+    montoCobrado: r.montoCobrado === null || r.montoCobrado === undefined ? undefined : r.montoCobrado,
+    esServicioAdicional: r.esServicioAdicional || undefined,
+    tipoDocumento: (r.tipoDocumento as Venta["tipoDocumento"]) || undefined,
+    razonSocial: r.razonSocial || undefined,
+    rut: r.rut || undefined,
+    direccion: r.direccion || undefined,
+    giro: r.giro || undefined,
   };
 }
 
-function operadorToRow(o: Operador): Row {
-  return { id: o.id, nombre: o.nombre, clave: o.clave };
+// Nunca incluye "clave": la tabla perfiles solo acepta escrituras de
+// nombre/modulos desde acá (ver upsertPerfiles). Crear un perfil nuevo o
+// cambiar una clave pasa por rutas server-side dedicadas (/api/perfiles/*).
+function perfilToRow(p: PerfilPublico): Omit<typeof perfiles.$inferInsert, "clave"> {
+  return { id: p.id, nombre: p.nombre, modulos: p.modulos };
 }
 
-function operadorFromRow(r: Row): Operador {
-  return { id: r.id as string, nombre: r.nombre as string, clave: r.clave as string };
+function perfilPublicoFromRow(r: PerfilPublicoRow): PerfilPublico {
+  return { id: r.id, nombre: r.nombre, modulos: (r.modulos as PerfilPublico["modulos"]) || [] };
 }
 
-// No hay un administradorToRow/upsert: la tabla administradores ya no acepta
-// escrituras del cliente (ver /api/admin/cambiar-clave). Esto solo lee la
-// vista pública (sin la columna clave).
-function administradorPublicoFromRow(r: Row): AdministradorPublico {
-  return {
-    id: r.id as string,
-    nombre: r.nombre as AdministradorPublico["nombre"],
-    esGerente: (r.es_gerente as boolean) || undefined,
-  };
-}
-
-function categoriaGastoToRow(c: CategoriaGasto): Row {
+function categoriaGastoToRow(c: CategoriaGasto): typeof categoriasGasto.$inferInsert {
   return { id: c.id, nombre: c.nombre, grupo: c.grupo, activa: c.activa };
 }
 
-function categoriaGastoFromRow(r: Row): CategoriaGasto {
-  return {
-    id: r.id as string,
-    nombre: r.nombre as string,
-    grupo: r.grupo as string,
-    activa: (r.activa as boolean) ?? true,
-  };
+function categoriaGastoFromRow(r: CategoriaGastoRow): CategoriaGasto {
+  return { id: r.id, nombre: r.nombre, grupo: r.grupo, activa: r.activa };
 }
 
-function cuponToRow(c: Cupon): Row {
+function cuponToRow(c: Cupon): typeof cupones.$inferInsert {
   return {
     id: c.id,
     codigo: c.codigo,
-    nombre_lote: c.nombreLote,
+    nombreLote: c.nombreLote,
     valor: c.valor || 0,
-    numero_lote: c.numeroLote || 1,
-    total_lote: c.totalLote || 1,
-    fecha_caducidad: c.fechaCaducidad,
+    numeroLote: c.numeroLote || 1,
+    totalLote: c.totalLote || 1,
+    fechaCaducidad: c.fechaCaducidad,
     usado: c.usado || false,
-    patente_uso: c.patenteUso || null,
-    fecha_uso: c.fechaUso || null,
-    operador_uso: c.operadorUso || null,
-    creado_en: c.creadoEn,
-    creado_por: c.creadoPor || null,
+    patenteUso: c.patenteUso || null,
+    fechaUso: c.fechaUso || null,
+    operadorUso: c.operadorUso || null,
+    creadoEn: c.creadoEn,
+    creadoPor: c.creadoPor || null,
   };
 }
 
-function cuponFromRow(r: Row): Cupon {
+function cuponFromRow(r: CuponRow): Cupon {
   return {
-    id: r.id as string,
-    codigo: r.codigo as string,
-    nombreLote: r.nombre_lote as string,
-    valor: (r.valor as number) || 0,
-    numeroLote: (r.numero_lote as number) || 1,
-    totalLote: (r.total_lote as number) || 1,
-    fechaCaducidad: r.fecha_caducidad as string,
-    usado: (r.usado as boolean) || false,
-    patenteUso: (r.patente_uso as string) || undefined,
-    fechaUso: (r.fecha_uso as string) || undefined,
-    operadorUso: (r.operador_uso as string) || undefined,
-    creadoEn: r.creado_en as string,
-    creadoPor: (r.creado_por as string) || undefined,
+    id: r.id,
+    codigo: r.codigo,
+    nombreLote: r.nombreLote,
+    valor: r.valor || 0,
+    numeroLote: r.numeroLote || 1,
+    totalLote: r.totalLote || 1,
+    fechaCaducidad: r.fechaCaducidad,
+    usado: r.usado || false,
+    patenteUso: r.patenteUso || undefined,
+    fechaUso: r.fechaUso || undefined,
+    operadorUso: r.operadorUso || undefined,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
   };
 }
 
-function movimientoToRow(m: MovimientoContable): Row {
+function movimientoToRow(m: MovimientoContable): typeof movimientosContables.$inferInsert {
   return {
     id: m.id,
     tipo: m.tipo,
@@ -223,206 +235,337 @@ function movimientoToRow(m: MovimientoContable): Row {
     descripcion: m.descripcion,
     categoria: m.categoria || null,
     contraparte: m.contraparte || null,
-    rut_proveedor: m.rutProveedor || null,
-    numero_factura: m.numeroFactura || null,
-    tipo_documento: m.tipoDocumento || null,
-    documento_url: m.documentoUrl || null,
-    documento_nombre: m.documentoNombre || null,
+    rutProveedor: m.rutProveedor || null,
+    numeroFactura: m.numeroFactura || null,
+    tipoDocumento: m.tipoDocumento || null,
+    documentoUrl: m.documentoUrl || null,
+    documentoNombre: m.documentoNombre || null,
     monto: m.monto || 0,
     estado: m.estado,
     notas: m.notas || null,
-    creado_en: m.creadoEn,
-    creado_por: m.creadoPor || null,
+    creadoEn: m.creadoEn,
+    creadoPor: m.creadoPor || null,
   };
 }
 
-function movimientoFromRow(r: Row): MovimientoContable {
+function movimientoFromRow(r: MovimientoRow): MovimientoContable {
   return {
-    id: r.id as string,
+    id: r.id,
     tipo: r.tipo as MovimientoContable["tipo"],
-    fecha: r.fecha as string,
-    descripcion: r.descripcion as string,
-    categoria: (r.categoria as string) || undefined,
-    contraparte: (r.contraparte as string) || undefined,
-    rutProveedor: (r.rut_proveedor as string) || undefined,
-    numeroFactura: (r.numero_factura as string) || undefined,
-    tipoDocumento: (r.tipo_documento as MovimientoContable["tipoDocumento"]) || undefined,
-    documentoUrl: (r.documento_url as string) || undefined,
-    documentoNombre: (r.documento_nombre as string) || undefined,
-    monto: (r.monto as number) || 0,
+    fecha: r.fecha,
+    descripcion: r.descripcion,
+    categoria: r.categoria || undefined,
+    contraparte: r.contraparte || undefined,
+    rutProveedor: r.rutProveedor || undefined,
+    numeroFactura: r.numeroFactura || undefined,
+    tipoDocumento: (r.tipoDocumento as MovimientoContable["tipoDocumento"]) || undefined,
+    documentoUrl: r.documentoUrl || undefined,
+    documentoNombre: r.documentoNombre || undefined,
+    monto: r.monto || 0,
     estado: (r.estado as MovimientoContable["estado"]) || "pendiente",
-    notas: (r.notas as string) || undefined,
-    creadoEn: r.creado_en as string,
-    creadoPor: (r.creado_por as string) || undefined,
+    notas: r.notas || undefined,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
   };
 }
 
-function preciosFromRows(rows: Row[]): Precios {
-  const precios: Precios = {};
+function empresaToRow(e: Empresa): typeof empresas.$inferInsert {
+  return {
+    id: e.id,
+    razonSocial: e.razonSocial,
+    rut: e.rut,
+    giro: e.giro || null,
+    direccion: e.direccion || null,
+    telefono: e.telefono || null,
+    contactoClienteId: e.contactoClienteId || null,
+    contactoNombre: e.contactoNombre || null,
+    creadoEn: e.creadoEn,
+    creadoPor: e.creadoPor || null,
+  };
+}
+
+function empresaFromRow(r: EmpresaRow): Empresa {
+  return {
+    id: r.id,
+    razonSocial: r.razonSocial,
+    rut: r.rut,
+    giro: r.giro || undefined,
+    direccion: r.direccion || undefined,
+    telefono: r.telefono || undefined,
+    contactoClienteId: r.contactoClienteId || undefined,
+    contactoNombre: r.contactoNombre || undefined,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
+  };
+}
+
+function preciosFromRows(rows: PrecioRow[]): Precios {
+  const result: Precios = {};
   for (const r of rows) {
-    precios[r.plan as string] = { normal: (r.normal as number) || 0, promo: (r.promo as number) || 0 };
+    result[r.plan] = { normal: r.normal || 0, promo: r.promo || 0 };
   }
-  return precios;
+  return result;
+}
+
+// Cada query de loadAll se aísla: si una tabla falla (o la conexión no está
+// lista aún), las demás igual se cargan y esta cae a [] — lo mismo que hacía
+// antes el chequeo de `res.error` por separado con supabase-js. Los `?.length`
+// más abajo hacen que un [] caiga a los valores DEFAULT correspondientes.
+async function safe<T>(query: Promise<T[]>): Promise<T[]> {
+  try {
+    return await query;
+  } catch (error) {
+    console.error("Error cargando datos de la base de datos", error);
+    return [];
+  }
+}
+
+function buildConflictUpdateColumns<T extends PgTable>(table: T, columns: string[]): Record<string, SQL> {
+  const cls = getTableColumns(table);
+  const set: Record<string, SQL> = {};
+  for (const column of columns) {
+    set[column] = sql.raw(`excluded.${cls[column].name}`);
+  }
+  return set;
+}
+
+// Upsert genérico: inserta `rows` y, si el valor de `target` ya existe,
+// actualiza el resto de las columnas presentes en cada fila. Comparte esta
+// lógica entre las 6 tablas que hacen upsert en vez de repetirla.
+async function upsertRows<T extends PgTable>(table: T, target: PgColumn, rows: Record<string, unknown>[]): Promise<void> {
+  const columns = Object.keys(rows[0]).filter((k) => k !== target.name);
+  await getDb()
+    .insert(table)
+    .values(rows as never[])
+    .onConflictDoUpdate({ target, set: buildConflictUpdateColumns(table, columns) });
 }
 
 export async function waitForStorage(): Promise<boolean> {
-  const { error } = await supabase.from("config").select("id").limit(1);
-  if (error) console.error("No se pudo conectar a Supabase", error);
-  return !error;
+  try {
+    await getDb().select({ id: config.id }).from(config).limit(1);
+    return true;
+  } catch (error) {
+    console.error("No se pudo conectar a la base de datos", error);
+    return false;
+  }
 }
 
 export async function loadAll(): Promise<AppData> {
+  const db = getDb();
   const [
-    clientesRes,
-    ingresosRes,
-    ventasRes,
-    operadoresRes,
-    administradoresRes,
-    preciosRes,
-    configRes,
-    cuponesRes,
-    movimientosRes,
-    categoriasGastoRes,
+    clientesRows,
+    ingresosRows,
+    ventasRows,
+    perfilesRows,
+    preciosRows,
+    configRows,
+    cuponesRows,
+    movimientosRows,
+    categoriasGastoRows,
+    empresasRows,
   ] = await Promise.all([
-    supabase.from("clientes").select("*"),
-    supabase.from("ingresos").select("*").order("fecha", { ascending: false }),
-    supabase.from("ventas").select("*").order("fecha", { ascending: false }),
-    supabase.from("operadores").select("*"),
-    supabase.from("administradores_publicos").select("*"),
-    supabase.from("precios").select("*"),
-    supabase.from("config").select("*").maybeSingle(),
-    supabase.from("cupones").select("*").order("creado_en", { ascending: false }),
-    supabase.from("movimientos_contables").select("*").order("fecha", { ascending: false }),
-    supabase.from("categorias_gasto").select("*").order("nombre", { ascending: true }),
+    safe(db.select().from(clientes)),
+    safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
+    safe(db.select().from(ventas).orderBy(desc(ventas.fecha))),
+    safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos }).from(perfiles)),
+    safe(db.select().from(precios)),
+    safe(db.select().from(config).limit(1)),
+    safe(db.select().from(cupones).orderBy(desc(cupones.creadoEn))),
+    safe(db.select().from(movimientosContables).orderBy(desc(movimientosContables.fecha))),
+    safe(db.select().from(categoriasGasto).orderBy(asc(categoriasGasto.nombre))),
+    safe(db.select().from(empresas).orderBy(asc(empresas.razonSocial))),
   ]);
 
-  for (const res of [
-    clientesRes,
-    ingresosRes,
-    ventasRes,
-    operadoresRes,
-    administradoresRes,
-    preciosRes,
-    configRes,
-    cuponesRes,
-    movimientosRes,
-    categoriasGastoRes,
-  ]) {
-    if (res.error) console.error("Error cargando datos de Supabase", res.error);
-  }
-
-  const operadores = operadoresRes.data?.length ? operadoresRes.data.map(operadorFromRow) : OPERADORES_DEFAULT;
-  const administradores = administradoresRes.data?.length
-    ? administradoresRes.data.map(administradorPublicoFromRow)
-    : ADMINISTRADORES_DEFAULT;
-  const precios = preciosRes.data?.length ? preciosFromRows(preciosRes.data) : PRECIOS_DEFAULT;
-  const categoriasGasto = categoriasGastoRes.data?.length
-    ? categoriasGastoRes.data.map(categoriaGastoFromRow)
+  const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
+  const preciosData = preciosRows.length ? preciosFromRows(preciosRows) : PRECIOS_DEFAULT;
+  const categoriasGastoData = categoriasGastoRows.length
+    ? categoriasGastoRows.map(categoriaGastoFromRow)
     : CATEGORIAS_GASTO_DEFAULT;
 
   return {
-    clientes: (clientesRes.data || []).map(clienteFromRow),
-    ingresos: (ingresosRes.data || []).map(ingresoFromRow),
-    ventas: (ventasRes.data || []).map(ventaFromRow),
-    operadores,
-    administradores,
-    precios,
-    categoriasGasto,
-    pinAdmin: (configRes.data?.pin_admin as string) || "1234",
-    cupones: (cuponesRes.data || []).map(cuponFromRow),
-    movimientosContables: (movimientosRes.data || []).map(movimientoFromRow),
+    clientes: clientesRows.map(clienteFromRow),
+    ingresos: ingresosRows.map(ingresoFromRow),
+    ventas: ventasRows.map(ventaFromRow),
+    perfiles: perfilesData,
+    precios: preciosData,
+    categoriasGasto: categoriasGastoData,
+    pinAdmin: configRows[0]?.pinAdmin || "1234",
+    cupones: cuponesRows.map(cuponFromRow),
+    movimientosContables: movimientosRows.map(movimientoFromRow),
+    empresas: empresasRows.map(empresaFromRow),
   };
 }
 
 export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
   if (!rows.length) return true;
-  const { error } = await supabase.from("clientes").upsert(rows.map(clienteToRow));
-  if (error) console.error("Error guardando clientes", error);
-  return !error;
+  try {
+    await upsertRows(clientes, clientes.id, rows.map(clienteToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando clientes", error);
+    return false;
+  }
 }
 
 export async function deleteClientes(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
-  const { error } = await supabase.from("clientes").delete().in("id", ids);
-  if (error) console.error("Error eliminando clientes", error);
-  return !error;
+  try {
+    await getDb().delete(clientes).where(inArray(clientes.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando clientes", error);
+    return false;
+  }
 }
 
 export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
   if (!rows.length) return true;
-  const { error } = await supabase.from("ingresos").insert(rows.map(ingresoToRow));
-  if (error) console.error("Error guardando ingresos", error);
-  return !error;
+  try {
+    await getDb().insert(ingresos).values(rows.map(ingresoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando ingresos", error);
+    return false;
+  }
 }
 
 export async function insertVentas(rows: Venta[]): Promise<boolean> {
   if (!rows.length) return true;
-  const { error } = await supabase.from("ventas").insert(rows.map(ventaToRow));
-  if (error) console.error("Error guardando ventas", error);
-  return !error;
+  try {
+    await getDb().insert(ventas).values(rows.map(ventaToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando ventas", error);
+    return false;
+  }
 }
 
-export async function upsertOperadores(rows: Operador[]): Promise<boolean> {
+// Solo actualiza nombre/modulos (ver perfilToRow) de perfiles que YA
+// existen: crear un perfil nuevo con su clave inicial pasa por
+// /api/perfiles/crear. Por eso es un UPDATE directo y no un upsert — un
+// INSERT (aunque termine resolviendo por ON CONFLICT DO UPDATE) exige que
+// la fila propuesta satisfaga el NOT NULL de "clave", que perfilToRow omite
+// a propósito para no tocar la contraseña.
+export async function upsertPerfiles(rows: PerfilPublico[]): Promise<boolean> {
   if (!rows.length) return true;
-  const { error } = await supabase.from("operadores").upsert(rows.map(operadorToRow));
-  if (error) console.error("Error guardando operadores", error);
-  return !error;
+  try {
+    const db = getDb();
+    await Promise.all(rows.map((p) => db.update(perfiles).set(perfilToRow(p)).where(eq(perfiles.id, p.id))));
+    return true;
+  } catch (error) {
+    console.error("Error guardando perfiles", error);
+    return false;
+  }
 }
 
-export async function deleteOperadores(ids: string[]): Promise<boolean> {
+export async function deletePerfiles(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
-  const { error } = await supabase.from("operadores").delete().in("id", ids);
-  if (error) console.error("Error eliminando operadores", error);
-  return !error;
+  try {
+    await getDb().delete(perfiles).where(inArray(perfiles.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando perfiles", error);
+    return false;
+  }
 }
 
-export async function upsertPrecios(precios: Precios): Promise<boolean> {
-  const rows = Object.entries(precios).map(([plan, v]) => ({ plan, normal: v.normal, promo: v.promo }));
+export async function upsertPrecios(precios_: Precios): Promise<boolean> {
+  const rows = Object.entries(precios_).map(([plan, v]) => ({ plan, normal: v.normal, promo: v.promo }));
   if (!rows.length) return true;
-  const { error } = await supabase.from("precios").upsert(rows);
-  if (error) console.error("Error guardando precios", error);
-  return !error;
+  try {
+    await upsertRows(precios, precios.plan, rows);
+    return true;
+  } catch (error) {
+    console.error("Error guardando precios", error);
+    return false;
+  }
 }
 
 export async function setPinAdmin(pin: string): Promise<boolean> {
-  const { error } = await supabase.from("config").update({ pin_admin: pin }).eq("id", true);
-  if (error) console.error("Error guardando PIN", error);
-  return !error;
+  try {
+    await getDb().update(config).set({ pinAdmin: pin }).where(eq(config.id, true));
+    return true;
+  } catch (error) {
+    console.error("Error guardando PIN", error);
+    return false;
+  }
 }
 
 export async function upsertCupones(rows: Cupon[]): Promise<boolean> {
   if (!rows.length) return true;
-  const { error } = await supabase.from("cupones").upsert(rows.map(cuponToRow));
-  if (error) console.error("Error guardando cupones", error);
-  return !error;
+  try {
+    await upsertRows(cupones, cupones.id, rows.map(cuponToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando cupones", error);
+    return false;
+  }
 }
 
 export async function deleteCupones(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
-  const { error } = await supabase.from("cupones").delete().in("id", ids);
-  if (error) console.error("Error eliminando cupones", error);
-  return !error;
+  try {
+    await getDb().delete(cupones).where(inArray(cupones.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando cupones", error);
+    return false;
+  }
 }
 
 export async function upsertMovimientosContables(rows: MovimientoContable[]): Promise<boolean> {
   if (!rows.length) return true;
-  const { error } = await supabase.from("movimientos_contables").upsert(rows.map(movimientoToRow));
-  if (error) console.error("Error guardando movimientos contables", error);
-  return !error;
+  try {
+    await upsertRows(movimientosContables, movimientosContables.id, rows.map(movimientoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando movimientos contables", error);
+    return false;
+  }
 }
 
 export async function deleteMovimientosContables(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
-  const { error } = await supabase.from("movimientos_contables").delete().in("id", ids);
-  if (error) console.error("Error eliminando movimientos contables", error);
-  return !error;
+  try {
+    await getDb().delete(movimientosContables).where(inArray(movimientosContables.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando movimientos contables", error);
+    return false;
+  }
 }
 
 export async function upsertCategoriasGasto(rows: CategoriaGasto[]): Promise<boolean> {
   if (!rows.length) return true;
-  const { error } = await supabase.from("categorias_gasto").upsert(rows.map(categoriaGastoToRow));
-  if (error) console.error("Error guardando categorías de gasto", error);
-  return !error;
+  try {
+    await upsertRows(categoriasGasto, categoriasGasto.id, rows.map(categoriaGastoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando categorías de gasto", error);
+    return false;
+  }
+}
+
+export async function upsertEmpresas(rows: Empresa[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(empresas, empresas.id, rows.map(empresaToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando empresas", error);
+    return false;
+  }
+}
+
+export async function deleteEmpresas(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(empresas).where(inArray(empresas.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando empresas", error);
+    return false;
+  }
 }
 
 const COMPROBANTES_BUCKET = "comprobantes-gastos";

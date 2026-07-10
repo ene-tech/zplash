@@ -3,7 +3,19 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
-import { SERVICIOS_ADICIONALES, findClient, fmtCLP, normPlate, precioServicioAdicional, todayStr } from "@/lib/helpers";
+import {
+  PATENTE_FORMATO_MSG,
+  RUT_FORMATO_MSG,
+  SERVICIOS_ADICIONALES,
+  findClient,
+  fmtCLP,
+  formatRut,
+  isValidPatente,
+  isValidRut,
+  normPlate,
+  precioServicioAdicional,
+  todayStr,
+} from "@/lib/helpers";
 import type { Cliente, Venta } from "@/types";
 
 const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
@@ -91,6 +103,10 @@ export default function ServiciosAdicionalesView() {
       setErr("Ingresa una patente");
       return;
     }
+    if (!isValidPatente(patente)) {
+      setErr(PATENTE_FORMATO_MSG);
+      return;
+    }
     setErr("");
     const cliente = findClient(data.clientes, patente);
     setPatenteBuscada(patente);
@@ -136,7 +152,12 @@ export default function ServiciosAdicionalesView() {
     const email = emailRef.current?.value.trim() || "";
     const vehiculo = vehiculoRef.current?.value.trim() || "";
     const razonSocial = tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
-    const rut = tipoDoc === "Factura" ? rutRef.current?.value.trim() || "" : "";
+    const rutRaw = tipoDoc === "Factura" ? rutRef.current?.value.trim() || "" : "";
+    if (tipoDoc === "Factura" && !isValidRut(rutRaw)) {
+      setErr(RUT_FORMATO_MSG);
+      return;
+    }
+    const rut = tipoDoc === "Factura" ? formatRut(rutRaw) : "";
     const direccion = tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "";
     const giro = tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "";
     const horaEntrega = horaEntregaRef.current?.value || "";
@@ -182,7 +203,7 @@ export default function ServiciosAdicionalesView() {
         origen: "LOCAL",
         visitas: 0,
         creadoEn: new Date().toISOString(),
-        creadoPor: ui.operadorActual || "",
+        creadoPor: ui.perfilActual?.nombre || "",
       };
       clientes = [...data.clientes, nuevo];
       clienteId = nuevo.id;
@@ -198,7 +219,7 @@ export default function ServiciosAdicionalesView() {
       precio: l.precio,
       tipo: l.nombre,
       fecha: ahora,
-      operador: ui.operadorActual || "",
+      operador: ui.perfilActual?.nombre || "",
       metodoPago: estadoPago === "pendiente" ? undefined : metodoPago || undefined,
       horaEntrega: horaEntrega || undefined,
       notas: notas || undefined,
@@ -228,8 +249,9 @@ export default function ServiciosAdicionalesView() {
   return (
     <>
       <Topbar
-        mode={`Servicios Adicionales · ${ui.operadorActual || ""}`}
-        onLogout={() => patchUi({ view: "login", operadorActual: null, loginMode: null })}
+        mode={`Servicios Adicionales · ${ui.perfilActual?.nombre || ""}`}
+        onLogout={() => patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null, loginMode: null })}
+        onBack={() => patchUi({ view: "hub" })}
       />
       <div className="content">
         <div className="scan-panel" style={{ textAlign: "left" }}>
