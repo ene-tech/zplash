@@ -71,25 +71,48 @@ export default function OperadorView() {
     setPlateErr("");
     setEscaneando(true);
     try {
-      const imagen = await comprimirImagen(file);
+      // La compresión es "best effort": si falla en algún celular puntual,
+      // se manda la foto tal cual en vez de cortar todo el flujo acá.
+      let imagen: Blob = file;
+      try {
+        imagen = await comprimirImagen(file);
+      } catch (errCompresion) {
+        console.error("No se pudo comprimir la foto, se manda sin comprimir", errCompresion);
+      }
+
       const formData = new FormData();
       formData.append("imagen", imagen, "patente.jpg");
-      const res = await fetch("/api/reconocer-patente", { method: "POST", body: formData });
-      const json = await res.json();
+
+      let res: Response;
+      try {
+        res = await fetch("/api/reconocer-patente", { method: "POST", body: formData });
+      } catch (errRed) {
+        console.error("Fetch a /api/reconocer-patente falló", errRed);
+        setPlateErr("Sin conexión a internet. Escribe la patente a mano.");
+        return;
+      }
+
+      let json: { patente?: string | null; error?: string };
+      try {
+        json = await res.json();
+      } catch (errJson) {
+        console.error("Respuesta no-JSON de /api/reconocer-patente", res.status, errJson);
+        setPlateErr(`El servidor respondió con un error (${res.status}). Escribe la patente a mano.`);
+        return;
+      }
+
       if (!res.ok) {
-        setPlateErr("No se pudo leer la patente en la foto. Escríbela a mano.");
+        setPlateErr(`${json.error || "No se pudo leer la patente"}. Escríbela a mano.`);
         return;
       }
       if (!json.patente) {
-        setPlateErr("No se detectó ninguna patente. Acércate más y que la patente quede bien iluminada, o escríbela a mano.");
+        setPlateErr("No se detectó ninguna patente. Acércate más y que quede bien iluminada, o escríbela a mano.");
         return;
       }
       if (plateInputRef.current) {
         plateInputRef.current.value = json.patente;
         plateInputRef.current.focus();
       }
-    } catch {
-      setPlateErr("No se pudo leer la patente (sin conexión). Escríbela a mano.");
     } finally {
       setEscaneando(false);
     }
