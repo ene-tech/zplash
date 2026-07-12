@@ -84,15 +84,11 @@ export default function CierreTab() {
   const metodosPago = [
     { metodo: "Efectivo", cantidad: efectivoItems.length, monto: efectivoItems.reduce((s, v) => s + cobrado(v), 0) },
     { metodo: "Tarjeta", cantidad: tarjetaItems.length, monto: tarjetaItems.reduce((s, v) => s + cobrado(v), 0) },
-    ...(transferenciaItems.length
-      ? [
-          {
-            metodo: "Transferencia bancaria",
-            cantidad: transferenciaItems.length,
-            monto: transferenciaItems.reduce((s, v) => s + cobrado(v), 0),
-          },
-        ]
-      : []),
+    {
+      metodo: "Transferencia bancaria",
+      cantidad: transferenciaItems.length,
+      monto: transferenciaItems.reduce((s, v) => s + cobrado(v), 0),
+    },
     {
       metodo: "Cuentas x Cobrar",
       cantidad: cuentasPorCobrarItems.length,
