@@ -93,7 +93,10 @@ function clienteFromRow(r: ClienteRow): Cliente {
 function ingresoToRow(i: Ingreso): typeof ingresos.$inferInsert {
   return {
     id: i.id,
-    clienteId: i.clienteId,
+    // "" representa "sin cliente" (lavado sin registro, canje de cupón) en
+    // memoria — se normaliza a NULL real para poder agregar una FK a
+    // clientes sin romper esos flujos (ver supabase/add-foreign-keys.sql).
+    clienteId: i.clienteId || null,
     patente: i.patente,
     nombre: i.nombre,
     fecha: i.fecha,
@@ -125,7 +128,10 @@ function ingresoFromRow(r: IngresoRow): Ingreso {
 function ventaToRow(v: Venta): typeof ventas.$inferInsert {
   return {
     id: v.id,
-    clienteId: v.clienteId,
+    // "" representa "sin cliente" (lavado sin registro, Venta Empresa) en
+    // memoria — se normaliza a NULL real para poder agregar una FK a
+    // clientes sin romper esos flujos (ver supabase/add-foreign-keys.sql).
+    clienteId: v.clienteId || null,
     patente: v.patente,
     nombre: v.nombre,
     plan: v.plan || "",
