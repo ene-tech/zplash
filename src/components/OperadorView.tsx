@@ -8,6 +8,30 @@ import OperadorResult from "@/components/OperadorResult";
 import TodayLog from "@/components/TodayLog";
 import type { Ingreso } from "@/types";
 
+// Las fotos de la cámara del celular en resolución completa suelen pesar
+// 5-12 MB, y Plate Recognizer (Snapshot Cloud) rechaza cualquier imagen de
+// más de 3 MB — eso se ve igual que "no detectó ninguna patente", así que
+// se achica la imagen en el navegador antes de mandarla. De paso normaliza
+// el formato a JPEG (algunos celulares capturan en HEIC).
+async function comprimirImagen(file: File, ladoMax = 1600, calidad = 0.85): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  let { width, height } = bitmap;
+  if (width > ladoMax || height > ladoMax) {
+    const escala = ladoMax / Math.max(width, height);
+    width = Math.round(width * escala);
+    height = Math.round(height * escala);
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo procesar la imagen");
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("No se pudo procesar la imagen"))), "image/jpeg", calidad);
+  });
+}
+
 export default function OperadorView() {
   const { data, ui, commit, patchUi } = useApp();
   const hoy = todayStr();
@@ -47,12 +71,17 @@ export default function OperadorView() {
     setPlateErr("");
     setEscaneando(true);
     try {
+      const imagen = await comprimirImagen(file);
       const formData = new FormData();
-      formData.append("imagen", file);
+      formData.append("imagen", imagen, "patente.jpg");
       const res = await fetch("/api/reconocer-patente", { method: "POST", body: formData });
       const json = await res.json();
-      if (!res.ok || !json.patente) {
+      if (!res.ok) {
         setPlateErr("No se pudo leer la patente en la foto. Escríbela a mano.");
+        return;
+      }
+      if (!json.patente) {
+        setPlateErr("No se detectó ninguna patente. Acércate más y que la patente quede bien iluminada, o escríbela a mano.");
         return;
       }
       if (plateInputRef.current) {
@@ -169,6 +198,9 @@ export default function OperadorView() {
           >
             {escaneando ? "Leyendo patente..." : "📷 Escanear patente"}
           </button>
+          <div className="hint" style={{ marginTop: 4 }}>
+            Acércate para que la patente ocupe gran parte de la foto
+          </div>
           <br />
           {plateErr && <div className="err">{plateErr}</div>}
           <button className="btn" onClick={doValidate}>
