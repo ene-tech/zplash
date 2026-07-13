@@ -11,6 +11,7 @@ import {
   cupones,
   empresas,
   ingresos,
+  liquidacionesSueldo,
   movimientosContables,
   perfiles,
   precios,
@@ -23,9 +24,11 @@ import type {
   AuditoriaEntrada,
   CategoriaGasto,
   Cliente,
+  ColaboradorFicha,
   Cupon,
   Empresa,
   Ingreso,
+  LiquidacionSueldo,
   MovimientoContable,
   PerfilPublico,
   Precios,
@@ -36,11 +39,16 @@ type ClienteRow = typeof clientes.$inferSelect;
 type IngresoRow = typeof ingresos.$inferSelect;
 type VentaRow = typeof ventas.$inferSelect;
 type PerfilPublicoRow = Pick<typeof perfiles.$inferSelect, "id" | "nombre" | "modulos" | "icono">;
+type ColaboradorFichaRow = Pick<
+  typeof perfiles.$inferSelect,
+  "id" | "nombre" | "icono" | "rut" | "cargo" | "fechaIngreso" | "sueldoBase"
+>;
 type CategoriaGastoRow = typeof categoriasGasto.$inferSelect;
 type CuponRow = typeof cupones.$inferSelect;
 type MovimientoRow = typeof movimientosContables.$inferSelect;
 type PrecioRow = typeof precios.$inferSelect;
 type EmpresaRow = typeof empresas.$inferSelect;
+type LiquidacionSueldoRow = typeof liquidacionesSueldo.$inferSelect;
 
 function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
   return {
@@ -153,6 +161,8 @@ function ventaToRow(v: Venta): typeof ventas.$inferInsert {
     rut: v.rut || null,
     direccion: v.direccion || null,
     giro: v.giro || null,
+    viaCupon: v.viaCupon || false,
+    cuponCodigo: v.cuponCodigo || null,
   };
 }
 
@@ -179,6 +189,8 @@ function ventaFromRow(r: VentaRow): Venta {
     rut: r.rut || undefined,
     direccion: r.direccion || undefined,
     giro: r.giro || undefined,
+    viaCupon: r.viaCupon || undefined,
+    cuponCodigo: r.cuponCodigo || undefined,
   };
 }
 
@@ -195,6 +207,76 @@ function perfilPublicoFromRow(r: PerfilPublicoRow): PerfilPublico {
     nombre: r.nombre,
     modulos: (r.modulos as PerfilPublico["modulos"]) || [],
     icono: r.icono || undefined,
+  };
+}
+
+// Solo toca rut/cargo/fechaIngreso/sueldoBase (la ficha de Remuneraciones):
+// nombre/modulos/icono se editan desde el perfil (ver perfilToRow) y clave
+// nunca se escribe desde acá, mismo criterio que perfilToRow.
+function colaboradorFichaToRow(c: ColaboradorFicha): Pick<typeof perfiles.$inferInsert, "rut" | "cargo" | "fechaIngreso" | "sueldoBase"> {
+  return {
+    rut: c.rut || null,
+    cargo: c.cargo || null,
+    fechaIngreso: c.fechaIngreso || null,
+    sueldoBase: c.sueldoBase ?? null,
+  };
+}
+
+function colaboradorFichaFromRow(r: ColaboradorFichaRow): ColaboradorFicha {
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    icono: r.icono || undefined,
+    rut: r.rut || undefined,
+    cargo: r.cargo || undefined,
+    fechaIngreso: r.fechaIngreso || null,
+    sueldoBase: r.sueldoBase ?? undefined,
+  };
+}
+
+function liquidacionSueldoToRow(l: LiquidacionSueldo): typeof liquidacionesSueldo.$inferInsert {
+  return {
+    id: l.id,
+    perfilId: l.perfilId,
+    periodo: l.periodo,
+    sueldoBase: l.sueldoBase || 0,
+    gratificacion: l.gratificacion || 0,
+    bonos: l.bonos || 0,
+    horasExtra: l.horasExtra || 0,
+    descuentoAfp: l.descuentoAfp || 0,
+    descuentoSalud: l.descuentoSalud || 0,
+    descuentoImpuesto: l.descuentoImpuesto || 0,
+    otrosDescuentos: l.otrosDescuentos || 0,
+    totalLiquido: l.totalLiquido || 0,
+    fechaPago: l.fechaPago,
+    documentoUrl: l.documentoUrl || null,
+    documentoNombre: l.documentoNombre || null,
+    notas: l.notas || null,
+    creadoEn: l.creadoEn,
+    creadoPor: l.creadoPor || null,
+  };
+}
+
+function liquidacionSueldoFromRow(r: LiquidacionSueldoRow): LiquidacionSueldo {
+  return {
+    id: r.id,
+    perfilId: r.perfilId,
+    periodo: r.periodo,
+    sueldoBase: r.sueldoBase || 0,
+    gratificacion: r.gratificacion || 0,
+    bonos: r.bonos || 0,
+    horasExtra: r.horasExtra || 0,
+    descuentoAfp: r.descuentoAfp || 0,
+    descuentoSalud: r.descuentoSalud || 0,
+    descuentoImpuesto: r.descuentoImpuesto || 0,
+    otrosDescuentos: r.otrosDescuentos || 0,
+    totalLiquido: r.totalLiquido || 0,
+    fechaPago: r.fechaPago,
+    documentoUrl: r.documentoUrl || undefined,
+    documentoNombre: r.documentoNombre || undefined,
+    notas: r.notas || undefined,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
   };
 }
 
@@ -221,6 +303,9 @@ function cuponToRow(c: Cupon): typeof cupones.$inferInsert {
     operadorUso: c.operadorUso || null,
     creadoEn: c.creadoEn,
     creadoPor: c.creadoPor || null,
+    tipo: c.tipo || "vale",
+    patenteAsignada: c.patenteAsignada || null,
+    esPorcentaje: c.esPorcentaje || false,
   };
 }
 
@@ -239,6 +324,9 @@ function cuponFromRow(r: CuponRow): Cupon {
     operadorUso: r.operadorUso || undefined,
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
+    tipo: (r.tipo as Cupon["tipo"]) || "vale",
+    patenteAsignada: r.patenteAsignada || undefined,
+    esPorcentaje: r.esPorcentaje || false,
   };
 }
 
@@ -374,26 +462,48 @@ export async function loadAll(): Promise<AppData> {
     ingresosRows,
     ventasRows,
     perfilesRows,
+    colaboradoresRows,
     preciosRows,
     configRows,
     cuponesRows,
     movimientosRows,
     categoriasGastoRows,
     empresasRows,
+    liquidacionesRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
     safe(db.select().from(ventas).orderBy(desc(ventas.fecha))),
     safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos, icono: perfiles.icono }).from(perfiles)),
+    // Query aparte (no fusionada con la de arriba) a propósito: si las
+    // columnas de Remuneraciones todavía no existen en la base (falta correr
+    // supabase/add-remuneraciones.sql), esta query falla y safe() la reduce a
+    // [] sin arrastrarse la de perfilesRows — que alimenta la pantalla de
+    // login y no puede quedar bloqueada por eso.
+    safe(
+      db
+        .select({
+          id: perfiles.id,
+          nombre: perfiles.nombre,
+          icono: perfiles.icono,
+          rut: perfiles.rut,
+          cargo: perfiles.cargo,
+          fechaIngreso: perfiles.fechaIngreso,
+          sueldoBase: perfiles.sueldoBase,
+        })
+        .from(perfiles)
+    ),
     safe(db.select().from(precios)),
     safe(db.select().from(config).limit(1)),
     safe(db.select().from(cupones).orderBy(desc(cupones.creadoEn))),
     safe(db.select().from(movimientosContables).orderBy(desc(movimientosContables.fecha))),
     safe(db.select().from(categoriasGasto).orderBy(asc(categoriasGasto.nombre))),
     safe(db.select().from(empresas).orderBy(asc(empresas.razonSocial))),
+    safe(db.select().from(liquidacionesSueldo).orderBy(desc(liquidacionesSueldo.periodo))),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
+  const colaboradoresData = colaboradoresRows.map(colaboradorFichaFromRow);
   const preciosData = preciosRows.length ? preciosFromRows(preciosRows) : PRECIOS_DEFAULT;
   const categoriasGastoData = categoriasGastoRows.length
     ? categoriasGastoRows.map(categoriaGastoFromRow)
@@ -410,6 +520,8 @@ export async function loadAll(): Promise<AppData> {
     cupones: cuponesRows.map(cuponFromRow),
     movimientosContables: movimientosRows.map(movimientoFromRow),
     empresas: empresasRows.map(empresaFromRow),
+    colaboradores: colaboradoresData,
+    liquidacionesSueldo: liquidacionesRows.map(liquidacionSueldoFromRow),
   };
 }
 
@@ -482,6 +594,21 @@ export async function deletePerfiles(ids: string[]): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Error eliminando perfiles", error);
+    return false;
+  }
+}
+
+// Igual que upsertPerfiles: solo actualiza filas de perfiles que ya existen
+// (la ficha de un colaborador no tiene sentido sin un perfil/login previo),
+// pero tocando las columnas de Remuneraciones en vez de nombre/modulos/icono.
+export async function upsertColaboradores(rows: ColaboradorFicha[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    const db = getDb();
+    await Promise.all(rows.map((c) => db.update(perfiles).set(colaboradorFichaToRow(c)).where(eq(perfiles.id, c.id))));
+    return true;
+  } catch (error) {
+    console.error("Error guardando ficha de colaborador", error);
     return false;
   }
 }
@@ -585,6 +712,28 @@ export async function deleteEmpresas(ids: string[]): Promise<boolean> {
   }
 }
 
+export async function upsertLiquidacionesSueldo(rows: LiquidacionSueldo[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(liquidacionesSueldo, liquidacionesSueldo.id, rows.map(liquidacionSueldoToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando liquidaciones de sueldo", error);
+    return false;
+  }
+}
+
+export async function deleteLiquidacionesSueldo(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(liquidacionesSueldo).where(inArray(liquidacionesSueldo.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando liquidaciones de sueldo", error);
+    return false;
+  }
+}
+
 // Log de auditoría: de solo escritura (append-only), nunca se actualiza ni
 // se borra desde la app. Falla en silencio (solo loguea a consola) para que
 // un problema con la auditoría nunca bloquee ni revierta la escritura de
@@ -623,5 +772,19 @@ export async function subirComprobanteGasto(id: string, file: File): Promise<str
     return null;
   }
   const { data } = supabase.storage.from(COMPROBANTES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+const LIQUIDACIONES_BUCKET = "liquidaciones-sueldo";
+
+/** Sube el documento de una liquidación de sueldo y devuelve su URL pública, o null si falló. */
+export async function subirLiquidacionSueldo(id: string, file: File): Promise<string | null> {
+  const path = `${id}-${file.name}`;
+  const { error } = await supabase.storage.from(LIQUIDACIONES_BUCKET).upload(path, file, { upsert: true });
+  if (error) {
+    console.error("Error subiendo liquidación de sueldo", error);
+    return null;
+  }
+  const { data } = supabase.storage.from(LIQUIDACIONES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }

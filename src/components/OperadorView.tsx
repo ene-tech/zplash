@@ -134,6 +134,10 @@ export default function OperadorView() {
       setCuponErr({ msg: "Código no encontrado", ok: false });
       return;
     }
+    if (cupon.tipo === "descuento") {
+      setCuponErr({ msg: "Este código es un descuento: ingrésalo al cobrar el lavado (patente no encontrada), no acá", ok: false });
+      return;
+    }
     if (cupon.usado) {
       setCuponErr({ msg: "Este cupón ya fue usado", ok: false });
       return;

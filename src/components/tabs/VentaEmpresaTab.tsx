@@ -3,13 +3,28 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import DatosTransferencia from "@/components/DatosTransferencia";
-import { RUT_FORMATO_MSG, fmtCLP, formatRut, generarCodigoCupon, isValidRut, uid } from "@/lib/helpers";
+import {
+  PATENTE_FORMATO_MSG,
+  RUT_FORMATO_MSG,
+  fmtCLP,
+  formatRut,
+  generarCodigoCupon,
+  isValidPatente,
+  isValidRut,
+  normPlate,
+  uid,
+} from "@/lib/helpers";
 import type { Cupon, Empresa, Venta } from "@/types";
 
 function estadoCupon(c: Cupon): { label: string; cls: "ok" | "warn" | "bad" } {
   if (c.usado) return { label: "Usado", cls: "ok" };
   if (new Date(c.fechaCaducidad) < new Date()) return { label: "Caducado", cls: "bad" };
   return { label: "Disponible", cls: "warn" };
+}
+
+function valorCupon(c: Cupon): string {
+  if (c.tipo === "descuento") return c.esPorcentaje ? `${c.valor}%` : fmtCLP(c.valor);
+  return c.valor > 0 ? fmtCLP(c.valor) : "Gratis";
 }
 
 export default function VentaEmpresaTab() {
@@ -28,6 +43,14 @@ export default function VentaEmpresaTab() {
   const [estadoTransferencia, setEstadoTransferencia] = useState<"pagado" | "pendiente" | null>(null);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [busqueda, setBusqueda] = useState("");
+
+  const dNombreRef = useRef<HTMLInputElement>(null);
+  const dValorRef = useRef<HTMLInputElement>(null);
+  const dCaducidadRef = useRef<HTMLInputElement>(null);
+  const dPatenteRef = useRef<HTMLInputElement>(null);
+  const [dTipoValor, setDTipoValor] = useState<"monto" | "porcentaje">("monto");
+  const [dAbierto, setDAbierto] = useState(false);
+  const [errDescuento, setErrDescuento] = useState<{ msg: string; ok: boolean } | null>(null);
 
   // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
   // existe una con ese RUT se traen sus datos en vez de tipearlos de nuevo.
@@ -95,6 +118,7 @@ export default function VentaEmpresaTab() {
         usado: false,
         creadoEn: new Date().toISOString(),
         creadoPor: "Administrador",
+        tipo: "vale",
       });
     }
 
@@ -175,6 +199,59 @@ export default function VentaEmpresaTab() {
     commit({ cupones: data.cupones.filter((x) => x.id !== cup.id) });
   };
 
+  const crearDescuento = async () => {
+    const nombreLote = dNombreRef.current?.value.trim() || "";
+    const valor = Number(dValorRef.current?.value || 0);
+    const fechaCaducidad = dCaducidadRef.current?.value || "";
+    const patente = dAbierto ? "" : normPlate(dPatenteRef.current?.value || "");
+    if (!nombreLote || !valor || valor <= 0 || !fechaCaducidad) {
+      setErrDescuento({ msg: "Completa nombre, valor y fecha de caducidad", ok: false });
+      return;
+    }
+    if (dTipoValor === "porcentaje" && valor > 100) {
+      setErrDescuento({ msg: "El porcentaje no puede ser mayor a 100", ok: false });
+      return;
+    }
+    if (!dAbierto && !isValidPatente(patente)) {
+      setErrDescuento({ msg: PATENTE_FORMATO_MSG, ok: false });
+      return;
+    }
+
+    const existentes = new Set(data.cupones.map((c) => c.codigo));
+    const codigo = generarCodigoCupon(existentes);
+    const nuevo: Cupon = {
+      id: uid(),
+      codigo,
+      nombreLote,
+      valor,
+      numeroLote: 1,
+      totalLote: 1,
+      fechaCaducidad: new Date(fechaCaducidad + "T23:59:59").toISOString(),
+      usado: false,
+      creadoEn: new Date().toISOString(),
+      creadoPor: "Administrador",
+      tipo: "descuento",
+      esPorcentaje: dTipoValor === "porcentaje",
+      patenteAsignada: dAbierto ? undefined : patente,
+    };
+
+    const ok = await commit({ cupones: [nuevo, ...data.cupones] });
+    if (!ok) {
+      setErrDescuento({ msg: "No se pudo crear el descuento (sin conexión). Intenta de nuevo.", ok: false });
+      return;
+    }
+    setErrDescuento({
+      msg: `Descuento "${nombreLote}" creado — código ${codigo}${dAbierto ? " (abierto, cualquier patente)" : ` para ${patente}`}`,
+      ok: true,
+    });
+    if (dNombreRef.current) dNombreRef.current.value = "";
+    if (dValorRef.current) dValorRef.current.value = "";
+    if (dCaducidadRef.current) dCaducidadRef.current.value = "";
+    if (dPatenteRef.current) dPatenteRef.current.value = "";
+    setDTipoValor("monto");
+    setDAbierto(false);
+  };
+
   const q = busqueda.toLowerCase().trim();
   const filtrados = data.cupones
     .filter((c) => !q || c.nombreLote.toLowerCase().includes(q) || c.codigo.toLowerCase().includes(q))
@@ -186,11 +263,13 @@ export default function VentaEmpresaTab() {
         const est = estadoCupon(c);
         return {
           Código: c.codigo,
+          Tipo: c.tipo === "descuento" ? "Descuento" : "Vale",
           "N°": `${c.numeroLote}/${c.totalLote}`,
           Lote: c.nombreLote,
-          "Valor c/u": c.valor > 0 ? c.valor : "Gratis",
+          "Valor c/u": valorCupon(c),
           Caducidad: new Date(c.fechaCaducidad).toLocaleDateString("es-CL"),
           Estado: est.label,
+          "Patente asignada": c.patenteAsignada || "",
           "Patente de uso": c.patenteUso || "",
         };
       });
@@ -200,7 +279,19 @@ export default function VentaEmpresaTab() {
         XLSX.utils.json_to_sheet(
           filas.length
             ? filas
-            : [{ Código: "", "N°": "", Lote: "", "Valor c/u": "", Caducidad: "", Estado: "", "Patente de uso": "" }]
+            : [
+                {
+                  Código: "",
+                  Tipo: "",
+                  "N°": "",
+                  Lote: "",
+                  "Valor c/u": "",
+                  Caducidad: "",
+                  Estado: "",
+                  "Patente asignada": "",
+                  "Patente de uso": "",
+                },
+              ]
         ),
         "Cupones"
       );
@@ -210,8 +301,9 @@ export default function VentaEmpresaTab() {
 
   return (
     <div>
-      <div className="modal" style={{ maxWidth: 480, margin: "0 0 24px 0" }}>
-        <h3>Generar cupones</h3>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
+        <div className="modal" style={{ maxWidth: 480, flex: "1 1 400px", margin: 0 }}>
+          <h3>Generar cupones</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
           Genera cupones de ingreso para vender a empresas. El valor se registra completo en el cierre de caja de
           hoy (la empresa paga el lote entero por adelantado); cada cupón se canjea después una sola vez desde el
@@ -328,6 +420,73 @@ export default function VentaEmpresaTab() {
         <button className="btn" onClick={generar}>
           Generar cupones
         </button>
+        </div>
+
+        <div className="modal" style={{ maxWidth: 480, flex: "1 1 400px", margin: 0 }}>
+        <h3>Crear descuento</h3>
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+          Genera un código de descuento (no un lavado gratis): resta un % o un monto fijo del precio a cobrar al
+          canjearlo desde el perfil operador. Puede quedar asignado a una patente específica o abierto para
+          cualquiera.
+        </div>
+        <div className="field">
+          <label>Nombre (motivo del descuento)</label>
+          <input ref={dNombreRef} placeholder="Ej: Promo redes sociales" />
+        </div>
+        <div className="field">
+          <label>Tipo de valor</label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              className={dTipoValor === "monto" ? "btn" : "btn ghost"}
+              style={{ flex: 1, marginTop: 0 }}
+              onClick={() => setDTipoValor("monto")}
+            >
+              Monto ($)
+            </button>
+            <button
+              type="button"
+              className={dTipoValor === "porcentaje" ? "btn" : "btn ghost"}
+              style={{ flex: 1, marginTop: 0 }}
+              onClick={() => setDTipoValor("porcentaje")}
+            >
+              Porcentaje (%)
+            </button>
+          </div>
+        </div>
+        <div className="field">
+          <label>{dTipoValor === "porcentaje" ? "Porcentaje de descuento" : "Monto a descontar"}</label>
+          <input
+            ref={dValorRef}
+            type="number"
+            min={0}
+            max={dTipoValor === "porcentaje" ? 100 : undefined}
+            placeholder={dTipoValor === "porcentaje" ? "15" : "1000"}
+          />
+        </div>
+        <div className="field">
+          <label>Fecha de caducidad</label>
+          <input ref={dCaducidadRef} type="date" />
+        </div>
+        <div className="field">
+          <label>
+            <input type="checkbox" checked={dAbierto} onChange={(e) => setDAbierto(e.target.checked)} /> Abierto
+            (cualquier patente)
+          </label>
+        </div>
+        {!dAbierto && (
+          <div className="field">
+            <label>Patente</label>
+            <input ref={dPatenteRef} placeholder="AB1234" style={{ textTransform: "uppercase" }} />
+          </div>
+        )}
+        <div className="err" style={{ color: errDescuento?.ok ? "var(--green)" : undefined }}>
+          {errDescuento?.msg || ""}
+        </div>
+        <button className="btn" onClick={crearDescuento}>
+          Crear descuento
+        </button>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -345,19 +504,20 @@ export default function VentaEmpresaTab() {
           <thead>
             <tr>
               <th>Código</th>
+              <th>Tipo</th>
               <th>N°</th>
               <th>Lote</th>
               <th>Valor c/u</th>
               <th>Caducidad</th>
               <th>Estado</th>
-              <th>Patente uso</th>
+              <th>Patente</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {filtrados.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <div className="empty">Sin cupones</div>
                 </td>
               </tr>
@@ -367,16 +527,17 @@ export default function VentaEmpresaTab() {
                 return (
                   <tr key={c.id}>
                     <td className="plate-tag">{c.codigo}</td>
+                    <td>{c.tipo === "descuento" ? "Descuento" : "Vale"}</td>
                     <td>
                       {c.numeroLote}/{c.totalLote}
                     </td>
                     <td>{c.nombreLote}</td>
-                    <td>{c.valor > 0 ? fmtCLP(c.valor) : "Gratis"}</td>
+                    <td>{valorCupon(c)}</td>
                     <td>{new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}</td>
                     <td>
                       <span className={`status-pill ${est.cls}`}>{est.label}</span>
                     </td>
-                    <td>{c.patenteUso || "-"}</td>
+                    <td>{c.patenteUso || c.patenteAsignada || (c.tipo === "descuento" ? "Abierto" : "-")}</td>
                     <td className="row-actions">
                       {!c.usado && (
                         <button className="icon-btn" onClick={() => eliminar(c)}>

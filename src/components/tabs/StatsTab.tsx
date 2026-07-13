@@ -4,7 +4,6 @@ import { useApp } from "@/context/AppContext";
 import {
   fmtCLP,
   inRange,
-  mesPasadoRango,
   planStatus,
   primerDiaMesActualYMD,
   todayStr,
@@ -53,13 +52,11 @@ export default function StatsTab() {
   const pct9990 = pct(por9990.length);
   const pctLimpiezas = pct(limpiezasCompletas.length);
 
-  // --- Uso de clientes con plan y ranking, fijo al mes calendario anterior ---
-  const { desde: mpDesde, hasta: mpHasta } = mesPasadoRango();
-  const ingresosMesPasado = data.ingresos.filter((i) => inRange(i.fecha, mpDesde, mpHasta));
+  // --- Uso de planes y ranking de clientes, según el período seleccionado arriba ---
   const clientesPorId = new Map(data.clientes.map((c) => [c.id, c]));
-
+  const ingresosVisitasPeriodo = data.ingresos.filter((i) => inRange(i.fecha, desde, hasta));
   const visitasPorCliente = new Map<string, number>();
-  ingresosMesPasado.forEach((i) => {
+  ingresosVisitasPeriodo.forEach((i) => {
     if (!i.clienteId) return;
     visitasPorCliente.set(i.clienteId, (visitasPorCliente.get(i.clienteId) || 0) + 1);
   });
@@ -68,9 +65,16 @@ export default function StatsTab() {
   const totalVisitasPlan = clientesConPlan.reduce((s, c) => s + (visitasPorCliente.get(c.id) || 0), 0);
   const promedioVisitasPlan = clientesConPlan.length ? totalVisitasPlan / clientesConPlan.length : 0;
 
-  const conVisitas = Array.from(visitasPorCliente.entries())
-    .map(([clienteId, cantidad]) => ({ cliente: clientesPorId.get(clienteId), cantidad }))
-    .filter((x): x is { cliente: Cliente; cantidad: number } => !!x.cliente);
+  // Un cliente con plan que no pasó ni una vez en el período no genera ingresos, así que nunca
+  // aparecería en el ranking: hay que sumarlo a mano con 0 pasadas para que el "top 10 que menos
+  // han pasado" sea consistente con el promedio de arriba (que sí cuenta los 0).
+  const clientesConPlanSinVisitas = clientesConPlan.filter((c) => !visitasPorCliente.has(c.id));
+  const conVisitas = [
+    ...Array.from(visitasPorCliente.entries())
+      .map(([clienteId, cantidad]) => ({ cliente: clientesPorId.get(clienteId), cantidad }))
+      .filter((x): x is { cliente: Cliente; cantidad: number } => !!x.cliente),
+    ...clientesConPlanSinVisitas.map((cliente) => ({ cliente, cantidad: 0 })),
+  ];
 
   const ordenNombre = (a: { cliente: Cliente }, b: { cliente: Cliente }) =>
     a.cliente.nombre.localeCompare(b.cliente.nombre, "es");
@@ -93,19 +97,19 @@ export default function StatsTab() {
           <div className="num">{data.ingresos.length}</div>
           <div className="lbl">Ingresos históricos</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card warn">
           <div className="num">{porVencer}</div>
           <div className="lbl">Planes por vencer</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card bad">
           <div className="num">{vencidos}</div>
           <div className="lbl">Planes vencidos</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card bad">
           <div className="num">{sinPlan}</div>
           <div className="lbl">Sin plan</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card ok">
           <div className="num">{vigentes.length}</div>
           <div className="lbl">Planes vigentes</div>
         </div>
@@ -177,24 +181,32 @@ export default function StatsTab() {
       <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Distribución de ingresos por tipo</h3>
       <div className="stat-grid">
         <div className="stat-card">
-          <div className="num">{pctPlanes}</div>
-          <div className="lbl">% Planes</div>
+          <div className="num">
+            {conPlan.length} · {pctPlanes}
+          </div>
+          <div className="lbl">Planes</div>
         </div>
         <div className="stat-card">
-          <div className="num">{pct9990}</div>
-          <div className="lbl">% {fmtCLP(9990)}</div>
+          <div className="num">
+            {por9990.length} · {pct9990}
+          </div>
+          <div className="lbl">{fmtCLP(9990)}</div>
         </div>
         <div className="stat-card">
-          <div className="num">{pctTickets}</div>
-          <div className="lbl">% Tickets</div>
+          <div className="num">
+            {ticketGratis.length + ticketPagado.length} · {pctTickets}
+          </div>
+          <div className="lbl">Tickets</div>
         </div>
         <div className="stat-card">
-          <div className="num">{pctLimpiezas}</div>
-          <div className="lbl">% Limpiezas completas</div>
+          <div className="num">
+            {limpiezasCompletas.length} · {pctLimpiezas}
+          </div>
+          <div className="lbl">Limpiezas completas</div>
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Uso de planes · mes pasado</h3>
+      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Uso de planes · período seleccionado</h3>
       <div className="stat-grid">
         <div className="stat-card">
           <div className="num">{promedioVisitasPlan.toFixed(1)}</div>
@@ -203,7 +215,7 @@ export default function StatsTab() {
       </div>
 
       <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>
-        Top 10 clientes que más pasaron · mes pasado
+        Top 10 clientes que más han pasado
       </h3>
       <table style={{ marginBottom: 24 }}>
         <thead>
@@ -217,7 +229,7 @@ export default function StatsTab() {
           {top10.length === 0 ? (
             <tr>
               <td colSpan={3}>
-                <div className="empty">Sin ingresos el mes pasado</div>
+                <div className="empty">Sin ingresos en el período seleccionado</div>
               </td>
             </tr>
           ) : (
@@ -233,7 +245,7 @@ export default function StatsTab() {
       </table>
 
       <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>
-        Top 10 clientes que menos pasaron · mes pasado
+        Top 10 clientes que menos han pasado
       </h3>
       <table>
         <thead>
@@ -247,7 +259,7 @@ export default function StatsTab() {
           {bottom10.length === 0 ? (
             <tr>
               <td colSpan={3}>
-                <div className="empty">Sin ingresos el mes pasado</div>
+                <div className="empty">Sin ingresos en el período seleccionado</div>
               </td>
             </tr>
           ) : (

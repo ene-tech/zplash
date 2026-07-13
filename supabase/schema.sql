@@ -94,14 +94,27 @@ create index if not exists ventas_cliente_idx on ventas (cliente_id);
 -- defecto) puede editar la de otros. El login y cualquier operación que
 -- toque `clave` corren server-side (rutas /api/perfiles/*) — el cliente
 -- (anon) nunca debe poder leer esa columna.
+-- rut/cargo/fecha_ingreso/sueldo_base son la ficha de Remuneraciones (ver
+-- ColaboradorFicha en src/types.ts): viven en la misma fila que el login
+-- por decisión explícita (evita una tabla 1:1 aparte), pero la query
+-- liviana que alimenta la pantalla de login (antes de iniciar sesión)
+-- sigue sin pedir estas columnas, igual que ya hacía con `clave`.
 create table if not exists perfiles (
   id text primary key,
   nombre text not null unique,
   clave text not null,
   modulos jsonb not null default '[]'::jsonb,
   icono text,
+  rut text,
+  cargo text,
+  fecha_ingreso timestamptz,
+  sueldo_base numeric,
   creado_en timestamptz not null default now()
 );
+alter table perfiles add column if not exists rut text;
+alter table perfiles add column if not exists cargo text;
+alter table perfiles add column if not exists fecha_ingreso timestamptz;
+alter table perfiles add column if not exists sueldo_base numeric;
 
 create table if not exists precios (
   plan text primary key,
@@ -122,7 +135,10 @@ create table if not exists cupones (
   fecha_uso timestamptz,
   operador_uso text,
   creado_en timestamptz not null default now(),
-  creado_por text
+  creado_por text,
+  tipo text not null default 'vale',
+  patente_asignada text,
+  es_porcentaje boolean not null default false
 );
 create index if not exists cupones_codigo_idx on cupones (codigo);
 
@@ -153,6 +169,33 @@ create table if not exists movimientos_contables (
 );
 create index if not exists movimientos_contables_fecha_idx on movimientos_contables (fecha desc);
 create index if not exists movimientos_contables_tipo_idx on movimientos_contables (tipo);
+
+-- Liquidaciones de sueldo, una fila por período pagado a un colaborador (ver
+-- RemuneracionesTab / ColaboradorFicha). perfil_id sí lleva FK con ON DELETE
+-- CASCADE (a diferencia de creado_por→perfiles.nombre, que queda sin FK):
+-- una liquidación no tiene sentido huérfana de su colaborador.
+create table if not exists liquidaciones_sueldo (
+  id text primary key,
+  perfil_id text not null references perfiles(id) on delete cascade,
+  periodo text not null,
+  sueldo_base numeric not null default 0,
+  gratificacion numeric not null default 0,
+  bonos numeric not null default 0,
+  horas_extra numeric not null default 0,
+  descuento_afp numeric not null default 0,
+  descuento_salud numeric not null default 0,
+  descuento_impuesto numeric not null default 0,
+  otros_descuentos numeric not null default 0,
+  total_liquido numeric not null default 0,
+  fecha_pago timestamptz not null,
+  documento_url text,
+  documento_nombre text,
+  notas text,
+  creado_en timestamptz not null default now(),
+  creado_por text
+);
+create index if not exists liquidaciones_sueldo_perfil_id_idx on liquidaciones_sueldo (perfil_id);
+create index if not exists liquidaciones_sueldo_periodo_idx on liquidaciones_sueldo (periodo desc);
 
 -- Restricciones a nivel de base de datos que reflejan los union types de
 -- TypeScript: sin esto, nada impedía guardar un "tipo" o "estado" inválido
@@ -290,6 +333,7 @@ alter table cupones enable row level security;
 alter table movimientos_contables enable row level security;
 alter table categorias_gasto enable row level security;
 alter table auditoria enable row level security;
+alter table liquidaciones_sueldo enable row level security;
 
 -- Sin políticas para anon en ninguna de estas tablas (ver comentario
 -- arriba). Se dropean explícitamente por si el proyecto ya tenía las
@@ -305,6 +349,7 @@ drop policy if exists "anon full access" on config;
 drop policy if exists "anon full access" on cupones;
 drop policy if exists "anon full access" on movimientos_contables;
 drop policy if exists "anon full access" on categorias_gasto;
+drop policy if exists "anon full access" on liquidaciones_sueldo;
 
 -- Bucket de Storage para adjuntar el comprobante (boleta/factura escaneada)
 -- de un egreso/gasto.
@@ -317,3 +362,18 @@ create policy "anon full access comprobantes-gastos" on storage.objects
   for all to anon
   using (bucket_id = 'comprobantes-gastos')
   with check (bucket_id = 'comprobantes-gastos');
+
+-- Bucket de Storage para adjuntar el documento de una liquidación de sueldo.
+-- Público igual que comprobantes-gastos (ver comentario ahí): esta app no
+-- tiene sesión por colaborador todavía, así que no hay forma de restringir
+-- la URL a "solo su ficha" a nivel de Storage sin Supabase Auth — queda
+-- pendiente para cuando exista login por colaborador (ver RemuneracionesTab).
+insert into storage.buckets (id, name, public)
+values ('liquidaciones-sueldo', 'liquidaciones-sueldo', true)
+on conflict (id) do nothing;
+
+drop policy if exists "anon full access liquidaciones-sueldo" on storage.objects;
+create policy "anon full access liquidaciones-sueldo" on storage.objects
+  for all to anon
+  using (bucket_id = 'liquidaciones-sueldo')
+  with check (bucket_id = 'liquidaciones-sueldo');

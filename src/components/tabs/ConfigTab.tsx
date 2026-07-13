@@ -126,7 +126,7 @@ export default function ConfigTab() {
       <div className="modal" style={{ maxWidth: 520, margin: "0 0 20px 0" }}>
         <h3>Categorías de gasto</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-          Estas son las glosas seleccionables en "Tipo de gasto" al registrar un egreso. Los 5 grupos son fijos (son la
+          Estas son las glosas seleccionables en &quot;Tipo de gasto&quot; al registrar un egreso. Los 5 grupos son fijos (son la
           estructura del EERR); puedes agregar, reasignar de grupo, o desactivar una glosa sin borrarla — desactivarla
           la saca del selector de gastos nuevos, pero conserva el historial ya registrado con ella.
         </div>

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normPlate } from "@/lib/helpers";
+import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
+
+const LIMITE_REQUESTS = 15;
+const VENTANA_MS = 5 * 60 * 1000;
 
 // Recibe una foto tomada con la cámara del operador y la manda a Plate
 // Recognizer (ver https://platerecognizer.com/) para leer la patente. La API
@@ -15,6 +19,10 @@ export async function POST(request: NextRequest) {
   // el cliente hace res.json() sobre eso y explota con un error genérico
   // que se confunde con "sin conexión". Acá siempre se devuelve JSON.
   try {
+    if (rateLimited(`reconocer-patente:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
+      return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
+    }
+
     const apiKey = process.env.PLATE_RECOGNIZER_API_KEY;
     if (!apiKey) {
       console.error("PLATE_RECOGNIZER_API_KEY no configurado");

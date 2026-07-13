@@ -18,6 +18,7 @@ import {
   precioServicioAdicional,
   todayStr,
   uid,
+  uidIngreso,
 } from "@/lib/helpers";
 import type { Cliente, Empresa, Ingreso, Venta } from "@/types";
 
@@ -64,14 +65,12 @@ export default function ServiciosAdicionalesView() {
     (id) => SERVICIOS_ADICIONALES.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING
   );
 
-  let ajusteAsignado = false;
-  const lineasCatalogo: Linea[] = serviciosSeleccionados.map((id) => {
+  const primerDetailingIdx = serviciosSeleccionados.findIndex(
+    (id) => SERVICIOS_ADICIONALES.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING
+  );
+  const lineasCatalogo: Linea[] = serviciosSeleccionados.map((id, idx) => {
     const s = SERVICIOS_ADICIONALES.find((x) => x.id === id)!;
-    let precio = precioServicioAdicional(data.precios, s);
-    if (!ajusteAsignado && s.categoria === CATEGORIA_DETAILING && ajuste > 0) {
-      precio += ajuste;
-      ajusteAsignado = true;
-    }
+    const precio = precioServicioAdicional(data.precios, s) + (idx === primerDetailingIdx && ajuste > 0 ? ajuste : 0);
     return { id: s.id, nombre: s.nombre, precio };
   });
   const lineasPersonalizadas: Linea[] = itemsPersonalizados.map((i) => ({ id: i.id, nombre: i.nombre, precio: i.precio }));
@@ -207,7 +206,7 @@ export default function ServiciosAdicionalesView() {
       clienteId = existente.id;
     } else {
       const nuevo: Cliente = {
-        id: "c" + Date.now() + Math.floor(Math.random() * 1000),
+        id: uid(),
         nombre,
         patente,
         telefono,
@@ -255,7 +254,7 @@ export default function ServiciosAdicionalesView() {
     if (hayDetailingSeleccionado) {
       const clienteParaIngreso = clientes.find((c) => c.id === clienteId)!;
       const ingreso: Ingreso = {
-        id: "i" + Date.now(),
+        id: uidIngreso(),
         clienteId,
         patente,
         nombre,

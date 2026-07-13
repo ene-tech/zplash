@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP, mesActualKey, mesKey } from "@/lib/helpers";
+import { fmtCLP, formatRut, mesActualKey, mesKey } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 
 const GRUPOS = [
@@ -49,7 +49,7 @@ function TablaGasto({
                 <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
                 <td>{m.descripcion}</td>
                 <td>{m.categoria || "-"}</td>
-                <td>{m.rutProveedor || "-"}</td>
+                <td>{m.rutProveedor ? formatRut(m.rutProveedor) : "-"}</td>
                 <td>{m.contraparte || "-"}</td>
                 <td>{m.numeroFactura || "-"}</td>
                 <td>{m.tipoDocumento || "-"}</td>
@@ -127,7 +127,7 @@ export default function CuentasPorPagarTab() {
           <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
         </div>
         <div className="stat-grid">
-          <div className="stat-card">
+          <div className="stat-card warn">
             <div className="num">{fmtCLP(totalGeneral)}</div>
             <div className="lbl">Total Cuentas por Pagar</div>
           </div>
@@ -136,7 +136,7 @@ export default function CuentasPorPagarTab() {
             <div className="lbl">Documentos</div>
           </div>
           {porGrupo.map((g) => (
-            <div className="stat-card" key={g.estado}>
+            <div className="stat-card warn" key={g.estado}>
               <div className="num">{fmtCLP(g.total)}</div>
               <div className="lbl">{g.titulo}</div>
             </div>

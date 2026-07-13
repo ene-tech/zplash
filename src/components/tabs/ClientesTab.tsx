@@ -137,6 +137,7 @@ export default function ClientesTab() {
               <th>Patente</th>
               <th>Nombre</th>
               <th>Teléfono</th>
+              <th className="col-mail">Mail</th>
               <th>Vehículo</th>
               <th>Origen</th>
               <th>Plan</th>
@@ -153,7 +154,7 @@ export default function ClientesTab() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={10}>
+                <td colSpan={11}>
                   <div className="empty">No hay clientes que coincidan</div>
                 </td>
               </tr>
@@ -165,6 +166,7 @@ export default function ClientesTab() {
                     <td className="plate-tag">{c.patente}</td>
                     <td>{c.nombre}</td>
                     <td>{c.telefono || "-"}</td>
+                    <td className="col-mail" title={c.email || ""}>{c.email || "-"}</td>
                     <td>{c.vehiculo || "-"}</td>
                     <td>{c.origen || "LOCAL"}</td>
                     <td>{c.plan || "-"}</td>

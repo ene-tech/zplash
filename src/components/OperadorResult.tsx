@@ -10,17 +10,19 @@ import {
   fmtCLP,
   formatRut,
   isValidRut,
+  montoDescuento,
   normPlate,
   planStatus,
   precioLavadoUnico,
   precioNormal,
   precioPreferencial,
+  resolverDescuento,
   uid,
   vencimientoAnclado,
   vencimientoPorDefectoISO,
   yaIngresoHoy,
 } from "@/lib/helpers";
-import type { Cliente, Empresa, Ingreso, PagoInfo, Venta } from "@/types";
+import type { Cliente, Cupon, Empresa, Ingreso, PagoInfo, Venta } from "@/types";
 
 export default function OperadorResult({ clearPlate }: { clearPlate: () => void }) {
   const { ui } = useApp();
@@ -365,6 +367,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
   const qRutRef = useRef<HTMLInputElement>(null);
   const qDireccionRef = useRef<HTMLInputElement>(null);
   const qGiroRef = useRef<HTMLInputElement>(null);
+  const qCuponRef = useRef<HTMLInputElement>(null);
 
   const pedirPago = (monto: number, descripcion: string, onConfirm: (pago: PagoInfo) => void) => {
     patchUi({ modal: { type: "pago", monto, descripcion, onConfirm } });
@@ -428,7 +431,21 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
       creadoEn: new Date().toISOString(),
       creadoPor: ui.perfilActual?.nombre || "",
     };
-    const precio = tipoCliente === "plan" ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
+    const precioBase = tipoCliente === "plan" ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
+    let precio = precioBase;
+    let cuponAplicado: Cupon | undefined;
+    if (tipoCliente === "unico") {
+      const codigoCupon = qCuponRef.current?.value.trim() || "";
+      if (codigoCupon) {
+        const resultado = resolverDescuento(codigoCupon, nuevo.patente, data.cupones);
+        if (!resultado.ok) {
+          setErr(resultado.msg);
+          return;
+        }
+        cuponAplicado = resultado.cupon;
+        precio = Math.max(0, precioBase - montoDescuento(resultado.cupon, precioBase));
+      }
+    }
     const tipoVenta = tipoCliente === "plan" ? "Plan nuevo" : "Lavado único";
     const descripcion =
       tipoCliente === "plan" ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
@@ -452,6 +469,7 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
     }
 
     pedirPago(precio, descripcion, async (pago) => {
+      const ahora = new Date().toISOString();
       const venta: Venta = {
         id: "v" + Date.now(),
         clienteId: nuevo.id,
@@ -460,10 +478,12 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         plan: nuevo.plan || "",
         precio,
         tipo: tipoVenta,
-        fecha: new Date().toISOString(),
+        fecha: ahora,
         creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
+        viaCupon: !!cuponAplicado,
+        cuponCodigo: cuponAplicado?.codigo,
       };
       const tempData = { ...data, clientes: [...data.clientes, nuevo], ventas: [venta, ...data.ventas] };
       const ingresoPatch = registrarIngreso(tempData, nuevo, ui.perfilActual?.nombre);
@@ -472,6 +492,15 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         ventas: tempData.ventas,
         ingresos: ingresoPatch.ingresos,
         ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
+        ...(cuponAplicado
+          ? {
+              cupones: data.cupones.map((x) =>
+                x.id === cuponAplicado!.id
+                  ? { ...cuponAplicado!, usado: true, patenteUso: nuevo.patente, fechaUso: ahora, operadorUso: ui.perfilActual?.nombre || "" }
+                  : x
+              ),
+            }
+          : {}),
       });
       if (!ok) {
         setErr(ERROR_GUARDADO);
@@ -484,7 +513,20 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
 
   const ingresarSinRegistro = () => {
     const patente = normPlate(plate);
-    pedirPago(precioLavadoUnico(data.precios), `Lavado único sin registro (${patente})`, async (pago) => {
+    const precioBase = precioLavadoUnico(data.precios);
+    let precio = precioBase;
+    let cuponAplicado: Cupon | undefined;
+    const codigoCupon = qCuponRef.current?.value.trim() || "";
+    if (codigoCupon) {
+      const resultado = resolverDescuento(codigoCupon, patente, data.cupones);
+      if (!resultado.ok) {
+        setErr(resultado.msg);
+        return;
+      }
+      cuponAplicado = resultado.cupon;
+      precio = Math.max(0, precioBase - montoDescuento(resultado.cupon, precioBase));
+    }
+    pedirPago(precio, `Lavado único sin registro (${patente})`, async (pago) => {
       const ahora = new Date().toISOString();
       const ingreso: Ingreso = {
         id: "i" + Date.now(),
@@ -501,14 +543,28 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         patente,
         nombre: "Sin registro",
         plan: "",
-        precio: precioLavadoUnico(data.precios),
+        precio,
         tipo: "Lavado único",
         fecha: ahora,
         creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
+        viaCupon: !!cuponAplicado,
+        cuponCodigo: cuponAplicado?.codigo,
       };
-      const ok = await commit({ ingresos: [ingreso, ...data.ingresos], ventas: [venta, ...data.ventas] });
+      const ok = await commit({
+        ingresos: [ingreso, ...data.ingresos],
+        ventas: [venta, ...data.ventas],
+        ...(cuponAplicado
+          ? {
+              cupones: data.cupones.map((x) =>
+                x.id === cuponAplicado!.id
+                  ? { ...cuponAplicado!, usado: true, patenteUso: patente, fechaUso: ahora, operadorUso: ui.perfilActual?.nombre || "" }
+                  : x
+              ),
+            }
+          : {}),
+      });
       if (!ok) {
         setErr(ERROR_GUARDADO);
         return;
@@ -543,6 +599,12 @@ function NotFoundResult({ plate, clearPlate }: { plate: string; clearPlate: () =
         >
           Lavado Full Túnel ({fmtCLP(precioLavadoUnico(data.precios))})
         </button>
+      </div>
+      <div className="quick-form" style={{ marginBottom: 14, marginTop: 0 }}>
+        <div>
+          <label>Código de descuento (opcional)</label>
+          <input ref={qCuponRef} placeholder="Ej: AB12CD" style={{ textTransform: "uppercase" }} />
+        </div>
       </div>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13 }}>
         ¿Solo un lavado, sin ficha de cliente? Cóbralo directo sin registrar nada.

@@ -215,6 +215,14 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
     Cliente: v.nombre,
     Tipo: v.tipo,
     Precio: v.precio,
+    "Método de pago":
+      v.metodoPago === "efectivo"
+        ? "Efectivo"
+        : v.metodoPago === "tarjeta"
+          ? "Tarjeta"
+          : v.metodoPago === "transferencia"
+            ? "Transferencia bancaria"
+            : "-",
   }));
 
   import("xlsx").then((XLSX) => {
@@ -232,8 +240,10 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
     );
     XLSX.utils.book_append_sheet(
       wb,
-      XLSX.utils.json_to_sheet(planesVendidos.length ? planesVendidos : [{ Fecha: "", Patente: "", Cliente: "", Tipo: "", Precio: "" }]),
-      "Planes vendidos"
+      XLSX.utils.json_to_sheet(
+        planesVendidos.length ? planesVendidos : [{ Fecha: "", Patente: "", Cliente: "", Tipo: "", Precio: "", "Método de pago": "" }]
+      ),
+      "Detalle de Venta"
     );
     XLSX.writeFile(wb, `cierre-caja-${desde}_a_${hasta}.xlsx`);
   });

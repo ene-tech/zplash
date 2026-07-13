@@ -162,21 +162,21 @@ export default function CierreTab() {
           <div className="num">{ingresosPeriodo.length}</div>
           <div className="lbl">Ingresos en el período</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card ok">
           <div className="num">{autosConPlan}</div>
           <div className="lbl">Autos con plan vigente</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card bad">
           <div className="num">{sinPlan}</div>
-          <div className="lbl">Autos con plan vencido</div>
+          <div className="lbl">Autos por Lavado único</div>
         </div>
         <div className="stat-card">
           <div className="num">{nuevosPeriodo.length}</div>
-          <div className="lbl">Registros nuevos</div>
+          <div className="lbl">Cantidad de Clientes Nuevos Registrados</div>
         </div>
         <div className="stat-card">
           <div className="num">{ventasPeriodo.length}</div>
-          <div className="lbl">Planes vendidos</div>
+          <div className="lbl">Cantidad de Ventas</div>
         </div>
       </div>
 
@@ -198,9 +198,9 @@ export default function CierreTab() {
             </tr>
           ))}
           <tr>
-            <td style={{ fontWeight: 700 }}>Total</td>
-            <td style={{ fontWeight: 700 }}>{totalCantidadVentas}</td>
-            <td style={{ fontWeight: 700 }}>{fmtCLP(totalMontoVentas)}</td>
+            <td style={{ fontWeight: 700, fontSize: 16 }}>Total</td>
+            <td style={{ fontWeight: 700, fontSize: 16 }}>{totalCantidadVentas}</td>
+            <td style={{ fontWeight: 700, fontSize: 16 }}>{fmtCLP(totalMontoVentas)}</td>
           </tr>
           {modificacionesAdmin.cantidad > 0 && (
             <tr>
@@ -237,9 +237,9 @@ export default function CierreTab() {
             </tr>
           ))}
           <tr>
-            <td style={{ fontWeight: 700 }}>Total</td>
-            <td style={{ fontWeight: 700 }}>{totalCantidadMetodosPago}</td>
-            <td style={{ fontWeight: 700 }}>{fmtCLP(totalMontoMetodosPago)}</td>
+            <td style={{ fontWeight: 700, fontSize: 16 }}>Total</td>
+            <td style={{ fontWeight: 700, fontSize: 16 }}>{totalCantidadMetodosPago}</td>
+            <td style={{ fontWeight: 700, fontSize: 16 }}>{fmtCLP(totalMontoMetodosPago)}</td>
           </tr>
         </tbody>
       </table>
@@ -257,7 +257,7 @@ export default function CierreTab() {
           <div className="num">{autosConCupon}</div>
           <div className="lbl">Vehículos con cupón Venta Empresa</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card warn">
           <div className="num">{facturaPendientesPeriodo.length}</div>
           <div className="lbl">Facturas pendientes de emitir</div>
         </div>

@@ -82,6 +82,8 @@ export const ventas = pgTable("ventas", {
   rut: text("rut"),
   direccion: text("direccion"),
   giro: text("giro"),
+  viaCupon: boolean("via_cupon").notNull().default(false),
+  cuponCodigo: text("cupon_codigo").references(() => cupones.codigo, { onDelete: "set null" }),
 });
 
 // Reemplaza a las antiguas tablas `operadores` y `administradores` (ver
@@ -89,12 +91,20 @@ export const ventas = pgTable("ventas", {
 // y la lista de módulos a los que tiene acceso. Incluye "clave": solo se
 // consulta desde código server-side de /api/perfiles/* (ver PerfilPublico
 // en @/types para la forma pública, sin clave, que sí llega al cliente).
+// rut/cargo/fechaIngreso/sueldoBase son la ficha de Remuneraciones (ver
+// ColaboradorFicha en @/types): igual que "clave", quedan fuera de
+// PerfilPublicoRow/loadAll() en su query liviana para el selector de login;
+// se cargan aparte con la query más ancha que arma ColaboradorFicha.
 export const perfiles = pgTable("perfiles", {
   id: text("id").primaryKey(),
   nombre: text("nombre").notNull().unique(),
   clave: text("clave").notNull(),
   modulos: jsonb("modulos").$type<string[]>().notNull().default([]),
   icono: text("icono"),
+  rut: text("rut"),
+  cargo: text("cargo"),
+  fechaIngreso: timestamptz("fecha_ingreso"),
+  sueldoBase: numeric("sueldo_base", { mode: "number" }),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
 });
 
@@ -118,6 +128,14 @@ export const cupones = pgTable("cupones", {
   operadorUso: text("operador_uso"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),
+  // "vale" (comportamiento original: lavado 100% gratis al canjear) vs
+  // "descuento" (resta `valor` del precio a cobrar; ver bot de WhatsApp).
+  tipo: text("tipo").notNull().default("vale"),
+  // Patente a la que se le asignó el cupón *antes* de usarse (distinto de
+  // patenteUso, que se llena recién al canjear). Solo aplica a "descuento".
+  patenteAsignada: text("patente_asignada"),
+  // Solo aplica a "descuento": true = `valor` es un % (0-100), false = monto fijo en CLP.
+  esPorcentaje: boolean("es_porcentaje").notNull().default(false),
 });
 
 export const movimientosContables = pgTable("movimientos_contables", {
@@ -146,6 +164,34 @@ export const categoriasGasto = pgTable("categorias_gasto", {
   grupo: text("grupo").notNull(),
   activa: boolean("activa").notNull().default(true),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+});
+
+// Liquidaciones de sueldo, una fila por período pagado a un colaborador (ver
+// RemuneracionesTab). perfilId referencia a perfiles.id — si el perfil se
+// elimina, se borran sus liquidaciones (no tiene sentido conservarlas
+// huérfanas, a diferencia de clienteId en ingresos/ventas que sí se
+// denormaliza con nombre/patente para no perder el historial visible).
+export const liquidacionesSueldo = pgTable("liquidaciones_sueldo", {
+  id: text("id").primaryKey(),
+  perfilId: text("perfil_id")
+    .notNull()
+    .references(() => perfiles.id, { onDelete: "cascade" }),
+  periodo: text("periodo").notNull(), // "YYYY-MM"
+  sueldoBase: numeric("sueldo_base", { mode: "number" }).notNull().default(0),
+  gratificacion: numeric("gratificacion", { mode: "number" }).notNull().default(0),
+  bonos: numeric("bonos", { mode: "number" }).notNull().default(0),
+  horasExtra: numeric("horas_extra", { mode: "number" }).notNull().default(0),
+  descuentoAfp: numeric("descuento_afp", { mode: "number" }).notNull().default(0),
+  descuentoSalud: numeric("descuento_salud", { mode: "number" }).notNull().default(0),
+  descuentoImpuesto: numeric("descuento_impuesto", { mode: "number" }).notNull().default(0),
+  otrosDescuentos: numeric("otros_descuentos", { mode: "number" }).notNull().default(0),
+  totalLiquido: numeric("total_liquido", { mode: "number" }).notNull().default(0),
+  fechaPago: timestamptz("fecha_pago").notNull(),
+  documentoUrl: text("documento_url"),
+  documentoNombre: text("documento_nombre"),
+  notas: text("notas"),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  creadoPor: text("creado_por"),
 });
 
 // Tabla "singleton" (una sola fila, id siempre true) para configuración global.

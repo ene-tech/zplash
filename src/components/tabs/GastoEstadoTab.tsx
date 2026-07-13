@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP, mesActualKey, mesKey } from "@/lib/helpers";
+import { fmtCLP, formatRut, mesActualKey, mesKey } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -59,7 +59,7 @@ export default function GastoEstadoTab({
           <input type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
         </div>
         <div className="stat-grid">
-          <div className="stat-card">
+          <div className="stat-card warn">
             <div className="num">{fmtCLP(total)}</div>
             <div className="lbl">Total {ESTADO_LABEL[estado].toLowerCase()}</div>
           </div>
@@ -106,7 +106,7 @@ export default function GastoEstadoTab({
                   <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
                   <td>{m.descripcion}</td>
                   <td>{m.categoria || "-"}</td>
-                  <td>{m.rutProveedor || "-"}</td>
+                  <td>{m.rutProveedor ? formatRut(m.rutProveedor) : "-"}</td>
                   <td>{m.contraparte || "-"}</td>
                   <td>{m.numeroFactura || "-"}</td>
                   <td>{m.tipoDocumento || "-"}</td>

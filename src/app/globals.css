@@ -287,7 +287,7 @@ h4,
 .content {
   flex: 1;
   padding: 24px;
-  max-width: 1100px;
+  max-width: 1600px;
   margin: 0 auto;
   width: 100%;
 }
@@ -576,6 +576,57 @@ h4,
   border-color: var(--gold);
 }
 
+.sidebar-layout {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+.tabs-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 220px;
+  border-bottom: none;
+  overflow-x: visible;
+}
+.tabs-sidebar .tab {
+  padding: 14px 16px;
+  border-bottom: none;
+  border-left: 3px solid transparent;
+  border-radius: 0 8px 8px 0;
+  text-transform: uppercase;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+}
+.tabs-sidebar .tab.active {
+  background: var(--bg-card);
+  border-left-color: var(--gold);
+}
+.sidebar-content {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .sidebar-layout {
+    flex-direction: column;
+  }
+  .tabs-sidebar {
+    flex-direction: row;
+    flex: initial;
+    overflow-x: auto;
+    width: 100%;
+  }
+  .tabs-sidebar .tab {
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 8px 8px 0 0;
+  }
+  .tabs-sidebar .tab.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--gold);
+  }
+}
+
 .toolbar {
   display: flex;
   gap: 10px;
@@ -644,6 +695,13 @@ tr:hover td {
   color: var(--white);
   border-color: var(--white);
 }
+.col-mail {
+  width: 200px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .stat-grid {
   display: grid;
@@ -668,6 +726,26 @@ tr:hover td {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+/* Variantes de estado (mismo criterio ok/warn/bad de .status-pill) para destacar
+   tarjetas que representan una señal, no solo un conteo neutro. */
+.stat-card.ok {
+  border-color: rgba(61, 214, 140, 0.35);
+  background: rgba(61, 214, 140, 0.06);
+}
+.stat-card.ok .num {
+  color: var(--green);
+}
+.stat-card.warn {
+  border-color: rgba(255, 199, 44, 0.35);
+  background: rgba(255, 199, 44, 0.06);
+}
+.stat-card.bad {
+  border-color: rgba(229, 72, 77, 0.35);
+  background: rgba(229, 72, 77, 0.06);
+}
+.stat-card.bad .num {
+  color: var(--red);
 }
 
 /* ---------- MODAL ---------- */

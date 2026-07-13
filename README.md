@@ -46,12 +46,23 @@ npm run lint    # corre ESLint
 
 ## Base de datos (Supabase + Drizzle)
 
-El esquema completo (`clientes`, `ingresos`, `ventas`, `operadores`,
-`administradores`, `precios`, `cupones`, `movimientos_contables`,
-`categorias_gasto`, `config`) está en `supabase/schema.sql` y los `add-*.sql` —
-córrelos una sola vez en el SQL Editor de tu proyecto de Supabase antes de usar
-la app. Ese SQL sigue siendo la fuente de verdad del DDL; `src/db/schema.ts`
-solo lo refleja para que Drizzle tipe las queries, no gestiona migraciones.
+El esquema vive en `src/db/schema.ts` (fuente de verdad) y `drizzle-kit`
+gestiona las migraciones a partir de ahí:
+
+```bash
+npm run db:generate   # genera un SQL nuevo en drizzle/ a partir de los cambios en schema.ts
+npm run db:migrate    # aplica contra DATABASE_URL las migraciones pendientes
+```
+
+`supabase/schema.sql` y los `add-*.sql` sueltos documentan cómo se llegó al
+esquema actual (aplicados a mano antes de adoptar `drizzle-kit`) y ya no hace
+falta correrlos en un proyecto nuevo: `drizzle/0000_baseline.sql` los
+reemplaza. Si vas a apuntar `DATABASE_URL` a un proyecto de Supabase que
+**ya tenía el esquema viejo aplicado a mano**, corre primero
+`supabase/adopt-drizzle-migrations.sql` una sola vez en el SQL Editor — marca
+esa migración base como ya aplicada sin volver a ejecutar sus `CREATE TABLE`
+(que fallarían porque las tablas ya existen). En un proyecto de Supabase
+nuevo y vacío, saltate ese paso y corre directamente `npm run db:migrate`.
 
 Toda la lectura/escritura corre server-side con Drizzle (`src/lib/db.ts`, un
 archivo de Server Actions) a través de una conexión directa a Postgres

@@ -48,7 +48,7 @@ export default function CuentasPorCobrarTab() {
       <div className="modal" style={{ maxWidth: 520, margin: "0 0 24px 0" }}>
         <h3>Cuentas por Cobrar</h3>
         <div className="stat-grid">
-          <div className="stat-card">
+          <div className="stat-card warn">
             <div className="num">{fmtCLP(total)}</div>
             <div className="lbl">Total por Cobrar</div>
           </div>

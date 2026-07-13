@@ -6,9 +6,11 @@ import type {
   AuditoriaEntrada,
   CategoriaGasto,
   Cliente,
+  ColaboradorFicha,
   Cupon,
   Empresa,
   Ingreso,
+  LiquidacionSueldo,
   MovimientoContable,
   PerfilPublico,
   TablaAuditada,
@@ -20,6 +22,7 @@ import {
   deleteClientes,
   deleteCupones,
   deleteEmpresas,
+  deleteLiquidacionesSueldo,
   deleteMovimientosContables,
   deletePerfiles,
   insertAuditoria,
@@ -29,8 +32,10 @@ import {
   setPinAdmin,
   upsertCategoriasGasto,
   upsertClientes,
+  upsertColaboradores,
   upsertCupones,
   upsertEmpresas,
+  upsertLiquidacionesSueldo,
   upsertMovimientosContables,
   upsertPerfiles,
   upsertPrecios,
@@ -48,6 +53,8 @@ const initialData: AppData = {
   movimientosContables: [],
   categoriasGasto: JSON.parse(JSON.stringify(CATEGORIAS_GASTO_DEFAULT)),
   empresas: [],
+  colaboradores: [],
+  liquidacionesSueldo: [],
 };
 
 const initialUI: UIState = {
@@ -217,6 +224,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (cambiados.length) ops.push(upsertEmpresas(cambiados));
       if (eliminados.length) ops.push(deleteEmpresas(eliminados));
       auditoria.push(...auditEntries("empresas", previous.empresas, cambiados, eliminados, usuario));
+    }
+    if (patch.colaboradores) {
+      const { cambiados } = diffPorId<ColaboradorFicha>(previous.colaboradores, patch.colaboradores);
+      if (cambiados.length) ops.push(upsertColaboradores(cambiados));
+    }
+    // La ficha de Remuneraciones (colaboradores) queda fuera de auditoría,
+    // mismo criterio que perfiles (ver TablaAuditada). Las liquidaciones sí
+    // se auditan: a diferencia del resto de perfiles, mueven montos concretos.
+    if (patch.liquidacionesSueldo) {
+      const { cambiados, eliminados } = diffPorId<LiquidacionSueldo>(previous.liquidacionesSueldo, patch.liquidacionesSueldo);
+      if (cambiados.length) ops.push(upsertLiquidacionesSueldo(cambiados));
+      if (eliminados.length) ops.push(deleteLiquidacionesSueldo(eliminados));
+      auditoria.push(
+        ...auditEntries("liquidaciones_sueldo", previous.liquidacionesSueldo, cambiados, eliminados, usuario)
+      );
     }
     if (patch.precios) {
       ops.push(upsertPrecios(patch.precios));

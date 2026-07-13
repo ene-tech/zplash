@@ -16,7 +16,7 @@ const TABS: { id: Modulo; label: string }[] = [
   { id: "clientes", label: "Clientes" },
   { id: "ingresos", label: "Historial de ingresos" },
   { id: "cierre", label: "Cierre de Caja" },
-  { id: "empresa", label: "B2B/Tickets" },
+  { id: "empresa", label: "B2B/Tickets/Dsctos" },
   { id: "empresas_facturacion", label: "Empresas" },
   { id: "perfiles", label: "Perfiles" },
   { id: "stats", label: "Estadísticas" },

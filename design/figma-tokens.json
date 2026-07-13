@@ -1,0 +1,84 @@
+{
+  "global": {
+    "color": {
+      "gold": {
+        "value": "#FFC72C",
+        "type": "color",
+        "description": "Pantone 123 C · CMYK 0/87/25/0 · color primario de marca"
+      },
+      "black": {
+        "value": "#2D2926",
+        "type": "color",
+        "description": "Pantone Black C · CMYK 0/0/0/100 · color primario de marca"
+      },
+      "white": {
+        "value": "#F5F5F0",
+        "type": "color",
+        "description": "Blanco de marca (levemente cálido, no #FFFFFF puro)"
+      },
+      "silver": {
+        "value": "#C9C6BA",
+        "type": "color",
+        "description": "Versión escala de grises del logo"
+      },
+      "gray": {
+        "value": "#8A8780",
+        "type": "color",
+        "description": "Gris neutro para texto secundario / labels"
+      },
+      "bg": {
+        "value": "#0D0B09",
+        "type": "color",
+        "description": "Fondo general de la app (negro de marca, más oscuro)"
+      },
+      "bg-panel": {
+        "value": "#17140F",
+        "type": "color"
+      },
+      "bg-card": {
+        "value": "#201C17",
+        "type": "color"
+      },
+      "border": {
+        "value": "#2F2B24",
+        "type": "color"
+      },
+      "red": {
+        "value": "#E5484D",
+        "type": "color",
+        "description": "Estado negativo (vencido, error) — no es color de marca, es UI"
+      },
+      "green": {
+        "value": "#3DD68C",
+        "type": "color",
+        "description": "Estado positivo (vigente, ok) — no es color de marca, es UI"
+      }
+    },
+    "fontFamilies": {
+      "brand": {
+        "value": "Helvetica Neue",
+        "type": "fontFamilies"
+      }
+    },
+    "fontWeights": {
+      "brand-regular": {
+        "value": "400",
+        "type": "fontWeights"
+      },
+      "brand-bold": {
+        "value": "700",
+        "type": "fontWeights"
+      }
+    },
+    "borderRadius": {
+      "card": {
+        "value": "12",
+        "type": "borderRadius"
+      }
+    }
+  },
+  "$themes": [],
+  "$metadata": {
+    "tokenSetOrder": ["global"]
+  }
+}

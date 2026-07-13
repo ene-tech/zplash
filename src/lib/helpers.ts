@@ -1,4 +1,4 @@
-import type { Cliente, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios } from "@/types";
+import type { Cliente, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 export const DIAS_AVISO_VENCIMIENTO = 7;
@@ -64,7 +64,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   clientes: "Clientes",
   ingresos: "Historial de Ingresos",
   cierre: "Cierre de Caja",
-  empresa: "B2B/Tickets",
+  empresa: "B2B/Tickets/Dsctos",
   empresas_facturacion: "Empresas (Facturación)",
   perfiles: "Perfiles",
   stats: "Estadísticas",
@@ -379,8 +379,37 @@ export function generarCodigoCupon(existentes: Set<string>): string {
   return codigo;
 }
 
+/** Valida un código de descuento (tipo "descuento") para una patente dada, antes de aplicarlo a una venta.
+ * Si el cupón no tiene patenteAsignada, es "abierto": lo puede usar cualquier patente. */
+export function resolverDescuento(
+  codigoCrudo: string,
+  patente: string,
+  cupones: Cupon[]
+): { ok: true; cupon: Cupon } | { ok: false; msg: string } {
+  const codigo = codigoCrudo.trim().toUpperCase();
+  const cupon = cupones.find((c) => c.codigo === codigo);
+  if (!cupon) return { ok: false, msg: "Código de descuento no encontrado" };
+  if (cupon.tipo !== "descuento") return { ok: false, msg: "Este código no es un descuento válido" };
+  if (cupon.usado) return { ok: false, msg: "Este descuento ya fue usado" };
+  if (new Date(cupon.fechaCaducidad) < new Date()) return { ok: false, msg: "Este descuento está caducado" };
+  if (cupon.patenteAsignada && cupon.patenteAsignada !== patente) {
+    return { ok: false, msg: "Este descuento fue asignado a otra patente" };
+  }
+  return { ok: true, cupon };
+}
+
+/** Monto a descontar del precio base: si el cupón es de porcentaje, se calcula sobre precioBase; si no, es el monto fijo. */
+export function montoDescuento(cupon: Cupon, precioBase: number): number {
+  return cupon.esPorcentaje ? Math.round((precioBase * cupon.valor) / 100) : cupon.valor;
+}
+
 export function uid(): string {
   return "c" + Date.now() + Math.floor(Math.random() * 1000);
+}
+
+/** Mismo esquema de id usado para ingresos en toda la app ("i" + timestamp), envuelto en una función para no llamar Date.now() directo desde un componente (ver react-hooks/purity). */
+export function uidIngreso(): string {
+  return "i" + Date.now();
 }
 
 /** 30 days from now, as an ISO string. Kept outside component bodies since it is not a pure computation. */

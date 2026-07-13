@@ -352,7 +352,13 @@ export default function MovimientoContableTab({
         {tipo === "egreso" && (
           <div className="field">
             <label>Rut proveedor</label>
-            <input ref={rutProveedorRef} placeholder="Ej: 76.543.210-K" />
+            <input
+              ref={rutProveedorRef}
+              placeholder="Ej: 76.543.210-K"
+              onBlur={(e) => {
+                if (e.target.value.trim()) e.target.value = formatRut(e.target.value);
+              }}
+            />
           </div>
         )}
         <div className="field">
@@ -513,17 +519,17 @@ export default function MovimientoContableTab({
           <div className="num">{fmtCLP(total)}</div>
           <div className="lbl">Total</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card ok">
           <div className="num">{fmtCLP(totalPagado)}</div>
           <div className="lbl">{tipo === "egreso" ? "Pagado desde CC" : "Pagado"}</div>
         </div>
         {tipo === "egreso" && (
-          <div className="stat-card">
+          <div className="stat-card warn">
             <div className="num">{fmtCLP(totalXRendir)}</div>
             <div className="lbl">X Rendir</div>
           </div>
         )}
-        <div className="stat-card">
+        <div className="stat-card warn">
           <div className="num">{fmtCLP(totalPendiente)}</div>
           <div className="lbl">{tipo === "egreso" ? "Pendiente de Pago" : "Pendiente"}</div>
         </div>
@@ -611,7 +617,7 @@ export default function MovimientoContableTab({
                   <td>{new Date(m.fecha).toLocaleDateString("es-CL")}</td>
                   <td>{m.descripcion}</td>
                   <td>{m.categoria || "-"}</td>
-                  {tipo === "egreso" && <td>{m.rutProveedor || "-"}</td>}
+                  {tipo === "egreso" && <td>{m.rutProveedor ? formatRut(m.rutProveedor) : "-"}</td>}
                   <td>{m.contraparte || "-"}</td>
                   {tipo === "egreso" && <td>{m.numeroFactura || "-"}</td>}
                   {tipo === "egreso" && <td>{m.tipoDocumento || "-"}</td>}
