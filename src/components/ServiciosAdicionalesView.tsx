@@ -34,7 +34,7 @@ type Linea = { id: string; nombre: string; precio: number };
 type ItemPersonalizado = { id: string; nombre: string; precio: number };
 
 export default function ServiciosAdicionalesView() {
-  const { data, ui, commit, patchUi } = useApp();
+  const { data, ui, commit, patchUi, logout } = useApp();
   const patenteRef = useRef<HTMLInputElement>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
   const telefonoRef = useRef<HTMLInputElement>(null);
@@ -314,7 +314,7 @@ export default function ServiciosAdicionalesView() {
     <>
       <Topbar
         mode={`Servicios Adicionales · ${ui.perfilActual?.nombre || ""}`}
-        onLogout={() => patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null, loginMode: null })}
+        onLogout={() => logout({ loginMode: null })}
         onBack={() => patchUi({ view: "hub" })}
       />
       <div className="content">

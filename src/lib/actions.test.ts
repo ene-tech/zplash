@@ -8,7 +8,6 @@ function appDataVacia(): AppData {
     clientes: [],
     ingresos: [],
     ventas: [],
-    pinAdmin: "0000",
     precios: PRECIOS_DEFAULT,
     perfiles: [],
     cupones: [],

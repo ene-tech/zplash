@@ -175,8 +175,8 @@ function ResetClaveForm({
     const claveNueva = nuevaClaveRef.current?.value || "";
     const actorClaveActual = actorClaveRef.current?.value || "";
     if (!actorId) return;
-    if (claveNueva.length < 4) {
-      setMsg({ texto: "La nueva contraseña debe tener al menos 4 caracteres", ok: false });
+    if (claveNueva.length < 6) {
+      setMsg({ texto: "La nueva contraseña debe tener al menos 6 caracteres", ok: false });
       return;
     }
     setEnviando(true);

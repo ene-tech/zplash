@@ -214,7 +214,6 @@ export interface AppData {
   clientes: Cliente[];
   ingresos: Ingreso[];
   ventas: Venta[];
-  pinAdmin: string;
   precios: Precios;
   perfiles: PerfilPublico[];
   cupones: Cupon[];

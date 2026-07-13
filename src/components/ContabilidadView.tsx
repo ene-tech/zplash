@@ -18,14 +18,14 @@ const TABS = [
 ] as const;
 
 export default function ContabilidadView() {
-  const { ui, patchUi } = useApp();
+  const { ui, patchUi, logout } = useApp();
   const tabActual = TABS.find((t) => t.id === ui.contabilidadTab) || TABS[0];
 
   return (
     <>
       <Topbar
         mode={`Contabilidad · ${ui.perfilActual?.nombre || ""}`}
-        onLogout={() => patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null })}
+        onLogout={() => logout()}
         onBack={() => patchUi({ view: "hub" })}
       />
       <div className="content">

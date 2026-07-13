@@ -24,7 +24,7 @@ const TABS: { id: Modulo; label: string }[] = [
 ];
 
 export default function AdminView() {
-  const { ui, patchUi } = useApp();
+  const { ui, patchUi, logout } = useApp();
   const modulos = ui.perfilActual?.modulos || [];
   const tabsPermitidas = TABS.filter((t) => modulos.includes(t.id));
 
@@ -32,7 +32,7 @@ export default function AdminView() {
     <>
       <Topbar
         mode={`Administrador de ingresos · ${ui.perfilActual?.nombre || ""}`}
-        onLogout={() => patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null })}
+        onLogout={() => logout()}
         onBack={() => patchUi({ view: "hub" })}
       />
       <div className="content">

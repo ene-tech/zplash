@@ -2,7 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones } from "@/db/schema";
 import { fmtFecha, generarCodigoCupon, isValidPatente, normPlate, planStatus, uid } from "@/lib/helpers";
-import { upsertCupones } from "@/lib/db";
+// Directo a la capa de datos, no al Server Action de @/lib/db: este flujo
+// corre dentro del webhook de Twilio (protegido por firma, ver
+// /api/whatsapp/route.ts), no hay perfil logueado que pase el chequeo de
+// sesión que exige el Server Action homónimo.
+import { upsertCupones } from "@/lib/dataAccess";
 import type { Cupon } from "@/types";
 import {
   CONTACTO_HUMANO,

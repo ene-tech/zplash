@@ -45,8 +45,8 @@ export default function PerfilModal({ data: p }: { data: PerfilPublico | null })
 
     const clave = claveRef.current?.value.trim() || "";
     const actorClave = actorClaveRef.current?.value || "";
-    if (!clave || clave.length < 4) {
-      setErr("La contraseña inicial debe tener al menos 4 caracteres");
+    if (!clave || clave.length < 6) {
+      setErr("La contraseña inicial debe tener al menos 6 caracteres");
       return;
     }
     if (!ui.perfilActual || !actorClave) {

@@ -33,7 +33,7 @@ async function comprimirImagen(file: File, ladoMax = 1600, calidad = 0.85): Prom
 }
 
 export default function OperadorView() {
-  const { data, ui, commit, patchUi } = useApp();
+  const { data, ui, commit, patchUi, logout } = useApp();
   const hoy = todayStr();
   const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
   const plateInputRef = useRef<HTMLInputElement>(null);
@@ -187,7 +187,7 @@ export default function OperadorView() {
     <>
       <Topbar
         mode={`Operador · ${ui.perfilActual?.nombre || ""}`}
-        onLogout={() => patchUi({ view: "login", operResult: null, perfilActual: null, perfilSeleccionadoId: null, loginMode: null })}
+        onLogout={() => logout({ operResult: null, loginMode: null })}
         onBack={() => patchUi({ view: "hub", operResult: null })}
       />
       <div className="content">

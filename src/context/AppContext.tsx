@@ -26,7 +26,6 @@ import {
   insertIngresos,
   insertVentas,
   loadAll,
-  setPinAdmin,
   upsertCategoriasGasto,
   upsertClientes,
   upsertCupones,
@@ -41,7 +40,6 @@ const initialData: AppData = {
   clientes: [],
   ingresos: [],
   ventas: [],
-  pinAdmin: "1234",
   precios: JSON.parse(JSON.stringify(PRECIOS_DEFAULT)),
   perfiles: JSON.parse(JSON.stringify(PERFILES_DEFAULT)),
   cupones: [],
@@ -78,6 +76,7 @@ interface AppContextValue {
   storageReady: boolean;
   storageChecked: boolean;
   loading: boolean;
+  logout: (extra?: Partial<UIState>) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -221,9 +220,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (patch.precios) {
       ops.push(upsertPrecios(patch.precios));
     }
-    if (patch.pinAdmin !== undefined) {
-      ops.push(setPinAdmin(patch.pinAdmin));
-    }
 
     const results = await Promise.all(ops);
     const ok = results.every(Boolean);
@@ -245,8 +241,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUi((prev) => ({ ...prev, ...patch }));
   }
 
+  // Limpia la cookie de sesión en el servidor además de resetear el estado
+  // local — sin esto, el login seguía "activo" del lado del servidor (ver
+  // @/lib/session) aunque la UI ya mostrara la pantalla de login.
+  async function logout(extra: Partial<UIState> = {}) {
+    patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null, ...extra });
+    try {
+      await fetch("/api/perfiles/logout", { method: "POST" });
+    } catch {
+      // Best-effort: si falla, la cookie expira sola a las 12h (ver crearSesion).
+    }
+  }
+
   return (
-    <AppContext.Provider value={{ data, commit, ui, patchUi, storageReady, storageChecked, loading }}>
+    <AppContext.Provider value={{ data, commit, ui, patchUi, storageReady, storageChecked, loading, logout }}>
       {children}
     </AppContext.Provider>
   );

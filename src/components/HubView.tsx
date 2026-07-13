@@ -5,7 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { MODULOS_ADMIN } from "@/lib/helpers";
 
 export default function HubView() {
-  const { ui, patchUi } = useApp();
+  const { ui, patchUi, logout } = useApp();
   const modulos = ui.perfilActual?.modulos || [];
   const primerTabAdmin = MODULOS_ADMIN.find((m) => modulos.includes(m));
 
@@ -45,11 +45,7 @@ export default function HubView() {
           </button>
         )}
       </div>
-      <button
-        className="btn ghost"
-        style={{ marginTop: 20 }}
-        onClick={() => patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null })}
-      >
+      <button className="btn ghost" style={{ marginTop: 20 }} onClick={() => logout()}>
         Cerrar sesión
       </button>
     </div>

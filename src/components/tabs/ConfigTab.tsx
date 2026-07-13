@@ -33,8 +33,8 @@ export default function ConfigTab() {
     const cur = curPinRef.current?.value || "";
     const nw = newPinRef.current?.value || "";
     if (!ui.perfilActual) return;
-    if (!nw || nw.length < 4) {
-      setCfgErr({ msg: "La nueva contraseña debe tener al menos 4 caracteres", ok: false });
+    if (!nw || nw.length < 6) {
+      setCfgErr({ msg: "La nueva contraseña debe tener al menos 6 caracteres", ok: false });
       return;
     }
     const res = await fetch("/api/perfiles/cambiar-clave", {
