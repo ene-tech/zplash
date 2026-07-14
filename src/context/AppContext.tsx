@@ -4,35 +4,47 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type {
   AppData,
   AuditoriaEntrada,
+  BloqueoAgenda,
   CategoriaGasto,
+  Cita,
   Cliente,
   Cupon,
   Empresa,
+  HorarioAgenda,
   Ingreso,
   MovimientoContable,
   PerfilPublico,
+  Servicio,
   TablaAuditada,
   UIState,
   Venta,
 } from "@/types";
-import { CATEGORIAS_GASTO_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT } from "@/lib/helpers";
+import { CATEGORIAS_GASTO_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
 import {
+  deleteBloqueosAgenda,
+  deleteCitas,
   deleteClientes,
   deleteCupones,
   deleteEmpresas,
+  deleteHorariosAgenda,
   deleteMovimientosContables,
   deletePerfiles,
+  deleteServicios,
   insertAuditoria,
   insertIngresos,
   insertVentas,
   loadAll,
+  upsertBloqueosAgenda,
   upsertCategoriasGasto,
+  upsertCitas,
   upsertClientes,
   upsertCupones,
   upsertEmpresas,
+  upsertHorariosAgenda,
   upsertMovimientosContables,
   upsertPerfiles,
   upsertPrecios,
+  upsertServicios,
   waitForStorage,
 } from "@/lib/db";
 
@@ -46,6 +58,10 @@ const initialData: AppData = {
   movimientosContables: [],
   categoriasGasto: JSON.parse(JSON.stringify(CATEGORIAS_GASTO_DEFAULT)),
   empresas: [],
+  servicios: JSON.parse(JSON.stringify(SERVICIOS_DEFAULT)),
+  horariosAgenda: [],
+  bloqueosAgenda: [],
+  citas: [],
 };
 
 const initialUI: UIState = {
@@ -219,6 +235,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (patch.precios) {
       ops.push(upsertPrecios(patch.precios));
+    }
+    if (patch.servicios) {
+      const { cambiados, eliminados } = diffPorId<Servicio>(previous.servicios, patch.servicios);
+      if (cambiados.length) ops.push(upsertServicios(cambiados));
+      if (eliminados.length) ops.push(deleteServicios(eliminados));
+    }
+    if (patch.horariosAgenda) {
+      const { cambiados, eliminados } = diffPorId<HorarioAgenda>(previous.horariosAgenda, patch.horariosAgenda);
+      if (cambiados.length) ops.push(upsertHorariosAgenda(cambiados));
+      if (eliminados.length) ops.push(deleteHorariosAgenda(eliminados));
+    }
+    if (patch.bloqueosAgenda) {
+      const { cambiados, eliminados } = diffPorId<BloqueoAgenda>(previous.bloqueosAgenda, patch.bloqueosAgenda);
+      if (cambiados.length) ops.push(upsertBloqueosAgenda(cambiados));
+      if (eliminados.length) ops.push(deleteBloqueosAgenda(eliminados));
+    }
+    if (patch.citas) {
+      const { cambiados, eliminados } = diffPorId<Cita>(previous.citas, patch.citas);
+      if (cambiados.length) ops.push(upsertCitas(cambiados));
+      if (eliminados.length) ops.push(deleteCitas(eliminados));
+      auditoria.push(...auditEntries("citas", previous.citas, cambiados, eliminados, usuario));
     }
 
     const results = await Promise.all(ops);

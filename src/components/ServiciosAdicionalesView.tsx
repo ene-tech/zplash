@@ -4,10 +4,10 @@ import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import DatosTransferencia from "@/components/DatosTransferencia";
+import { validarDisponibilidad } from "@/lib/agenda";
 import {
   PATENTE_FORMATO_MSG,
   RUT_FORMATO_MSG,
-  SERVICIOS_ADICIONALES,
   findClient,
   fmtCLP,
   formatRut,
@@ -15,12 +15,13 @@ import {
   isValidRut,
   normPlate,
   planStatus,
-  precioServicioAdicional,
+  precioServicio,
   todayStr,
+  todayYMD,
   uid,
   uidIngreso,
 } from "@/lib/helpers";
-import type { Cliente, Empresa, Ingreso, Venta } from "@/types";
+import type { Cita, Cliente, Empresa, Ingreso, Venta } from "@/types";
 
 const GLOSA_LIMPIEZA_COMPLETA = "Limpieza Completa";
 
@@ -28,6 +29,9 @@ const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el alm
 const CATEGORIA_DETAILING = "Lavado Completo Detailing";
 const CATEGORIA_ADICIONALES = "Servicios Adicionales";
 const AJUSTES = [5000, 10000] as const;
+// Duración a usar en la agenda cuando lo vendido no incluye ningún servicio
+// del catálogo con duración propia (p. ej. solo un ítem personalizado).
+const DURACION_DEFAULT_MINUTOS = 15;
 
 type EstadoPago = "pagado" | "abono50" | "pendiente";
 type Linea = { id: string; nombre: string; precio: number };
@@ -44,7 +48,6 @@ export default function ServiciosAdicionalesView() {
   const rutRef = useRef<HTMLInputElement>(null);
   const direccionRef = useRef<HTMLInputElement>(null);
   const giroRef = useRef<HTMLInputElement>(null);
-  const horaEntregaRef = useRef<HTMLInputElement>(null);
   const notasRef = useRef<HTMLTextAreaElement>(null);
   const detallePersonalizadoRef = useRef<HTMLInputElement>(null);
   const montoPersonalizadoRef = useRef<HTMLInputElement>(null);
@@ -56,27 +59,42 @@ export default function ServiciosAdicionalesView() {
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
   const [estadoPago, setEstadoPago] = useState<EstadoPago | null>(null);
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
+  const [fechaCita, setFechaCita] = useState(todayYMD());
+  const [horaCita, setHoraCita] = useState("");
   const [err, setErr] = useState("");
 
   const clienteExistente = patenteBuscada ? findClient(data.clientes, patenteBuscada) || null : null;
-  const categorias = Array.from(new Set(SERVICIOS_ADICIONALES.map((s) => s.categoria)));
+  const catalogo = data.servicios.filter((s) => s.activo);
+  const categorias = Array.from(new Set(catalogo.map((s) => s.categoria || "")));
 
   const hayDetailingSeleccionado = serviciosSeleccionados.some(
-    (id) => SERVICIOS_ADICIONALES.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING
+    (id) => catalogo.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING
   );
 
   const primerDetailingIdx = serviciosSeleccionados.findIndex(
-    (id) => SERVICIOS_ADICIONALES.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING
+    (id) => catalogo.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING
   );
   const lineasCatalogo: Linea[] = serviciosSeleccionados.map((id, idx) => {
-    const s = SERVICIOS_ADICIONALES.find((x) => x.id === id)!;
-    const precio = precioServicioAdicional(data.precios, s) + (idx === primerDetailingIdx && ajuste > 0 ? ajuste : 0);
+    const s = catalogo.find((x) => x.id === id)!;
+    const precio = precioServicio(data.precios, s.id) + (idx === primerDetailingIdx && ajuste > 0 ? ajuste : 0);
     return { id: s.id, nombre: s.nombre, precio };
   });
   const lineasPersonalizadas: Linea[] = itemsPersonalizados.map((i) => ({ id: i.id, nombre: i.nombre, precio: i.precio }));
   const lineas: Linea[] = [...lineasCatalogo, ...lineasPersonalizadas];
   const totalListado = lineas.reduce((s, l) => s + l.precio, 0);
   const montoCobradoTotal = estadoPago === "pagado" ? totalListado : estadoPago === "abono50" ? Math.round(totalListado / 2) : 0;
+
+  // La Agenda queda alimentada por este mismo registro: la duración de la
+  // cita es la suma de las duraciones del catálogo elegido (equivalente a
+  // "procedimientos" en ConsultaPro), con un mínimo por si solo se
+  // vendieron ítems personalizados (sin duración propia).
+  const duracionCatalogoTotal = serviciosSeleccionados.reduce(
+    (sum, id) => sum + (catalogo.find((s) => s.id === id)?.duracionMinutos || 0),
+    0
+  );
+  const duracionCita = lineas.length > 0 ? duracionCatalogoTotal || DURACION_DEFAULT_MINUTOS : 0;
+  const horarioConfigurado = data.horariosAgenda.length > 0;
+  const citasDelDiaCita = data.citas.filter((c) => c.fechaHora.slice(0, 10) === fechaCita);
 
   const toggleServicio = (id: string, categoria: string) => {
     setServiciosSeleccionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -135,6 +153,8 @@ export default function ServiciosAdicionalesView() {
     setAjuste(0);
     setEstadoPago(null);
     setMetodoPago(null);
+    setFechaCita(todayYMD());
+    setHoraCita("");
   };
 
   const cambiarPatente = () => {
@@ -144,6 +164,8 @@ export default function ServiciosAdicionalesView() {
     setAjuste(0);
     setEstadoPago(null);
     setMetodoPago(null);
+    setFechaCita(todayYMD());
+    setHoraCita("");
     setErr("");
   };
 
@@ -166,6 +188,24 @@ export default function ServiciosAdicionalesView() {
       setErr("Selecciona efectivo o tarjeta");
       return;
     }
+    if (horarioConfigurado && !horaCita) {
+      setErr("Selecciona una hora para el servicio");
+      return;
+    }
+    if (horaCita && horarioConfigurado) {
+      const motivo = validarDisponibilidad(
+        fechaCita,
+        horaCita,
+        duracionCita,
+        data.horariosAgenda,
+        data.bloqueosAgenda,
+        citasDelDiaCita
+      );
+      if (motivo) {
+        setErr(motivo);
+        return;
+      }
+    }
 
     const telefono = telefonoRef.current?.value.trim() || "";
     const email = emailRef.current?.value.trim() || "";
@@ -179,7 +219,7 @@ export default function ServiciosAdicionalesView() {
     const rut = tipoDoc === "Factura" ? formatRut(rutRaw) : "";
     const direccion = tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "";
     const giro = tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "";
-    const horaEntrega = horaEntregaRef.current?.value || "";
+    const horaEntrega = horaCita || "";
     const notas = notasRef.current?.value.trim() || "";
 
     setErr("");
@@ -287,11 +327,34 @@ export default function ServiciosAdicionalesView() {
       esServicioAdicional: true,
     }));
 
+    // La Agenda queda fusionada con la venta: el registro deja reservada su
+    // hora en `citas`, con los servicios del catálogo elegidos ligados vía
+    // cita_servicios (ver upsertCitas en dataAccess.ts) — equivalente a
+    // cita_procedimientos en ConsultaPro, no un nombre concatenado en texto.
+    const citaNueva: Cita | undefined = horaCita
+      ? {
+          id: uid(),
+          clienteId,
+          servicioIds: serviciosSeleccionados,
+          patente,
+          nombre,
+          telefono: telefono || undefined,
+          fechaHora: `${fechaCita}T${horaCita}:00`,
+          duracionMinutos: duracionCita,
+          estado: "confirmada",
+          notas: notas || undefined,
+          origen: "interno",
+          creadoPor: ui.perfilActual?.nombre || "",
+          creadoEn: ahora,
+        }
+      : undefined;
+
     const ok = await commit({
       clientes,
       ventas: [...ventasNuevas, ...data.ventas],
       ingresos: ingresosNuevos,
       ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
+      ...(citaNueva ? { citas: [citaNueva, ...data.citas] } : {}),
     });
     if (!ok) {
       setErr(ERROR_GUARDADO);
@@ -305,6 +368,8 @@ export default function ServiciosAdicionalesView() {
     setTipoDoc("Boleta");
     setEstadoPago(null);
     setMetodoPago(null);
+    setFechaCita(todayYMD());
+    setHoraCita("");
   };
 
   const hoy = todayStr();
@@ -366,15 +431,15 @@ export default function ServiciosAdicionalesView() {
                     {cat}
                   </div>
                   <div className="service-grid">
-                    {SERVICIOS_ADICIONALES.filter((s) => s.categoria === cat).map((s) => (
+                    {catalogo.filter((s) => s.categoria === cat).map((s) => (
                       <button
                         key={s.id}
                         type="button"
                         className={`service-btn${serviciosSeleccionados.includes(s.id) ? " selected" : ""}`}
-                        onClick={() => toggleServicio(s.id, s.categoria)}
+                        onClick={() => toggleServicio(s.id, s.categoria || "")}
                       >
                         <div className="nombre">{s.nombre}</div>
-                        <div className="precio">{fmtCLP(precioServicioAdicional(data.precios, s))}</div>
+                        <div className="precio">{fmtCLP(precioServicio(data.precios, s.id))}</div>
                       </button>
                     ))}
                   </div>
@@ -548,10 +613,26 @@ export default function ServiciosAdicionalesView() {
                     </div>
                   </div>
                 )}
-                <div className="field">
-                  <label>Hora de entrega</label>
-                  <input ref={horaEntregaRef} type="time" />
-                </div>
+                {lineas.length > 0 && (
+                  <div className="field">
+                    <label>Fecha y hora del servicio{horarioConfigurado ? " *" : ""}</label>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <input
+                        type="date"
+                        min={todayYMD()}
+                        value={fechaCita}
+                        onChange={(e) => setFechaCita(e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                      <input type="time" value={horaCita} onChange={(e) => setHoraCita(e.target.value)} style={{ flex: 1 }} />
+                    </div>
+                    <div className="hint" style={{ textAlign: "left", marginTop: 6 }}>
+                      {horarioConfigurado
+                        ? `Duración estimada: ${duracionCita} min. Se agenda en la Agenda del negocio.`
+                        : "Configura el horario de atención en Administrador de ingresos → Agenda para validar disponibilidad automáticamente."}
+                    </div>
+                  </div>
+                )}
                 <div className="field">
                   <label>Notas / Observaciones</label>
                   <textarea ref={notasRef} rows={3} placeholder="Observaciones de quien recibe el vehículo..." />

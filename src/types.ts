@@ -131,7 +131,8 @@ export type Modulo =
   | "stats"
   | "config"
   | "contabilidad"
-  | "permisos";
+  | "permisos"
+  | "agenda";
 
 // Lo que el cliente sí puede cargar: nombre y módulos permitidos, nunca la
 // contraseña. La clave solo se consulta/valida server-side, dentro de las
@@ -191,10 +192,66 @@ export interface CategoriaGasto {
 
 export type Precios = Record<string, { normal: number; promo: number }>;
 
+// Catálogo de servicios (fusiona el antiguo listado hardcodeado
+// SERVICIOS_ADICIONALES): lo usan tanto ServiciosAdicionalesView (venta
+// rápida en el POS) como la Agenda — equivalente a "procedimientos" en
+// ConsultaPro. El precio no vive acá, sigue en Precios (keyed por Servicio.id).
+export interface Servicio {
+  id: string;
+  nombre: string;
+  categoria?: string;
+  duracionMinutos: number;
+  activo: boolean;
+}
+
+// Horario semanal recurrente único para todo el negocio (no por profesional
+// ni por box, a diferencia de ConsultaPro: un lavadero atiende con capacidad
+// de 1 cupo por horario). diaSemana: 0=domingo … 6=sábado.
+export interface HorarioAgenda {
+  id: string;
+  diaSemana: number;
+  horaInicio: string;
+  horaFin: string;
+}
+
+// Excepción puntual al horario habitual: un día completo bloqueado o un
+// rango de horas específico dentro de un día.
+export interface BloqueoAgenda {
+  id: string;
+  fecha: string;
+  todoElDia: boolean;
+  horaInicio?: string;
+  horaFin?: string;
+  motivo?: string;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
+// Cita agendada desde el Registro de Servicio Adicional. servicioIds son los
+// servicios del catálogo ligados a esta visita (equivalente a
+// cita_procedimientos en ConsultaPro: una cita puede incluir varios
+// servicios, no uno solo) — la app los carga ya resueltos acá para no tener
+// que hacer un join aparte en cada pantalla que lista citas.
+export interface Cita {
+  id: string;
+  clienteId?: string;
+  servicioIds: string[];
+  patente: string;
+  nombre: string;
+  telefono?: string;
+  fechaHora: string;
+  duracionMinutos: number;
+  estado: "pendiente" | "confirmada" | "completada" | "cancelada" | "no_asistio";
+  notas?: string;
+  origen: "interno" | "publico";
+  creadoPor?: string;
+  creadoEn: string;
+}
+
 // Tablas cubiertas por el log de auditoría (las que mueven dinero o datos de
 // clientes). Perfiles/precios/categoriasGasto/config quedan fuera a
 // propósito: bajo riesgo/volumen, ver evaluación en supabase/add-auditoria.sql.
-export type TablaAuditada = "clientes" | "ingresos" | "ventas" | "empresas" | "cupones" | "movimientos_contables";
+export type TablaAuditada = "clientes" | "ingresos" | "ventas" | "empresas" | "cupones" | "movimientos_contables" | "citas";
 
 // Una entrada del log de auditoría. Es de solo escritura desde la app (no
 // se carga a AppData/memoria, se revisa directo en Supabase); se genera y
@@ -220,6 +277,10 @@ export interface AppData {
   movimientosContables: MovimientoContable[];
   categoriasGasto: CategoriaGasto[];
   empresas: Empresa[];
+  servicios: Servicio[];
+  horariosAgenda: HorarioAgenda[];
+  bloqueosAgenda: BloqueoAgenda[];
+  citas: Cita[];
 }
 
 export type PlanStatusCls = "ok" | "warn" | "bad";

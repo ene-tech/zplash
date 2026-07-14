@@ -88,6 +88,18 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   };
 
   const registrarPagado = () => {
+    if (yaIngresoHoy(data.ingresos, c.id)) {
+      patchUi({
+        modal: {
+          type: "confirm",
+          mensaje: `Este cliente ya pasó una vez hoy. ¿Desea que pase nuevamente por garantía?`,
+          confirmLabel: "Sí, ingresar por garantía",
+          danger: false,
+          onConfirm: () => hacerRegistro(true),
+        },
+      });
+      return;
+    }
     pedirPago(precioLavadoUnico(data.precios), `Lavado único para ${c.nombre} (${c.patente})`, async (pago) => {
       const patch = registrarIngreso(data, c, ui.perfilActual?.nombre);
       const venta: Venta = {

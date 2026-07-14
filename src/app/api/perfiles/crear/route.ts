@@ -5,6 +5,7 @@ import { perfiles } from "@/db/schema";
 import { hashClave } from "@/lib/auth";
 import { verificarYMigrarClave } from "@/lib/perfiles";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
+import { origenValido } from "@/lib/csrf";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,9 @@ const CLAVE_MIN_LARGO = 6;
 // servidor puede verificar es la contraseña actual del actor (mismo
 // principio que /api/perfiles/cambiar-clave).
 export async function POST(request: NextRequest) {
+  if (!origenValido(request)) {
+    return NextResponse.json({ ok: false, error: "Origen no permitido" }, { status: 403 });
+  }
   if (rateLimited(`perfiles-crear:${clienteIp(request)}`, LIMITE_INTENTOS, VENTANA_MS)) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { pagosWebpay } from "@/db/schema";
-import { SERVICIOS_ADICIONALES } from "@/lib/helpers";
+import { pagosWebpay, servicios } from "@/db/schema";
 import { aplicarPagoAprobado } from "@/lib/pagos";
 import { webpayTransaction } from "@/lib/transbank";
 
@@ -88,7 +87,9 @@ async function procesarRetorno(
   // extra de que Transbank ya confirmó el cobro antes de este punto.
   try {
     const esServicioAdicional = pago.tipo === "servicio";
-    const servicio = esServicioAdicional ? SERVICIOS_ADICIONALES.find((s) => s.id === pago.servicioId) : undefined;
+    const [servicio] = esServicioAdicional
+      ? await db.select({ nombre: servicios.nombre }).from(servicios).where(eq(servicios.id, pago.servicioId ?? "")).limit(1)
+      : [];
     const tipoVentaServicio = servicio ? `${servicio.nombre} (Web)` : "Servicio adicional (Web)";
 
     const ventaId = "wp-" + buyOrder;

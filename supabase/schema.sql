@@ -98,6 +98,7 @@ create table if not exists perfiles (
   id text primary key,
   nombre text not null unique,
   clave text not null,
+  clave_version integer not null default 1,
   modulos jsonb not null default '[]'::jsonb,
   icono text,
   creado_en timestamptz not null default now()
@@ -237,6 +238,76 @@ create table if not exists config (
 );
 insert into config (id, pin_admin) values (true, '1234') on conflict (id) do nothing;
 
+-- Catálogo de servicios (fusiona el antiguo listado hardcodeado
+-- SERVICIOS_ADICIONALES): lo usa tanto ServiciosAdicionalesView (venta
+-- rápida en el POS) como la Agenda (duracion_minutos define el largo del
+-- cupo, igual que `procedimientos` en ConsultaPro). El precio no vive acá,
+-- sigue en `precios`, keyed por servicios.id.
+create table if not exists servicios (
+  id text primary key,
+  nombre text not null,
+  categoria text,
+  duracion_minutos integer not null default 30,
+  activo boolean not null default true,
+  creado_en timestamptz not null default now()
+);
+
+-- Horario semanal recurrente único para todo el negocio: a diferencia de
+-- ConsultaPro (horario por profesional), acá no hay "profesional" al que
+-- asignarle una cita — un lavadero atiende con capacidad de 1 cupo por
+-- horario. dia_semana: 0=domingo … 6=sábado.
+create table if not exists horarios_agenda (
+  id text primary key,
+  dia_semana integer not null,
+  hora_inicio text not null,
+  hora_fin text not null,
+  creado_en timestamptz not null default now()
+);
+
+-- Excepción puntual al horario habitual: un día completo bloqueado o un
+-- rango de horas específico dentro de un día.
+create table if not exists bloqueos_agenda (
+  id text primary key,
+  fecha text not null,
+  todo_el_dia boolean not null default true,
+  hora_inicio text,
+  hora_fin text,
+  motivo text,
+  creado_en timestamptz not null default now(),
+  creado_por text
+);
+
+-- Cita agendada desde el Registro de Servicio Adicional. duracion_minutos es
+-- la suma de los servicios ligados en `cita_servicios` (ver esa tabla),
+-- tomada como snapshot al momento de agendar. La cita NO genera
+-- automáticamente una Venta/Ingreso: eso sigue siendo el mismo registro que
+-- ya hace ServiciosAdicionalesView al guardar.
+create table if not exists citas (
+  id text primary key,
+  cliente_id text references clientes(id) on delete set null,
+  patente text not null,
+  nombre text not null,
+  telefono text,
+  fecha_hora timestamptz not null,
+  duracion_minutos integer not null,
+  estado text not null default 'pendiente',
+  notas text,
+  origen text not null default 'interno',
+  creado_por text,
+  creado_en timestamptz not null default now()
+);
+
+-- Servicios ligados a una cita (equivalente a cita_procedimientos en
+-- ConsultaPro): una cita puede incluir varios servicios del catálogo a la
+-- vez, en vez de guardar los nombres concatenados en un string. Cascade en
+-- servicio_id sigue el mismo criterio que ConsultaPro: los servicios casi
+-- nunca se borran de verdad (se desactivan con `activo`).
+create table if not exists cita_servicios (
+  id text primary key,
+  cita_id text not null references citas(id) on delete cascade,
+  servicio_id text not null references servicios(id) on delete cascade
+);
+
 -- Foreign keys: solo en las relaciones donde se verificó que no hay filas
 -- huérfanas irreconciliables (ver evaluación en supabase/add-foreign-keys.sql
 -- para bases ya existentes). ON DELETE SET NULL preserva el historial si se
@@ -293,6 +364,11 @@ alter table cupones enable row level security;
 alter table movimientos_contables enable row level security;
 alter table categorias_gasto enable row level security;
 alter table auditoria enable row level security;
+alter table servicios enable row level security;
+alter table horarios_agenda enable row level security;
+alter table bloqueos_agenda enable row level security;
+alter table citas enable row level security;
+alter table cita_servicios enable row level security;
 
 -- Sin políticas para anon en ninguna de estas tablas (ver comentario
 -- arriba). Se dropean explícitamente por si el proyecto ya tenía las

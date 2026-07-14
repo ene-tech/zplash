@@ -14,14 +14,18 @@ import { tieneModulo, tieneSesionValida } from "@/lib/session";
 import type {
   AppData,
   AuditoriaEntrada,
+  BloqueoAgenda,
   CategoriaGasto,
+  Cita,
   Cliente,
   Cupon,
   Empresa,
+  HorarioAgenda,
   Ingreso,
   MovimientoContable,
   PerfilPublico,
   Precios,
+  Servicio,
   Venta,
 } from "@/types";
 
@@ -107,6 +111,52 @@ export async function upsertEmpresas(rows: Empresa[]): Promise<boolean> {
 export async function deleteEmpresas(ids: string[]): Promise<boolean> {
   if (!(await tieneSesionValida())) return false;
   return dataAccess.deleteEmpresas(ids);
+}
+
+// Gateadas con el módulo "agenda": solo perfiles con acceso a esa pestaña
+// pueden tocar el catálogo de servicios y el horario/bloqueos del negocio.
+export async function upsertServicios(rows: Servicio[]): Promise<boolean> {
+  if (!(await tieneModulo("agenda"))) return false;
+  return dataAccess.upsertServicios(rows);
+}
+
+export async function deleteServicios(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("agenda"))) return false;
+  return dataAccess.deleteServicios(ids);
+}
+
+export async function upsertHorariosAgenda(rows: HorarioAgenda[]): Promise<boolean> {
+  if (!(await tieneModulo("agenda"))) return false;
+  return dataAccess.upsertHorariosAgenda(rows);
+}
+
+export async function deleteHorariosAgenda(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("agenda"))) return false;
+  return dataAccess.deleteHorariosAgenda(ids);
+}
+
+export async function upsertBloqueosAgenda(rows: BloqueoAgenda[]): Promise<boolean> {
+  if (!(await tieneModulo("agenda"))) return false;
+  return dataAccess.upsertBloqueosAgenda(rows);
+}
+
+export async function deleteBloqueosAgenda(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("agenda"))) return false;
+  return dataAccess.deleteBloqueosAgenda(ids);
+}
+
+// A diferencia de lo anterior, las citas en sí se gatean con una sesión
+// simple (igual que insertVentas/insertIngresos): las crea cualquier
+// operador con acceso a Servicios Adicionales al registrar un vehículo, no
+// solo quien administra la Agenda.
+export async function upsertCitas(rows: Cita[]): Promise<boolean> {
+  if (!(await tieneSesionValida())) return false;
+  return dataAccess.upsertCitas(rows);
+}
+
+export async function deleteCitas(ids: string[]): Promise<boolean> {
+  if (!(await tieneSesionValida())) return false;
+  return dataAccess.deleteCitas(ids);
 }
 
 export async function insertAuditoria(entradas: AuditoriaEntrada[]): Promise<boolean> {

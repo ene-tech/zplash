@@ -14,6 +14,10 @@ function appDataVacia(): AppData {
     movimientosContables: [],
     categoriasGasto: [],
     empresas: [],
+    servicios: [],
+    horariosAgenda: [],
+    bloqueosAgenda: [],
+    citas: [],
   };
 }
 

@@ -1,13 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, cupones } from "@/db/schema";
-import { fmtFecha, generarCodigoCupon, isValidPatente, normPlate, planStatus, uid } from "@/lib/helpers";
+import { clientes, cupones, precios as preciosTabla, servicios as serviciosTabla } from "@/db/schema";
+import { fmtFecha, generarCodigoCupon, isValidPatente, normPlate, planStatus, SERVICIOS_DEFAULT, uid } from "@/lib/helpers";
 // Directo a la capa de datos, no al Server Action de @/lib/db: este flujo
 // corre dentro del webhook de Twilio (protegido por firma, ver
 // /api/whatsapp/route.ts), no hay perfil logueado que pase el chequeo de
 // sesión que exige el Server Action homónimo.
 import { upsertCupones } from "@/lib/dataAccess";
-import type { Cupon } from "@/types";
+import type { Cupon, Precios } from "@/types";
 import {
   CONTACTO_HUMANO,
   DESCUENTO_PRIMERA_VEZ_DIAS_VALIDEZ,
@@ -109,7 +109,18 @@ export async function responderMensaje(textoCrudo: string): Promise<RespuestaBot
 
   if (!texto || SALUDOS.has(normalizado)) return { texto: MENU_PRINCIPAL };
   if (isValidPatente(texto)) return estadoPlanPorPatente(texto);
-  if (OPCIONES_PRECIOS.has(normalizado)) return { texto: textoPrecios(), mediaPath: SERVICIOS_IMAGEN_PATH };
+  if (OPCIONES_PRECIOS.has(normalizado)) {
+    const db = getDb();
+    const [preciosRows, serviciosRows] = await Promise.all([
+      db.select().from(preciosTabla),
+      db.select().from(serviciosTabla),
+    ]);
+    const precios: Precios = Object.fromEntries(preciosRows.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
+    const servicios = serviciosRows.length
+      ? serviciosRows.map((s) => ({ ...s, categoria: s.categoria ?? undefined }))
+      : SERVICIOS_DEFAULT;
+    return { texto: textoPrecios(precios, servicios), mediaPath: SERVICIOS_IMAGEN_PATH };
+  }
   if (OPCIONES_CONTRATAR_PLAN.has(normalizado)) return { texto: TEXTO_CONTRATAR_PLAN, mediaPath: PLAN_IMAGEN_PATH };
   if (OPCIONES_HORARIO.has(normalizado)) return { texto: HORARIO_UBICACION };
   if (OPCIONES_HUMANO.has(normalizado)) return { texto: CONTACTO_HUMANO };

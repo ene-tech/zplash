@@ -10,6 +10,7 @@ import StatsTab from "@/components/tabs/StatsTab";
 import ConfigTab from "@/components/tabs/ConfigTab";
 import VentaEmpresaTab from "@/components/tabs/VentaEmpresaTab";
 import EmpresasTab from "@/components/tabs/EmpresasTab";
+import AgendaTab from "@/components/tabs/AgendaTab";
 import type { Modulo } from "@/types";
 
 const TABS: { id: Modulo; label: string }[] = [
@@ -20,6 +21,7 @@ const TABS: { id: Modulo; label: string }[] = [
   { id: "empresas_facturacion", label: "Empresas" },
   { id: "perfiles", label: "Perfiles" },
   { id: "stats", label: "Estadísticas" },
+  { id: "agenda", label: "Agenda" },
   { id: "config", label: "Configuración" },
 ];
 
@@ -54,6 +56,7 @@ export default function AdminView() {
         {ui.adminTab === "empresas_facturacion" && <EmpresasTab />}
         {ui.adminTab === "perfiles" && <PerfilesTab />}
         {ui.adminTab === "stats" && <StatsTab />}
+        {ui.adminTab === "agenda" && <AgendaTab />}
         {ui.adminTab === "config" && <ConfigTab />}
       </div>
     </>

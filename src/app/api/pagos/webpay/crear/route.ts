@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { pagosWebpay, precios } from "@/db/schema";
-import { PLANES, SERVICIOS_ADICIONALES, isValidPatente, normPlate, precioNormal, precioServicioAdicional } from "@/lib/helpers";
+import { pagosWebpay, precios, servicios } from "@/db/schema";
+import { PLANES, isValidPatente, normPlate, precioNormal, precioServicio } from "@/lib/helpers";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { webpayTransaction } from "@/lib/transbank";
 
@@ -50,12 +50,12 @@ export async function POST(request: NextRequest) {
     let monto: number;
     let servicioId: string | null = null;
     if (tipo === "servicio") {
-      const servicio = SERVICIOS_ADICIONALES.find((s) => s.id === body.servicioId);
-      if (!servicio) {
+      const [servicio] = await db.select().from(servicios).where(eq(servicios.id, body.servicioId ?? "")).limit(1);
+      if (!servicio || !servicio.activo) {
         return NextResponse.json({ error: "Servicio no encontrado" }, { status: 400 });
       }
       servicioId = servicio.id;
-      monto = precioServicioAdicional(preciosMap, servicio);
+      monto = precioServicio(preciosMap, servicio.id);
     } else {
       monto = precioNormal(preciosMap, PLANES[0]);
     }

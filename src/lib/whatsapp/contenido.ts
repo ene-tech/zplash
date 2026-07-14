@@ -1,9 +1,10 @@
 import {
   fmtCLP,
+  precioServicio,
   PRECIOS_DEFAULT,
   PRECIO_LAVADO_UNICO,
-  SERVICIOS_ADICIONALES,
 } from "@/lib/helpers";
+import type { Precios, Servicio } from "@/types";
 
 export const MENU_PRINCIPAL = `¡Hola! 👋 Soy el asistente de ZPlash.
 
@@ -69,7 +70,7 @@ Escribe *menu* para ver las opciones, o envía tu *patente* para consultar tu pl
 
 export const PATENTE_NO_ENCONTRADA = `No encontramos ningún cliente con esa patente. Verifica que esté bien escrita (ej. AB1234) o escribe *3* para hablar con una persona.`;
 
-export function textoPrecios(): string {
+export function textoPrecios(precios: Precios, servicios: Servicio[]): string {
   const lineas = [`💰 *Precios*`, ``];
 
   for (const [plan, precio] of Object.entries(PRECIOS_DEFAULT)) {
@@ -77,8 +78,8 @@ export function textoPrecios(): string {
   }
 
   lineas.push(``, `Lavado único: ${fmtCLP(PRECIO_LAVADO_UNICO)}`, ``, `*Servicios adicionales*`);
-  for (const s of SERVICIOS_ADICIONALES) {
-    lineas.push(`${s.nombre}: ${fmtCLP(s.precio)}`);
+  for (const s of servicios.filter((s) => s.activo)) {
+    lineas.push(`${s.nombre}: ${fmtCLP(precioServicio(precios, s.id))}`);
   }
 
   return lineas.join("\n");

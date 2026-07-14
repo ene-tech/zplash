@@ -1,4 +1,4 @@
-import type { Cliente, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios } from "@/types";
+import type { Cliente, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios, Servicio } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 export const DIAS_AVISO_VENCIMIENTO = 7;
@@ -37,23 +37,21 @@ export const DATOS_TRANSFERENCIA = [
   { label: "Mail", valor: "TB@ZPLASH.CL" },
 ];
 
-export interface ServicioAdicional {
-  id: string;
-  categoria: string;
-  nombre: string;
-  precio: number;
-}
-
-export const SERVICIOS_ADICIONALES: ServicioAdicional[] = [
-  { id: "detailing-pequeno", categoria: "Lavado Completo Detailing", nombre: "Auto Pequeño", precio: 24990 },
-  { id: "detailing-mediano", categoria: "Lavado Completo Detailing", nombre: "Mediano / SUV / Pick-up", precio: 29990 },
-  { id: "detailing-xl", categoria: "Lavado Completo Detailing", nombre: "Auto XL", precio: 34990 },
-  { id: "tapiz", categoria: "Servicios Adicionales", nombre: "Limpieza de Tapiz (2 Corridas de Asientos)", precio: 39990 },
-  { id: "alfombra", categoria: "Servicios Adicionales", nombre: "Limpieza de Alfombra", precio: 19990 },
-  { id: "techo", categoria: "Servicios Adicionales", nombre: "Limpieza de Techo", precio: 19990 },
-  { id: "motor", categoria: "Servicios Adicionales", nombre: "Lavado de Motor", precio: 29990 },
-  { id: "chasis", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis", precio: 39990 },
-  { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Grafitado", precio: 59990 },
+/** Semilla/fallback de catálogo para cuando la tabla `servicios` está vacía o
+ * la migración todavía no corrió — mismo patrón que PERFILES_DEFAULT. Mismos
+ * ids/nombres/categorías que el antiguo SERVICIOS_ADICIONALES hardcodeado;
+ * duracionMinutos queda en 30 como placeholder editable de inmediato desde
+ * la pestaña Agenda (no hay dato real de duración por servicio todavía). */
+export const SERVICIOS_DEFAULT: Servicio[] = [
+  { id: "detailing-pequeno", categoria: "Lavado Completo Detailing", nombre: "Auto Pequeño", duracionMinutos: 30, activo: true },
+  { id: "detailing-mediano", categoria: "Lavado Completo Detailing", nombre: "Mediano / SUV / Pick-up", duracionMinutos: 30, activo: true },
+  { id: "detailing-xl", categoria: "Lavado Completo Detailing", nombre: "Auto XL", duracionMinutos: 30, activo: true },
+  { id: "tapiz", categoria: "Servicios Adicionales", nombre: "Limpieza de Tapiz (2 Corridas de Asientos)", duracionMinutos: 30, activo: true },
+  { id: "alfombra", categoria: "Servicios Adicionales", nombre: "Limpieza de Alfombra", duracionMinutos: 30, activo: true },
+  { id: "techo", categoria: "Servicios Adicionales", nombre: "Limpieza de Techo", duracionMinutos: 30, activo: true },
+  { id: "motor", categoria: "Servicios Adicionales", nombre: "Lavado de Motor", duracionMinutos: 30, activo: true },
+  { id: "chasis", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis", duracionMinutos: 30, activo: true },
+  { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Grafitado", duracionMinutos: 30, activo: true },
 ];
 
 export const MODULOS_ADMIN: Modulo[] = [
@@ -65,6 +63,7 @@ export const MODULOS_ADMIN: Modulo[] = [
   "perfiles",
   "stats",
   "config",
+  "agenda",
 ];
 export const TODOS_LOS_MODULOS: Modulo[] = [
   "operador",
@@ -87,6 +86,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   config: "Configuración",
   contabilidad: "Contabilidad",
   permisos: "Permisos (asignar módulos)",
+  agenda: "Agenda",
 };
 
 /** Identidades por defecto para un entorno nuevo sin filas en `perfiles`
@@ -202,9 +202,9 @@ export function precioLavadoUnico(precios: Precios): number {
   return (precios[LAVADO_UNICO_KEY] && precios[LAVADO_UNICO_KEY].normal) || PRECIO_LAVADO_UNICO;
 }
 
-/** Precio vigente de un servicio adicional, editable por el administrador; si no se ha guardado uno, usa el precio de catálogo. */
-export function precioServicioAdicional(precios: Precios, servicio: ServicioAdicional): number {
-  return (precios[servicio.id] && precios[servicio.id].normal) || servicio.precio;
+/** Precio vigente de un servicio del catálogo, editable por el administrador desde Configuración; si no se ha guardado uno, es 0. */
+export function precioServicio(precios: Precios, servicioId: string): number {
+  return (precios[servicioId] && precios[servicioId].normal) || 0;
 }
 
 export function todayYMD(): string {

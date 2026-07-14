@@ -7,12 +7,11 @@ import {
   LAVADO_UNICO_KEY,
   PLANES,
   PLAN_ONECLICK_KEY,
-  SERVICIOS_ADICIONALES,
   precioLavadoUnico,
   precioNormal,
   precioPlanOneclick,
   precioPreferencial,
-  precioServicioAdicional,
+  precioServicio,
 } from "@/lib/helpers";
 import type { CategoriaGasto } from "@/types";
 
@@ -30,7 +29,8 @@ export default function ConfigTab() {
   const lavadoUnicoRef = useRef<HTMLInputElement>(null);
   const planOneclickRef = useRef<HTMLInputElement>(null);
   const servicioRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const categoriasServicios = Array.from(new Set(SERVICIOS_ADICIONALES.map((s) => s.categoria)));
+  const catalogoServicios = data.servicios.filter((s) => s.activo);
+  const categoriasServicios = Array.from(new Set(catalogoServicios.map((s) => s.categoria || "")));
 
   const savePin = async () => {
     const cur = curPinRef.current?.value || "";
@@ -69,7 +69,7 @@ export default function ConfigTab() {
     });
     precios[LAVADO_UNICO_KEY] = { normal: Number(lavadoUnicoRef.current?.value) || 0, promo: 0 };
     precios[PLAN_ONECLICK_KEY] = { normal: Number(planOneclickRef.current?.value) || 0, promo: 0 };
-    SERVICIOS_ADICIONALES.forEach((s) => {
+    catalogoServicios.forEach((s) => {
       const inp = servicioRefs.current[s.id];
       precios[s.id] = { normal: Number(inp?.value) || 0, promo: 0 };
     });
@@ -256,13 +256,13 @@ export default function ConfigTab() {
             >
               {cat}
             </div>
-            {SERVICIOS_ADICIONALES.filter((s) => s.categoria === cat).map((s) => (
+            {catalogoServicios.filter((s) => s.categoria === cat).map((s) => (
               <div className="field" key={s.id}>
                 <label>{s.nombre}</label>
                 <input
                   type="number"
                   min={0}
-                  defaultValue={precioServicioAdicional(data.precios, s)}
+                  defaultValue={precioServicio(data.precios, s.id)}
                   ref={(el) => {
                     servicioRefs.current[s.id] = el;
                   }}

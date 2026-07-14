@@ -1,7 +1,8 @@
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { precios } from "@/db/schema";
-import { PLANES, SERVICIOS_ADICIONALES, precioNormal, precioPlanOneclick, precioServicioAdicional } from "@/lib/helpers";
+import { precios, servicios } from "@/db/schema";
+import { PLANES, precioNormal, precioPlanOneclick, precioServicio, SERVICIOS_DEFAULT } from "@/lib/helpers";
 
 export const runtime = "nodejs";
 
@@ -12,17 +13,21 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     const db = getDb();
-    const filas = await db.select().from(precios);
+    const [filas, filasServicios] = await Promise.all([
+      db.select().from(precios),
+      db.select().from(servicios).where(eq(servicios.activo, true)),
+    ]);
     const preciosMap = Object.fromEntries(filas.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
+    const catalogo = filasServicios.length ? filasServicios : SERVICIOS_DEFAULT.filter((s) => s.activo);
 
     return NextResponse.json({
       plan: { nombre: PLANES[0], precio: precioNormal(preciosMap, PLANES[0]) },
       planOneclick: { nombre: PLANES[0], precio: precioPlanOneclick(preciosMap) },
-      servicios: SERVICIOS_ADICIONALES.map((s) => ({
+      servicios: catalogo.map((s) => ({
         id: s.id,
         nombre: s.nombre,
         categoria: s.categoria,
-        precio: precioServicioAdicional(preciosMap, s),
+        precio: precioServicio(preciosMap, s.id),
       })),
     });
   } catch (error) {
