@@ -565,8 +565,31 @@ export async function loadAll(): Promise<AppData> {
     servicioIdsPorCita.set(cs.citaId, lista);
   }
 
+  // clientes.visitas/ultima_visita se escriben con un upsertClientes()
+  // separado del insertIngresos() que crea la fila de Historial de Ingresos
+  // que las originó (ver registrarIngreso en @/lib/actions y commit() en
+  // AppContext) — dos escrituras independientes, no una transacción. Si una
+  // llega a la base y la otra no (conexión intermitente, por ejemplo), el
+  // contador queda desincronizado del historial real y no hay forma de que
+  // se autocorrija. Para que esto no pueda pasar, acá se recalculan ambos
+  // campos a partir de `ingresos` (la fuente de verdad) en cada carga, en
+  // vez de confiar en el valor guardado en la columna.
+  const visitasPorCliente = new Map<string, { visitas: number; ultimaVisita: string }>();
+  for (const r of ingresosRows) {
+    if (!r.clienteId) continue;
+    const actual = visitasPorCliente.get(r.clienteId);
+    visitasPorCliente.set(r.clienteId, {
+      visitas: (actual?.visitas ?? 0) + 1,
+      ultimaVisita: actual && new Date(actual.ultimaVisita) > new Date(r.fecha) ? actual.ultimaVisita : r.fecha,
+    });
+  }
+
   return {
-    clientes: clientesRows.map(clienteFromRow),
+    clientes: clientesRows.map((r) => {
+      const c = clienteFromRow(r);
+      const real = visitasPorCliente.get(r.id);
+      return { ...c, visitas: real?.visitas ?? 0, ultimaVisita: real?.ultimaVisita ?? c.ultimaVisita };
+    }),
     ingresos: ingresosRows.map(ingresoFromRow),
     ventas: ventasRows.map(ventaFromRow),
     perfiles: perfilesData,
