@@ -80,6 +80,8 @@ const initialUI: UIState = {
   cierreHasta: null,
   statsDesde: null,
   statsHasta: null,
+  ingresosDesde: null,
+  ingresosHasta: null,
   facturaSearch: "",
   loginMode: null,
   perfilSeleccionadoId: null,

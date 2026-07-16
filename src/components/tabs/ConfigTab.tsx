@@ -7,11 +7,13 @@ import {
   LAVADO_UNICO_KEY,
   PLANES,
   PLAN_ONECLICK_KEY,
+  UPGRADE_PLAN_KEY,
   precioLavadoUnico,
   precioNormal,
   precioPlanOneclick,
   precioPreferencial,
   precioServicio,
+  precioUpgradePlan,
   todayYMD,
 } from "@/lib/helpers";
 import type { ConfigGlobal } from "@/types";
@@ -145,6 +147,7 @@ export default function ConfigTab() {
   );
   const [lavadoUnicoVal, setLavadoUnicoVal] = useState(() => String(precioLavadoUnico(data.precios)));
   const [planOneclickVal, setPlanOneclickVal] = useState(() => String(precioPlanOneclick(data.precios)));
+  const [upgradePlanVal, setUpgradePlanVal] = useState(() => String(precioUpgradePlan(data.precios)));
   const [servicioVals, setServicioVals] = useState<Record<string, string>>(() =>
     Object.fromEntries(catalogoServicios.map((s) => [s.id, String(precioServicio(data.precios, s.id))]))
   );
@@ -184,6 +187,7 @@ export default function ConfigTab() {
     });
     precios[LAVADO_UNICO_KEY] = { normal: Number(lavadoUnicoVal) || 0, promo: 0 };
     precios[PLAN_ONECLICK_KEY] = { normal: Number(planOneclickVal) || 0, promo: 0 };
+    precios[UPGRADE_PLAN_KEY] = { normal: Number(upgradePlanVal) || 0, promo: 0 };
     catalogoServicios.forEach((s) => {
       precios[s.id] = { normal: Number(servicioVals[s.id]) || 0, promo: 0 };
     });
@@ -239,6 +243,16 @@ export default function ConfigTab() {
         <div className="field">
           <label>Precio lavado único</label>
           <PriceInput value={lavadoUnicoVal} onChange={setLavadoUnicoVal} />
+        </div>
+
+        <h3 style={{ marginTop: 22 }}>Promoción: upgrade a plan</h3>
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+          Monto adicional que se le ofrece al cliente en el módulo Operador, dentro de la primera hora tras pagar un
+          lavado único, para convertir esa visita en la contratación del {PLANES[0]}.
+        </div>
+        <div className="field">
+          <label>Precio adicional del upgrade</label>
+          <PriceInput value={upgradePlanVal} onChange={setUpgradePlanVal} />
         </div>
 
         <h3 style={{ marginTop: 22 }}>Pagos web (/pagar)</h3>

@@ -123,9 +123,6 @@ export default function ClientesTab() {
           <option value="Vencido">Vencido</option>
           <option value="Sin plan">Sin plan</option>
         </select>
-        <button className="btn ghost" onClick={() => patchUi({ modal: { type: "bulk" } })}>
-          Carga masiva (Excel)
-        </button>
         <button className="btn" onClick={() => patchUi({ modal: { type: "client", data: null } })}>
           + Nuevo cliente
         </button>

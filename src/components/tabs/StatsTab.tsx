@@ -31,7 +31,7 @@ export default function StatsTab() {
     (cuponCodigo && cuponPorCodigo.get(cuponCodigo)?.valor) || 0;
 
   // Las garantías (relavado gratis por reclamo) no se consideran en este resumen. Los ingresos con
-  // glosa propia (p. ej. "Limpieza Completa" de un detailing, ya cobrado como servicio adicional) sí
+  // glosa propia (p. ej. "Servicio de Detailing" de un detailing, ya cobrado como servicio adicional) sí
   // se cuentan, pero en su propio bucket: no son plan, ni $9.990, ni ticket.
   const ingresosPeriodo = data.ingresos.filter((i) => inRange(i.fecha, desde, hasta) && !i.esGarantia);
   const conPlan = ingresosPeriodo.filter((i) => !i.viaCupon && !i.glosa && i.planEstadoAlIngreso !== "bad");
@@ -72,6 +72,11 @@ export default function StatsTab() {
     0
   );
   const montoTotalPeriodo = montoPlanes + montoPor9990 + montoTickets + montoLimpiezas;
+  const pctMonto = (n: number) => (montoTotalPeriodo ? ((n / montoTotalPeriodo) * 100).toFixed(1) : "0.0") + "%";
+  const pctMontoPlanes = pctMonto(montoPlanes);
+  const pctMonto9990 = pctMonto(montoPor9990);
+  const pctMontoTickets = pctMonto(montoTickets);
+  const pctMontoLimpiezas = pctMonto(montoLimpiezas);
 
   // --- Uso de planes y ranking de clientes, según el período seleccionado arriba ---
   const clientesPorId = new Map(data.clientes.map((c) => [c.id, c]));
@@ -269,6 +274,40 @@ export default function StatsTab() {
           <div className="lbl">Limpiezas completas</div>
           <div className="lbl" style={{ marginTop: 4 }}>
             {fmtCLP(montoLimpiezas)}
+          </div>
+        </div>
+      </div>
+
+      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>
+        Distribución de ingresos por tipo (monto)
+      </h3>
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="num">{fmtCLP(montoPlanes)}</div>
+          <div className="lbl">Planes</div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            {pctMontoPlanes}
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="num">{fmtCLP(montoPor9990)}</div>
+          <div className="lbl">{fmtCLP(9990)}</div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            {pctMonto9990}
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="num">{fmtCLP(montoTickets)}</div>
+          <div className="lbl">Tickets</div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            {pctMontoTickets}
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="num">{fmtCLP(montoLimpiezas)}</div>
+          <div className="lbl">Limpiezas completas</div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            {pctMontoLimpiezas}
           </div>
         </div>
       </div>

@@ -20,10 +20,12 @@ import {
   precioLavadoUnico,
   precioNormal,
   precioPreferencial,
+  precioUpgradePlan,
   resolverDescuento,
   uid,
   vencimientoAnclado,
   vencimientoPorDefectoISO,
+  ventaUpgradeElegible,
   yaIngresoHoy,
 } from "@/lib/helpers";
 import type { Cliente, Cupon, Empresa, Ingreso, PagoInfo, Venta } from "@/types";
@@ -58,6 +60,13 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     .filter((v) => v.clienteId === c.id)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
   const precioOfertaWeb = ventasCliente.length ? ventasCliente[0].precio : pNormal;
+
+  // Promoción: si al cliente se le acaba de cobrar un lavado único (hace
+  // menos de 1 hora, ver ventaUpgradeElegible) y sigue sin plan vigente, se le
+  // puede ofrecer quedar con el Plan Ilimitado Mensual pagando solo el
+  // adicional — ver upgradeAPlan más abajo.
+  const ventaUpgrade = !planVigente ? ventaUpgradeElegible(data.ventas, c.id) : undefined;
+  const precioUpgrade = precioUpgradePlan(data.precios);
 
   // Lavado Completo Detailing vendido en Servicios Adicionales (Venta + Cita
   // ya creadas ahí), a la espera de que el vehículo entre físicamente al
@@ -263,6 +272,37 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     });
   };
 
+  // Convierte el lavado único recién pagado (ventaUpgrade) en la
+  // contratación del Plan Ilimitado Mensual: se cobra solo el adicional y se
+  // actualiza esa misma venta (en vez de crear una nueva) a "Plan nuevo", que
+  // es el tipo que Cierre de Caja y Estadísticas ya reconocen como
+  // "Contratación de plan".
+  const upgradeAPlan = () => {
+    if (!ventaUpgrade) return;
+    const plan = PLANES[0];
+    pedirPago(precioUpgrade, `Upgrade a ${plan} para ${c.nombre} (adicional al lavado ya pagado)`, async (pago) => {
+      const updated = { ...c, plan, vencimiento: vencimientoPorDefectoISO() };
+      const ventaActualizada: Venta = {
+        ...ventaUpgrade,
+        plan,
+        precio: ventaUpgrade.precio + precioUpgrade,
+        tipo: "Plan nuevo",
+        metodoPago: pago.metodo,
+        voucher: pago.voucher,
+      };
+      const ok = await commit({
+        clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
+        ventas: data.ventas.map((v) => (v.id === ventaUpgrade.id ? ventaActualizada : v)),
+      });
+      if (!ok) {
+        setGuardarErr(ERROR_GUARDADO);
+        return;
+      }
+      setGuardarErr("");
+      updateResult(updated);
+    });
+  };
+
   return (
     <>
       {citaDetailingPendiente && (
@@ -276,7 +316,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
             entrar al túnel — esto no genera una venta nueva, la venta ya está hecha.
           </div>
           <button className="btn secondary" onClick={registrarDetailing}>
-            Registrar ingreso — Limpieza Completa
+            Registrar ingreso — Servicio de Detailing
           </button>
         </div>
       )}
@@ -317,6 +357,24 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
           </div>
           <button className="btn secondary" onClick={renovarWeb}>
             Renovar plan Web ({fmtCLP(precioOfertaWeb)})
+          </button>
+        </div>
+      )}
+      {ventaUpgrade && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Promoción</span>
+            <h4>¿Lo pasamos a Plan Ilimitado?</h4>
+          </div>
+          <div className="msg">
+            {c.nombre} pagó un lavado único hace menos de 1 hora. Ofrécele quedar con el {PLANES[0]} este primer mes
+            pagando solo el adicional.
+          </div>
+          <div className="price-row">
+            <span className="new">+{fmtCLP(precioUpgrade)}</span>
+          </div>
+          <button className="btn secondary" onClick={upgradeAPlan}>
+            Upgrade a {PLANES[0]} (+{fmtCLP(precioUpgrade)})
           </button>
         </div>
       )}

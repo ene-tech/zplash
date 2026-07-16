@@ -78,7 +78,7 @@ function citaDetailingBase(overrides: Partial<Cita> = {}): Cita {
 }
 
 describe("registrarIngresoDetailing", () => {
-  it("deja el ingreso con glosa 'Limpieza Completa' ligado a la cita, sin crear una venta nueva", () => {
+  it("deja el ingreso con glosa 'Servicio de Detailing' ligado a la cita, sin crear una venta nueva", () => {
     const data = appDataVacia();
     const cliente = clienteBase({ visitas: 1 });
     const cita = citaDetailingBase();
@@ -88,7 +88,7 @@ describe("registrarIngresoDetailing", () => {
     const patch = registrarIngresoDetailing(data, cliente, cita, "Operador X");
 
     expect(patch.ingresos).toHaveLength(1);
-    expect(patch.ingresos![0].glosa).toBe("Limpieza Completa");
+    expect(patch.ingresos![0].glosa).toBe("Servicio de Detailing");
     expect(patch.ingresos![0].citaId).toBe(cita.id);
     expect(patch.ventas).toBeUndefined();
     const clienteActualizado = patch.clientes!.find((c) => c.id === cliente.id)!;

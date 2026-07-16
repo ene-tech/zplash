@@ -1,6 +1,6 @@
 import type { AppData, Cita, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
 import {
-  GLOSA_LIMPIEZA_COMPLETA,
+  GLOSA_SERVICIO_DETAILING,
   PLANES,
   formatRut,
   formatTelefono,
@@ -45,7 +45,7 @@ export function registrarIngreso(
 // vendido en Servicios Adicionales (Venta + Cita creadas ahí, ver registrar()
 // en ServiciosAdicionalesView.tsx): a diferencia de registrarIngreso(), esto
 // NO genera una Venta nueva — la venta ya existe — solo deja constancia en
-// Historial de Ingresos (glosa "Limpieza Completa") y avanza el circuito de
+// Historial de Ingresos (glosa "Servicio de Detailing") y avanza el circuito de
 // la cita a "en_limpieza".
 export function registrarIngresoDetailing(
   data: AppData,
@@ -62,7 +62,7 @@ export function registrarIngresoDetailing(
     fecha: ahora,
     planEstadoAlIngreso: planStatus(cliente).cls,
     creadoPor: operadorActual || "",
-    glosa: GLOSA_LIMPIEZA_COMPLETA,
+    glosa: GLOSA_SERVICIO_DETAILING,
     citaId: cita.id,
   };
   const clienteActualizado: Cliente = {

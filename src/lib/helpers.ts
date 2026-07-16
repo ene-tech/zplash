@@ -1,4 +1,4 @@
-import type { Cliente, ConfigGlobal, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios, Servicio } from "@/types";
+import type { Cliente, ConfigGlobal, Cupon, Ingreso, Modulo, PerfilPublico, PlanStatus, Precios, Servicio, Venta } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 export const DIAS_AVISO_VENCIMIENTO = 7;
@@ -34,6 +34,35 @@ export function precioPlanOneclick(precios: Precios): number {
   return (precios[PLAN_ONECLICK_KEY] && precios[PLAN_ONECLICK_KEY].normal) || PRECIO_PLAN_ONECLICK_DEFAULT;
 }
 
+/** Monto adicional (sobre el lavado único ya pagado) para convertir la visita de hoy en la contratación del Plan Ilimitado Mensual — promoción ofrecida en el módulo Operador dentro de la primera hora tras el ingreso. */
+export const PRECIO_UPGRADE_PLAN_DEFAULT = 12000;
+
+/** Clave usada dentro de Precios para guardar el valor editable del upgrade a plan. */
+export const UPGRADE_PLAN_KEY = "Upgrade a Plan Ilimitado";
+
+export function precioUpgradePlan(precios: Precios): number {
+  return (precios[UPGRADE_PLAN_KEY] && precios[UPGRADE_PLAN_KEY].normal) || PRECIO_UPGRADE_PLAN_DEFAULT;
+}
+
+/** Ventana desde el lavado único dentro de la cual se puede ofrecer el upgrade a plan (ver ventaUpgradeElegible). */
+const HORAS_VENTANA_UPGRADE_PLAN = 1;
+
+/**
+ * Venta de "Lavado único" del cliente elegible para convertirse en
+ * contratación del Plan Ilimitado Mensual vía la promoción de upgrade: la más
+ * reciente, y solo si ocurrió hace menos de 1 hora — pasada esa ventana el
+ * lavado ya se disfrutó sin plan y la promoción deja de tener sentido.
+ */
+export function ventaUpgradeElegible(ventas: Venta[], clienteId: string, ahora: Date = new Date()): Venta | undefined {
+  const ultima = ventas
+    .filter((v) => v.clienteId === clienteId && v.tipo === "Lavado único")
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+  if (!ultima) return undefined;
+  const msDesde = ahora.getTime() - new Date(ultima.fecha).getTime();
+  if (msDesde > HORAS_VENTANA_UPGRADE_PLAN * 3600 * 1000) return undefined;
+  return ultima;
+}
+
 /** Datos de la cuenta bancaria de la empresa, mostrados al cliente cuando el operador elige "Transferencia bancaria" como forma de pago. */
 export const DATOS_TRANSFERENCIA = [
   { label: "Nombre", valor: "SERVICIOS E INVERSIONES LAS AGUILAS SPA" },
@@ -61,7 +90,7 @@ export const SERVICIOS_DEFAULT: Servicio[] = [
 
 /** Categoría del catálogo que implica que el vehículo pasa por el túnel.
  * Compartida entre ServiciosAdicionalesView (venta) y OperadorResult
- * (registro físico del ingreso al túnel, ver GLOSA_LIMPIEZA_COMPLETA). */
+ * (registro físico del ingreso al túnel, ver GLOSA_SERVICIO_DETAILING). */
 export const CATEGORIA_DETAILING = "Lavado Completo Detailing";
 
 /** Glosa de Ingreso para un lavado completo/detailing: la venta se hace en
@@ -69,7 +98,7 @@ export const CATEGORIA_DETAILING = "Lavado Completo Detailing";
  * cuando el operador registra la patente en el módulo Operador al llegar el
  * vehículo — no constituye una venta nueva, solo deja constancia del paso
  * físico por el túnel (ver registrarIngresoDetailing en lib/actions.ts). */
-export const GLOSA_LIMPIEZA_COMPLETA = "Limpieza Completa";
+export const GLOSA_SERVICIO_DETAILING = "Servicio de Detailing";
 
 /** Semilla/fallback de horario del módulo Operador (ver ConfigGlobal) para
  * cuando la tabla `config` todavía no tiene los nuevos campos guardados —

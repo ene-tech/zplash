@@ -5,16 +5,20 @@ import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import DatosTransferencia from "@/components/DatosTransferencia";
 import PriceInput from "@/components/PriceInput";
-import { ESTADOS_CITA, esEstadoFinal, validarDisponibilidad } from "@/lib/agenda";
+import { ESTADOS_CITA, esEstadoFinal, esRetrocesoInvalido, validarDisponibilidad } from "@/lib/agenda";
 import {
   CATEGORIA_DETAILING,
   PATENTE_FORMATO_MSG,
   RUT_FORMATO_MSG,
+  TELEFONO_FORMATO_MSG,
   findClient,
   fmtCLP,
   formatRut,
+  formatTelefono,
+  isValidEmail,
   isValidPatente,
   isValidRut,
+  isValidTelefono,
   normPlate,
   precioServicio,
   sumarDias,
@@ -31,7 +35,11 @@ const AJUSTES = [5000, 10000] as const;
 // del catálogo con duración propia (p. ej. solo un ítem personalizado).
 const DURACION_DEFAULT_MINUTOS = 15;
 
-type EstadoPago = "pagado" | "abono50" | "pendiente";
+// "abono50" quedó como nombre histórico del estado, pero ya no implica
+// exactamente 50%: es cualquier abono parcial, siempre que cumpla el mínimo
+// del 50% del total (ver montoAbonoMinimo). Se conserva el nombre porque así
+// se guarda en ventas.estadoPago y no tiene equivalente cruzado con Cierre.
+type EstadoPago = "pagado" | "abono50";
 type Linea = { id: string; nombre: string; precio: number };
 type ItemPersonalizado = { id: string; nombre: string; precio: number };
 
@@ -49,6 +57,7 @@ export default function ServiciosAdicionalesView() {
   const notasRef = useRef<HTMLTextAreaElement>(null);
   const detallePersonalizadoRef = useRef<HTMLInputElement>(null);
   const [montoPersonalizadoTexto, setMontoPersonalizadoTexto] = useState("");
+  const [montoAbonoTexto, setMontoAbonoTexto] = useState("");
 
   const [patenteBuscada, setPatenteBuscada] = useState<string | null>(null);
   const [serviciosSeleccionados, setServiciosSeleccionados] = useState<string[]>([]);
@@ -83,7 +92,12 @@ export default function ServiciosAdicionalesView() {
   const lineasPersonalizadas: Linea[] = itemsPersonalizados.map((i) => ({ id: i.id, nombre: i.nombre, precio: i.precio }));
   const lineas: Linea[] = [...lineasCatalogo, ...lineasPersonalizadas];
   const totalListado = lineas.reduce((s, l) => s + l.precio, 0);
-  const montoCobradoTotal = estadoPago === "pagado" ? totalListado : estadoPago === "abono50" ? Math.round(totalListado / 2) : 0;
+  // Mínimo exigido para registrar el servicio con abono: 50% del total,
+  // redondeado hacia arriba para no permitir que un total impar quede por
+  // debajo de la mitad real (ej. total 1999 → mínimo 1000, no 999).
+  const montoAbonoMinimo = Math.ceil(totalListado / 2);
+  const montoAbono = Number(montoAbonoTexto || "0");
+  const montoCobradoTotal = estadoPago === "pagado" ? totalListado : estadoPago === "abono50" ? montoAbono : 0;
 
   // La Agenda queda alimentada por este mismo registro: la duración de la
   // cita es la suma de las duraciones del catálogo elegido (equivalente a
@@ -192,6 +206,7 @@ export default function ServiciosAdicionalesView() {
     setItemsPersonalizados([]);
     setAjuste(0);
     setEstadoPago(null);
+    setMontoAbonoTexto("");
     setMetodoPago(null);
     setFechaCita(todayYMD());
     setHoraCita("");
@@ -205,6 +220,7 @@ export default function ServiciosAdicionalesView() {
     setItemsPersonalizados([]);
     setAjuste(0);
     setEstadoPago(null);
+    setMontoAbonoTexto("");
     setMetodoPago(null);
     setFechaCita(todayYMD());
     setHoraCita("");
@@ -224,12 +240,45 @@ export default function ServiciosAdicionalesView() {
       setErr("El nombre es obligatorio");
       return;
     }
-    if (!estadoPago) {
-      setErr("Indica si está pagado, con abono del 50% o por pagar");
+    const telefonoValor = telefonoRef.current?.value.trim() || "";
+    if (!telefonoValor) {
+      setErr("El teléfono es obligatorio");
       return;
     }
-    if (estadoPago !== "pendiente" && !metodoPago) {
-      setErr("Selecciona efectivo o tarjeta");
+    if (!isValidTelefono(telefonoValor)) {
+      setErr(TELEFONO_FORMATO_MSG);
+      return;
+    }
+    const emailValor = emailRef.current?.value.trim() || "";
+    if (!emailValor) {
+      setErr("El correo electrónico es obligatorio");
+      return;
+    }
+    if (!isValidEmail(emailValor)) {
+      setErr("El correo electrónico no es válido");
+      return;
+    }
+    const vehiculoValor = vehiculoRef.current?.value.trim() || "";
+    if (!vehiculoValor) {
+      setErr("El vehículo es obligatorio");
+      return;
+    }
+    if (!estadoPago) {
+      setErr("Indica si el servicio está pagado 100% o con abono");
+      return;
+    }
+    if (estadoPago === "abono50") {
+      if (!montoAbono || montoAbono < montoAbonoMinimo) {
+        setErr(`El abono debe ser como mínimo ${fmtCLP(montoAbonoMinimo)} (50% del total)`);
+        return;
+      }
+      if (montoAbono > totalListado) {
+        setErr("El abono no puede superar el total del servicio");
+        return;
+      }
+    }
+    if (!metodoPago) {
+      setErr("Selecciona efectivo, tarjeta o transferencia");
       return;
     }
     if (horarioConfigurado && !horaCita) {
@@ -251,9 +300,9 @@ export default function ServiciosAdicionalesView() {
       }
     }
 
-    const telefono = telefonoRef.current?.value.trim() || "";
-    const email = emailRef.current?.value.trim() || "";
-    const vehiculo = vehiculoRef.current?.value.trim() || "";
+    const telefono = formatTelefono(telefonoValor);
+    const email = emailValor;
+    const vehiculo = vehiculoValor;
     const razonSocial = tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
     const rutRaw = tipoDoc === "Factura" ? rutRef.current?.value.trim() || "" : "";
     if (tipoDoc === "Factura" && !isValidRut(rutRaw)) {
@@ -366,7 +415,7 @@ export default function ServiciosAdicionalesView() {
       tipo: lineas.map((l) => l.nombre).join(", "),
       fecha: ahora,
       creadoPor: ui.perfilActual?.nombre || "",
-      metodoPago: estadoPago === "pendiente" ? undefined : metodoPago || undefined,
+      metodoPago: metodoPago || undefined,
       horaEntrega: horaEntrega || undefined,
       fechaEntrega: fechaEntrega || undefined,
       citaId,
@@ -410,6 +459,7 @@ export default function ServiciosAdicionalesView() {
     setAjuste(0);
     setTipoDoc("Boleta");
     setEstadoPago(null);
+    setMontoAbonoTexto("");
     setMetodoPago(null);
     setFechaCita(todayYMD());
     setHoraCita("");
@@ -625,21 +675,27 @@ export default function ServiciosAdicionalesView() {
                   <input ref={nombreRef} defaultValue={clienteExistente?.nombre || ""} placeholder="Nombre completo" />
                 </div>
                 <div className="field">
-                  <label>Teléfono</label>
-                  <input ref={telefonoRef} defaultValue={clienteExistente?.telefono || "+569"} />
+                  <label>Teléfono *</label>
+                  <input ref={telefonoRef} required defaultValue={clienteExistente?.telefono || "+569"} />
                 </div>
                 <div className="field">
-                  <label>Correo electrónico</label>
+                  <label>Correo electrónico *</label>
                   <input
                     ref={emailRef}
                     type="email"
+                    required
                     defaultValue={clienteExistente?.email || ""}
                     placeholder="correo@ejemplo.com"
                   />
                 </div>
                 <div className="field">
-                  <label>Vehículo (Marca y Modelo)</label>
-                  <input ref={vehiculoRef} defaultValue={clienteExistente?.vehiculo || ""} placeholder="Ej: Toyota Yaris" />
+                  <label>Vehículo (Marca y Modelo) *</label>
+                  <input
+                    ref={vehiculoRef}
+                    required
+                    defaultValue={clienteExistente?.vehiculo || ""}
+                    placeholder="Ej: Toyota Yaris"
+                  />
                 </div>
                 <div className="field">
                   <label>Tipo de documento</label>
@@ -740,24 +796,35 @@ export default function ServiciosAdicionalesView() {
                     className={`estado-pago-btn warn${estadoPago === "abono50" ? " selected" : ""}`}
                     onClick={() => {
                       setEstadoPago("abono50");
+                      if (!montoAbonoTexto) setMontoAbonoTexto(String(montoAbonoMinimo));
                       setErr("");
                     }}
                   >
-                    Abono 50%
-                  </button>
-                  <button
-                    type="button"
-                    className={`estado-pago-btn bad${estadoPago === "pendiente" ? " selected" : ""}`}
-                    onClick={() => {
-                      setEstadoPago("pendiente");
-                      setMetodoPago(null);
-                      setErr("");
-                    }}
-                  >
-                    Por pagar
+                    Abono (mín. 50%)
                   </button>
                 </div>
-                {estadoPago && estadoPago !== "pendiente" && (
+                {estadoPago === "abono50" && (
+                  <div style={{ marginBottom: 8 }}>
+                    <PriceInput
+                      value={montoAbonoTexto}
+                      onChange={setMontoAbonoTexto}
+                      placeholder="Monto abonado"
+                      style={{
+                        width: "100%",
+                        background: "var(--bg)",
+                        border: "1px solid var(--border)",
+                        color: "var(--white)",
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        fontSize: 14,
+                      }}
+                    />
+                    <div className="hint" style={{ textAlign: "left", marginTop: 6 }}>
+                      Mínimo exigido: {fmtCLP(montoAbonoMinimo)} (50% de {fmtCLP(totalListado)})
+                    </div>
+                  </div>
+                )}
+                {estadoPago && (
                   <div
                     style={{
                       marginTop: -4,
@@ -772,7 +839,7 @@ export default function ServiciosAdicionalesView() {
                 )}
               </div>
 
-              {estadoPago && estadoPago !== "pendiente" && (
+              {estadoPago && (
                 <div className="field">
                   <label>Forma de pago</label>
                   <div style={{ display: "flex", gap: 10 }}>
@@ -872,7 +939,11 @@ export default function ServiciosAdicionalesView() {
                           <span
                             className={`status-pill ${v.estadoPago === "pagado" ? "ok" : v.estadoPago === "abono50" ? "warn" : "bad"}`}
                           >
-                            {v.estadoPago === "pagado" ? "Pagado" : v.estadoPago === "abono50" ? "Abono 50%" : "Por pagar"}
+                            {v.estadoPago === "pagado"
+                              ? "Pagado"
+                              : v.estadoPago === "abono50"
+                              ? `Abono ${fmtCLP(v.montoCobrado ?? 0)}`
+                              : "Por pagar"}
                           </span>
                         )}
                       </td>
@@ -937,7 +1008,7 @@ function StatusCell({
         style={{ fontSize: 13 }}
       >
         {ESTADOS_CITA.map((e) => (
-          <option key={e.valor} value={e.valor}>
+          <option key={e.valor} value={e.valor} disabled={esRetrocesoInvalido(estadoActual, e.valor)}>
             {e.label}
           </option>
         ))}

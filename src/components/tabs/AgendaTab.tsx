@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
-import { ESTADOS_CITA, esEstadoFinal } from "@/lib/agenda";
+import { ESTADOS_CITA, esEstadoFinal, esRetrocesoInvalido } from "@/lib/agenda";
 import { fmtCLP, precioServicio, sumarDias, todayYMD, uid } from "@/lib/helpers";
 import type { BloqueoAgenda, Cita, HorarioAgenda, Servicio } from "@/types";
 
@@ -90,7 +90,7 @@ function CitasDelDia() {
                       disabled={esEstadoFinal(c.estado)}
                     >
                       {ESTADOS_CITA.map((e) => (
-                        <option key={e.valor} value={e.valor}>
+                        <option key={e.valor} value={e.valor} disabled={esRetrocesoInvalido(c.estado, e.valor)}>
                           {e.label}
                         </option>
                       ))}

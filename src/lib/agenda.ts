@@ -23,6 +23,19 @@ export function esEstadoFinal(estado: Cita["estado"]): boolean {
   return ESTADOS_FINALES.includes(estado);
 }
 
+// Orden del circuito antes de "retirado": no se puede retroceder a un paso
+// anterior (p. ej. de "en_limpieza" a "recibido") aunque el estado actual no
+// sea final. "retirado"/"no_asistio"/"cancelada" ya están cubiertos por
+// esEstadoFinal, así que no forman parte de esta secuencia.
+const ORDEN_ESTADOS_PROCESO: Cita["estado"][] = ["agendado", "recibido", "en_limpieza", "listo_entrega"];
+
+export function esRetrocesoInvalido(estadoActual: Cita["estado"], estadoDestino: Cita["estado"]): boolean {
+  const idxActual = ORDEN_ESTADOS_PROCESO.indexOf(estadoActual);
+  const idxDestino = ORDEN_ESTADOS_PROCESO.indexOf(estadoDestino);
+  if (idxActual === -1 || idxDestino === -1) return false;
+  return idxDestino < idxActual;
+}
+
 // Estados en los que el vehículo ya está físicamente en el local: antes de
 // "recibido" (o sea "agendado") todavía no ha llegado, así que no se le
 // puede dar ingreso al túnel por un Lavado Completo Detailing vendido de

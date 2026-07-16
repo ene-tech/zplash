@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diaSemanaDe, puedeIngresarTunelDetailing, seSuperponen, validarDisponibilidad } from "./agenda";
+import { diaSemanaDe, esRetrocesoInvalido, puedeIngresarTunelDetailing, seSuperponen, validarDisponibilidad } from "./agenda";
 import type { BloqueoAgenda, Cita, HorarioAgenda } from "@/types";
 
 function horario(diaSemana: number, horaInicio: string, horaFin: string): HorarioAgenda {
@@ -81,6 +81,29 @@ describe("validarDisponibilidad", () => {
   it("ignora la propia cita al editarla (citaIdExcluir)", () => {
     const citas = [cita({ id: "c-editar", fechaHora: "2026-07-14T10:00:00", duracionMinutos: 30 })];
     expect(validarDisponibilidad("2026-07-14", "10:00", 30, horarios, [], citas, "c-editar")).toBeNull();
+  });
+});
+
+describe("esRetrocesoInvalido", () => {
+  it("bloquea volver a un paso anterior del circuito", () => {
+    expect(esRetrocesoInvalido("recibido", "agendado")).toBe(true);
+    expect(esRetrocesoInvalido("en_limpieza", "agendado")).toBe(true);
+    expect(esRetrocesoInvalido("en_limpieza", "recibido")).toBe(true);
+    expect(esRetrocesoInvalido("listo_entrega", "agendado")).toBe(true);
+    expect(esRetrocesoInvalido("listo_entrega", "recibido")).toBe(true);
+    expect(esRetrocesoInvalido("listo_entrega", "en_limpieza")).toBe(true);
+  });
+
+  it("permite avanzar o quedarse en el mismo estado", () => {
+    expect(esRetrocesoInvalido("agendado", "recibido")).toBe(false);
+    expect(esRetrocesoInvalido("recibido", "en_limpieza")).toBe(false);
+    expect(esRetrocesoInvalido("en_limpieza", "listo_entrega")).toBe(false);
+    expect(esRetrocesoInvalido("recibido", "recibido")).toBe(false);
+  });
+
+  it("no restringe estados fuera de la secuencia (finales)", () => {
+    expect(esRetrocesoInvalido("retirado", "agendado")).toBe(false);
+    expect(esRetrocesoInvalido("listo_entrega", "cancelada")).toBe(false);
   });
 });
 

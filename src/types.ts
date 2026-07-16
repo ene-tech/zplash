@@ -355,6 +355,8 @@ export interface UIState {
   cierreHasta: string | null;
   statsDesde: string | null;
   statsHasta: string | null;
+  ingresosDesde: string | null;
+  ingresosHasta: string | null;
   facturaSearch: string;
   loginMode: "select" | "pin" | null;
   perfilSeleccionadoId: string | null;
