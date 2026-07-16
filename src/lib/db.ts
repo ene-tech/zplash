@@ -9,7 +9,7 @@
 // tiene esta directiva y por lo tanto no es invocable desde el navegador.
 import * as dataAccess from "@/lib/dataAccess";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
-import { dentroDeHorarioOperador } from "@/lib/helpers";
+import { ahoraEnSantiago, dentroDeHorarioOperador } from "@/lib/helpers";
 import { cobrarSuscripcion } from "@/lib/pagos";
 import { tieneModulo, tieneSesionValida } from "@/lib/session";
 import type {
@@ -62,8 +62,20 @@ export async function deleteClientes(ids: string[]): Promise<boolean> {
 export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
   if (!(await tieneSesionValida())) return false;
   if (!(await tieneModulo("config"))) {
-    const config = await dataAccess.getConfig();
-    if (!dentroDeHorarioOperador(config, new Date())) return false;
+    let config: ConfigGlobal;
+    try {
+      config = await dataAccess.getConfig();
+    } catch (error) {
+      // Si getConfig() falla (p.ej. una migración pendiente en la base), no
+      // dejar que reviente todo commit() sin aviso — el operador ve "no se
+      // pudo guardar" en vez de perder el registro en silencio.
+      console.error("Error leyendo config para el bloqueo horario del módulo Operador", error);
+      return false;
+    }
+    // `new Date()` acá reflejaría la hora del servidor (en producción, UTC),
+    // no la hora de Chile — hay que convertirla explícitamente (ver
+    // ahoraEnSantiago) para comparar contra el horario configurado.
+    if (!dentroDeHorarioOperador(config, ahoraEnSantiago())) return false;
   }
   return dataAccess.insertIngresos(rows);
 }

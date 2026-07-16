@@ -275,6 +275,29 @@ export function esFinDeSemanaOFestivo(fecha: Date, festivos: string[]): boolean 
   return festivos.includes(ymd(fecha));
 }
 
+/** Reempaqueta la hora actual real como si fuera hora local del proceso, pero con
+ * los componentes (año/mes/día/hora/minuto) de la zona horaria del negocio
+ * (America/Santiago). Así, sin importar en qué TZ corra el servidor (en
+ * producción, Node/Vercel suele correr en UTC), `getHours()`/`getDay()`/etc.
+ * sobre el resultado devuelven la hora de pared de Chile — necesario para que
+ * dentroDeHorarioOperador compare la hora configurada contra la hora real del
+ * local y no contra la hora UTC del servidor. */
+export function ahoraEnSantiago(): Date {
+  const partes = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const get = (tipo: string) => Number(partes.find((p) => p.type === tipo)!.value);
+  // La hora "24" de Intl para medianoche se mapea a 0 en el constructor de Date.
+  return new Date(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"), get("second"));
+}
+
 /** true si `ahora` cae dentro del horario configurado para registrar ingresos en el
  * módulo Operador: Lunes a Viernes usa el rango "semana", Sábado/Domingo/festivos usa
  * el rango "finde" (ver ConfigGlobal, configurable en Administrador de Ingresos → Config). */
