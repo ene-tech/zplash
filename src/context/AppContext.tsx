@@ -209,14 +209,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // el insert de ventas podía llegar a la base antes que el de citas y
     // violar la FK.
     let citasOk = true;
-    if (patch.citas) {
-      const { cambiados, eliminados } = diffPorId<Cita>(previous.citas, patch.citas);
-      const citaResults = await Promise.all([
-        cambiados.length ? upsertCitas(cambiados) : true,
-        eliminados.length ? deleteCitas(eliminados) : true,
-      ]);
-      citasOk = citaResults.every(Boolean);
-      auditoria.push(...auditEntries("citas", previous.citas, cambiados, eliminados, usuario));
+    try {
+      if (patch.citas) {
+        const { cambiados, eliminados } = diffPorId<Cita>(previous.citas, patch.citas);
+        const citaResults = await Promise.all([
+          cambiados.length ? upsertCitas(cambiados) : true,
+          eliminados.length ? deleteCitas(eliminados) : true,
+        ]);
+        citasOk = citaResults.every(Boolean);
+        auditoria.push(...auditEntries("citas", previous.citas, cambiados, eliminados, usuario));
+      }
+    } catch (err) {
+      // Server Action inalcanzable (p. ej. operador sin conexión): tratamos
+      // esto igual que un guardado fallido en vez de dejar que la promesa
+      // rechazada se propague sin manejo (ver `ok` más abajo).
+      console.error("No se pudo guardar (citas): posible falla de red", err);
+      citasOk = false;
     }
 
     if (patch.ventas) {
@@ -281,7 +289,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (patch.config) {
       ops.push(upsertConfig(patch.config));
     }
-    const results = await Promise.all(ops);
+    let results: boolean[];
+    try {
+      results = await Promise.all(ops);
+    } catch (err) {
+      // Igual que arriba: si el fetch de la Server Action nunca llega al
+      // servidor (offline), la promesa rechaza en vez de resolver `false`.
+      // Sin este catch, el rechazo se propagaba sin manejar hasta el
+      // `onClick` que llamó a commit(), saltándose el rollback de abajo y el
+      // mensaje de error en pantalla — el operador veía el cambio aplicado
+      // localmente aunque nunca se guardó.
+      console.error("No se pudo guardar: posible falla de red", err);
+      results = [false];
+    }
     const ok = citasOk && results.every(Boolean);
     setStorageReady(ok);
     if (!ok) {
