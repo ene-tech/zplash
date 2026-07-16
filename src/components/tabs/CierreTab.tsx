@@ -77,18 +77,41 @@ export default function CierreTab() {
   const transferenciaItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago !== "pendiente");
   const cuentasPorCobrarItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago === "pendiente");
   const porPagarItems = ventasPeriodo.filter((v) => v.estadoPago === "pendiente" && v.metodoPago !== "transferencia");
+
+  // "Ingreso por Módulo Contabilidad" (arriba) se suma al Total de "Detalle
+  // de venta" completo, pagado o pendiente — antes esta tabla de "Métodos de
+  // pago" no lo consideraba en absoluto (ni siquiera lo ya pagado), así que
+  // los dos "Total" de esta pantalla podían no cuadrar entre sí sin ninguna
+  // explicación. Acá se reparte cada movimiento contable de tipo ingreso
+  // según su estado real: pagado → su método de pago, pendiente → Cuentas x
+  // Cobrar (igual que una venta con transferencia pendiente).
+  const contablesPagados = ingresosContablesPeriodo.filter((m) => m.estado === "pagado");
+  const contablesPendientes = ingresosContablesPeriodo.filter((m) => m.estado !== "pagado");
+  const contablesPorMetodo = (metodo: string) => contablesPagados.filter((m) => m.metodoPago === metodo);
+
   const metodosPago = [
-    { metodo: "Efectivo", cantidad: efectivoItems.length, monto: efectivoItems.reduce((s, v) => s + cobrado(v), 0) },
-    { metodo: "Tarjeta", cantidad: tarjetaItems.length, monto: tarjetaItems.reduce((s, v) => s + cobrado(v), 0) },
+    {
+      metodo: "Efectivo",
+      cantidad: efectivoItems.length + contablesPorMetodo("efectivo").length,
+      monto: efectivoItems.reduce((s, v) => s + cobrado(v), 0) + contablesPorMetodo("efectivo").reduce((s, m) => s + m.monto, 0),
+    },
+    {
+      metodo: "Tarjeta",
+      cantidad: tarjetaItems.length + contablesPorMetodo("tarjeta").length,
+      monto: tarjetaItems.reduce((s, v) => s + cobrado(v), 0) + contablesPorMetodo("tarjeta").reduce((s, m) => s + m.monto, 0),
+    },
     {
       metodo: "Transferencia bancaria",
-      cantidad: transferenciaItems.length,
-      monto: transferenciaItems.reduce((s, v) => s + cobrado(v), 0),
+      cantidad: transferenciaItems.length + contablesPorMetodo("transferencia").length,
+      monto:
+        transferenciaItems.reduce((s, v) => s + cobrado(v), 0) +
+        contablesPorMetodo("transferencia").reduce((s, m) => s + m.monto, 0),
     },
     {
       metodo: "Cuentas x Cobrar",
-      cantidad: cuentasPorCobrarItems.length,
-      monto: cuentasPorCobrarItems.reduce((s, v) => s + (v.precio || 0), 0),
+      cantidad: cuentasPorCobrarItems.length + contablesPendientes.length,
+      monto:
+        cuentasPorCobrarItems.reduce((s, v) => s + (v.precio || 0), 0) + contablesPendientes.reduce((s, m) => s + m.monto, 0),
     },
     ...(porPagarItems.length
       ? [{ metodo: "Por pagar", cantidad: porPagarItems.length, monto: porPagarItems.reduce((s, v) => s + (v.precio || 0), 0) }]

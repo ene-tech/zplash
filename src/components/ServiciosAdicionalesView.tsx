@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import DatosTransferencia from "@/components/DatosTransferencia";
@@ -24,6 +24,7 @@ import {
   sumarDias,
   todayYMD,
   uid,
+  uidVenta,
   ymd,
 } from "@/lib/helpers";
 import type { Cita, Cliente, Empresa, Venta } from "@/types";
@@ -406,7 +407,7 @@ export default function ServiciosAdicionalesView() {
     // servicios listado en `tipo` (cantidadItems guarda cuántos se
     // combinaron, para no perder esa métrica en Cierre de Caja).
     const ventaNueva: Venta = {
-      id: "v" + Date.now(),
+      id: uidVenta(),
       clienteId,
       patente,
       nombre,
@@ -955,6 +956,10 @@ export default function ServiciosAdicionalesView() {
                       <td>
                         {v.citaId ? (
                           <StatusCell
+                            // Fuerza a remontar (y así resetear la selección local al
+                            // valor real) cuando el estado de la cita cambia por fuera
+                            // de este control, en vez de sincronizar con un efecto.
+                            key={`${v.citaId}:${data.citas.find((c) => c.id === v.citaId)?.estado || "agendado"}`}
                             estadoActual={data.citas.find((c) => c.id === v.citaId)?.estado || "agendado"}
                             onCambiar={(estado) => cambiarStatusCita(v.citaId!, estado)}
                           />
@@ -992,12 +997,12 @@ function StatusCell({
   estadoActual: Cita["estado"];
   onCambiar: (estado: Cita["estado"]) => void;
 }) {
+  // No hay un useEffect que resincronice `seleccion` con `estadoActual`: el
+  // padre remonta este componente (ver el `key` en el llamador) cada vez que
+  // el estado real de la cita cambia por fuera de este control, así que el
+  // valor inicial de useState ya queda al día solo.
   const [seleccion, setSeleccion] = useState<Cita["estado"]>(estadoActual);
   const bloqueado = esEstadoFinal(estadoActual);
-
-  useEffect(() => {
-    setSeleccion(estadoActual);
-  }, [estadoActual]);
 
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>

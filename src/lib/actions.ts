@@ -1,4 +1,5 @@
 import type { AppData, Cita, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
+import { esRetrocesoInvalido } from "@/lib/agenda";
 import {
   GLOSA_SERVICIO_DETAILING,
   PLANES,
@@ -53,6 +54,14 @@ export function registrarIngresoDetailing(
   cita: Cita,
   operadorActual: string | null | undefined
 ): Partial<AppData> {
+  // Si el operador vuelve a escanear la misma patente (la cita se sigue
+  // ofreciendo como "pendiente" mientras esté en recibido/en_limpieza/
+  // listo_entrega, ver puedeIngresarTunelDetailing), no hay que duplicar el
+  // Ingreso ni el conteo de visitas del cliente — ya quedó constancia del
+  // paso por el túnel para esta cita.
+  if (data.ingresos.some((i) => i.citaId === cita.id)) {
+    return {};
+  }
   const ahora = new Date().toISOString();
   const ingreso: Ingreso = {
     id: "i" + Date.now(),
@@ -70,10 +79,15 @@ export function registrarIngresoDetailing(
     visitas: (cliente.visitas || 0) + 1,
     ultimaVisita: ahora,
   };
+  // No retroceder el estado de la cita (p. ej. si Servicios Adicionales ya la
+  // avanzó a "listo_entrega" antes de que el operador alcanzara a registrar
+  // el ingreso al túnel) — mismo criterio que ya se aplica en los selects de
+  // Agenda/Servicios Adicionales, ver esRetrocesoInvalido.
+  const nuevoEstadoCita = esRetrocesoInvalido(cita.estado, "en_limpieza") ? cita.estado : "en_limpieza";
   return {
     ingresos: [ingreso, ...data.ingresos],
     clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),
-    citas: data.citas.map((ct) => (ct.id === cita.id ? { ...ct, estado: "en_limpieza" } : ct)),
+    citas: data.citas.map((ct) => (ct.id === cita.id ? { ...ct, estado: nuevoEstadoCita } : ct)),
   };
 }
 

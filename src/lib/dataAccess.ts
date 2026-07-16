@@ -630,8 +630,27 @@ export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
     await upsertRows(clientes, clientes.id, rows.map(clienteToRow));
     return true;
   } catch (error) {
-    console.error("Error guardando clientes", error);
-    return false;
+    // El upsert en lote (un solo INSERT ... ON CONFLICT(id) para todas las
+    // filas) falla completo si UNA sola fila choca con la restricción única
+    // de `patente` — por ejemplo, otro admin registró esa patente después de
+    // que este navegador cargó sus datos (la carga masiva por Excel detecta
+    // duplicados contra la copia en memoria, no contra la base), o dos filas
+    // del mismo Excel normalizan a la misma patente. Sin este fallback, se
+    // perdían en pantalla TODOS los clientes del lote — incluidos los
+    // legítimos — hasta recargar la página, sin indicar cuál fue el
+    // problema. Acá se reintenta fila por fila para aislar solo la(s)
+    // fila(s) realmente conflictivas y no perder el resto.
+    console.error("Error guardando clientes en lote, reintentando fila por fila", error);
+    let algunaFalla = false;
+    for (const row of rows) {
+      try {
+        await upsertRows(clientes, clientes.id, [clienteToRow(row)]);
+      } catch (errorFila) {
+        algunaFalla = true;
+        console.error("No se pudo guardar el cliente (probable choque de patente con otro id)", row.id, row.patente, errorFila);
+      }
+    }
+    return !algunaFalla;
   }
 }
 
@@ -885,6 +904,13 @@ export async function deleteBloqueosAgenda(ids: string[]): Promise<boolean> {
     console.error("Error eliminando bloqueos de agenda", error);
     return false;
   }
+}
+
+/** Estado real en la base de un set de citas, para validar transiciones antes de escribir (ver upsertCitas en @/lib/db). */
+export async function getEstadosCitas(ids: string[]): Promise<Map<string, Cita["estado"]>> {
+  if (!ids.length) return new Map();
+  const rows = await getDb().select({ id: citas.id, estado: citas.estado }).from(citas).where(inArray(citas.id, ids));
+  return new Map(rows.map((r) => [r.id, r.estado as Cita["estado"]]));
 }
 
 // A diferencia del resto de upsert*, una cita también reemplaza su set de

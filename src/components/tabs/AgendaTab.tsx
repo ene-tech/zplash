@@ -164,7 +164,7 @@ function ServiciosCatalogo() {
       <h3>Servicios</h3>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
         Catálogo compartido entre Servicios Adicionales (venta rápida) y la Agenda. La duración determina el largo del
-        cupo al agendar (equivalente a un "procedimiento"); el precio se puede reajustar después desde Configuración.
+        cupo al agendar (equivalente a un &quot;procedimiento&quot;); el precio se puede reajustar después desde Configuración.
       </div>
 
       {categorias.map((cat) => (

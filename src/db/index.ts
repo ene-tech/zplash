@@ -10,6 +10,14 @@ import * as schema from "./schema";
 // que ya usaba getSupabaseAdmin().
 const globalForDb = globalThis as unknown as { db?: PostgresJsDatabase<typeof schema> };
 
+// Tipo compartido para funciones de @/lib que deben poder ejecutar dentro de
+// una transacción del llamador (pasando `tx`) o standalone contra la
+// conexión normal (default `getDb()`) — ver aplicarPagoAprobado en
+// @/lib/pagos, que ahora corre dentro de la misma transacción que el resto
+// de la escritura de un pago para que no queden cambios a medio aplicar si
+// algo falla a mitad de camino.
+export type DbOrTx = PostgresJsDatabase<typeof schema> | Parameters<Parameters<PostgresJsDatabase<typeof schema>["transaction"]>[0]>[0];
+
 export function getDb(): PostgresJsDatabase<typeof schema> {
   if (!globalForDb.db) {
     const url = process.env.DATABASE_URL;

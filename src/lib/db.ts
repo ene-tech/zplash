@@ -9,6 +9,7 @@
 // tiene esta directiva y por lo tanto no es invocable desde el navegador.
 import * as dataAccess from "@/lib/dataAccess";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
+import { esEstadoFinal, esRetrocesoInvalido } from "@/lib/agenda";
 import { ahoraEnSantiago, dentroDeHorarioOperador } from "@/lib/helpers";
 import { cobrarSuscripcion } from "@/lib/pagos";
 import { tieneModulo, tieneSesionValida } from "@/lib/session";
@@ -189,9 +190,25 @@ export async function deleteBloqueosAgenda(ids: string[]): Promise<boolean> {
 // simple (igual que insertVentas/insertIngresos): las crea cualquier
 // operador con acceso a Servicios Adicionales al registrar un vehículo, no
 // solo quien administra la Agenda.
+//
+// El circuito del vehículo (Cita.estado) no debe retroceder ni reabrirse una
+// vez en un estado final (ver esRetrocesoInvalido/esEstadoFinal en
+// @/lib/agenda) — la UI ya deshabilita esas opciones en los <select> de
+// Agenda/Servicios Adicionales, pero como todo Server Action queda invocable
+// por POST directo (ver comentario al inicio del archivo) y ya hubo un bug
+// real de este tipo en otro llamador (registrarIngresoDetailing en
+// @/lib/actions), acá se vuelve a comprobar contra el estado real en la base
+// antes de escribir, en vez de confiar en el estado que traiga el cliente.
 export async function upsertCitas(rows: Cita[]): Promise<boolean> {
   if (!(await tieneSesionValida())) return false;
-  return dataAccess.upsertCitas(rows);
+  const estadosActuales = await dataAccess.getEstadosCitas(rows.map((r) => r.id));
+  const filas = rows.map((r) => {
+    const actual = estadosActuales.get(r.id);
+    if (!actual) return r;
+    if (esEstadoFinal(actual) || esRetrocesoInvalido(actual, r.estado)) return { ...r, estado: actual };
+    return r;
+  });
+  return dataAccess.upsertCitas(filas);
 }
 
 export async function deleteCitas(ids: string[]): Promise<boolean> {

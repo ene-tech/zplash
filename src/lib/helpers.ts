@@ -525,7 +525,14 @@ export function esNombreVacio(nombre: string | undefined | null): boolean {
 
 export function planStatus(c: Pick<Cliente, "vencimiento">): PlanStatus {
   if (!c.vencimiento) return { label: "Sin plan", cls: "bad" };
-  const hoy = new Date();
+  // ahoraEnSantiago() en vez de `new Date()`: esta función se llama tanto
+  // desde el navegador (hora de Chile) como desde rutas de servidor
+  // (/api/pagos/estado, el bot de WhatsApp) que en producción corren en UTC
+  // — sin normalizar, un mismo cliente podía verse "Vigente" en la pantalla
+  // del operador y "Vencido" en WhatsApp durante varias horas alrededor de
+  // la medianoche en Chile (mismo bug que ya se corrigió para el bloqueo
+  // horario del módulo Operador, ver dentroDeHorarioOperador).
+  const hoy = ahoraEnSantiago();
   hoy.setHours(0, 0, 0, 0);
   const venc = new Date(c.vencimiento);
   if (venc < hoy) return { label: "Vencido", cls: "bad" };
@@ -586,6 +593,11 @@ export function uidIngreso(): string {
   return "i" + Date.now();
 }
 
+/** Mismo esquema de id usado para ventas en toda la app ("v" + timestamp), envuelto en una función por el mismo motivo que uidIngreso(). */
+export function uidVenta(): string {
+  return "v" + Date.now();
+}
+
 /** 30 days from now, as an ISO string. Kept outside component bodies since it is not a pure computation. */
 export function vencimientoPorDefectoISO(): string {
   const d = new Date();
@@ -600,7 +612,9 @@ export function vencimientoPorDefectoISO(): string {
  * un cliente Web cuyo pago automático falló.
  */
 export function vencimientoAnclado(fechaContratacion: string | null | undefined): string {
-  const hoy = new Date();
+  // Mismo motivo que en planStatus: hora de Chile, no la del entorno donde
+  // corre esta función.
+  const hoy = ahoraEnSantiago();
   hoy.setHours(0, 0, 0, 0);
   let base = fechaContratacion ? new Date(fechaContratacion) : new Date(hoy);
   if (isNaN(base.getTime())) base = new Date(hoy);

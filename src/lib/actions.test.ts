@@ -96,6 +96,43 @@ describe("registrarIngresoDetailing", () => {
     const citaActualizada = patch.citas!.find((c) => c.id === cita.id)!;
     expect(citaActualizada.estado).toBe("en_limpieza");
   });
+
+  it("no duplica el ingreso ni toca la cita si el operador vuelve a escanear la misma patente", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 1 });
+    const cita = citaDetailingBase({ estado: "listo_entrega" });
+    data.clientes = [cliente];
+    data.citas = [cita];
+    data.ingresos = [
+      {
+        id: "i-ya-registrado",
+        clienteId: cliente.id,
+        patente: cliente.patente,
+        nombre: cliente.nombre,
+        fecha: new Date().toISOString(),
+        planEstadoAlIngreso: "ok",
+        glosa: "Servicio de Detailing",
+        citaId: cita.id,
+      },
+    ];
+
+    const patch = registrarIngresoDetailing(data, cliente, cita, "Operador X");
+
+    expect(patch).toEqual({});
+  });
+
+  it("no retrocede el estado de la cita si ya avanzó más allá de 'en_limpieza' (p. ej. listo_entrega)", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 1 });
+    const cita = citaDetailingBase({ estado: "listo_entrega" });
+    data.clientes = [cliente];
+    data.citas = [cita];
+
+    const patch = registrarIngresoDetailing(data, cliente, cita, "Operador X");
+
+    const citaActualizada = patch.citas!.find((c) => c.id === cita.id)!;
+    expect(citaActualizada.estado).toBe("listo_entrega");
+  });
 });
 
 describe("renovarPlan", () => {

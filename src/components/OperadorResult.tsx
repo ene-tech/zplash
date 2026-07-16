@@ -78,6 +78,11 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     if (cita.clienteId !== c.id) return false;
     if (!puedeIngresarTunelDetailing(cita.estado)) return false;
     if (new Date(cita.fechaHora).toDateString() !== new Date().toDateString()) return false;
+    // Si ya existe un Ingreso ligado a esta cita, el paso por el túnel ya
+    // quedó registrado (ver registrarIngresoDetailing en @/lib/actions): no
+    // volver a ofrecer el botón para no invitar a un doble check-in del
+    // mismo vehículo.
+    if (data.ingresos.some((i) => i.citaId === cita.id)) return false;
     return cita.servicioIds.some((id) => data.servicios.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING);
   });
 

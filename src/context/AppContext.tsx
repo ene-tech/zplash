@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type {
   AppData,
   AuditoriaEntrada,
@@ -156,6 +156,15 @@ function auditEntries<T extends { id: string }>(
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
+  // commit() necesita leer y escribir el `data` más reciente de forma
+  // síncrona: si dos commits se disparan casi juntos (doble clic, o dos
+  // acciones encadenadas antes de que termine el primer round-trip),
+  // ambos cerraban sobre el `data` de cuando se creó su respectivo handler
+  // — el segundo terminaba mezclando su patch sobre una copia vieja y
+  // pisaba en pantalla lo que el primero ya había guardado. dataRef se
+  // actualiza en el mismo tick que setData(), así que cada commit() lee
+  // siempre lo último, venga o no de un re-render todavía no aplicado.
+  const dataRef = useRef(data);
   const [ui, setUi] = useState<UIState>(initialUI);
   const [storageReady, setStorageReady] = useState(false);
   const [storageChecked, setStorageChecked] = useState(false);
@@ -173,6 +182,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       const loaded = await loadAll();
       if (cancelled) return;
+      dataRef.current = loaded;
       setData(loaded);
       setLoading(false);
     })();
@@ -182,8 +192,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function commit(patch: Partial<AppData>): Promise<boolean> {
-    const previous = data;
-    const next = { ...data, ...patch };
+    const previous = dataRef.current;
+    const next = { ...previous, ...patch };
+    dataRef.current = next;
     setData(next);
 
     const ops: Promise<boolean>[] = [];
@@ -308,6 +319,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error("No se pudo guardar toda la información en el almacenamiento persistente");
       // Revertimos el estado local: si no se guardó en Supabase, la app no debe
       // seguir mostrando el cambio como aplicado (otras sesiones nunca lo verán).
+      dataRef.current = previous;
       setData(previous);
     } else if (auditoria.length) {
       // Best-effort: un fallo acá no revierte la escritura de negocio, que
