@@ -17,14 +17,6 @@ export default function CierreTab() {
   const sinPlan = ingresosPeriodo.length - autosConPlan;
   const autosConCupon = ingresosPeriodo.filter((i) => i.viaCupon).length;
 
-  const porCliente: Record<string, { patente: string; nombre: string; cantidad: number }> = {};
-  ingresosPeriodo.forEach((i) => {
-    const key = i.patente;
-    if (!porCliente[key]) porCliente[key] = { patente: i.patente, nombre: i.nombre, cantidad: 0 };
-    porCliente[key].cantidad++;
-  });
-  const listaPorCliente = Object.values(porCliente).sort((a, b) => b.cantidad - a.cantidad);
-
   const clientesPorId = new Map(clientes.map((c) => [c.id, c]));
   const esNuevoClienteAdmin = (v: (typeof ventasPeriodo)[number]) =>
     v.tipo === "Plan nuevo" && clientesPorId.get(v.clienteId)?.creadoPor === "Administrador";
@@ -329,68 +321,39 @@ export default function CierreTab() {
         </>
       )}
 
-      <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Ingresos por cliente</h3>
+      <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Servicios adicionales vendidos en el período</h3>
       <table style={{ marginBottom: 24 }}>
-        <thead>
-          <tr>
-            <th>Patente</th>
-            <th>Cliente</th>
-            <th>Ingresos en el período</th>
-          </tr>
-        </thead>
-        <tbody>
-          {listaPorCliente.length === 0 ? (
-            <tr>
-              <td colSpan={3}>
-                <div className="empty">Sin ingresos en este período</div>
-              </td>
-            </tr>
-          ) : (
-            listaPorCliente.map((x) => (
-              <tr key={x.patente}>
-                <td className="plate-tag">{x.patente}</td>
-                <td>{x.nombre}</td>
-                <td>{x.cantidad}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-      <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Detalle de ingresos</h3>
-      <table>
         <thead>
           <tr>
             <th>Fecha</th>
             <th>Patente</th>
             <th>Cliente</th>
-            <th>Estado plan</th>
+            <th>Servicios</th>
+            <th>Cantidad</th>
+            <th>Monto</th>
           </tr>
         </thead>
         <tbody>
-          {ingresosPeriodo.length === 0 ? (
+          {serviciosAdicionalesItems.length === 0 ? (
             <tr>
-              <td colSpan={4}>
-                <div className="empty">Sin ingresos en este período</div>
+              <td colSpan={6}>
+                <div className="empty">Sin servicios adicionales vendidos en este período</div>
               </td>
             </tr>
           ) : (
-            ingresosPeriodo.map((i) => {
-              const tipo = tipoIngreso(i);
-              return (
-                <tr key={i.id}>
-                  <td>{fmtDate(i.fecha)}</td>
-                  <td className="plate-tag">{i.patente}</td>
-                  <td>{i.nombre}</td>
-                  <td>
-                    <span className={`status-pill ${tipo.cls}`}>{tipo.label}</span>
-                  </td>
-                </tr>
-              );
-            })
+            serviciosAdicionalesItems.map((v) => (
+              <tr key={v.id}>
+                <td>{fmtDate(v.fecha)}</td>
+                <td className="plate-tag">{v.patente}</td>
+                <td>{v.nombre}</td>
+                <td>{v.tipo}</td>
+                <td>{v.cantidadItems ?? 1}</td>
+                <td>{fmtCLP(v.precio)}</td>
+              </tr>
+            ))
           )}
         </tbody>
       </table>
-
       <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>
         Clientes con Factura (documentos tributarios)
       </h3>
@@ -404,7 +367,7 @@ export default function CierreTab() {
           Descargar facturables (Excel)
         </button>
       </div>
-      <table>
+      <table style={{ marginBottom: 24 }}>
         <thead>
           <tr>
             <th>Patente</th>
@@ -450,6 +413,41 @@ export default function CierreTab() {
                   </td>
                   <td>
                     <span className={`status-pill ${st.cls}`}>{st.label}</span>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+
+      <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Detalle de ingresos</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Patente</th>
+            <th>Cliente</th>
+            <th>Estado plan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ingresosPeriodo.length === 0 ? (
+            <tr>
+              <td colSpan={4}>
+                <div className="empty">Sin ingresos en este período</div>
+              </td>
+            </tr>
+          ) : (
+            ingresosPeriodo.map((i) => {
+              const tipo = tipoIngreso(i);
+              return (
+                <tr key={i.id}>
+                  <td>{fmtDate(i.fecha)}</td>
+                  <td className="plate-tag">{i.patente}</td>
+                  <td>{i.nombre}</td>
+                  <td>
+                    <span className={`status-pill ${tipo.cls}`}>{tipo.label}</span>
                   </td>
                 </tr>
               );

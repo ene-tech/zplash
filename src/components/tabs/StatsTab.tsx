@@ -22,11 +22,6 @@ export default function StatsTab() {
   const vigentesWeb = vigentes.filter((c) => c.origen === "WEB").length;
   const vigentesLocal = vigentes.length - vigentesWeb;
 
-  // Promedio diario de lavados en lo que va del mes (ingresos del 1° del mes a hoy / días transcurridos).
-  const diasTranscurridosMes = new Date().getDate();
-  const ingresosMesActual = data.ingresos.filter((i) => inRange(i.fecha, primerDiaMesActualYMD(), todayYMD()));
-  const promedioLavadosDiarios = diasTranscurridosMes ? ingresosMesActual.length / diasTranscurridosMes : 0;
-
   // --- Resumen por período (fechas seleccionables) ---
   const desde = ui.statsDesde || primerDiaMesActualYMD();
   const hasta = ui.statsHasta || todayYMD();
@@ -81,6 +76,16 @@ export default function StatsTab() {
   // --- Uso de planes y ranking de clientes, según el período seleccionado arriba ---
   const clientesPorId = new Map(data.clientes.map((c) => [c.id, c]));
   const ingresosVisitasPeriodo = data.ingresos.filter((i) => inRange(i.fecha, desde, hasta));
+
+  // Promedio diario de lavados en el período seleccionado. Si "hasta" llega hasta hoy o más
+  // adelante, el fin del cálculo se acota a hoy para no contar días que todavía no transcurren.
+  const finPeriodoTranscurrido = hasta < todayYMD() ? hasta : todayYMD();
+  const diasPeriodo =
+    Math.round(
+      (new Date(finPeriodoTranscurrido + "T00:00:00").getTime() - new Date(desde + "T00:00:00").getTime()) / 86400000
+    ) + 1;
+  const promedioLavadosDiariosPeriodo = diasPeriodo > 0 ? ingresosVisitasPeriodo.length / diasPeriodo : 0;
+
   const visitasPorCliente = new Map<string, number>();
   ingresosVisitasPeriodo.forEach((i) => {
     if (!i.clienteId) return;
@@ -163,10 +168,6 @@ export default function StatsTab() {
           <div className="num">{vigentesLocal}</div>
           <div className="lbl">Vigentes · Local</div>
         </div>
-        <div className="stat-card">
-          <div className="num">{promedioLavadosDiarios.toFixed(1)}</div>
-          <div className="lbl">Promedio lavados/día (mes actual)</div>
-        </div>
       </div>
 
       <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Resumen por período</h3>
@@ -198,6 +199,10 @@ export default function StatsTab() {
         </button>
       </div>
       <div className="stat-grid">
+        <div className="stat-card">
+          <div className="num">{promedioLavadosDiariosPeriodo.toFixed(1)}</div>
+          <div className="lbl">Lavados promedios día del Período</div>
+        </div>
         <div className="stat-card ok">
           <div className="num">{fmtCLP(montoTotalPeriodo)}</div>
           <div className="lbl">Monto total de venta del período</div>

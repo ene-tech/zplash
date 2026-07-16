@@ -224,12 +224,14 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
   const ventasPeriodo = ventas.filter((v) => inRangeLocal(v.fecha, desde, hasta));
   const autosConPlan = ingresosPeriodo.filter((i) => i.planEstadoAlIngreso !== "bad").length;
 
-  const porCliente: Record<string, { Patente: string; Cliente: string; "Ingresos en el período": number }> = {};
-  ingresosPeriodo.forEach((i) => {
-    const key = i.patente;
-    if (!porCliente[key]) porCliente[key] = { Patente: i.patente, Cliente: i.nombre, "Ingresos en el período": 0 };
-    porCliente[key]["Ingresos en el período"]++;
-  });
+  const serviciosAdicionalesPeriodo = ventasPeriodo.filter((v) => v.esServicioAdicional).map((v) => ({
+    Fecha: fmtDateLocal(v.fecha),
+    Patente: v.patente,
+    Cliente: v.nombre,
+    Servicios: v.tipo,
+    Cantidad: v.cantidadItems ?? 1,
+    Monto: v.precio,
+  }));
 
   const rango = desde === hasta ? desde : `${desde} a ${hasta}`;
   const resumen = [
@@ -267,8 +269,12 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), "Resumen");
     XLSX.utils.book_append_sheet(
       wb,
-      XLSX.utils.json_to_sheet(Object.values(porCliente).length ? Object.values(porCliente) : [{ Patente: "", Cliente: "", "Ingresos en el período": "" }]),
-      "Por cliente"
+      XLSX.utils.json_to_sheet(
+        serviciosAdicionalesPeriodo.length
+          ? serviciosAdicionalesPeriodo
+          : [{ Fecha: "", Patente: "", Cliente: "", Servicios: "", Cantidad: "", Monto: "" }]
+      ),
+      "Servicios adicionales"
     );
     XLSX.utils.book_append_sheet(
       wb,
