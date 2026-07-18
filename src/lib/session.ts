@@ -108,3 +108,11 @@ export async function tieneModulo(modulo: Modulo): Promise<boolean> {
   const sesion = await sesionVigente();
   return !!sesion && sesion.modulos.includes(modulo);
 }
+
+// Expone nombre + módulos del perfil de la sesión vigente, para chequeos que
+// necesitan algo más que "¿tiene este módulo?" (ver esExentoHorarioOperador
+// en @/lib/helpers, usado por insertIngresos en @/lib/db).
+export async function sesionActual(): Promise<{ nombre: string; modulos: Modulo[] } | null> {
+  const sesion = await sesionVigente();
+  return sesion ? { nombre: sesion.nombre, modulos: sesion.modulos } : null;
+}

@@ -67,7 +67,7 @@ export default function OperadorView() {
     const id = setInterval(() => setAhora(new Date()), INTERVALO_RELOJ_MS);
     return () => clearInterval(id);
   }, []);
-  const exento = esExentoHorarioOperador(ui.perfilActual?.modulos || []);
+  const exento = esExentoHorarioOperador(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
   const bloqueado = !exento && !dentroDeHorarioOperador(data.config, ahora);
   const cfg = data.config;
 

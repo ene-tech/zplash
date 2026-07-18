@@ -10,9 +10,9 @@
 import * as dataAccess from "@/lib/dataAccess";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import { esEstadoFinal, esRetrocesoInvalido } from "@/lib/agenda";
-import { ahoraEnSantiago, dentroDeHorarioOperador } from "@/lib/helpers";
+import { ahoraEnSantiago, dentroDeHorarioOperador, esExentoHorarioOperador } from "@/lib/helpers";
 import { cobrarSuscripcion } from "@/lib/pagos";
-import { tieneModulo, tieneSesionValida } from "@/lib/session";
+import { sesionActual, tieneModulo, tieneSesionValida } from "@/lib/session";
 import type {
   AppData,
   AuditoriaEntrada,
@@ -57,12 +57,13 @@ export async function deleteClientes(ids: string[]): Promise<boolean> {
 // revisa acá, no solo en la UI: la UI ya oculta los botones de registro fuera
 // de horario, pero como todo Server Action queda invocable por POST directo
 // (ver comentario al inicio del archivo), este es el único lugar que de
-// verdad puede impedirlo. Se exime a quien tenga acceso a Configuración
-// (Administración/Gerencia, ver esExentoHorarioOperador) y se relee `config`
-// desde la base en vez de confiar en el horario que traiga el cliente.
+// verdad puede impedirlo. Se exime a quien tenga acceso a Configuración o
+// sea el perfil "Administración" (ver esExentoHorarioOperador) y se relee
+// `config` desde la base en vez de confiar en el horario que traiga el cliente.
 export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
-  if (!(await tieneSesionValida())) return false;
-  if (!(await tieneModulo("config"))) {
+  const sesion = await sesionActual();
+  if (!sesion) return false;
+  if (!esExentoHorarioOperador(sesion.modulos, sesion.nombre)) {
     let config: ConfigGlobal;
     try {
       config = await dataAccess.getConfig();

@@ -161,11 +161,13 @@ export const PERFILES_DEFAULT: PerfilPublico[] = [
 ];
 
 /** Un perfil queda exento del bloqueo horario del módulo Operador (ver
- * dentroDeHorarioOperador) si tiene acceso a Configuración — hoy eso equivale
- * a Administración y Gerencia (ver PERFILES_DEFAULT), sin necesidad de un
- * campo de "rol" aparte. */
-export function esExentoHorarioOperador(modulos: Modulo[]): boolean {
-  return modulos.includes("config");
+ * dentroDeHorarioOperador) si tiene acceso a Configuración, o si es el
+ * perfil "Administración" — que puede no tener módulos de administrador
+ * asignados (solo Operador) y aun así necesita poder registrar ingresos
+ * fuera de horario. No hay un campo de "rol" aparte, así que se matchea por
+ * nombre exacto de perfil. */
+export function esExentoHorarioOperador(modulos: Modulo[], nombre?: string): boolean {
+  return modulos.includes("config") || nombre === "Administración";
 }
 
 /**

@@ -323,6 +323,10 @@ describe("esExentoHorarioOperador", () => {
     expect(esExentoHorarioOperador(["operador", "config"])).toBe(true);
   });
 
+  it("un perfil de Administración sin acceso a Configuración también está exento", () => {
+    expect(esExentoHorarioOperador(["operador", "servicios"], "Administración")).toBe(true);
+  });
+
   it("un operador estándar sin acceso a Configuración no está exento", () => {
     expect(esExentoHorarioOperador(["operador", "servicios"])).toBe(false);
   });
