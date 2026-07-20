@@ -10,7 +10,13 @@
 import * as dataAccess from "@/lib/dataAccess";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import { esEstadoFinal, esRetrocesoInvalido } from "@/lib/agenda";
-import { ahoraEnSantiago, dentroDeHorarioOperador, esExentoHorarioOperador, isValidPatente } from "@/lib/helpers";
+import {
+  ahoraEnSantiago,
+  dentroDeHorarioOperador,
+  esExentoFormatoCliente,
+  esExentoHorarioOperador,
+  isValidPatente,
+} from "@/lib/helpers";
 import { cobrarSuscripcion } from "@/lib/pagos";
 import { sesionActual, tieneModulo, tieneSesionValida } from "@/lib/session";
 import type {
@@ -47,14 +53,20 @@ export async function waitForStorage(): Promise<boolean> {
 }
 
 export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
-  if (!(await tieneSesionValida())) return false;
+  const sesion = await sesionActual();
+  if (!sesion) return false;
   // La UI (ClientModal/BulkModal) ya exige nombre y patente válida antes de
   // llamar acá, pero como todo Server Action queda invocable por POST directo
   // (ver comentario al inicio del archivo), este es el único lugar que de
   // verdad puede impedir que se guarde un cliente sin nombre o con una
-  // patente vacía/inválida — son las dos columnas NOT NULL de "clientes"
-  // (ver src/db/schema.ts).
-  if (rows.some((r) => !r.nombre?.trim() || !isValidPatente(r.patente))) return false;
+  // patente vacía — son las dos columnas NOT NULL de "clientes" (ver
+  // src/db/schema.ts). El perfil "Gerencia" queda exento de la validación de
+  // *formato* de la patente (ver esExentoFormatoCliente en @/lib/helpers),
+  // igual que en ClientModal, pero nombre y patente no vacíos se exigen a
+  // todos porque ninguna sesión puede saltarse un NOT NULL de la base.
+  const exentoFormato = esExentoFormatoCliente(sesion.nombre);
+  if (rows.some((r) => !r.nombre?.trim() || !r.patente?.trim() || (!exentoFormato && !isValidPatente(r.patente))))
+    return false;
   return dataAccess.upsertClientes(rows);
 }
 

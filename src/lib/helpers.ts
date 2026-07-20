@@ -218,6 +218,17 @@ export function esExentoHorarioOperador(modulos: Modulo[], nombre?: string): boo
   return modulos.includes("config") || nombre === "Administración";
 }
 
+/** El perfil "Gerencia" puede guardar un cliente sin que los campos cumplan
+ * el formato esperado (patente, teléfono, RUT, email de factura): siempre
+ * puede dar a "Guardar" (ver ClientModal y el backstop en upsertClientes).
+ * Nombre y patente no vacíos siguen siendo obligatorios porque son columnas
+ * NOT NULL de "clientes" (patente además UNIQUE) — sin eso el guardado
+ * fallaría igual a nivel de base de datos. Se matchea por nombre exacto de
+ * perfil, mismo criterio que esExentoHorarioOperador. */
+export function esExentoFormatoCliente(nombre?: string): boolean {
+  return nombre === "Gerencia";
+}
+
 /**
  * Estructura del Estado de Resultados (EERR): los 5 grupos de gasto y a qué
  * sección pertenecen (operacional / no operacional) son fijos — vienen del

@@ -7,6 +7,7 @@ import {
   PLANES,
   RUT_FORMATO_MSG,
   TELEFONO_FORMATO_MSG,
+  esExentoFormatoCliente,
   fmtTelefono,
   formatRut,
   formatTelefono,
@@ -66,13 +67,14 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
   };
 
   const guardar = () => {
+    const exentoFormato = esExentoFormatoCliente(ui.perfilActual?.nombre);
     const nombre = (nombreRef.current?.value.trim() || "").toUpperCase();
     const patente = normPlate(patenteRef.current?.value || "");
     if (!nombre || !patente) {
       setErr("Nombre y patente son obligatorios");
       return;
     }
-    if (!isValidPatente(patente)) {
+    if (!exentoFormato && !isValidPatente(patente)) {
       setErr(PATENTE_FORMATO_MSG);
       return;
     }
@@ -83,7 +85,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     }
     const telefonoRaw = telefonoRef.current?.value.trim() || "";
     const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
-    if (telefono && !isValidTelefono(telefono)) {
+    if (!exentoFormato && telefono && !isValidTelefono(telefono)) {
       setErr(TELEFONO_FORMATO_MSG);
       return;
     }
@@ -94,7 +96,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     const rutRaw = tipoDocumento === "Factura" ? rutRef.current?.value.trim() || "" : "";
     const direccion = tipoDocumento === "Factura" ? direccionRef.current?.value.trim() || "" : "";
     const giro = tipoDocumento === "Factura" ? giroRef.current?.value.trim() || "" : "";
-    if (tipoDocumento === "Factura") {
+    if (tipoDocumento === "Factura" && !exentoFormato) {
       if (!email || !isValidEmail(email)) {
         setErr("Ingresa un email válido para la factura");
         return;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONFIG_DEFAULT,
   dentroDeHorarioOperador,
+  esExentoFormatoCliente,
   esExentoHorarioOperador,
   esFinDeSemanaOFestivo,
   fmtCLP,
@@ -347,6 +348,17 @@ describe("esExentoHorarioOperador", () => {
 
   it("un operador estándar sin acceso a Configuración no está exento", () => {
     expect(esExentoHorarioOperador(["operador", "servicios"])).toBe(false);
+  });
+});
+
+describe("esExentoFormatoCliente", () => {
+  it("el perfil Gerencia está exento de la validación de formato", () => {
+    expect(esExentoFormatoCliente("Gerencia")).toBe(true);
+  });
+
+  it("otros perfiles, incluido Administración, no están exentos", () => {
+    expect(esExentoFormatoCliente("Administración")).toBe(false);
+    expect(esExentoFormatoCliente(undefined)).toBe(false);
   });
 });
 
