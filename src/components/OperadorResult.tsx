@@ -54,7 +54,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const [guardarErr, setGuardarErr] = useState("");
 
   const c = cliente;
-  const registroIncompleto = esNombreVacio(c.nombre) || !c.telefono || !c.email;
+  const registroIncompleto = esNombreVacio(c.nombre) || !c.telefono || !isValidTelefono(c.telefono) || !c.email;
   const st = planStatus(c);
   const pNormal = precioNormal(data.precios, c.plan || "");
   const pPromo = precioPreferencial(data.precios, c.plan || "");
@@ -361,7 +361,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
     <>
       {registroIncompleto && (
         <div className="err" style={{ marginBottom: 10 }}>
-          Registro de Cliente Incompleto, Agregue información faltante para poder dar Ingreso
+          Registro de Cliente Incompleto, corrija la información faltante o inválida para poder dar Ingreso
         </div>
       )}
       {citaDetailingPendiente && (
@@ -513,13 +513,13 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
           </div>
           <div>
             <div className="k">Teléfono</div>
-            {c.telefono ? (
+            {c.telefono && isValidTelefono(c.telefono) ? (
               <div className="v">{fmtTelefono(c.telefono)}</div>
             ) : (
               <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
                 <input
                   ref={telefonoRef}
-                  defaultValue="+569"
+                  defaultValue={c.telefono || "+569"}
                   placeholder="+569 -1111 1111"
                   onBlur={onTelefonoBlur}
                   style={{

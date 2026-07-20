@@ -78,7 +78,8 @@ export default function BulkModal() {
             <div className="warn">{summary.actualizados} actualizados</div>
             {summary.errores.length > 0 && (
               <div className="bad">
-                {summary.errores.length} filas con error (patente inválida o faltante): filas {summary.errores.join(", ")}
+                {summary.errores.length} filas con error (patente inválida/faltante o nombre faltante): filas{" "}
+                {summary.errores.join(", ")}
               </div>
             )}
           </div>
