@@ -252,6 +252,13 @@ export const config = pgTable("config", {
   // helpers.ts) desde su fecha de compra/generación — editable en Web
   // Settings, a propósito NO amarrado a los 90 días fijos de otros productos.
   vigenciaDiasPackEmpresa: integer("vigencia_dias_pack_empresa").notNull().default(365),
+  // Escala de precio de renovación preferencial por visitas para clientes
+  // Local, keyed por plan (ver TramoRenovacionLocal/precioRenovacionLocal en
+  // @/types y @/lib/helpers).
+  tramosRenovacionLocal: jsonb("tramos_renovacion_local")
+    .$type<Record<string, { id: string; visitasMin: number; visitasMax: number | null; precio: number }[]>>()
+    .notNull()
+    .default({}),
 });
 
 // Catálogo de servicios (fusiona el antiguo listado hardcodeado

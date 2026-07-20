@@ -92,6 +92,13 @@
       "when": 1784496909991,
       "tag": "0012_great_paper_doll",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784515110346,
+      "tag": "0013_condemned_sentinel",
+      "breakpoints": true
     }
   ]
 }

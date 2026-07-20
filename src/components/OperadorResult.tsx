@@ -24,7 +24,7 @@ import {
   planStatus,
   precioLavadoUnico,
   precioNormal,
-  precioPreferencial,
+  precioRenovacionLocal,
   precioUpgradePlan,
   resolverDescuento,
   uid,
@@ -57,7 +57,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const registroIncompleto = esNombreVacio(c.nombre) || !c.telefono || !isValidTelefono(c.telefono) || !c.email;
   const st = planStatus(c);
   const pNormal = precioNormal(data.precios, c.plan || "");
-  const pPromo = precioPreferencial(data.precios, c.plan || "");
+  const pPromo = precioRenovacionLocal(data.config, data.precios, c.plan || "", c.visitas || 0);
   const showOffer = st.cls === "warn" && pNormal > 0 && c.origen !== "WEB";
   const ahorro = pNormal - pPromo;
   const planVigente = st.cls !== "bad";
@@ -253,7 +253,7 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
 
   const renovar = () => {
     pedirPago(pPromo, `Renovación temprana del plan de ${c.nombre} a precio preferencial`, async (pago) => {
-      const patch = renovarPlan(data, c, ui.perfilActual?.nombre, pago);
+      const patch = renovarPlan(data, c, ui.perfilActual?.nombre, pPromo, pago);
       const ok = await commit(patch);
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO);

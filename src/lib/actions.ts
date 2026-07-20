@@ -4,12 +4,12 @@ import type { ParsedMovimiento } from "@/lib/cartolaParser";
 import {
   GLOSA_SERVICIO_DETAILING,
   PLANES,
+  esTarjetaWeb,
   formatRut,
   formatTelefono,
   isValidPatente,
   normPlate,
   planStatus,
-  precioPreferencial,
   uid,
 } from "@/lib/helpers";
 
@@ -96,6 +96,7 @@ export function renovarPlan(
   data: AppData,
   cliente: Cliente,
   operadorActual: string | null | undefined,
+  precio: number,
   pago?: PagoInfo
 ): Partial<AppData> {
   const base = cliente.vencimiento && new Date(cliente.vencimiento) > new Date() ? new Date(cliente.vencimiento) : new Date();
@@ -111,7 +112,7 @@ export function renovarPlan(
     patente: cliente.patente,
     nombre: cliente.nombre,
     plan: cliente.plan || "",
-    precio: precioPreferencial(data.precios, cliente.plan || ""),
+    precio,
     tipo: "Renovación preferencial",
     fecha: new Date().toISOString(),
     creadoPor: operadorActual || "",
@@ -412,7 +413,9 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
       v.metodoPago === "efectivo"
         ? "Efectivo"
         : v.metodoPago === "tarjeta"
-          ? "Tarjeta"
+          ? esTarjetaWeb(v.creadoPor)
+            ? "Tarjetas Transbank"
+            : "Tarjetas GETNET"
           : v.metodoPago === "transferencia"
             ? "Transferencia bancaria"
             : "-",

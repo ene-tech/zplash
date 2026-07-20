@@ -75,6 +75,16 @@ export function ventaUpgradeElegible(ventas: Venta[], clienteId: string, ahora: 
 }
 
 /** Datos de la cuenta bancaria de la empresa, mostrados al cliente cuando el operador elige "Transferencia bancaria" como forma de pago. */
+// Las ventas/movimientos generados automáticamente por Webpay, WooCommerce u
+// Oneclick (ver src/app/api/pagos/webpay/retorno/route.ts,
+// src/app/api/webhooks/woocommerce/route.ts y aplicarPagoOneclick en
+// src/lib/pagos.ts) siempre quedan con creadoPor = "Automático (...)" y
+// metodoPago "tarjeta": son cobros web procesados por Transbank. Cualquier
+// otro pago con tarjeta se cobra en el local con el POS GETNET.
+export function esTarjetaWeb(creadoPor?: string | null): boolean {
+  return (creadoPor || "").startsWith("Automático");
+}
+
 export const DATOS_TRANSFERENCIA = [
   { label: "Nombre", valor: "SERVICIOS E INVERSIONES LAS AGUILAS SPA" },
   { label: "RUT", valor: "76.969.928-7" },
@@ -121,6 +131,7 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   horarioOperadorFindeFin: "19:15",
   festivos: [],
   vigenciaDiasPackEmpresa: 365,
+  tramosRenovacionLocal: {},
 };
 
 /** Catálogo fijo de los 4 packs de tickets para empresas (flotas, automotoras,
@@ -338,6 +349,20 @@ export function precioPreferencial(precios: Precios, plan: string): number {
   return (precios[plan] && precios[plan].promo) || 0;
 }
 
+/**
+ * Precio de renovación preferencial para un cliente Local según su cantidad
+ * de visitas acumuladas (ver tramosRenovacionLocal en ConfigGlobal): busca el
+ * tramo cuyo rango [visitasMin, visitasMax] contiene `visitas` (evaluando los
+ * tramos ordenados de menor a mayor visitasMin, para que el resultado sea
+ * determinístico aunque el admin los haya guardado en otro orden). Si ninguno
+ * calza, cae al precio preferencial general (Precios[plan].promo).
+ */
+export function precioRenovacionLocal(config: ConfigGlobal, precios: Precios, plan: string, visitas: number): number {
+  const tramos = [...(config.tramosRenovacionLocal[plan] || [])].sort((a, b) => a.visitasMin - b.visitasMin);
+  const match = tramos.find((t) => visitas >= t.visitasMin && (t.visitasMax === null || visitas <= t.visitasMax));
+  return match ? match.precio : precioPreferencial(precios, plan);
+}
+
 /** Precio vigente del lavado único, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */
 export function precioLavadoUnico(precios: Precios): number {
   return (precios[LAVADO_UNICO_KEY] && precios[LAVADO_UNICO_KEY].normal) || PRECIO_LAVADO_UNICO;
@@ -371,6 +396,13 @@ export function sumarDias(fecha: string, delta: number): string {
 
 export function ymd(d: Date): string {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+/** Suma minutos a una fecha+hora "YYYY-MM-DD"+"HH:MM" y devuelve el resultado en el mismo formato (puede cruzar de día). */
+export function sumarMinutos(fecha: string, hora: string, minutos: number): { fecha: string; hora: string } {
+  const d = new Date(`${fecha}T${hora}:00`);
+  d.setMinutes(d.getMinutes() + minutos);
+  return { fecha: ymd(d), hora: String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") };
 }
 
 /** true si `fecha` cae sábado, domingo, o en la lista de festivos configurada (YYYY-MM-DD). */

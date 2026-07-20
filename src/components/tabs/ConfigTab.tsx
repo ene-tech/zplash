@@ -17,8 +17,9 @@ import {
   precioUpgradePlan,
   precioZonaAspirado,
   todayYMD,
+  uid,
 } from "@/lib/helpers";
-import type { ConfigGlobal } from "@/types";
+import type { ConfigGlobal, TramoRenovacionLocal } from "@/types";
 
 function HorarioOperador() {
   const { data, commit } = useApp();
@@ -147,6 +148,9 @@ export default function ConfigTab() {
   const [promoVals, setPromoVals] = useState<Record<string, string>>(() =>
     Object.fromEntries(PLANES.map((p) => [p, String(precioPreferencial(data.precios, p))]))
   );
+  const [tramosVals, setTramosVals] = useState<Record<string, TramoRenovacionLocal[]>>(
+    () => data.config.tramosRenovacionLocal
+  );
   const [lavadoUnicoVal, setLavadoUnicoVal] = useState(() => String(precioLavadoUnico(data.precios)));
   const [zonaAspiradoVal, setZonaAspiradoVal] = useState(() => String(precioZonaAspirado(data.precios)));
   const [planOneclickVal, setPlanOneclickVal] = useState(() => String(precioPlanOneclick(data.precios)));
@@ -195,8 +199,26 @@ export default function ConfigTab() {
     catalogoServicios.forEach((s) => {
       precios[s.id] = { normal: Number(servicioVals[s.id]) || 0, promo: 0 };
     });
-    await commit({ precios });
+    await commit({ precios, config: { ...data.config, tramosRenovacionLocal: tramosVals } });
     setPrecioErr({ msg: "Precios actualizados correctamente", ok: true });
+  };
+
+  const agregarTramo = (plan: string) => {
+    setTramosVals((cur) => ({
+      ...cur,
+      [plan]: [...(cur[plan] || []), { id: uid(), visitasMin: 0, visitasMax: null, precio: 0 }],
+    }));
+  };
+
+  const quitarTramo = (plan: string, id: string) => {
+    setTramosVals((cur) => ({ ...cur, [plan]: (cur[plan] || []).filter((t) => t.id !== id) }));
+  };
+
+  const editarTramo = (plan: string, id: string, cambios: Partial<TramoRenovacionLocal>) => {
+    setTramosVals((cur) => ({
+      ...cur,
+      [plan]: (cur[plan] || []).map((t) => (t.id === id ? { ...t, ...cambios } : t)),
+    }));
   };
 
   return (
@@ -240,6 +262,58 @@ export default function ConfigTab() {
                 onChange={(v) => setPromoVals((cur) => ({ ...cur, [p]: v }))}
               />
             </div>
+
+            <div
+              className="hint"
+              style={{ textAlign: "left", marginTop: 10, marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}
+            >
+              Renovación preferencial por visitas — {p} (clientes Local)
+            </div>
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 10 }}>
+              Ofrece un precio distinto al de arriba según cuántas veces ha pasado el cliente por el local (ej:
+              $16.990 para quienes pasaron 0 o 1 vez). Si un cliente no cae en ningún tramo, se usa el precio de
+              promoción de renovación de arriba. No aplica a clientes Web.
+            </div>
+            {(tramosVals[p] || []).map((t) => (
+              <div key={t.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input
+                    type="number"
+                    min={0}
+                    value={t.visitasMin}
+                    onChange={(e) => editarTramo(p, t.id, { visitasMin: Number(e.target.value) || 0 })}
+                    style={{ width: 60 }}
+                  />
+                  <span style={{ color: "var(--gray)", fontSize: 13 }}>a</span>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="∞"
+                    value={t.visitasMax ?? ""}
+                    onChange={(e) =>
+                      editarTramo(p, t.id, { visitasMax: e.target.value === "" ? null : Number(e.target.value) || 0 })
+                    }
+                    style={{ width: 60 }}
+                  />
+                  <span style={{ color: "var(--gray)", fontSize: 13 }}>visitas</span>
+                </div>
+                <PriceInput
+                  value={String(t.precio)}
+                  onChange={(v) => editarTramo(p, t.id, { precio: Number(v) || 0 })}
+                  style={{ flex: 1 }}
+                />
+                <button className="icon-btn" onClick={() => quitarTramo(p, t.id)}>
+                  Quitar
+                </button>
+              </div>
+            ))}
+            <button
+              className="btn ghost"
+              style={{ marginTop: 0, padding: "3px 10px", fontSize: "0.82rem" }}
+              onClick={() => agregarTramo(p)}
+            >
+              + Agregar tramo
+            </button>
           </div>
         ))}
 

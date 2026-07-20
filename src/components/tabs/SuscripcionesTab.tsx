@@ -45,8 +45,9 @@ export default function SuscripcionesTab() {
   };
 
   useEffect(() => {
-    cargar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    listarSuscripcionesOneclick()
+      .then(setSuscripciones)
+      .finally(() => setCargando(false));
   }, []);
 
   const qPatente = normPlate(ui.search || "");

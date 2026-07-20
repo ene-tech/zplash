@@ -1,11 +1,123 @@
 "use client";
 
+import { useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { descargarCierre, descargarFacturables } from "@/lib/actions";
-import { fmtCLP, fmtDate, inRange, normPlate, planStatus, tipoIngreso, todayYMD } from "@/lib/helpers";
+import { esTarjetaWeb, fmtCLP, fmtDate, inRange, normPlate, planStatus, tipoIngreso, todayYMD } from "@/lib/helpers";
+import type { MovimientoContable, Venta } from "@/types";
+
+// Desglosa un grupo de ventas por método de pago, con la misma
+// categorización que la tabla global "Métodos de pago" (transferencia
+// pendiente → Cuentas x Cobrar, resto pendiente → Por pagar; tarjeta web vs.
+// tarjeta local), pero acotado a las ventas que componen una sola fila de
+// "Detalle de venta del período".
+function desglosePagoVentas(items: Venta[]) {
+  const cobrado = (v: Venta) => v.montoCobrado ?? v.precio ?? 0;
+  const efectivo = items.filter((v) => v.metodoPago === "efectivo");
+  const tarjetaTransbank = items.filter((v) => v.metodoPago === "tarjeta" && esTarjetaWeb(v.creadoPor));
+  const tarjetaGetnet = items.filter((v) => v.metodoPago === "tarjeta" && !esTarjetaWeb(v.creadoPor));
+  const transferencia = items.filter((v) => v.metodoPago === "transferencia" && v.estadoPago !== "pendiente");
+  const cuentasPorCobrar = items.filter((v) => v.metodoPago === "transferencia" && v.estadoPago === "pendiente");
+  const porPagar = items.filter((v) => v.estadoPago === "pendiente" && v.metodoPago !== "transferencia");
+  return [
+    { metodo: "Efectivo", cantidad: efectivo.length, monto: efectivo.reduce((s, v) => s + cobrado(v), 0) },
+    { metodo: "Tarjetas Transbank", cantidad: tarjetaTransbank.length, monto: tarjetaTransbank.reduce((s, v) => s + cobrado(v), 0) },
+    { metodo: "Tarjetas GETNET", cantidad: tarjetaGetnet.length, monto: tarjetaGetnet.reduce((s, v) => s + cobrado(v), 0) },
+    {
+      metodo: "Transferencia bancaria",
+      cantidad: transferencia.length,
+      monto: transferencia.reduce((s, v) => s + cobrado(v), 0),
+    },
+    {
+      metodo: "Cuentas x Cobrar",
+      cantidad: cuentasPorCobrar.length,
+      monto: cuentasPorCobrar.reduce((s, v) => s + (v.precio || 0), 0),
+    },
+    { metodo: "Por pagar", cantidad: porPagar.length, monto: porPagar.reduce((s, v) => s + (v.precio || 0), 0) },
+  ].filter((f) => f.cantidad > 0);
+}
+
+// Misma idea que desglosePagoVentas pero para movimientos contables (fila
+// "Ingreso por Módulo Contabilidad"), que usan su propio campo `estado` en
+// vez de `estadoPago`.
+function desglosePagoContables(items: MovimientoContable[]) {
+  const pagados = items.filter((m) => m.estado === "pagado");
+  const pendientes = items.filter((m) => m.estado !== "pagado");
+  const porMetodo = (metodo: string) => pagados.filter((m) => m.metodoPago === metodo);
+  const tarjetaTransbank = porMetodo("tarjeta").filter((m) => esTarjetaWeb(m.creadoPor));
+  const tarjetaGetnet = porMetodo("tarjeta").filter((m) => !esTarjetaWeb(m.creadoPor));
+  return [
+    { metodo: "Efectivo", cantidad: porMetodo("efectivo").length, monto: porMetodo("efectivo").reduce((s, m) => s + m.monto, 0) },
+    { metodo: "Tarjetas Transbank", cantidad: tarjetaTransbank.length, monto: tarjetaTransbank.reduce((s, m) => s + m.monto, 0) },
+    { metodo: "Tarjetas GETNET", cantidad: tarjetaGetnet.length, monto: tarjetaGetnet.reduce((s, m) => s + m.monto, 0) },
+    {
+      metodo: "Transferencia bancaria",
+      cantidad: porMetodo("transferencia").length,
+      monto: porMetodo("transferencia").reduce((s, m) => s + m.monto, 0),
+    },
+    { metodo: "Cuentas x Cobrar", cantidad: pendientes.length, monto: pendientes.reduce((s, m) => s + m.monto, 0) },
+  ].filter((f) => f.cantidad > 0);
+}
+
+function FilaVentaExpandible({
+  rowKey,
+  label,
+  cantidad,
+  monto,
+  expandida,
+  onToggle,
+  desglose,
+}: {
+  rowKey: string;
+  label: string;
+  cantidad: number;
+  monto: number;
+  expandida: boolean;
+  onToggle: () => void;
+  desglose: { metodo: string; cantidad: number; monto: number }[];
+}) {
+  return (
+    <>
+      <tr key={rowKey} onClick={onToggle} style={{ cursor: "pointer" }}>
+        <td>{expandida ? "▾ " : "▸ "}{label}</td>
+        <td>{cantidad}</td>
+        <td>{fmtCLP(monto)}</td>
+      </tr>
+      {expandida && (
+        <tr key={`${rowKey}-detalle`}>
+          <td colSpan={3} style={{ background: "var(--bg2, rgba(255,255,255,0.03))", padding: "8px 16px" }}>
+            {desglose.length === 0 ? (
+              <div className="empty" style={{ margin: 0 }}>Sin ventas con medio de pago registrado</div>
+            ) : (
+              <table style={{ margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Medio de pago</th>
+                    <th>Cantidad</th>
+                    <th>Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {desglose.map((d) => (
+                    <tr key={d.metodo}>
+                      <td>{d.metodo}</td>
+                      <td>{d.cantidad}</td>
+                      <td>{fmtCLP(d.monto)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
 
 export default function CierreTab() {
   const { data, ui, patchUi } = useApp();
+  const [filaExpandida, setFilaExpandida] = useState<string | null>(null);
   const desde = ui.cierreDesde || todayYMD();
   const hasta = ui.cierreHasta || todayYMD();
   const { ingresos, clientes, ventas, movimientosContables } = data;
@@ -31,7 +143,7 @@ export default function CierreTab() {
   ];
   const ventasPorTipo = PRODUCTOS.map((p) => {
     const items = ventasPeriodo.filter((v) => v.tipo === p.tipo && !esNuevoClienteAdmin(v));
-    return { ...p, cantidad: items.length, monto: items.reduce((s, v) => s + (v.precio || 0), 0) };
+    return { ...p, cantidad: items.length, monto: items.reduce((s, v) => s + (v.precio || 0), 0), items };
   });
 
   const serviciosAdicionalesItems = ventasPeriodo.filter((v) => v.esServicioAdicional);
@@ -45,6 +157,7 @@ export default function CierreTab() {
     // servicios se vendieron realmente.
     cantidad: serviciosAdicionalesItems.reduce((s, v) => s + (v.cantidadItems ?? 1), 0),
     monto: serviciosAdicionalesItems.reduce((s, v) => s + (v.precio || 0), 0),
+    items: serviciosAdicionalesItems,
   };
 
   const ingresosContablesPeriodo = movimientosContables.filter(
@@ -55,6 +168,7 @@ export default function CierreTab() {
     label: "Ingreso por Módulo Contabilidad",
     cantidad: ingresosContablesPeriodo.length,
     monto: ingresosContablesPeriodo.reduce((s, m) => s + m.monto, 0),
+    items: ingresosContablesPeriodo,
   };
 
   const filasVenta = [...ventasPorTipo, serviciosAdicionalesRow, ingresoModuloContabilidadRow];
@@ -63,9 +177,11 @@ export default function CierreTab() {
 
   const modificacionesAdminItems = ventasPeriodo.filter(esNuevoClienteAdmin);
   const modificacionesAdmin = {
+    tipo: "modificaciones-admin",
     label: "Modificación de planes desde perfil de administrador",
     cantidad: modificacionesAdminItems.length,
     monto: modificacionesAdminItems.reduce((s, v) => s + (v.precio || 0), 0),
+    items: modificacionesAdminItems,
   };
 
   const tiposConocidos = new Set(PRODUCTOS.map((p) => p.tipo));
@@ -73,7 +189,8 @@ export default function CierreTab() {
 
   const cobrado = (v: (typeof ventasPeriodo)[number]) => v.montoCobrado ?? v.precio ?? 0;
   const efectivoItems = ventasPeriodo.filter((v) => v.metodoPago === "efectivo");
-  const tarjetaItems = ventasPeriodo.filter((v) => v.metodoPago === "tarjeta");
+  const tarjetaTransbankItems = ventasPeriodo.filter((v) => v.metodoPago === "tarjeta" && esTarjetaWeb(v.creadoPor));
+  const tarjetaGetnetItems = ventasPeriodo.filter((v) => v.metodoPago === "tarjeta" && !esTarjetaWeb(v.creadoPor));
   const transferenciaItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago !== "pendiente");
   const cuentasPorCobrarItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago === "pendiente");
   const porPagarItems = ventasPeriodo.filter((v) => v.estadoPago === "pendiente" && v.metodoPago !== "transferencia");
@@ -88,6 +205,8 @@ export default function CierreTab() {
   const contablesPagados = ingresosContablesPeriodo.filter((m) => m.estado === "pagado");
   const contablesPendientes = ingresosContablesPeriodo.filter((m) => m.estado !== "pagado");
   const contablesPorMetodo = (metodo: string) => contablesPagados.filter((m) => m.metodoPago === metodo);
+  const contablesTarjetaTransbank = contablesPorMetodo("tarjeta").filter((m) => esTarjetaWeb(m.creadoPor));
+  const contablesTarjetaGetnet = contablesPorMetodo("tarjeta").filter((m) => !esTarjetaWeb(m.creadoPor));
 
   const metodosPago = [
     {
@@ -96,9 +215,17 @@ export default function CierreTab() {
       monto: efectivoItems.reduce((s, v) => s + cobrado(v), 0) + contablesPorMetodo("efectivo").reduce((s, m) => s + m.monto, 0),
     },
     {
-      metodo: "Tarjeta",
-      cantidad: tarjetaItems.length + contablesPorMetodo("tarjeta").length,
-      monto: tarjetaItems.reduce((s, v) => s + cobrado(v), 0) + contablesPorMetodo("tarjeta").reduce((s, m) => s + m.monto, 0),
+      metodo: "Tarjetas Transbank",
+      cantidad: tarjetaTransbankItems.length + contablesTarjetaTransbank.length,
+      monto:
+        tarjetaTransbankItems.reduce((s, v) => s + cobrado(v), 0) +
+        contablesTarjetaTransbank.reduce((s, m) => s + m.monto, 0),
+    },
+    {
+      metodo: "Tarjetas GETNET",
+      cantidad: tarjetaGetnetItems.length + contablesTarjetaGetnet.length,
+      monto:
+        tarjetaGetnetItems.reduce((s, v) => s + cobrado(v), 0) + contablesTarjetaGetnet.reduce((s, m) => s + m.monto, 0),
     },
     {
       metodo: "Transferencia bancaria",
@@ -200,6 +327,9 @@ export default function CierreTab() {
       </div>
 
       <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Detalle de venta del período</h3>
+      <p style={{ fontSize: 12, color: "var(--gray)", marginTop: -6, marginBottom: 10 }}>
+        Haz clic en una fila para ver los medios de pago usados en esas ventas.
+      </p>
       <table style={{ marginBottom: 12 }}>
         <thead>
           <tr>
@@ -210,11 +340,20 @@ export default function CierreTab() {
         </thead>
         <tbody>
           {filasVenta.map((f) => (
-            <tr key={f.tipo}>
-              <td>{f.label}</td>
-              <td>{f.cantidad}</td>
-              <td>{fmtCLP(f.monto)}</td>
-            </tr>
+            <FilaVentaExpandible
+              key={f.tipo}
+              rowKey={f.tipo}
+              label={f.label}
+              cantidad={f.cantidad}
+              monto={f.monto}
+              expandida={filaExpandida === f.tipo}
+              onToggle={() => setFilaExpandida(filaExpandida === f.tipo ? null : f.tipo)}
+              desglose={
+                f.tipo === "ingreso-modulo-contabilidad"
+                  ? desglosePagoContables(f.items as MovimientoContable[])
+                  : desglosePagoVentas(f.items as Venta[])
+              }
+            />
           ))}
           <tr>
             <td style={{ fontWeight: 700, fontSize: 16 }}>Total</td>
@@ -222,18 +361,26 @@ export default function CierreTab() {
             <td style={{ fontWeight: 700, fontSize: 16 }}>{fmtCLP(totalMontoVentas)}</td>
           </tr>
           {modificacionesAdmin.cantidad > 0 && (
-            <tr>
-              <td>{modificacionesAdmin.label}</td>
-              <td>{modificacionesAdmin.cantidad}</td>
-              <td>{fmtCLP(modificacionesAdmin.monto)}</td>
-            </tr>
+            <FilaVentaExpandible
+              rowKey={modificacionesAdmin.tipo}
+              label={modificacionesAdmin.label}
+              cantidad={modificacionesAdmin.cantidad}
+              monto={modificacionesAdmin.monto}
+              expandida={filaExpandida === modificacionesAdmin.tipo}
+              onToggle={() => setFilaExpandida(filaExpandida === modificacionesAdmin.tipo ? null : modificacionesAdmin.tipo)}
+              desglose={desglosePagoVentas(modificacionesAdmin.items)}
+            />
           )}
           {otrasVentas.length > 0 && (
-            <tr>
-              <td>Otros</td>
-              <td>{otrasVentas.length}</td>
-              <td>{fmtCLP(otrasVentas.reduce((s, v) => s + (v.precio || 0), 0))}</td>
-            </tr>
+            <FilaVentaExpandible
+              rowKey="otras-ventas"
+              label="Otros"
+              cantidad={otrasVentas.length}
+              monto={otrasVentas.reduce((s, v) => s + (v.precio || 0), 0)}
+              expandida={filaExpandida === "otras-ventas"}
+              onToggle={() => setFilaExpandida(filaExpandida === "otras-ventas" ? null : "otras-ventas")}
+              desglose={desglosePagoVentas(otrasVentas)}
+            />
           )}
         </tbody>
       </table>

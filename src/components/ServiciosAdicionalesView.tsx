@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import DatosTransferencia from "@/components/DatosTransferencia";
@@ -23,6 +23,7 @@ import {
   normPlate,
   precioServicio,
   sumarDias,
+  sumarMinutos,
   todayYMD,
   uid,
   uidVenta,
@@ -72,6 +73,10 @@ export default function ServiciosAdicionalesView() {
   const [horaCita, setHoraCita] = useState("");
   const [fechaEntregaCampo, setFechaEntregaCampo] = useState("");
   const [horaEntregaCampo, setHoraEntregaCampo] = useState("");
+  // Mientras el operador no toque la Entrega a mano, se recalcula sola como
+  // hora de Inicio + suma de duraciones de los servicios elegidos. En cuanto
+  // la edita directamente dejamos de pisarla, aunque cambien los servicios.
+  const [entregaEditadaManualmente, setEntregaEditadaManualmente] = useState(false);
   const [fechaLog, setFechaLog] = useState(todayYMD());
   const [err, setErr] = useState("");
 
@@ -112,6 +117,20 @@ export default function ServiciosAdicionalesView() {
   const duracionCita = lineas.length > 0 ? duracionCatalogoTotal || DURACION_DEFAULT_MINUTOS : 0;
   const horarioConfigurado = data.horariosAgenda.length > 0;
   const citasDelDiaCita = data.citas.filter((c) => c.fechaHora.slice(0, 10) === fechaCita);
+
+  // Entrega sugerida = Inicio + duración de lo seleccionado. Se recalcula sola
+  // hasta que el operador edite el campo de Entrega directamente.
+  useEffect(() => {
+    if (entregaEditadaManualmente) return;
+    if (!horaCita) {
+      setFechaEntregaCampo("");
+      setHoraEntregaCampo("");
+      return;
+    }
+    const sugerida = sumarMinutos(fechaCita, horaCita, duracionCita);
+    setFechaEntregaCampo(sugerida.fecha);
+    setHoraEntregaCampo(sugerida.hora);
+  }, [fechaCita, horaCita, duracionCita, entregaEditadaManualmente]);
 
   // Dentro de "Lavado Completo Detailing" solo se puede tener 1 tamaño
   // seleccionado a la vez (radio): elegir otro reemplaza al anterior. Las
@@ -220,6 +239,7 @@ export default function ServiciosAdicionalesView() {
     setHoraCita("");
     setFechaEntregaCampo("");
     setHoraEntregaCampo("");
+    setEntregaEditadaManualmente(false);
   };
 
   const cambiarPatente = () => {
@@ -234,6 +254,7 @@ export default function ServiciosAdicionalesView() {
     setHoraCita("");
     setFechaEntregaCampo("");
     setHoraEntregaCampo("");
+    setEntregaEditadaManualmente(false);
     setErr("");
   };
 
@@ -479,6 +500,7 @@ export default function ServiciosAdicionalesView() {
     setHoraCita("");
     setFechaEntregaCampo("");
     setHoraEntregaCampo("");
+    setEntregaEditadaManualmente(false);
   };
 
   const logList = data.ventas.filter((v) => v.esServicioAdicional && ymd(new Date(v.fecha)) === fechaLog);
@@ -777,18 +799,26 @@ export default function ServiciosAdicionalesView() {
                         type="date"
                         min={fechaCita}
                         value={fechaEntregaCampo || fechaCita}
-                        onChange={(e) => setFechaEntregaCampo(e.target.value)}
+                        onChange={(e) => {
+                          setFechaEntregaCampo(e.target.value);
+                          setEntregaEditadaManualmente(true);
+                        }}
                         style={{ flex: 1 }}
                       />
                       <input
                         type="time"
                         value={horaEntregaCampo}
-                        onChange={(e) => setHoraEntregaCampo(e.target.value)}
+                        onChange={(e) => {
+                          setHoraEntregaCampo(e.target.value);
+                          setEntregaEditadaManualmente(true);
+                        }}
                         style={{ flex: 1 }}
                       />
                     </div>
                     <div className="hint" style={{ textAlign: "left", marginTop: 6 }}>
-                      Cuándo estará listo el vehículo para el cliente. No reserva hora en la Agenda.
+                      {horaCita && !entregaEditadaManualmente
+                        ? `Calculada automáticamente (Inicio + ${duracionCita} min). Puedes ajustarla manualmente.`
+                        : "Cuándo estará listo el vehículo para el cliente. No reserva hora en la Agenda."}
                     </div>
                   </div>
                 )}

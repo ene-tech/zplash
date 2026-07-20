@@ -258,7 +258,15 @@ create table if not exists config (
   horario_operador_semana_fin text not null default '20:15',
   horario_operador_finde_inicio text not null default '09:55',
   horario_operador_finde_fin text not null default '19:15',
-  festivos jsonb not null default '[]'::jsonb
+  festivos jsonb not null default '[]'::jsonb,
+  -- Días de vigencia de los tickets de un Pack Empresa (ver PACKS_EMPRESA en
+  -- helpers.ts), editable en Web Settings.
+  vigencia_dias_pack_empresa integer not null default 365,
+  -- Escala de precio de renovación preferencial por visitas para clientes
+  -- Local, keyed por plan (ver TramoRenovacionLocal/precioRenovacionLocal en
+  -- @/types y @/lib/helpers). Ej: {"Plan Ilimitado Mensual": [{"id": "...",
+  -- "visitasMin": 0, "visitasMax": 1, "precio": 16990}]}.
+  tramos_renovacion_local jsonb not null default '{}'::jsonb
 );
 insert into config (id, pin_admin) values (true, '1234') on conflict (id) do nothing;
 

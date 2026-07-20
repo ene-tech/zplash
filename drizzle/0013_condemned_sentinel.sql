@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "tramos_renovacion_local" jsonb DEFAULT '{}'::jsonb NOT NULL;

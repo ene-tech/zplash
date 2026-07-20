@@ -463,6 +463,7 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     horarioOperadorFindeFin: c.horarioOperadorFindeFin,
     festivos: c.festivos,
     vigenciaDiasPackEmpresa: c.vigenciaDiasPackEmpresa,
+    tramosRenovacionLocal: c.tramosRenovacionLocal,
   };
 }
 
@@ -474,6 +475,7 @@ function configFromRow(r: ConfigRow): ConfigGlobal {
     horarioOperadorFindeFin: r.horarioOperadorFindeFin,
     festivos: r.festivos ?? [],
     vigenciaDiasPackEmpresa: r.vigenciaDiasPackEmpresa || 365,
+    tramosRenovacionLocal: r.tramosRenovacionLocal ?? {},
   };
 }
 

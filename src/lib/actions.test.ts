@@ -154,7 +154,7 @@ describe("renovarPlan", () => {
     const cliente = clienteBase({ vencimiento: vencimientoActual.toISOString() });
     data.clientes = [cliente];
 
-    const patch = renovarPlan(data, cliente, "Operador X");
+    const patch = renovarPlan(data, cliente, "Operador X", PRECIOS_DEFAULT["Plan Ilimitado Mensual"].promo);
 
     const clienteActualizado = patch.clientes!.find((c) => c.id === cliente.id)!;
     const nuevoVencimiento = new Date(clienteActualizado.vencimiento!);
@@ -168,7 +168,7 @@ describe("renovarPlan", () => {
     const cliente = clienteBase({ vencimiento: "2000-01-01T00:00:00.000Z" });
     data.clientes = [cliente];
 
-    const patch = renovarPlan(data, cliente, "Operador X");
+    const patch = renovarPlan(data, cliente, "Operador X", PRECIOS_DEFAULT["Plan Ilimitado Mensual"].promo);
 
     const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
     const esperado = new Date();
@@ -176,15 +176,15 @@ describe("renovarPlan", () => {
     expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
   });
 
-  it("registra la venta con el precio preferencial del plan del cliente", () => {
+  it("registra la venta con el precio recibido", () => {
     const data = appDataVacia();
     const cliente = clienteBase();
     data.clientes = [cliente];
 
-    const patch = renovarPlan(data, cliente, "Operador X");
+    const patch = renovarPlan(data, cliente, "Operador X", 16990);
 
     expect(patch.ventas).toHaveLength(1);
-    expect(patch.ventas![0].precio).toBe(PRECIOS_DEFAULT["Plan Ilimitado Mensual"].promo);
+    expect(patch.ventas![0].precio).toBe(16990);
     expect(patch.ventas![0].tipo).toBe("Renovación preferencial");
   });
 });
