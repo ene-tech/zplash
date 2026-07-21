@@ -101,6 +101,16 @@ export function esExentoValidacionRegistroOperador(modulos: Modulo[], nombre?: s
   return esExentoHorarioOperador(modulos, nombre);
 }
 
+/** "Administración" y "Gerencia" pueden dar ingreso a un vehículo desde el
+ * módulo Operador aunque el cliente ya haya pasado por el túnel hace menos
+ * de 24:30 horas (estado "bloqueado" de estadoReingresoPlan, ver
+ * ingresos.ts): el resto de los perfiles solo puede hacerlo pagando un
+ * lavado único (botón "Comprar lavado ... e ingresar de todas formas" en
+ * OperadorResult). Mismo criterio de perfiles que esExentoHorarioOperador. */
+export function esExentoBloqueoReingreso(modulos: Modulo[], nombre?: string): boolean {
+  return esExentoHorarioOperador(modulos, nombre);
+}
+
 // Orden de la pantalla de login y de la pestaña Perfiles: los operadores van
 // primero (alfabético), y los perfiles de gestión quedan fijos al final en
 // este orden — "Administración" y luego "Gerencia" — sin importar dónde caigan

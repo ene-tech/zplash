@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONFIG_DEFAULT,
   dentroDeHorarioOperador,
+  esExentoBloqueoReingreso,
   esExentoFormatoCliente,
   esExentoHorarioOperador,
   esExentoValidacionRegistroOperador,
@@ -386,6 +387,20 @@ describe("esExentoValidacionRegistroOperador", () => {
 
   it("un operador estándar no está exento", () => {
     expect(esExentoValidacionRegistroOperador(["operador", "servicios"], "Christian")).toBe(false);
+  });
+});
+
+describe("esExentoBloqueoReingreso", () => {
+  it("Gerencia (con acceso a Configuración) puede forzar el ingreso aunque el reingreso esté bloqueado", () => {
+    expect(esExentoBloqueoReingreso(["operador", "config"], "Gerencia")).toBe(true);
+  });
+
+  it("Administración está exenta aunque no tenga acceso a Configuración", () => {
+    expect(esExentoBloqueoReingreso(["operador", "servicios"], "Administración")).toBe(true);
+  });
+
+  it("un operador estándar no está exento", () => {
+    expect(esExentoBloqueoReingreso(["operador", "servicios"], "Christian")).toBe(false);
   });
 });
 

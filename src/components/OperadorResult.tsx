@@ -9,6 +9,7 @@ import {
   PLANES,
   RUT_FORMATO_MSG,
   TELEFONO_FORMATO_MSG,
+  esExentoBloqueoReingreso,
   esExentoValidacionRegistroOperador,
   esNombreVacio,
   estadoReingresoPlan,
@@ -64,7 +65,13 @@ function FoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: ()
   const showOffer = st.cls === "warn" && pNormal > 0 && c.origen !== "WEB";
   const ahorro = pNormal - pPromo;
   const planVigente = st.cls !== "bad";
-  const estadoIngreso = estadoReingresoPlan(data.ingresos, c.id);
+  // "Administración" y "Gerencia" pueden forzar el ingreso aunque el
+  // reingreso esté bloqueado (cliente pasó hace menos de 24:30 horas): se
+  // trata como "garantia" para que quede la misma confirmación y quede
+  // registrado sin cobrar de nuevo (ver esExentoBloqueoReingreso).
+  const exentoBloqueoReingreso = esExentoBloqueoReingreso(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
+  const estadoIngresoBruto = estadoReingresoPlan(data.ingresos, c.id);
+  const estadoIngreso = estadoIngresoBruto === "bloqueado" && exentoBloqueoReingreso ? "garantia" : estadoIngresoBruto;
 
   const esWebVencido = c.origen === "WEB" && st.cls === "bad";
   const ventasCliente = data.ventas
