@@ -27,6 +27,7 @@ import {
   uidVenta,
 } from "@/lib/helpers";
 import type { Cita, Cliente, Empresa, Venta } from "@/types";
+import { DetailList, DetailRow } from "@/components/DetailList";
 
 const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
 const CATEGORIA_ADICIONALES = "Servicios Adicionales";
@@ -612,36 +613,12 @@ export default function ServiciosAdicionalesForm() {
           ))}
 
           {lineas.length > 0 && (
-            <div
-              style={{
-                padding: "10px 12px",
-                background: "var(--bg)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                marginBottom: 18,
-                fontSize: 14,
-              }}
-            >
+            <DetailList className="mb-4">
               {lineas.map((l) => (
-                <div key={l.id} style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>{l.nombre}</span>
-                  <span>{fmtCLP(l.precio)}</span>
-                </div>
+                <DetailRow key={l.id} label={l.nombre} value={fmtCLP(l.precio)} />
               ))}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginTop: 6,
-                  paddingTop: 6,
-                  borderTop: "1px solid var(--border)",
-                  fontWeight: 700,
-                }}
-              >
-                <span>Total</span>
-                <span style={{ color: "var(--gold)" }}>{fmtCLP(totalListado)}</span>
-              </div>
-            </div>
+              <DetailRow label="Total" value={fmtCLP(totalListado)} valueClassName="text-primary text-base font-bold" />
+            </DetailList>
           )}
 
           <div key={patenteBuscada}>

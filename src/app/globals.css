@@ -24,6 +24,7 @@
   /* Estados funcionales (no son colores de marca, son semántica de UI: éxito/alerta/error) */
   --red: #e5484d;
   --green: #3dd68c;
+  --blue: #4d9fe5;
 
   /* Tokens semánticos de shadcn/ui mapeados a la paleta de marca. La app usa
      un único tema (oscuro) sin toggle light/dark, así que estos valores van
@@ -172,6 +173,46 @@ h4,
 .role-btn .desc {
   font-size: 12.5px;
   color: var(--gray);
+}
+
+@media (max-width: 640px) {
+  .login-screen:has(.module-grid) {
+    justify-content: flex-start;
+    padding-top: 32px;
+    gap: 20px;
+  }
+  .module-grid {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+  .module-grid .role-btn {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    text-align: left;
+    box-shadow: none;
+  }
+  .module-grid .role-btn .icon {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-panel);
+    border-radius: 9px;
+  }
+  .module-grid .role-btn .label {
+    font-size: 14.5px;
+  }
+  .module-grid .role-btn .desc {
+    display: none;
+  }
 }
 
 .service-grid {
@@ -744,6 +785,22 @@ tr:hover td {
   color: var(--gold);
   letter-spacing: 0.05em;
   font-size: 14px;
+}
+/* Variantes por estado del plan (ver plateEstadoCls en @/lib/helpers): vigente
+   verde, por vencer dorado (mismo criterio que .status-pill), vencido rojo,
+   sin plan azul — permite distinguir de un vistazo el estado del cliente
+   directamente en el campo patente, sin depender solo del pill de al lado. */
+.plate-tag.ok {
+  color: var(--green);
+}
+.plate-tag.warn {
+  color: var(--gold);
+}
+.plate-tag.bad {
+  color: var(--red);
+}
+.plate-tag.info {
+  color: var(--blue);
 }
 .table-scroll {
   overflow-x: auto;

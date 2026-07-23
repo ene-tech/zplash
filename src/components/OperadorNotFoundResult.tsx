@@ -307,14 +307,14 @@ export default function OperadorNotFoundResult({ plate, clearPlate }: { plate: s
       <div style={{ display: "flex", gap: 10, marginTop: 8, marginBottom: 14, flexWrap: "wrap" }}>
         <button
           className={tipoLavado === "plan" ? "btn" : "btn secondary"}
-          style={{ marginTop: 0 }}
+          style={{ marginTop: 0, flex: "1 1 160px" }}
           onClick={() => setTipoLavado("plan")}
         >
           Renovar / Contratar plan
         </button>
         <button
           className={tipoLavado === "unico" ? "btn" : "btn secondary"}
-          style={{ marginTop: 0 }}
+          style={{ marginTop: 0, flex: "1 1 160px" }}
           onClick={() => setTipoLavado("unico")}
         >
           Lavado Full Túnel ({fmtCLP(precioLavadoUnico(data.precios))})
@@ -380,11 +380,11 @@ export default function OperadorNotFoundResult({ plate, clearPlate }: { plate: s
           </div>
         )}
       </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <button className="btn" onClick={quickAdd}>
+      <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+        <button className="btn" style={{ marginTop: 0, flex: "2 1 200px" }} onClick={quickAdd}>
           Registrar y dar ingreso
         </button>
-        <button className="btn ghost" onClick={() => patchUi({ operResult: null })}>
+        <button className="btn ghost" style={{ marginTop: 0, flex: "1 1 120px" }} onClick={() => patchUi({ operResult: null })}>
           Cancelar
         </button>
       </div>

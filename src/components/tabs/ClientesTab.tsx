@@ -1,7 +1,7 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { fmtTelefono, normPlate, planStatus } from "@/lib/helpers";
+import { fmtTelefono, normPlate, planStatus, plateEstadoCls } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ const ESTADO_DOT: Record<string, string> = {
   ok: "bg-[color:var(--green)]",
   warn: "bg-[color:var(--gold)]",
   bad: "bg-[color:var(--red)]",
+  info: "bg-[color:var(--blue)]",
 };
 
 function coincidePatente(c: Cliente, qPatente: string): boolean {
@@ -150,17 +151,18 @@ export default function ClientesTab() {
           filtered.map((c, idx) => {
             const st = planStatus(c);
             return (
-              <div key={`${c.id}-${c.patente}-${idx}`} className="flex items-center gap-2 p-3">
-                <div className="min-w-0 flex-1">
+              <div key={`${c.id}-${c.patente}-${idx}`} className="flex items-center gap-3 px-4 py-3.5">
+                <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate font-semibold">{c.nombre}</span>
                     <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                      <span className={`size-1.5 rounded-full ${ESTADO_DOT[st.cls] || ESTADO_DOT.warn}`} />
+                      <span className={`size-1.5 rounded-full ${ESTADO_DOT[plateEstadoCls(c)] || ESTADO_DOT.warn}`} />
                       {st.label}
                     </span>
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
-                    <span className="plate-tag">{c.patente}</span> · {c.telefono ? fmtTelefono(c.telefono) : "Sin teléfono"}
+                    <span className={`plate-tag ${plateEstadoCls(c)}`}>{c.patente}</span> ·{" "}
+                    {c.telefono ? fmtTelefono(c.telefono) : "Sin teléfono"}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
                     {c.plan || "Sin plan"} · {c.visitas || 0} visita{c.visitas === 1 ? "" : "s"}
@@ -212,7 +214,7 @@ export default function ClientesTab() {
                 const st = planStatus(c);
                 return (
                   <TableRow key={`${c.id}-${c.patente}-${idx}`}>
-                    <TableCell className="plate-tag">{c.patente}</TableCell>
+                    <TableCell className={`plate-tag ${plateEstadoCls(c)}`}>{c.patente}</TableCell>
                     <TableCell className="max-w-[140px] truncate" title={c.nombre}>{c.nombre}</TableCell>
                     <TableCell>{c.telefono ? fmtTelefono(c.telefono) : "-"}</TableCell>
                     <TableCell className="col-mail" title={c.email || ""}>{c.email || "-"}</TableCell>

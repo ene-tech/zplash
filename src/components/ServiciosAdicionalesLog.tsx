@@ -5,6 +5,10 @@ import { useApp } from "@/context/AppContext";
 import { ESTADOS_CITA, esEstadoFinal, esRetrocesoInvalido } from "@/lib/agenda";
 import { fmtCLP, fmtTelefono, sumarDias, todayYMD, ymd } from "@/lib/helpers";
 import type { Cita, Venta } from "@/types";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
+import { Pencil, Trash2 } from "lucide-react";
 
 export default function ServiciosAdicionalesLog() {
   const { data, ui, commit, patchUi } = useApp();
@@ -92,38 +96,91 @@ export default function ServiciosAdicionalesLog() {
           </button>
         )}
       </div>
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Patente</th>
-              <th>Servicio</th>
-              <th>Teléfono</th>
-              <th>Pago</th>
-              <th>Entrega</th>
-              <th>Status</th>
-              <th>Precio</th>
-              {esGerencia && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {logList.length === 0 ? (
+          <div className="empty">Sin servicios registrados ese día</div>
+        ) : (
+          logList.map((v) => (
+            <div key={v.id} className="p-3" title={v.notas || undefined}>
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="plate-tag truncate">{v.patente}</span>
+                    {v.estadoPago && (
+                      <span
+                        className={`status-pill ${v.estadoPago === "pagado" ? "ok" : v.estadoPago === "abono50" ? "warn" : "bad"}`}
+                      >
+                        {v.estadoPago === "pagado"
+                          ? "Pagado"
+                          : v.estadoPago === "abono50"
+                            ? `Abono ${fmtCLP(v.montoCobrado ?? 0)}`
+                            : "Por pagar"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {v.nombre} — {v.tipo}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {telefonoDe(v)} · {fmtCLP(v.precio)}
+                    {v.horaEntrega
+                      ? ` · Entrega ${v.fechaEntrega && v.fechaEntrega !== todayYMD() ? `${v.fechaEntrega} ` : ""}${v.horaEntrega}`
+                      : ""}
+                  </div>
+                </div>
+                {esGerencia && (
+                  <MobileRowMenu
+                    actions={[
+                      { label: "Editar", icon: <Pencil />, onClick: () => editarServicio(v) },
+                      { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminarServicio(v) },
+                    ]}
+                  />
+                )}
+              </div>
+              {v.citaId && (
+                <div className="mt-2">
+                  <StatusCell
+                    key={`${v.citaId}:${data.citas.find((c) => c.id === v.citaId)?.estado || "agendado"}`}
+                    estadoActual={data.citas.find((c) => c.id === v.citaId)?.estado || "agendado"}
+                    onCambiar={(estado) => cambiarStatusCita(v.citaId!, estado)}
+                  />
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Patente</TableHead>
+              <TableHead>Servicio</TableHead>
+              <TableHead>Teléfono</TableHead>
+              <TableHead>Pago</TableHead>
+              <TableHead>Entrega</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Precio</TableHead>
+              {esGerencia && <TableHead className="sticky right-0 z-10 w-0 bg-background" />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {logList.length === 0 ? (
-              <tr>
-                <td colSpan={esGerencia ? 8 : 7}>
+              <TableRow>
+                <TableCell colSpan={esGerencia ? 8 : 7}>
                   <div className="empty">Sin servicios registrados ese día</div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               logList.map((v) => (
-                <tr key={v.id} title={v.notas || undefined}>
-                  <td>
-                    <span className="plate-tag">{v.patente}</span>
-                  </td>
-                  <td>
+                <TableRow key={v.id} title={v.notas || undefined}>
+                  <TableCell className="plate-tag">{v.patente}</TableCell>
+                  <TableCell>
                     {v.nombre} — {v.tipo}
-                  </td>
-                  <td>{telefonoDe(v)}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{telefonoDe(v)}</TableCell>
+                  <TableCell>
                     {v.estadoPago && (
                       <span
                         className={`status-pill ${v.estadoPago === "pagado" ? "ok" : v.estadoPago === "abono50" ? "warn" : "bad"}`}
@@ -135,13 +192,13 @@ export default function ServiciosAdicionalesLog() {
                           : "Por pagar"}
                       </span>
                     )}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {v.horaEntrega
                       ? `${v.fechaEntrega && v.fechaEntrega !== todayYMD() ? `${v.fechaEntrega} ` : ""}${v.horaEntrega}`
                       : "—"}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {v.citaId ? (
                       <StatusCell
                         // Fuerza a remontar (y así resetear la selección local al
@@ -154,23 +211,32 @@ export default function ServiciosAdicionalesLog() {
                     ) : (
                       "—"
                     )}
-                  </td>
-                  <td>{fmtCLP(v.precio)}</td>
+                  </TableCell>
+                  <TableCell>{fmtCLP(v.precio)}</TableCell>
                   {esGerencia && (
-                    <td className="row-actions">
-                      <button className="icon-btn" onClick={() => editarServicio(v)}>
-                        Editar
-                      </button>
-                      <button className="icon-btn" onClick={() => eliminarServicio(v)}>
-                        Eliminar
-                      </button>
-                    </td>
+                    <TableCell className="sticky right-0 z-10 bg-background">
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon-sm" title="Editar" aria-label="Editar" onClick={() => editarServicio(v)}>
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Eliminar"
+                          aria-label="Eliminar"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => eliminarServicio(v)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </TableCell>
                   )}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

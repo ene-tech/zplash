@@ -21,6 +21,7 @@ import {
   isValidTelefono,
   mensajeBloqueoReingreso,
   planStatus,
+  plateEstadoCls,
   precioLavadoUnico,
   precioNormal,
   precioReactivacionVencido,
@@ -33,6 +34,7 @@ import {
   yaIngresoHoy,
 } from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
+import { DetailList, DetailRow } from "@/components/DetailList";
 
 const ERROR_GUARDADO = "No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
 
@@ -546,102 +548,96 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
           )}
           <span className={`status-pill ${st.cls}`}>{st.label}</span>
         </div>
-        <div className="info-grid">
-          <div>
-            <div className="k">Patente</div>
-            <div className="v">{c.patente}</div>
-          </div>
-          <div>
-            <div className="k">Vehículo (Marca y Modelo)</div>
-            {c.vehiculo ? (
-              <div className="v">{c.vehiculo}</div>
-            ) : (
-              <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
-                <input
-                  ref={vehiculoRef}
-                  placeholder="Ej: Toyota Yaris"
-                  style={{
-                    flex: 1,
-                    background: "var(--bg)",
-                    border: "1px solid var(--border)",
-                    color: "var(--white)",
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    fontSize: 13,
-                  }}
-                />
-                <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarVehiculo}>
-                  Guardar
-                </button>
-              </div>
-            )}
-          </div>
-          <div>
-            <div className="k">Plan</div>
-            <div className="v">{c.plan || "-"}</div>
-          </div>
-          <div>
-            <div className="k">Vence</div>
-            <div className="v">{c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"}</div>
-          </div>
-          <div>
-            <div className="k">Visitas totales</div>
-            <div className="v">{c.visitas || 0}</div>
-          </div>
-          <div>
-            <div className="k">Teléfono</div>
-            {c.telefono && isValidTelefono(c.telefono) ? (
-              <div className="v">{fmtTelefono(c.telefono)}</div>
-            ) : (
-              <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
-                <input
-                  ref={telefonoRef}
-                  defaultValue={c.telefono || "+569"}
-                  placeholder="+569 -1111 1111"
-                  onBlur={onTelefonoBlur}
-                  style={{
-                    flex: 1,
-                    background: "var(--bg)",
-                    border: "1px solid var(--border)",
-                    color: "var(--white)",
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    fontSize: 13,
-                  }}
-                />
-                <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarTelefono}>
-                  Guardar
-                </button>
-              </div>
-            )}
-          </div>
-          <div>
-            <div className="k">Correo electrónico</div>
-            {c.email ? (
-              <div className="v">{c.email}</div>
-            ) : (
-              <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
-                <input
-                  ref={emailRef}
-                  type="email"
-                  placeholder="correo@ejemplo.com"
-                  style={{
-                    flex: 1,
-                    background: "var(--bg)",
-                    border: "1px solid var(--border)",
-                    color: "var(--white)",
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    fontSize: 13,
-                  }}
-                />
-                <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarEmail}>
-                  Guardar
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        <DetailList className="mt-3">
+          <DetailRow label="Patente" value={c.patente} valueClassName={`plate-tag ${plateEstadoCls(c)}`} />
+          <DetailRow
+            label="Vehículo"
+            value={
+              c.vehiculo ? (
+                c.vehiculo
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    ref={vehiculoRef}
+                    placeholder="Ej: Toyota Yaris"
+                    style={{
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                      color: "var(--white)",
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      fontSize: 13,
+                      width: 140,
+                    }}
+                  />
+                  <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarVehiculo}>
+                    Guardar
+                  </button>
+                </div>
+              )
+            }
+          />
+          <DetailRow label="Plan" value={c.plan || "-"} />
+          <DetailRow label="Vence" value={c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"} />
+          <DetailRow label="Visitas totales" value={c.visitas || 0} />
+          <DetailRow
+            label="Teléfono"
+            value={
+              c.telefono && isValidTelefono(c.telefono) ? (
+                fmtTelefono(c.telefono)
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    ref={telefonoRef}
+                    defaultValue={c.telefono || "+569"}
+                    placeholder="+569 -1111 1111"
+                    onBlur={onTelefonoBlur}
+                    style={{
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                      color: "var(--white)",
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      fontSize: 13,
+                      width: 140,
+                    }}
+                  />
+                  <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarTelefono}>
+                    Guardar
+                  </button>
+                </div>
+              )
+            }
+          />
+          <DetailRow
+            label="Correo electrónico"
+            value={
+              c.email ? (
+                c.email
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    ref={emailRef}
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    style={{
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                      color: "var(--white)",
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      fontSize: 13,
+                      width: 140,
+                    }}
+                  />
+                  <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarEmail}>
+                    Guardar
+                  </button>
+                </div>
+              )
+            }
+          />
+        </DetailList>
         {planVigente && estadoIngreso === "bloqueado" ? (
           <>
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
@@ -673,12 +669,12 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
               Este cliente no tiene un plan vigente. Elige el tipo de lavado:
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-              <button className="btn" style={{ marginTop: 0 }} onClick={contratarPlan}>
+              <button className="btn" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={contratarPlan}>
                 Renovar / Contratar plan
               </button>
               <button
                 className="btn secondary"
-                style={{ marginTop: 0 }}
+                style={{ marginTop: 0, flex: "1 1 160px" }}
                 onClick={registrarPagado}
                 disabled={registroIncompleto}
                 title={registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}

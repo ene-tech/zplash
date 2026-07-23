@@ -15,7 +15,7 @@ export default function HubView() {
         <Image src="/logo.png" alt="ZPlash" width={200} height={76} className="brand-logo" unoptimized />
         <div className="sub">Hola, {ui.perfilActual?.nombre}</div>
       </div>
-      <div className="role-grid">
+      <div className="role-grid module-grid">
         {modulos.includes("operador") && (
           <button className="role-btn" onClick={() => patchUi({ view: "operador" })}>
             <div className="icon">🚗</div>

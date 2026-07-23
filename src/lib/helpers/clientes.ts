@@ -13,6 +13,20 @@ export function esNombreVacio(nombre: string | undefined | null): boolean {
   return !nombre || !nombre.trim() || nombre.trim().toLowerCase() === "sin nombre";
 }
 
+export type PlateEstadoCls = "ok" | "warn" | "bad" | "info";
+
+/**
+ * Color del texto de la patente según el estado del cliente — variante de
+ * planStatus() con un cuarto valor ("info", azul) para distinguir "Sin plan"
+ * de "Vencido": ambos comparten cls "bad" en planStatus (mismo tratamiento
+ * para lógica de negocio, p.ej. bloquear ingreso), pero visualmente son
+ * estados distintos y conviene poder diferenciarlos de un vistazo en listas.
+ */
+export function plateEstadoCls(c: Pick<Cliente, "vencimiento">): PlateEstadoCls {
+  if (!c.vencimiento) return "info";
+  return planStatus(c).cls;
+}
+
 export function planStatus(c: Pick<Cliente, "vencimiento">): PlanStatus {
   if (!c.vencimiento) return { label: "Sin plan", cls: "bad" };
   // ahoraEnSantiago() en vez de `new Date()`: esta función se llama tanto
