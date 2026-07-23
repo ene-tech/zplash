@@ -10,8 +10,68 @@ import type { CartolaMovimiento, MovimientoContable } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import MobileRowMenu, { type MobileRowAction } from "@/components/tabs/MobileRowMenu";
 
 const SIN_VINCULAR = "sin-vincular";
+
+interface FilaCartolaProps {
+  m: CartolaMovimiento;
+  categoriasConocidas: { categoria: string; grupo?: string }[];
+  categoriasGastoActivas: { id: string; nombre: string }[];
+  categoriasIngresoActivas: { id: string; nombre: string }[];
+  vinculables: MovimientoContable[];
+  onCambiarEstado: (estado: CartolaMovimiento["estado"]) => void;
+  onCambiarCategoria: (categoria: string) => void;
+  onGuardarRegla: (patron: string, categoria: string) => void;
+  onVincular: (movimientoContableId: string) => void;
+  onCrearGasto: (categoria: string, contraparte: string) => Promise<boolean>;
+  onCrearIngreso: (categoria: string, contraparte: string) => Promise<boolean>;
+}
+
+// Estado y handlers compartidos entre la fila de tabla (desktop) y la
+// tarjeta de lista (mobile) — ver mismo criterio en PerfilesTab.
+function useFilaCartolaState(m: CartolaMovimiento, onGuardarRegla: FilaCartolaProps["onGuardarRegla"]) {
+  const [categoriaTexto, setCategoriaTexto] = useState(m.categoria || "");
+  const [mostrarRegla, setMostrarRegla] = useState(false);
+  const [patron, setPatron] = useState(m.glosa.split(" ")[0] || "");
+  const [mostrarGasto, setMostrarGasto] = useState(false);
+  const [gastoCategoria, setGastoCategoria] = useState("");
+  const [gastoContraparte, setGastoContraparte] = useState("");
+  const [guardandoGasto, setGuardandoGasto] = useState(false);
+  const [mostrarIngreso, setMostrarIngreso] = useState(false);
+  const [ingresoCategoria, setIngresoCategoria] = useState("");
+  const [ingresoContraparte, setIngresoContraparte] = useState("");
+  const [guardandoIngreso, setGuardandoIngreso] = useState(false);
+
+  return {
+    categoriaTexto,
+    setCategoriaTexto,
+    mostrarRegla,
+    setMostrarRegla,
+    patron,
+    setPatron,
+    mostrarGasto,
+    setMostrarGasto,
+    gastoCategoria,
+    setGastoCategoria,
+    gastoContraparte,
+    setGastoContraparte,
+    guardandoGasto,
+    setGuardandoGasto,
+    mostrarIngreso,
+    setMostrarIngreso,
+    ingresoCategoria,
+    setIngresoCategoria,
+    ingresoContraparte,
+    setIngresoContraparte,
+    guardandoIngreso,
+    setGuardandoIngreso,
+    guardarRegla: () => {
+      onGuardarRegla(patron, categoriaTexto);
+      setMostrarRegla(false);
+    },
+  };
+}
 
 // Por ahora una sola cuenta soportada; el campo `cuenta` queda en el modelo
 // para no tener que migrar el día que se agregue otra (ver plan de este módulo).
@@ -33,30 +93,32 @@ function FilaCartola({
   onVincular,
   onCrearGasto,
   onCrearIngreso,
-}: {
-  m: CartolaMovimiento;
-  categoriasConocidas: { categoria: string; grupo?: string }[];
-  categoriasGastoActivas: { id: string; nombre: string }[];
-  categoriasIngresoActivas: { id: string; nombre: string }[];
-  vinculables: MovimientoContable[];
-  onCambiarEstado: (estado: CartolaMovimiento["estado"]) => void;
-  onCambiarCategoria: (categoria: string) => void;
-  onGuardarRegla: (patron: string, categoria: string) => void;
-  onVincular: (movimientoContableId: string) => void;
-  onCrearGasto: (categoria: string, contraparte: string) => Promise<boolean>;
-  onCrearIngreso: (categoria: string, contraparte: string) => Promise<boolean>;
-}) {
-  const [categoriaTexto, setCategoriaTexto] = useState(m.categoria || "");
-  const [mostrarRegla, setMostrarRegla] = useState(false);
-  const [patron, setPatron] = useState(m.glosa.split(" ")[0] || "");
-  const [mostrarGasto, setMostrarGasto] = useState(false);
-  const [gastoCategoria, setGastoCategoria] = useState("");
-  const [gastoContraparte, setGastoContraparte] = useState("");
-  const [guardandoGasto, setGuardandoGasto] = useState(false);
-  const [mostrarIngreso, setMostrarIngreso] = useState(false);
-  const [ingresoCategoria, setIngresoCategoria] = useState("");
-  const [ingresoContraparte, setIngresoContraparte] = useState("");
-  const [guardandoIngreso, setGuardandoIngreso] = useState(false);
+}: FilaCartolaProps) {
+  const {
+    categoriaTexto,
+    setCategoriaTexto,
+    mostrarRegla,
+    setMostrarRegla,
+    patron,
+    setPatron,
+    mostrarGasto,
+    setMostrarGasto,
+    gastoCategoria,
+    setGastoCategoria,
+    gastoContraparte,
+    setGastoContraparte,
+    guardandoGasto,
+    setGuardandoGasto,
+    mostrarIngreso,
+    setMostrarIngreso,
+    ingresoCategoria,
+    setIngresoCategoria,
+    ingresoContraparte,
+    setIngresoContraparte,
+    guardandoIngreso,
+    setGuardandoIngreso,
+    guardarRegla,
+  } = useFilaCartolaState(m, onGuardarRegla);
 
   return (
     <>
@@ -87,13 +149,7 @@ function FilaCartola({
                 placeholder="Palabra clave en la glosa"
                 style={{ width: 150 }}
               />
-              <button
-                className="btn ghost"
-                onClick={() => {
-                  onGuardarRegla(patron, categoriaTexto);
-                  setMostrarRegla(false);
-                }}
-              >
+              <button className="btn ghost" onClick={guardarRegla}>
                 Guardar regla
               </button>
             </div>
@@ -217,6 +273,149 @@ function FilaCartola({
         </TableRow>
       )}
     </>
+  );
+}
+
+function FilaCartolaMobile({
+  m,
+  categoriasConocidas,
+  categoriasGastoActivas,
+  categoriasIngresoActivas,
+  vinculables,
+  onCambiarEstado,
+  onCambiarCategoria,
+  onGuardarRegla,
+  onVincular,
+  onCrearGasto,
+  onCrearIngreso,
+}: FilaCartolaProps) {
+  const {
+    categoriaTexto,
+    setCategoriaTexto,
+    mostrarGasto,
+    setMostrarGasto,
+    gastoCategoria,
+    setGastoCategoria,
+    gastoContraparte,
+    setGastoContraparte,
+    guardandoGasto,
+    setGuardandoGasto,
+    mostrarIngreso,
+    setMostrarIngreso,
+    ingresoCategoria,
+    setIngresoCategoria,
+    ingresoContraparte,
+    setIngresoContraparte,
+    guardandoIngreso,
+    setGuardandoIngreso,
+  } = useFilaCartolaState(m, onGuardarRegla);
+
+  const acciones: MobileRowAction[] = [];
+  if (m.estado !== "conciliado") acciones.push({ label: "Conciliar", onClick: () => onCambiarEstado("conciliado") });
+  if (m.estado === "pendiente") acciones.push({ label: "Ignorar", onClick: () => onCambiarEstado("ignorado") });
+  if (m.estado !== "pendiente") acciones.push({ label: "Reabrir", onClick: () => onCambiarEstado("pendiente") });
+  if (m.cargo > 0) acciones.push({ label: "Crear gasto", onClick: () => setMostrarGasto((v) => !v) });
+  if (m.abono > 0) acciones.push({ label: "Crear ingreso", onClick: () => setMostrarIngreso((v) => !v) });
+
+  return (
+    <div className="p-3">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate font-semibold">{new Date(m.fecha).toLocaleDateString("es-CL")}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {m.estado === "conciliado" ? "Conciliado" : m.estado === "ignorado" ? "Ignorado" : "Pendiente"}
+            </span>
+          </div>
+          <div className="truncate text-xs text-muted-foreground">{m.glosa}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {m.cargo ? `Cargo ${fmtCLP(m.cargo)}` : `Abono ${fmtCLP(m.abono)}`}
+          </div>
+        </div>
+        <MobileRowMenu actions={acciones} />
+      </div>
+
+      <div className="mt-2">
+        <Buscador
+          value={categoriaTexto}
+          onChange={setCategoriaTexto}
+          opciones={categoriasConocidas}
+          onCommit={() => {
+            if (categoriaTexto !== (m.categoria || "")) onCambiarCategoria(categoriaTexto);
+          }}
+          placeholder="Sin clasificar"
+        />
+      </div>
+
+      <Select value={m.movimientoContableId || SIN_VINCULAR} onValueChange={(v) => onVincular(!v || v === SIN_VINCULAR ? "" : v)}>
+        <SelectTrigger size="sm" className="mt-2 w-full">
+          <SelectValue placeholder="Vincular a..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={SIN_VINCULAR}>Vincular a...</SelectItem>
+          {vinculables.map((mc) => (
+            <SelectItem key={mc.id} value={mc.id}>
+              {new Date(mc.fecha).toLocaleDateString("es-CL")} · {mc.descripcion} · {fmtCLP(mc.monto)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {mostrarGasto && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "8px 0" }}>
+          <select value={gastoCategoria} onChange={(e) => setGastoCategoria(e.target.value)} style={{ minWidth: 220 }}>
+            <option value="">Selecciona tipo de gasto...</option>
+            {categoriasGastoActivas.map((c) => (
+              <option key={c.id} value={c.nombre}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+          <input placeholder="Proveedor (opcional)" value={gastoContraparte} onChange={(e) => setGastoContraparte(e.target.value)} />
+          <button
+            className="btn"
+            disabled={!gastoCategoria || guardandoGasto}
+            onClick={async () => {
+              setGuardandoGasto(true);
+              const ok = await onCrearGasto(gastoCategoria, gastoContraparte);
+              setGuardandoGasto(false);
+              if (ok) setMostrarGasto(false);
+            }}
+          >
+            Guardar gasto y conciliar
+          </button>
+        </div>
+      )}
+      {mostrarIngreso && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "8px 0" }}>
+          <select value={ingresoCategoria} onChange={(e) => setIngresoCategoria(e.target.value)} style={{ minWidth: 220 }}>
+            <option value="">Selecciona categoría de ingreso...</option>
+            {categoriasIngresoActivas.map((c) => (
+              <option key={c.id} value={c.nombre}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+          <input
+            placeholder="Cliente / Origen (opcional)"
+            value={ingresoContraparte}
+            onChange={(e) => setIngresoContraparte(e.target.value)}
+          />
+          <button
+            className="btn"
+            disabled={!ingresoCategoria || guardandoIngreso}
+            onClick={async () => {
+              setGuardandoIngreso(true);
+              const ok = await onCrearIngreso(ingresoCategoria, ingresoContraparte);
+              setGuardandoIngreso(false);
+              if (ok) setMostrarIngreso(false);
+            }}
+          >
+            Guardar ingreso y conciliar
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -495,7 +694,30 @@ export default function ConciliacionBancariaTab() {
         </div>
       </div>
 
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {movimientosPeriodo.length === 0 ? (
+          <div className="empty">Sin movimientos importados para este período</div>
+        ) : (
+          movimientosPeriodo.map((m) => (
+            <FilaCartolaMobile
+              key={m.id}
+              m={m}
+              categoriasConocidas={categoriasConocidas}
+              categoriasGastoActivas={categoriasGastoActivas}
+              categoriasIngresoActivas={categoriasIngresoActivas}
+              vinculables={movimientosVinculables(m)}
+              onCambiarEstado={(estado) => cambiarEstado(m, estado)}
+              onCambiarCategoria={(categoria) => cambiarCategoria(m, categoria)}
+              onGuardarRegla={(patron, categoria) => guardarRegla(m, patron, categoria)}
+              onVincular={(id) => vincular(m, id)}
+              onCrearGasto={(categoria, contraparte) => crearGastoDesdeCargo(m, categoria, contraparte)}
+              onCrearIngreso={(categoria, contraparte) => crearIngresoDesdeAbono(m, categoria, contraparte)}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

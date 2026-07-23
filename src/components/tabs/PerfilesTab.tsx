@@ -7,6 +7,7 @@ import type { Modulo, PerfilPublico } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Pencil, Trash2 } from "lucide-react";
 
 export default function PerfilesTab() {
@@ -37,7 +38,17 @@ export default function PerfilesTab() {
           + Nuevo perfil
         </button>
       </div>
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {data.perfiles.length === 0 ? (
+          <div className="empty">No hay perfiles registrados</div>
+        ) : (
+          ordenarPerfiles(data.perfiles).map((p) => (
+            <PerfilRowMobile key={p.id} perfil={p} puedeAsignarPermisos={puedeAsignarPermisos} onEliminar={() => eliminar(p)} />
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -65,16 +76,12 @@ export default function PerfilesTab() {
   );
 }
 
-function PerfilRow({
-  perfil,
-  puedeAsignarPermisos,
-  onEliminar,
-}: {
-  perfil: PerfilPublico;
-  puedeAsignarPermisos: boolean;
-  onEliminar: () => void;
-}) {
-  const { data, ui, commit, patchUi } = useApp();
+// Estado y lógica de edición de módulos compartidos entre la fila de tabla
+// (desktop) y la tarjeta de lista (mobile) — cada una monta su propia
+// instancia (son subárboles DOM independientes, uno oculto vía CSS), así que
+// no hay problema en que cada una tenga su propio estado local.
+function usePerfilRowState(perfil: PerfilPublico) {
+  const { data, commit } = useApp();
   const [editandoModulos, setEditandoModulos] = useState(false);
   const [reseteando, setReseteando] = useState(false);
   const [seleccion, setSeleccion] = useState<Set<Modulo>>(new Set(perfil.modulos));
@@ -96,6 +103,22 @@ function PerfilRow({
     setGuardando(false);
     setEditandoModulos(false);
   };
+
+  return { editandoModulos, setEditandoModulos, reseteando, setReseteando, seleccion, toggleModulo, guardarModulos, guardando };
+}
+
+function PerfilRow({
+  perfil,
+  puedeAsignarPermisos,
+  onEliminar,
+}: {
+  perfil: PerfilPublico;
+  puedeAsignarPermisos: boolean;
+  onEliminar: () => void;
+}) {
+  const { ui, patchUi } = useApp();
+  const { editandoModulos, setEditandoModulos, reseteando, setReseteando, seleccion, toggleModulo, guardarModulos, guardando } =
+    usePerfilRowState(perfil);
 
   return (
     <>
@@ -177,6 +200,77 @@ function PerfilRow({
         </TableRow>
       )}
     </>
+  );
+}
+
+function PerfilRowMobile({
+  perfil,
+  puedeAsignarPermisos,
+  onEliminar,
+}: {
+  perfil: PerfilPublico;
+  puedeAsignarPermisos: boolean;
+  onEliminar: () => void;
+}) {
+  const { ui, patchUi } = useApp();
+  const { editandoModulos, setEditandoModulos, reseteando, setReseteando, seleccion, toggleModulo, guardarModulos, guardando } =
+    usePerfilRowState(perfil);
+
+  return (
+    <div className="p-3">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-semibold">{perfil.nombre}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {perfil.modulos.length ? perfil.modulos.map((m) => MODULO_LABELS[m]).join(", ") : "Sin módulos asignados"}
+          </div>
+        </div>
+        <MobileRowMenu
+          actions={[
+            { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "perfil", data: perfil } }) },
+            ...(puedeAsignarPermisos
+              ? [
+                  {
+                    label: editandoModulos ? "Cancelar edición de módulos" : "Editar módulos",
+                    onClick: () => {
+                      setEditandoModulos((v) => !v);
+                      setReseteando(false);
+                    },
+                  },
+                  {
+                    label: reseteando ? "Cancelar reseteo de contraseña" : "Resetear contraseña",
+                    onClick: () => {
+                      setReseteando((v) => !v);
+                      setEditandoModulos(false);
+                    },
+                  },
+                ]
+              : []),
+            { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: onEliminar },
+          ]}
+        />
+      </div>
+      {editandoModulos && (
+        <div className="mt-3">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {TODOS_LOS_MODULOS.map((m) => (
+              <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                <Checkbox checked={seleccion.has(m)} onCheckedChange={() => toggleModulo(m)} />
+                {MODULO_LABELS[m]}
+              </label>
+            ))}
+          </div>
+          <button className="btn" style={{ marginTop: 10 }} onClick={guardarModulos} disabled={guardando}>
+            {guardando ? "Guardando..." : "Guardar módulos"}
+          </button>
+        </div>
+      )}
+      {reseteando && (
+        <div className="mt-3">
+          <ResetClaveForm perfil={perfil} actorId={ui.perfilActual?.id || null} onListo={() => setReseteando(false)} />
+        </div>
+      )}
+    </div>
   );
 }
 

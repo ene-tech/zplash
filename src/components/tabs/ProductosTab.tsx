@@ -6,6 +6,7 @@ import { fmtCLP } from "@/lib/helpers";
 import type { Producto } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Pencil, Trash2, ArrowLeftRight } from "lucide-react";
 
 export default function ProductosTab() {
@@ -66,7 +67,39 @@ export default function ProductosTab() {
         </button>
       </div>
 
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {filtrados.length === 0 ? (
+          <div className="empty">No hay productos que coincidan</div>
+        ) : (
+          filtrados.map((p) => (
+            <div key={p.id} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate font-semibold">{p.sku}</span>
+                  {!p.activo && <span className="shrink-0 text-xs text-muted-foreground">Inactivo</span>}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{p.detalle}</div>
+                <div className={`truncate text-xs ${p.stock < p.stockMin ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
+                  Stock {p.stock} (mín {p.stockMin}) · {fmtCLP(p.valorVenta)}
+                </div>
+              </div>
+              <MobileRowMenu
+                actions={[
+                  { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "producto", data: p } }) },
+                  {
+                    label: "Traspasar",
+                    icon: <ArrowLeftRight />,
+                    onClick: () => patchUi({ modal: { type: "traspasoInventario", productoId: p.id } }),
+                  },
+                  { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(p) },
+                ]}
+              />
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

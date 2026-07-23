@@ -6,6 +6,7 @@ import { fmtCLP } from "@/lib/helpers";
 import type { Insumo } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Pencil, Trash2 } from "lucide-react";
 
 export default function InsumosTab() {
@@ -65,7 +66,36 @@ export default function InsumosTab() {
         </button>
       </div>
 
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {filtrados.length === 0 ? (
+          <div className="empty">No hay insumos que coincidan</div>
+        ) : (
+          filtrados.map((i) => (
+            <div key={i.id} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate font-semibold">{i.nombre}</span>
+                  {!i.activo && <span className="shrink-0 text-xs text-muted-foreground">Inactivo</span>}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {categoriaNombre(i.categoriaId)} · {proveedorNombre(i.proveedorId)}
+                </div>
+                <div className={`truncate text-xs ${i.stock < i.stockMin ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
+                  Stock {i.stock} (mín {i.stockMin}) · {fmtCLP(i.valorCompra)}
+                </div>
+              </div>
+              <MobileRowMenu
+                actions={[
+                  { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "insumo", data: i } }) },
+                  { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(i) },
+                ]}
+              />
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

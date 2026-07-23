@@ -6,6 +6,7 @@ import { puedeBorrarCategoriaInventario, stockPorDestino } from "@/lib/helpers";
 import type { MovimientoInventario } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Trash2 } from "lucide-react";
 
 export default function StockDestinosTab() {
@@ -58,7 +59,29 @@ export default function StockDestinosTab() {
         </button>
       </div>
 
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {productosFiltrados.length === 0 ? (
+          <div className="empty">No hay productos que coincidan</div>
+        ) : (
+          productosFiltrados.map((p) => {
+            const porDestino = stockPorDestino(p, data.destinosInventario, data.movimientosInventario);
+            return (
+              <div key={p.id} className="p-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate font-semibold">{p.sku}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">Total: {p.stock}</span>
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{p.detalle}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {destinosActivos.map((d) => `${d.nombre}: ${porDestino.get(d.id) ?? 0}`).join(" · ")}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -97,7 +120,31 @@ export default function StockDestinosTab() {
       </div>
 
       <h3 style={{ marginTop: 28 }}>Historial de traspasos</h3>
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {historial.length === 0 ? (
+          <div className="empty">Todavía no hay traspasos registrados</div>
+        ) : (
+          historial.map((m) => (
+            <div key={m.id} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold">Folio {m.folio}</div>
+                <div className="truncate text-xs text-muted-foreground">{productoNombre(m.productoId)}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {destinoNombre(m.origenId)} → {destinoNombre(m.destinoId)} · {m.cantidad} un. ·{" "}
+                  {new Date(m.fecha).toLocaleDateString("es-CL")}
+                </div>
+              </div>
+              {puedeBorrar && (
+                <MobileRowMenu
+                  actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminarTraspaso(m) }]}
+                />
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

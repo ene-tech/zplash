@@ -8,6 +8,7 @@ import { fmtCLP, fmtTelefono, precioServicio, sumarDias, todayYMD, uid } from "@
 import type { BloqueoAgenda, Cita, HorarioAgenda, Servicio } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Trash2 } from "lucide-react";
 
 const DIAS = [
@@ -419,7 +420,23 @@ function BloqueosPuntuales() {
       </button>
 
       {data.bloqueosAgenda.length > 0 && (
-        <div className="table-scroll" style={{ marginTop: 16 }}>
+        <div className="divide-y divide-border rounded-lg border border-border md:hidden" style={{ marginTop: 16 }}>
+          {data.bloqueosAgenda.map((b) => (
+            <div key={b.id} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold">{b.fecha}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {b.todoElDia ? "Todo el día" : `${b.horaInicio} – ${b.horaFin}`} · {b.motivo || "Sin motivo"}
+                </div>
+              </div>
+              <MobileRowMenu actions={[{ label: "Quitar", icon: <Trash2 />, destructive: true, onClick: () => quitar(b.id) }]} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data.bloqueosAgenda.length > 0 && (
+        <div className="table-scroll hidden md:block" style={{ marginTop: 16 }}>
           <Table>
             <TableHeader>
               <TableRow>

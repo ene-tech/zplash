@@ -7,6 +7,7 @@ import type { MovimientoContable } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Trash2 } from "lucide-react";
 
 const GRUPOS = [
@@ -24,7 +25,43 @@ function TablaGasto({
   eliminar: (m: MovimientoContable) => void;
 }) {
   return (
-    <div className="table-scroll">
+    <>
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {items.length === 0 ? (
+          <div className="empty">Sin registros para este periodo</div>
+        ) : (
+          items.map((m) => (
+            <div key={m.id} className="p-3">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold">{m.descripcion}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {m.categoria || "Sin tipo"} · {m.contraparte || "Sin proveedor"}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {fmtCLP(m.monto)} · {new Date(m.fecha).toLocaleDateString("es-CL")}
+                    {m.numeroFactura ? ` · N° ${m.numeroFactura}` : ""}
+                  </div>
+                </div>
+                <MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(m) }]} />
+              </div>
+              <Select value={m.estado} onValueChange={(v) => v && cambiarEstado(m, v as MovimientoContable["estado"])}>
+                <SelectTrigger size="sm" className="mt-2 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pagado_cc">Pagado desde CC</SelectItem>
+                  <SelectItem value="pagado_efectivo">Pagado en Efectivo</SelectItem>
+                  <SelectItem value="x_rendir">X Rendir</SelectItem>
+                  <SelectItem value="pendiente_pago">Pendiente de Pago</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
       <Table>
         <TableHeader>
           <TableRow>
@@ -101,7 +138,8 @@ function TablaGasto({
           )}
         </TableBody>
       </Table>
-    </div>
+      </div>
+    </>
   );
 }
 

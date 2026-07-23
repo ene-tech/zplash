@@ -13,6 +13,7 @@ import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import { fmtDate, normPlate } from "@/lib/helpers";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import MobileRowMenu, { type MobileRowAction } from "@/components/tabs/MobileRowMenu";
 
 const ESTADO_LABEL: Record<string, string> = {
   activa: "Activa",
@@ -95,6 +96,29 @@ export default function SuscripcionesTab() {
     });
   };
 
+  const accionesDe = (s: SuscripcionOneclickInfo): MobileRowAction[] => {
+    const acciones: MobileRowAction[] = [];
+    if (s.estado === "activa") {
+      if (s.ultimoCobro?.estado === "rechazada") {
+        acciones.push({
+          label: "Reintentar cobro",
+          disabled: procesandoId === s.id,
+          onClick: () => ejecutar(s.id, () => cobrarSuscripcionManual(s.id)),
+        });
+      }
+      acciones.push({ label: "Suspender", disabled: procesandoId === s.id, onClick: () => suspender(s) });
+      acciones.push({ label: "Cancelar", destructive: true, disabled: procesandoId === s.id, onClick: () => cancelar(s) });
+    } else if (s.estado === "suspendida") {
+      acciones.push({
+        label: "Reactivar",
+        disabled: procesandoId === s.id,
+        onClick: () => ejecutar(s.id, () => reactivarSuscripcionOneclick(s.id)),
+      });
+      acciones.push({ label: "Cancelar", destructive: true, disabled: procesandoId === s.id, onClick: () => cancelar(s) });
+    }
+    return acciones;
+  };
+
   return (
     <div>
       <div className="toolbar">
@@ -111,7 +135,32 @@ export default function SuscripcionesTab() {
           <option value="cancelada">Cancelada</option>
         </select>
       </div>
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {cargando ? (
+          <div className="empty">Cargando...</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty">No hay suscripciones que coincidan</div>
+        ) : (
+          filtered.map((s) => (
+            <div key={s.id} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="plate-tag truncate">{s.patente}</span>
+                  <span className="truncate text-xs text-muted-foreground">{ESTADO_LABEL[s.estado] || s.estado}</span>
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{s.clienteNombre}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {s.cardUltimosDigitos ? `${s.cardTipo || ""} ${s.cardUltimosDigitos}` : "Sin tarjeta"}
+                  {s.proximoCobro ? ` · Próximo: ${fmtDate(s.proximoCobro)}` : ""}
+                </div>
+              </div>
+              <MobileRowMenu actions={accionesDe(s)} />
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

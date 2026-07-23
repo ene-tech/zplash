@@ -5,9 +5,19 @@ import { fmtTelefono, normPlate, planStatus } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Info, Pencil, Trash2 } from "lucide-react";
 
 const ESTADO_PRIORIDAD: Record<string, number> = { Vencido: 0, "Por vencer": 1, "Sin plan": 2, Vigente: 3 };
+
+// Mismo criterio de color que .status-pill (ok/warn/bad), pero como punto de
+// color para la fila compacta de mobile en vez del pill completo — no cabe
+// un pill con padding propio en una fila tan angosta.
+const ESTADO_DOT: Record<string, string> = {
+  ok: "bg-[color:var(--green)]",
+  warn: "bg-[color:var(--gold)]",
+  bad: "bg-[color:var(--red)]",
+};
 
 function coincidePatente(c: Cliente, qPatente: string): boolean {
   return qPatente.length > 0 && normPlate(c.patente).includes(qPatente);
@@ -130,7 +140,46 @@ export default function ClientesTab() {
           + Nuevo cliente
         </button>
       </div>
-      <div className="table-scroll">
+      {/* Mobile: lista compacta de 2-3 líneas por fila en vez de la tabla ancha
+          (que en pantallas angostas obligaba a hacer scroll horizontal para
+          llegar a las acciones) — así entran muchos más registros por pantalla. */}
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {filtered.length === 0 ? (
+          <div className="empty">No hay clientes que coincidan</div>
+        ) : (
+          filtered.map((c, idx) => {
+            const st = planStatus(c);
+            return (
+              <div key={`${c.id}-${c.patente}-${idx}`} className="flex items-center gap-2 p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate font-semibold">{c.nombre}</span>
+                    <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                      <span className={`size-1.5 rounded-full ${ESTADO_DOT[st.cls] || ESTADO_DOT.warn}`} />
+                      {st.label}
+                    </span>
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    <span className="plate-tag">{c.patente}</span> · {c.telefono ? fmtTelefono(c.telefono) : "Sin teléfono"}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {c.plan || "Sin plan"} · {c.visitas || 0} visita{c.visitas === 1 ? "" : "s"}
+                  </div>
+                </div>
+                <MobileRowMenu
+                  actions={[
+                    { label: "Información adicional", icon: <Info />, onClick: () => patchUi({ modal: { type: "clienteInfo", data: c } }) },
+                    { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "client", data: c } }) },
+                    { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(c) },
+                  ]}
+                />
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

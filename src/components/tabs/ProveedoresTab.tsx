@@ -6,6 +6,7 @@ import { fmtTelefono } from "@/lib/helpers";
 import type { Proveedor } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Pencil, Trash2 } from "lucide-react";
 
 export default function ProveedoresTab() {
@@ -42,7 +43,31 @@ export default function ProveedoresTab() {
         </button>
       </div>
 
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {filtrados.length === 0 ? (
+          <div className="empty">No hay proveedores que coincidan</div>
+        ) : (
+          filtrados.map((p) => (
+            <div key={p.id} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold">{p.nombre}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {p.rut || "Sin RUT"} · {p.telefono ? fmtTelefono(p.telefono) : "Sin teléfono"}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{p.email || p.contacto || "-"}</div>
+              </div>
+              <MobileRowMenu
+                actions={[
+                  { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "proveedor", data: p } }) },
+                  { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(p) },
+                ]}
+              />
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

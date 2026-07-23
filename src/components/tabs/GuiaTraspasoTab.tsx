@@ -6,6 +6,7 @@ import { generarFolioTraspaso, productoPermitidoEnDestino, puedeBorrarCategoriaI
 import type { MovimientoInventario } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Trash2 } from "lucide-react";
 
 interface GuiaDesdeBodega {
@@ -296,7 +297,30 @@ export default function GuiaTraspasoTab() {
       </div>
 
       <h3 style={{ marginTop: 28 }}>Guías de traslado desde Bodega</h3>
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {guiasDesdeBodega.length === 0 ? (
+          <div className="empty">Todavía no hay guías de traslado registradas desde Bodega</div>
+        ) : (
+          guiasDesdeBodega.map((guia) => (
+            <div key={guia.folio} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold">Folio {guia.folio}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  → {destinoNombre(guia.destinoId)} · {new Date(guia.fecha).toLocaleDateString("es-CL")}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {guia.lineas.map((l) => `${productoNombre(l.productoId)} ×${l.cantidad}`).join(" · ")}
+                </div>
+              </div>
+              {puedeBorrar && (
+                <MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminarGuia(guia) }]} />
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

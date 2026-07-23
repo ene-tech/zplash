@@ -69,7 +69,30 @@ export default function CuentasPorCobrarTab() {
         />
       </div>
 
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {items.length === 0 ? (
+          <div className="empty">Sin cuentas por cobrar</div>
+        ) : (
+          items.map((m) => (
+            <div key={m.id} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold">{m.descripcion}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {m.categoria || "Sin categoría"} · {m.contraparte || "Sin origen"}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {fmtCLP(m.monto)} · {new Date(m.fecha).toLocaleDateString("es-CL")}
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" className="shrink-0" onClick={() => marcarPagado(m)}>
+                Marcar pagado
+              </Button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>

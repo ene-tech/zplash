@@ -6,6 +6,7 @@ import { fmtTelefono } from "@/lib/helpers";
 import type { Empresa } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { Pencil, Trash2 } from "lucide-react";
 
 function coincide(e: Empresa, q: string): boolean {
@@ -83,7 +84,31 @@ export default function EmpresasTab() {
           + Nueva empresa
         </button>
       </div>
-      <div className="table-scroll">
+      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+        {filtered.length === 0 ? (
+          <div className="empty">No hay empresas que coincidan</div>
+        ) : (
+          filtered.map((e) => (
+            <div key={e.id} className="flex items-center gap-2 p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold">{e.razonSocial}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {e.rut} · {e.contactoNombre || "Sin contacto"}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{e.giro || "Sin giro"}</div>
+              </div>
+              <MobileRowMenu
+                actions={[
+                  { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "empresa", data: e } }) },
+                  { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(e) },
+                ]}
+              />
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
