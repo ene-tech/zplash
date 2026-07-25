@@ -1,7 +1,7 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
-import { esExentoFormatoCliente, isValidPatente } from "@/lib/helpers";
+import { esExentoFormatoCliente, esNombreVacio, isValidPatente } from "@/lib/helpers";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import type { Cliente } from "@/types";
 
@@ -11,6 +11,13 @@ import type { Cliente } from "@/types";
 // esCambioPermitidoSinModuloClientes más abajo). El resto de los campos solo
 // puede cambiarlos una sesión con "clientes" (ClientModal/BulkModal).
 const CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["visitas", "ultimaVisita"]);
+
+// Campos que OperadorFoundResult deja completar cuando llegan vacíos (nombre,
+// vehículo, teléfono, correo): la UI solo muestra el input de cada uno
+// cuando el campo todavía está vacío (ver c.vehiculo ? … : <input>… en ese
+// componente), así que un cambio en estos campos nunca sobreescribe un valor
+// ya guardado — es completar una ficha "INVITADO"/incompleta, no editarla.
+const CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["nombre", "vehiculo", "telefono", "email"]);
 
 // Antes, upsertClientes exigía solo tieneSesionValida(): cualquier perfil
 // logueado podía guardar un cliente. Al agregar el gate de tieneModulo
@@ -44,8 +51,27 @@ async function esCambioPermitidoSinModuloClientes(rows: Cliente[]): Promise<bool
     );
   });
   if (soloVisitas) return true;
+
   const todasAltasNuevas = rows.every((row) => !porId.has(row.id));
-  return todasAltasNuevas && (await tieneModulo("operador"));
+  if (todasAltasNuevas) return tieneModulo("operador");
+
+  // Fila ya existente (p.ej. "INVITADO" creada con datos mínimos) a la que
+  // el operador le está completando nombre/vehículo/teléfono/correo desde
+  // OperadorFoundResult: mismo criterio que un alta, solo que la fila ya
+  // existía en la base con esos campos vacíos.
+  const soloCompletaDatosVacios = rows.every((row) => {
+    const anterior = porId.get(row.id);
+    if (!anterior) return false;
+    return (Object.keys(row) as (keyof Cliente)[]).every((campo) => {
+      if (CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo) || row[campo] === anterior[campo]) return true;
+      if (!CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES.has(campo)) return false;
+      // "nombre" cuenta como vacío también con el placeholder "Sin nombre"
+      // que deja la carga masiva por Excel (ver esNombreVacio) — un string
+      // truthy que un simple !anterior[campo] no detectaría.
+      return campo === "nombre" ? esNombreVacio(anterior.nombre) : !anterior[campo];
+    });
+  });
+  return soloCompletaDatosVacios && (await tieneModulo("operador"));
 }
 
 export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
