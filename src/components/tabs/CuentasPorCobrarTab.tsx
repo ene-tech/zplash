@@ -6,6 +6,8 @@ import { fmtCLP } from "@/lib/helpers";
 import type { MovimientoContable, PagoInfo } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { HandCoins } from "lucide-react";
 
 // Resumen de Cuentas por Cobrar: no es una tabla propia, se deriva de los
 // movimientos de tipo "ingreso" con estado "pendiente" (ver Ingresos y
@@ -69,25 +71,28 @@ export default function CuentasPorCobrarTab() {
         />
       </div>
 
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {items.length === 0 ? (
           <div className="empty">Sin cuentas por cobrar</div>
         ) : (
           items.map((m) => (
-            <div key={m.id} className="flex items-center gap-2 p-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-semibold">{m.descripcion}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {m.categoria || "Sin categoría"} · {m.contraparte || "Sin origen"}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {fmtCLP(m.monto)} · {new Date(m.fecha).toLocaleDateString("es-CL")}
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" className="shrink-0" onClick={() => marcarPagado(m)}>
-                Marcar pagado
-              </Button>
-            </div>
+            <MobileRecordCard
+              key={m.id}
+              avatar={<MobileRecordAvatar icon={HandCoins} tone="warn" />}
+              title={m.descripcion}
+              subtitle={`${m.categoria || "Sin categoría"} · ${m.contraparte || "Sin origen"}`}
+              menu={
+                <Button variant="ghost" size="sm" className="shrink-0" onClick={() => marcarPagado(m)}>
+                  Marcar pagado
+                </Button>
+              }
+              meta={
+                <MobileRecordMeta
+                  left={new Date(m.fecha).toLocaleDateString("es-CL")}
+                  right={<span className="font-medium">{fmtCLP(m.monto)}</span>}
+                />
+              }
+            />
           ))
         )}
       </div>

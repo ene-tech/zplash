@@ -9,16 +9,17 @@ import CuentasPorCobrarTab from "@/components/tabs/CuentasPorCobrarTab";
 import EERRTab from "@/components/tabs/EERRTab";
 import ContabilidadConfigTab from "@/components/tabs/ContabilidadConfigTab";
 import ConciliacionBancariaTab from "@/components/tabs/ConciliacionBancariaTab";
+import { ArrowDownCircle, Receipt, ArrowUpCircle, HandCoins, Wallet, Landmark, FileBarChart, Settings } from "lucide-react";
 
 const TABS = [
-  { id: "egreso", label: "Egresos / Gastos" },
-  { id: "rendiciones", label: "Rendiciones" },
-  { id: "ingreso", label: "Ingresos fuera de la operación" },
-  { id: "cuenta_por_cobrar", label: "Cuentas por Cobrar" },
-  { id: "cuenta_por_pagar", label: "Cuentas por Pagar" },
-  { id: "conciliacion", label: "Conciliación Bancaria" },
-  { id: "eerr", label: "EERR" },
-  { id: "config", label: "Configuración" },
+  { id: "egreso", label: "Egresos / Gastos", icon: ArrowDownCircle },
+  { id: "rendiciones", label: "Rendiciones", icon: Receipt },
+  { id: "ingreso", label: "Ingresos fuera de la operación", icon: ArrowUpCircle },
+  { id: "cuenta_por_cobrar", label: "Cuentas por Cobrar", icon: HandCoins },
+  { id: "cuenta_por_pagar", label: "Cuentas por Pagar", icon: Wallet },
+  { id: "conciliacion", label: "Conciliación Bancaria", icon: Landmark },
+  { id: "eerr", label: "EERR", icon: FileBarChart },
+  { id: "config", label: "Configuración", icon: Settings },
 ] as const;
 
 export default function ContabilidadView() {
@@ -40,8 +41,10 @@ export default function ContabilidadView() {
                 key={t.id}
                 className={`tab ${ui.contabilidadTab === t.id ? "active" : ""}`}
                 onClick={() => patchUi({ contabilidadTab: t.id })}
+                title={t.label}
               >
-                {t.label}
+                <t.icon />
+                <span className="tab-label">{t.label}</span>
               </div>
             ))}
           </div>

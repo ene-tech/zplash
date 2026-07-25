@@ -28,3 +28,19 @@ export const CATEGORIA_DETAILING = "Lavado Completo Detailing";
  * vehículo — no constituye una venta nueva, solo deja constancia del paso
  * físico por el túnel (ver registrarIngresoDetailing en lib/actions.ts). */
 export const GLOSA_SERVICIO_DETAILING = "Servicio de Detailing";
+
+/** Ids del catálogo de "Servicios Adicionales" (fuera de la categoría
+ * CATEGORIA_DETAILING) que igual implican que el vehículo pasa por el túnel
+ * y por lo tanto también dan derecho a la pasada libre — mismo mecanismo que
+ * un Lavado Completo Detailing (ver esServicioTunelLibre,
+ * puedeIngresarTunelDetailing en lib/agenda.ts). */
+export const IDS_SERVICIOS_TUNEL_LIBRE = ["chasis", "chasis-grafitado"];
+
+/** True si vender este servicio le da al cliente derecho a una pasada libre
+ * por el túnel (el operador se lo ofrece al escanear la patente mientras la
+ * cita esté Recibido/En Limpieza/Listo para Entrega, ver
+ * puedeIngresarTunelDetailing): incluye tanto el propio Lavado Completo
+ * Detailing como los add-ons de chasis en IDS_SERVICIOS_TUNEL_LIBRE. */
+export function esServicioTunelLibre(servicio: { id: string; categoria?: string }): boolean {
+  return servicio.categoria === CATEGORIA_DETAILING || IDS_SERVICIOS_TUNEL_LIBRE.includes(servicio.id);
+}

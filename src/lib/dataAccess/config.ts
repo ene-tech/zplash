@@ -20,6 +20,7 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     tramosRenovacionLocal: c.tramosRenovacionLocal,
     horasVentanaUpgradePlan: c.horasVentanaUpgradePlan,
     tramosReactivacionVencido: c.tramosReactivacionVencido,
+    horasBloqueoReingresoPlan: c.horasBloqueoReingresoPlan,
   };
 }
 
@@ -34,6 +35,7 @@ export function configFromRow(r: ConfigRow): ConfigGlobal {
     tramosRenovacionLocal: r.tramosRenovacionLocal ?? {},
     horasVentanaUpgradePlan: r.horasVentanaUpgradePlan || 1,
     tramosReactivacionVencido: r.tramosReactivacionVencido ?? {},
+    horasBloqueoReingresoPlan: r.horasBloqueoReingresoPlan || 24.5,
   };
 }
 

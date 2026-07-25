@@ -2,11 +2,11 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { uid } from "@/lib/helpers";
+import { mantencionStatus, uid } from "@/lib/helpers";
 import type { Maquinaria } from "@/types";
 
 export default function MaquinariasTab() {
-  const { data, ui, commit } = useApp();
+  const { data, ui, patchUi, commit } = useApp();
   const nombreRef = useRef<HTMLInputElement>(null);
   const tipoRef = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -100,7 +100,14 @@ export default function MaquinariasTab() {
               <div style={{ flex: 1 }}>
                 {m.nombre}
                 {m.tipo && <span style={{ color: "var(--gray)", fontSize: 13 }}> — {m.tipo}</span>}
+                {(() => {
+                  const status = mantencionStatus(m, data.registrosMantencion, data.ingresos);
+                  return status ? <span className={`status-pill ${status.cls}`} style={{ marginLeft: 10 }}>{status.label}</span> : null;
+                })()}
               </div>
+              <button className="icon-btn" onClick={() => patchUi({ modal: { type: "maquinariaFicha", data: m } })}>
+                Ver ficha
+              </button>
               <button className="icon-btn" onClick={() => toggleActivo(m)}>
                 {m.activo ? "Desactivar" : "Reactivar"}
               </button>

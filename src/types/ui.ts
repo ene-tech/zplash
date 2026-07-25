@@ -1,6 +1,7 @@
 import type { Cliente } from "./clientes";
 import type { Empresa } from "./empresas";
 import type { Insumo, Producto, Proveedor } from "./inventario";
+import type { Maquinaria } from "./mantencion";
 import type { PagoInfo, Venta } from "./ventas";
 import type { PerfilPublico } from "./perfiles";
 
@@ -30,10 +31,11 @@ export type ModalState =
   | { type: "insumo"; data: Insumo | null }
   | { type: "traspasoInventario"; productoId?: string }
   | { type: "servicioAdicional"; data: Venta }
+  | { type: "maquinariaFicha"; data: Maquinaria }
   | null;
 
 export interface UIState {
-  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario" | "mantencion";
+  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario" | "mantencion" | "mensajes";
   operResult: OperResult;
   adminTab: string;
   contabilidadTab: string;

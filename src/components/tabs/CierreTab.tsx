@@ -195,12 +195,17 @@ export default function CierreTab() {
   const otrasVentas = ventasPeriodo.filter((v) => !tiposConocidos.has(v.tipo) && !v.esServicioAdicional);
 
   const cobrado = (v: (typeof ventasPeriodo)[number]) => v.montoCobrado ?? v.precio ?? 0;
-  const efectivoItems = ventasPeriodo.filter((v) => v.metodoPago === "efectivo");
-  const tarjetaTransbankItems = ventasPeriodo.filter((v) => v.metodoPago === "tarjeta" && esTarjetaWeb(v.creadoPor));
-  const tarjetaGetnetItems = ventasPeriodo.filter((v) => v.metodoPago === "tarjeta" && !esTarjetaWeb(v.creadoPor));
-  const transferenciaItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago !== "pendiente");
-  const cuentasPorCobrarItems = ventasPeriodo.filter((v) => v.metodoPago === "transferencia" && v.estadoPago === "pendiente");
-  const porPagarItems = ventasPeriodo.filter((v) => v.estadoPago === "pendiente" && v.metodoPago !== "transferencia");
+  // Las modificaciones de plan desde el perfil de administrador no son una
+  // venta real (no hay ingreso de dinero a caja) — quedan fuera de "Detalle
+  // de venta" (filasVenta arriba) y por consistencia también deben quedar
+  // fuera de "Métodos de pago".
+  const ventasPeriodoConDinero = ventasPeriodo.filter((v) => !esNuevoClienteAdmin(v));
+  const efectivoItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "efectivo");
+  const tarjetaTransbankItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "tarjeta" && esTarjetaWeb(v.creadoPor));
+  const tarjetaGetnetItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "tarjeta" && !esTarjetaWeb(v.creadoPor));
+  const transferenciaItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "transferencia" && v.estadoPago !== "pendiente");
+  const cuentasPorCobrarItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "transferencia" && v.estadoPago === "pendiente");
+  const porPagarItems = ventasPeriodoConDinero.filter((v) => v.estadoPago === "pendiente" && v.metodoPago !== "transferencia");
 
   // "Ingreso por Módulo Contabilidad" (arriba) se suma al Total de "Detalle
   // de venta" completo, pagado o pendiente — antes esta tabla de "Métodos de

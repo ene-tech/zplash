@@ -29,3 +29,4 @@ export * from "./perfiles";
 export * from "./precios";
 export * from "./servicios";
 export * from "./ventas";
+export * from "./whatsapp";

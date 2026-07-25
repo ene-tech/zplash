@@ -4,10 +4,13 @@ import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import MaquinariasTab from "@/components/tabs/MaquinariasTab";
 import RegistrosMantencionTab from "@/components/tabs/RegistrosMantencionTab";
+import AlertasMantencionTab from "@/components/tabs/AlertasMantencionTab";
+import { Wrench, ClipboardList, CalendarClock } from "lucide-react";
 
 const TABS = [
-  { id: "maquinas", label: "Máquinas" },
-  { id: "registros", label: "Registros de Mantención" },
+  { id: "maquinas", label: "Máquinas", icon: Wrench },
+  { id: "alertas", label: "Alertas de Mantención", icon: CalendarClock },
+  { id: "registros", label: "Registros de Mantención", icon: ClipboardList },
 ] as const;
 
 export default function MantencionView() {
@@ -29,13 +32,16 @@ export default function MantencionView() {
                 key={t.id}
                 className={`tab ${ui.mantencionTab === t.id ? "active" : ""}`}
                 onClick={() => patchUi({ mantencionTab: t.id, search: "" })}
+                title={t.label}
               >
-                {t.label}
+                <t.icon />
+                <span className="tab-label">{t.label}</span>
               </div>
             ))}
           </div>
           <div className="sidebar-content">
             {tabActual.id === "maquinas" && <MaquinariasTab />}
+            {tabActual.id === "alertas" && <AlertasMantencionTab />}
             {tabActual.id === "registros" && <RegistrosMantencionTab />}
           </div>
         </div>

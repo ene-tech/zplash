@@ -39,6 +39,7 @@ function appDataVacia(): AppData {
     movimientosInventario: [],
     maquinarias: [],
     registrosMantencion: [],
+    alertasMantencion: [],
   };
 }
 

@@ -28,6 +28,7 @@ export * from "./inventario/productos";
 export * from "./inventario/proveedores";
 export * from "./loadAll";
 export * from "./mantencion";
+export * from "./mensajes";
 export * from "./oneclick";
 export * from "./perfiles";
 export * from "./precios";

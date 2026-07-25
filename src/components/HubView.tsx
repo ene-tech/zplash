@@ -65,6 +65,13 @@ export default function HubView() {
             <div className="desc">Máquinas del túnel y bitácora de mantenciones</div>
           </button>
         )}
+        {modulos.includes("mensajes") && (
+          <button className="role-btn" onClick={() => patchUi({ view: "mensajes" })}>
+            <div className="icon">💬</div>
+            <div className="label">Mensajes WhatsApp</div>
+            <div className="desc">Conversaciones con clientes por WhatsApp</div>
+          </button>
+        )}
       </div>
       <button className="btn ghost" style={{ marginTop: 20 }} onClick={() => logout()}>
         Cerrar sesión

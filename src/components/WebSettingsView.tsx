@@ -4,10 +4,11 @@ import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import WebSettingsTab from "@/components/tabs/WebSettingsTab";
 import WebSettingsServiciosTab from "@/components/tabs/WebSettingsServiciosTab";
+import { CircleDollarSign, Images } from "lucide-react";
 
 const TABS = [
-  { id: "precios", label: "Precios" },
-  { id: "servicios", label: "Servicios y Banners" },
+  { id: "precios", label: "Precios", icon: CircleDollarSign },
+  { id: "servicios", label: "Servicios y Banners", icon: Images },
 ] as const;
 
 export default function WebSettingsView() {
@@ -29,8 +30,10 @@ export default function WebSettingsView() {
                 key={t.id}
                 className={`tab ${ui.webSettingsTab === t.id ? "active" : ""}`}
                 onClick={() => patchUi({ webSettingsTab: t.id })}
+                title={t.label}
               >
-                {t.label}
+                <t.icon />
+                <span className="tab-label">{t.label}</span>
               </div>
             ))}
           </div>

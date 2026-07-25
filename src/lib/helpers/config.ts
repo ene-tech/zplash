@@ -14,6 +14,7 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   tramosRenovacionLocal: {},
   horasVentanaUpgradePlan: 1,
   tramosReactivacionVencido: {},
+  horasBloqueoReingresoPlan: 24.5,
 };
 
 /** true si `ahora` cae dentro del horario configurado para registrar ingresos en el

@@ -5,13 +5,13 @@ import { useApp } from "@/context/AppContext";
 import { registrarIngreso, registrarIngresoDetailing, renovarPlan } from "@/lib/actions";
 import { puedeIngresarTunelDetailing } from "@/lib/agenda";
 import {
-  CATEGORIA_DETAILING,
   PLANES,
   TELEFONO_FORMATO_MSG,
   diasVencido,
   esExentoBloqueoReingreso,
   esExentoValidacionRegistroOperador,
   esNombreVacio,
+  esServicioTunelLibre,
   estadoReingresoPlan,
   fmtCLP,
   fmtHorasVentanaUpgradePlan,
@@ -61,7 +61,8 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
   // trata como "garantia" para que quede la misma confirmación y quede
   // registrado sin cobrar de nuevo (ver esExentoBloqueoReingreso).
   const exentoBloqueoReingreso = esExentoBloqueoReingreso(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
-  const estadoIngresoBruto = estadoReingresoPlan(data.ingresos, c.id);
+  const horasBloqueoReingreso = data.config.horasBloqueoReingresoPlan;
+  const estadoIngresoBruto = estadoReingresoPlan(data.ingresos, c.id, new Date(), horasBloqueoReingreso);
   const estadoIngreso = estadoIngresoBruto === "bloqueado" && exentoBloqueoReingreso ? "garantia" : estadoIngresoBruto;
 
   const esWebVencido = c.origen === "WEB" && st.cls === "bad";
@@ -92,12 +93,14 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
     : undefined;
   const precioUpgrade = precioUpgradePlan(data.precios);
 
-  // Lavado Completo Detailing vendido en Servicios Adicionales (Venta + Cita
-  // ya creadas ahí), a la espera de que el vehículo entre físicamente al
-  // túnel: se detecta por la Cita del día que incluya un servicio de esa
-  // categoría y ya esté físicamente en el local (Recibido, En Limpieza o
-  // Listo para Entrega) — si sigue "Agendado" todavía no ha llegado, y no se
-  // le puede dar ingreso al túnel (ver puedeIngresarTunelDetailing en lib/agenda.ts).
+  // Servicio con pasada libre por el túnel (Lavado Completo Detailing o un
+  // add-on de chasis, ver esServicioTunelLibre) vendido en Servicios
+  // Adicionales (Venta + Cita ya creadas ahí), a la espera de que el
+  // vehículo entre físicamente al túnel: se detecta por la Cita del día que
+  // incluya alguno de esos servicios y ya esté físicamente en el local
+  // (Recibido, En Limpieza o Listo para Entrega) — si sigue "Agendado"
+  // todavía no ha llegado, y no se le puede dar ingreso al túnel (ver
+  // puedeIngresarTunelDetailing en lib/agenda.ts).
   const citaDetailingPendiente = data.citas.find((cita) => {
     if (cita.clienteId !== c.id) return false;
     if (!puedeIngresarTunelDetailing(cita.estado)) return false;
@@ -107,7 +110,10 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
     // volver a ofrecer el botón para no invitar a un doble check-in del
     // mismo vehículo.
     if (data.ingresos.some((i) => i.citaId === cita.id)) return false;
-    return cita.servicioIds.some((id) => data.servicios.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING);
+    return cita.servicioIds.some((id) => {
+      const s = data.servicios.find((sv) => sv.id === id);
+      return s ? esServicioTunelLibre(s) : false;
+    });
   });
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
@@ -396,6 +402,13 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
   const upgradeAPlan = () => {
     if (!ventaUpgrade) return;
     const plan = PLANES[0];
+    // Si el upgrade se hace el mismo día del lavado único original, el
+    // Ingreso ya registrado en cobrarLavadoUnico cubre el paso de hoy por el
+    // túnel y no corresponde duplicarlo (por eso esta función normalmente no
+    // toca `ingresos`). Si se hace un día distinto (la ventana permite hasta
+    // varios días, ver ConfigGlobal.horasVentanaUpgradePlan), el cliente está
+    // volviendo a pasar físicamente hoy y sí corresponde un Ingreso nuevo.
+    const distintoDia = new Date(ventaUpgrade.fecha).toDateString() !== new Date().toDateString();
     pedirPago(precioUpgrade, `Upgrade a ${plan} para ${c.nombre} (adicional al lavado ya pagado)`, async (pago) => {
       const updated = { ...c, plan, vencimiento: vencimientoPorDefectoISO(new Date(ventaUpgrade.fecha)) };
       const ventaActualizada: Venta = {
@@ -406,9 +419,11 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
+      const patchIngreso = distintoDia ? registrarIngreso(data, updated, ui.perfilActual?.nombre) : {};
       const ok = await commit({
         clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
         ventas: data.ventas.map((v) => (v.id === ventaUpgrade.id ? ventaActualizada : v)),
+        ...patchIngreso,
       });
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO);
@@ -429,12 +444,12 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
       {citaDetailingPendiente && (
         <div className="offer-card">
           <div className="offer-head">
-            <span className="badge">Detailing</span>
-            <h4>Lavado Completo Detailing pendiente</h4>
+            <span className="badge">Túnel</span>
+            <h4>Pasada por el túnel pendiente</h4>
           </div>
           <div className="msg">
-            {c.nombre} tiene un Lavado Completo Detailing vendido en Servicios Adicionales. Regístralo para dejarlo
-            entrar al túnel — esto no genera una venta nueva, la venta ya está hecha.
+            {c.nombre} tiene un servicio vendido en Servicios Adicionales que incluye pasada por el túnel.
+            Regístralo para dejarlo entrar — esto no genera una venta nueva, la venta ya está hecha.
           </div>
           <button
             className="btn secondary"
@@ -641,7 +656,7 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
         {planVigente && estadoIngreso === "bloqueado" ? (
           <>
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
-              {mensajeBloqueoReingreso(data.ingresos, c.id)}
+              {mensajeBloqueoReingreso(data.ingresos, c.id, horasBloqueoReingreso)}
             </div>
             <button
               className="btn secondary"

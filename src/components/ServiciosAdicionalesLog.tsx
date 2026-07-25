@@ -8,7 +8,10 @@ import type { Cita, Venta } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
-import { Pencil, Trash2 } from "lucide-react";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Pencil, Trash2, Sparkles } from "lucide-react";
+
+const ESTADO_PAGO_TONE = { pagado: "ok", abono50: "warn", pendiente: "bad" } as const;
 
 export default function ServiciosAdicionalesLog() {
   const { data, ui, commit, patchUi } = useApp();
@@ -31,6 +34,9 @@ export default function ServiciosAdicionalesLog() {
     const telefono = cliente?.telefono || data.citas.find((c) => c.id === v.citaId)?.telefono;
     return telefono ? fmtTelefono(telefono) : "—";
   };
+
+  const labelEstadoPago = (v: Venta) =>
+    v.estadoPago === "pagado" ? "Pagado" : v.estadoPago === "abono50" ? `Abono ${fmtCLP(v.montoCobrado ?? 0)}` : "Por pagar";
 
   const editarServicio = (v: Venta) => {
     patchUi({ modal: { type: "servicioAdicional", data: v } });
@@ -96,47 +102,53 @@ export default function ServiciosAdicionalesLog() {
           </button>
         )}
       </div>
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {logList.length === 0 ? (
           <div className="empty">Sin servicios registrados ese día</div>
         ) : (
           logList.map((v) => (
-            <div key={v.id} className="p-3" title={v.notas || undefined}>
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="plate-tag truncate">{v.patente}</span>
-                    {v.estadoPago && (
-                      <span
-                        className={`status-pill ${v.estadoPago === "pagado" ? "ok" : v.estadoPago === "abono50" ? "warn" : "bad"}`}
-                      >
-                        {v.estadoPago === "pagado"
-                          ? "Pagado"
-                          : v.estadoPago === "abono50"
-                            ? `Abono ${fmtCLP(v.montoCobrado ?? 0)}`
-                            : "Por pagar"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {v.nombre} — {v.tipo}
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {telefonoDe(v)} · {fmtCLP(v.precio)}
-                    {v.horaEntrega
-                      ? ` · Entrega ${v.fechaEntrega && v.fechaEntrega !== todayYMD() ? `${v.fechaEntrega} ` : ""}${v.horaEntrega}`
-                      : ""}
-                  </div>
-                </div>
-                {esGerencia && (
+            <MobileRecordCard
+              key={v.id}
+              hint={v.notas || undefined}
+              avatar={<MobileRecordAvatar icon={Sparkles} tone={v.estadoPago ? ESTADO_PAGO_TONE[v.estadoPago] : "neutral"} />}
+              title={<span className="plate-tag">{v.patente}</span>}
+              subtitle={
+                <>
+                  {v.nombre} — {v.tipo}
+                </>
+              }
+              menu={
+                esGerencia && (
                   <MobileRowMenu
                     actions={[
                       { label: "Editar", icon: <Pencil />, onClick: () => editarServicio(v) },
                       { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminarServicio(v) },
                     ]}
                   />
-                )}
-              </div>
+                )
+              }
+              meta={
+                <MobileRecordMeta
+                  left={
+                    <>
+                      {v.estadoPago && <span className={`status-pill ${ESTADO_PAGO_TONE[v.estadoPago]}`}>{labelEstadoPago(v)}</span>}
+                      <div className="mt-1 text-muted-foreground">{telefonoDe(v)}</div>
+                    </>
+                  }
+                  right={
+                    <>
+                      <div className="font-medium">{fmtCLP(v.precio)}</div>
+                      {v.horaEntrega && (
+                        <div className="text-muted-foreground">
+                          Entrega {v.fechaEntrega && v.fechaEntrega !== todayYMD() ? `${v.fechaEntrega} ` : ""}
+                          {v.horaEntrega}
+                        </div>
+                      )}
+                    </>
+                  }
+                />
+              }
+            >
               {v.citaId && (
                 <div className="mt-2">
                   <StatusCell
@@ -146,7 +158,7 @@ export default function ServiciosAdicionalesLog() {
                   />
                 </div>
               )}
-            </div>
+            </MobileRecordCard>
           ))
         )}
       </div>

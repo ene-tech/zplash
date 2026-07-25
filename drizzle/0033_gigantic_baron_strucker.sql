@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "horas_bloqueo_reingreso_plan" numeric DEFAULT 24.5 NOT NULL;

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  alertaMantencionStatus,
+  CATEGORIA_DETAILING,
   CONFIG_DEFAULT,
   dentroDeHorarioOperador,
   diasVencido,
@@ -8,6 +10,7 @@ import {
   esExentoHorarioOperador,
   esExentoValidacionRegistroOperador,
   esFinDeSemanaOFestivo,
+  esServicioTunelLibre,
   fmtCLP,
   formatRut,
   estadoReingresoPlan,
@@ -28,8 +31,11 @@ import {
   proximoIngresoPermitido,
   puedeBorrarCategoriaInventario,
   resolverDescuento,
+  sumarMeses,
   vencimientoAnclado,
+  visitasDesdeContratacion,
   visitasPeriodoPlan,
+  visitasUltimos30Dias,
   visitasUltimoPeriodoVencido,
 } from "./helpers";
 import type { ConfigGlobal, Cupon, Ingreso, PerfilPublico } from "@/types";
@@ -141,6 +147,34 @@ describe("planStatus", () => {
   });
 });
 
+describe("sumarMeses", () => {
+  it("suma meses respetando el día", () => {
+    expect(sumarMeses("2026-01-15", 8)).toBe("2026-09-15");
+  });
+
+  it("cruza de año", () => {
+    expect(sumarMeses("2026-11-01", 3)).toBe("2027-02-01");
+  });
+});
+
+describe("alertaMantencionStatus", () => {
+  it("fechaObjetivo pasada -> Vencida", () => {
+    expect(alertaMantencionStatus({ fechaObjetivo: "2000-01-01" }).label).toBe("Vencida");
+  });
+
+  it("fechaObjetivo dentro de los próximos 7 días -> Por vencer", () => {
+    const enTresDias = new Date();
+    enTresDias.setDate(enTresDias.getDate() + 3);
+    expect(alertaMantencionStatus({ fechaObjetivo: enTresDias.toISOString() }).label).toBe("Por vencer");
+  });
+
+  it("fechaObjetivo lejana -> Programada", () => {
+    const enUnMes = new Date();
+    enUnMes.setDate(enUnMes.getDate() + 40);
+    expect(alertaMantencionStatus({ fechaObjetivo: enUnMes.toISOString() }).label).toBe("Programada");
+  });
+});
+
 describe("diasVencido", () => {
   it("sin vencimiento -> null", () => {
     expect(diasVencido({ vencimiento: null })).toBeNull();
@@ -195,6 +229,12 @@ describe("estadoReingresoPlan", () => {
     const haceUnaHora = new Date("2026-01-02T09:00:00Z").toISOString();
     expect(estadoReingresoPlan([ingreso("otro", haceUnaHora)], "c1", ahora)).toBe("libre");
   });
+
+  it("respeta las horas de bloqueo configuradas en vez del default de 24:30", () => {
+    const haceDosHoras = new Date("2026-01-02T08:00:00Z").toISOString();
+    expect(estadoReingresoPlan([ingreso("c1", haceDosHoras)], "c1", ahora, 1)).toBe("libre");
+    expect(estadoReingresoPlan([ingreso("c1", haceDosHoras)], "c1", ahora, 3)).toBe("bloqueado");
+  });
 });
 
 describe("proximoIngresoPermitido / mensajeBloqueoReingreso", () => {
@@ -220,7 +260,7 @@ describe("proximoIngresoPermitido / mensajeBloqueoReingreso", () => {
   it("el mensaje incluye la hora a partir de la cual puede reingresar", () => {
     const ultimo = ingreso("c1", "2026-01-01T10:00:00-03:00");
     const msg = mensajeBloqueoReingreso([ultimo], "c1");
-    expect(msg).toContain("VEHICULO HIZO USO DEL SERVICIO TUNEL HACE MENOS DE 24 HORAS");
+    expect(msg).toContain("VEHICULO HIZO USO DEL SERVICIO TUNEL HACE MENOS DE 24:30 HORAS");
     expect(msg).toContain(fmtHora("2026-01-02T10:30:00-03:00"));
   });
 });
@@ -314,6 +354,54 @@ describe("visitasUltimoPeriodoVencido", () => {
 
   it("sin vencimiento -> 0", () => {
     expect(visitasUltimoPeriodoVencido([ingreso("c1", "2026-06-12T09:00:00Z")], { id: "c1", vencimiento: null })).toBe(0);
+  });
+});
+
+describe("visitasDesdeContratacion", () => {
+  const ingreso = (clienteId: string, fecha: string): Ingreso => ({
+    id: "i1",
+    clienteId,
+    patente: "AB1234",
+    nombre: "Cliente",
+    fecha,
+    planEstadoAlIngreso: "ok",
+  });
+
+  it("cuenta todos los ingresos desde fechaContratacion, sin acotar a 30 días", () => {
+    const cliente = { id: "c1", fechaContratacion: "2026-06-12T00:00:00Z" };
+    const ingresos = [
+      ingreso("c1", "2026-06-12T09:00:00Z"), // dentro, primer día
+      ingreso("c1", "2026-07-20T09:00:00Z"), // dentro, más allá de un ciclo de 30 días
+      ingreso("c1", "2026-06-01T09:00:00Z"), // antes de contratar
+      ingreso("otro", "2026-06-20T09:00:00Z"), // otro cliente
+    ];
+    expect(visitasDesdeContratacion(ingresos, cliente)).toBe(2);
+  });
+
+  it("sin fechaContratacion -> 0", () => {
+    expect(visitasDesdeContratacion([ingreso("c1", "2026-06-12T09:00:00Z")], { id: "c1", fechaContratacion: null })).toBe(0);
+  });
+});
+
+describe("visitasUltimos30Dias", () => {
+  const ingreso = (clienteId: string, fecha: string): Ingreso => ({
+    id: "i1",
+    clienteId,
+    patente: "AB1234",
+    nombre: "Cliente",
+    fecha,
+    planEstadoAlIngreso: "ok",
+  });
+
+  it("cuenta solo los ingresos de los últimos 30 días, del cliente correcto", () => {
+    const ahora = new Date("2026-07-05T12:00:00Z");
+    const ingresos = [
+      ingreso("c1", "2026-06-06T09:00:00Z"), // dentro del período
+      ingreso("c1", "2026-06-30T09:00:00Z"), // dentro del período
+      ingreso("c1", "2026-06-01T09:00:00Z"), // fuera del período
+      ingreso("otro", "2026-06-20T09:00:00Z"), // otro cliente
+    ];
+    expect(visitasUltimos30Dias(ingresos, "c1", ahora)).toBe(2);
   });
 });
 
@@ -540,5 +628,21 @@ describe("ordenarPerfiles", () => {
       { id: "4", nombre: "Ana", modulos: [] },
     ];
     expect(ordenarPerfiles(perfiles).map((p) => p.nombre)).toEqual(["Ana", "Zoe", "Administración", "Gerencia"]);
+  });
+});
+
+describe("esServicioTunelLibre", () => {
+  it("un Lavado Completo Detailing (por categoría) da pasada libre", () => {
+    expect(esServicioTunelLibre({ id: "detailing-pequeno", categoria: CATEGORIA_DETAILING })).toBe(true);
+  });
+
+  it("Lavado de Chasis y Lavado de Chasis + Grafitado también dan pasada libre", () => {
+    expect(esServicioTunelLibre({ id: "chasis", categoria: "Servicios Adicionales" })).toBe(true);
+    expect(esServicioTunelLibre({ id: "chasis-grafitado", categoria: "Servicios Adicionales" })).toBe(true);
+  });
+
+  it("otros Servicios Adicionales (tapiz, alfombra, techo, motor) no dan pasada libre", () => {
+    expect(esServicioTunelLibre({ id: "tapiz", categoria: "Servicios Adicionales" })).toBe(false);
+    expect(esServicioTunelLibre({ id: "motor", categoria: "Servicios Adicionales" })).toBe(false);
   });
 });

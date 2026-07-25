@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, numeric, pgTable, text } from "drizzle-orm/pg-core";
 
 // Tabla "singleton" (una sola fila, id siempre true) para configuración global.
 // horario_operador_*: bloqueo horario del módulo Operador (ver
@@ -42,4 +42,8 @@ export const config = pgTable("config", {
     >()
     .notNull()
     .default({}),
+  // Horas mínimas entre dos ingresos por plan de un mismo vehículo antes de
+  // volver a quedar "libre" (ver estadoReingresoPlan/HORAS_MIN_ENTRE_INGRESOS_PLAN
+  // en @/lib/helpers/ingresos). Acepta decimales (ej: 24.5 = 24 horas 30 min).
+  horasBloqueoReingresoPlan: numeric("horas_bloqueo_reingreso_plan", { mode: "number" }).notNull().default(24.5),
 });

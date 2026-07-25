@@ -5,6 +5,7 @@ import type { AppData, AuditoriaEntrada, UIState } from "@/types";
 import { CATEGORIAS_GASTO_DEFAULT, CATEGORIAS_INGRESO_DEFAULT, CONFIG_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
 import { insertAuditoria, loadAll, waitForStorage } from "@/lib/db";
 import {
+  commitAlertasMantencion,
   commitBloqueosAgenda,
   commitCartolaMovimientos,
   commitCategoriasGasto,
@@ -62,6 +63,7 @@ const initialData: AppData = {
   movimientosInventario: [],
   maquinarias: [],
   registrosMantencion: [],
+  alertasMantencion: [],
 };
 
 const initialUI: UIState = {
@@ -187,6 +189,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     agregar(commitMovimientosInventario(previous.movimientosInventario, patch.movimientosInventario));
     agregar(commitMaquinarias(previous.maquinarias, patch.maquinarias));
     agregar(commitRegistrosMantencion(previous.registrosMantencion, patch.registrosMantencion));
+    agregar(commitAlertasMantencion(previous.alertasMantencion, patch.alertasMantencion));
 
     let results: boolean[];
     try {

@@ -4,6 +4,11 @@ import * as dataAccess from "@/lib/dataAccess";
 import { tieneModulo, tieneSesionValida } from "@/lib/session";
 import type { Venta } from "@/types";
 
+// No hay un módulo "ventas" en la UI (registrar una venta es parte del flujo
+// normal de varias vistas: Servicios Adicionales, Empresa, Clientes), así que
+// a diferencia de clientes/empresas_facturacion/contabilidad acá no hay un
+// tieneModulo específico que cerrar: cualquier sesión válida puede insertar o
+// actualizar ventas. Intencional, no un descuido.
 export async function insertVentas(rows: Venta[]): Promise<boolean> {
   if (!(await tieneSesionValida())) return false;
   return dataAccess.insertVentas(rows);

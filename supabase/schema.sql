@@ -270,7 +270,16 @@ create table if not exists config (
   -- Local, keyed por plan (ver TramoRenovacionLocal/precioRenovacionLocal en
   -- @/types y @/lib/helpers). Ej: {"Plan Ilimitado Mensual": [{"id": "...",
   -- "visitasMin": 0, "visitasMax": 1, "precio": 16990}]}.
-  tramos_renovacion_local jsonb not null default '{}'::jsonb
+  tramos_renovacion_local jsonb not null default '{}'::jsonb,
+  -- Horas desde el pago de un "Lavado único" dentro de las cuales se ofrece
+  -- la promoción de upgrade a plan (ver ventaUpgradeElegible en @/lib/helpers).
+  horas_ventana_upgrade_plan integer not null default 1,
+  -- Escala de precio de reactivación preferencial para clientes con el plan
+  -- vencido hace poco, keyed por plan (ver TramoReactivacionVencido en @/types).
+  tramos_reactivacion_vencido jsonb not null default '{}'::jsonb,
+  -- Horas mínimas entre dos ingresos por plan de un mismo vehículo antes de
+  -- volver a quedar "libre" (ver estadoReingresoPlan en @/lib/helpers/ingresos).
+  horas_bloqueo_reingreso_plan numeric not null default 24.5
 );
 insert into config (id, pin_admin) values (true, '1234') on conflict (id) do nothing;
 
@@ -467,6 +476,38 @@ create table if not exists auditoria (
 create index if not exists auditoria_tabla_registro_idx on auditoria (tabla, registro_id);
 create index if not exists auditoria_creado_en_idx on auditoria (creado_en desc);
 
+-- Nota: este archivo venía desactualizado respecto a varias tablas agregadas
+-- después (inventario, agenda, mantención, pagos) — no se retrocede acá a
+-- rellenar ese hueco (fuera de alcance de esta entrega), solo se agregan las
+-- tablas nuevas de este cambio (ver drizzle/0034_pale_blue_blade.sql para el
+-- estado real y completo del esquema).
+--
+-- WhatsApp (Meta Cloud API): un hilo de conversación por número (telefono en
+-- formato "+569XXXXXXXX", igual que clientes.telefono) con su historial de
+-- mensajes. cliente_id es opcional (ON DELETE SET NULL, mismo patrón que
+-- empresas.contacto_cliente_id): un número puede escribir sin ser cliente.
+create table if not exists conversaciones_whatsapp (
+  id text primary key,
+  telefono text not null unique,
+  cliente_id text references clientes(id) on delete set null,
+  nombre_contacto text,
+  ultimo_mensaje_en timestamptz not null default now(),
+  no_leidos integer not null default 0,
+  creado_en timestamptz not null default now()
+);
+create table if not exists mensajes_whatsapp (
+  id text primary key,
+  conversacion_id text not null references conversaciones_whatsapp(id) on delete cascade,
+  direccion text not null,
+  texto text not null,
+  tipo text not null default 'texto',
+  estado text,
+  whatsapp_message_id text,
+  enviado_por text,
+  creado_en timestamptz not null default now()
+);
+create index if not exists mensajes_whatsapp_conversacion_fecha_idx on mensajes_whatsapp (conversacion_id, creado_en);
+
 -- RLS: esta app no usa Supabase Auth. Todo el acceso a estas tablas —
 -- lectura y escritura — pasa por Server Actions (`src/lib/db.ts`, "use
 -- server") a través de la conexión directa a Postgres (DATABASE_URL), que
@@ -498,6 +539,8 @@ alter table productos enable row level security;
 alter table categorias_producto enable row level security;
 alter table categorias_insumo enable row level security;
 alter table insumos enable row level security;
+alter table conversaciones_whatsapp enable row level security;
+alter table mensajes_whatsapp enable row level security;
 
 -- Sin políticas para anon en ninguna de estas tablas (ver comentario
 -- arriba). Se dropean explícitamente por si el proyecto ya tenía las

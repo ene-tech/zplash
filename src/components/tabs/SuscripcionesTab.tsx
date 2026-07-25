@@ -14,6 +14,8 @@ import { fmtDate, normPlate } from "@/lib/helpers";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import MobileRowMenu, { type MobileRowAction } from "@/components/tabs/MobileRowMenu";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { CreditCard } from "lucide-react";
 
 const ESTADO_LABEL: Record<string, string> = {
   activa: "Activa",
@@ -135,27 +137,31 @@ export default function SuscripcionesTab() {
           <option value="cancelada">Cancelada</option>
         </select>
       </div>
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {cargando ? (
           <div className="empty">Cargando...</div>
         ) : filtered.length === 0 ? (
           <div className="empty">No hay suscripciones que coincidan</div>
         ) : (
           filtered.map((s) => (
-            <div key={s.id} className="flex items-center gap-2 p-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="plate-tag truncate">{s.patente}</span>
-                  <span className="truncate text-xs text-muted-foreground">{ESTADO_LABEL[s.estado] || s.estado}</span>
-                </div>
-                <div className="truncate text-xs text-muted-foreground">{s.clienteNombre}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {s.cardUltimosDigitos ? `${s.cardTipo || ""} ${s.cardUltimosDigitos}` : "Sin tarjeta"}
-                  {s.proximoCobro ? ` · Próximo: ${fmtDate(s.proximoCobro)}` : ""}
-                </div>
-              </div>
-              <MobileRowMenu actions={accionesDe(s)} />
-            </div>
+            <MobileRecordCard
+              key={s.id}
+              avatar={<MobileRecordAvatar icon={CreditCard} tone={(ESTADO_CLASE[s.estado] as "ok" | "warn" | "bad") || "warn"} />}
+              title={<span className="plate-tag">{s.patente}</span>}
+              subtitle={s.clienteNombre}
+              menu={<MobileRowMenu actions={accionesDe(s)} />}
+              meta={
+                <MobileRecordMeta
+                  left={<span className={`status-pill ${ESTADO_CLASE[s.estado] || "warn"}`}>{ESTADO_LABEL[s.estado] || s.estado}</span>}
+                  right={
+                    <>
+                      <div>{s.cardUltimosDigitos ? `${s.cardTipo || ""} ${s.cardUltimosDigitos}` : "Sin tarjeta"}</div>
+                      {s.proximoCobro && <div className="text-muted-foreground">Próximo: {fmtDate(s.proximoCobro)}</div>}
+                    </>
+                  }
+                />
+              }
+            />
           ))
         )}
       </div>

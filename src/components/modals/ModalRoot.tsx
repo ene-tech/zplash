@@ -13,6 +13,7 @@ import ProveedorModal from "@/components/modals/ProveedorModal";
 import InsumoModal from "@/components/modals/InsumoModal";
 import TraspasoModal from "@/components/modals/TraspasoModal";
 import ServicioAdicionalModal from "@/components/modals/ServicioAdicionalModal";
+import MaquinariaFichaModal from "@/components/modals/MaquinariaFichaModal";
 
 export default function ModalRoot() {
   const { ui } = useApp();
@@ -33,5 +34,6 @@ export default function ModalRoot() {
   if (m.type === "proveedor") return <ProveedorModal data={m.data} />;
   if (m.type === "insumo") return <InsumoModal data={m.data} />;
   if (m.type === "traspasoInventario") return <TraspasoModal productoId={m.productoId} />;
+  if (m.type === "maquinariaFicha") return <MaquinariaFichaModal data={m.data} />;
   return null;
 }

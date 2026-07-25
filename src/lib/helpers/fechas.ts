@@ -29,6 +29,12 @@ export function sumarDias(fecha: string, delta: number): string {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
+export function sumarMeses(fecha: string, delta: number): string {
+  const d = new Date(`${fecha}T00:00:00`);
+  d.setMonth(d.getMonth() + delta);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
 export function ymd(d: Date): string {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }

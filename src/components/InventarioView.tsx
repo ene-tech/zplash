@@ -11,15 +11,16 @@ import StockDestinosTab from "@/components/tabs/StockDestinosTab";
 import DestinosInventarioTab from "@/components/tabs/DestinosInventarioTab";
 import GuiaTraspasoTab from "@/components/tabs/GuiaTraspasoTab";
 import BodegasTab from "@/components/tabs/BodegasTab";
+import { Package, Tags, Truck, Boxes, MapPin, Warehouse, ClipboardList } from "lucide-react";
 
 const TABS = [
-  { id: "productos", label: "Productos" },
-  { id: "categorias", label: "Categorías" },
-  { id: "proveedores", label: "Proveedores" },
-  { id: "insumos", label: "Insumos" },
-  { id: "destinos", label: "Destinos" },
-  { id: "bodegas", label: "Bodegas" },
-  { id: "traspasarGuia", label: "Guías de Despacho" },
+  { id: "productos", label: "Productos", icon: Package },
+  { id: "categorias", label: "Categorías", icon: Tags },
+  { id: "proveedores", label: "Proveedores", icon: Truck },
+  { id: "insumos", label: "Insumos", icon: Boxes },
+  { id: "destinos", label: "Destinos", icon: MapPin },
+  { id: "bodegas", label: "Bodegas", icon: Warehouse },
+  { id: "traspasarGuia", label: "Guías de Despacho", icon: ClipboardList },
 ] as const;
 
 export default function InventarioView() {
@@ -41,8 +42,10 @@ export default function InventarioView() {
                 key={t.id}
                 className={`tab ${ui.inventarioTab === t.id ? "active" : ""}`}
                 onClick={() => patchUi({ inventarioTab: t.id, search: "" })}
+                title={t.label}
               >
-                {t.label}
+                <t.icon />
+                <span className="tab-label">{t.label}</span>
               </div>
             ))}
           </div>

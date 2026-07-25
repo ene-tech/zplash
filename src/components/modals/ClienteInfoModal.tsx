@@ -10,7 +10,14 @@ import {
   suspenderSuscripcionOneclick,
 } from "@/lib/db";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
-import { fmtDate, fmtFecha, inicioPeriodoPlan, visitasPeriodoPlan } from "@/lib/helpers";
+import {
+  fmtDate,
+  fmtFecha,
+  inicioPeriodoPlan,
+  visitasDesdeContratacion,
+  visitasPeriodoPlan,
+  visitasUltimos30Dias,
+} from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -21,6 +28,8 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const finPeriodo = new Date(inicioPeriodo);
   finPeriodo.setDate(finPeriodo.getDate() + 29);
   const visitasPeriodo = visitasPeriodoPlan(appData.ingresos, c);
+  const tienePlan = !!c.vencimiento;
+  const visitasPlan = tienePlan ? visitasDesdeContratacion(appData.ingresos, c) : visitasUltimos30Dias(appData.ingresos, c.id);
   const [suscripcion, setSuscripcion] = useState<SuscripcionOneclickInfo | null>(null);
   const [cobrando, setCobrando] = useState(false);
   const [errSuscripcion, setErrSuscripcion] = useState("");
@@ -123,6 +132,16 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             <div className="font-medium">
               {visitasPeriodo} ({fmtFecha(inicioPeriodo.toISOString())} - {fmtFecha(finPeriodo.toISOString())})
             </div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Visitas totales</div>
+            <div className="font-medium">{c.visitas || 0}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              {tienePlan ? "Visitas desde que contrató el plan" : "Visitas últimos 30 días"}
+            </div>
+            <div className="font-medium">{visitasPlan}</div>
           </div>
         </div>
 

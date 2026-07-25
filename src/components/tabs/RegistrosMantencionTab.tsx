@@ -7,7 +7,8 @@ import type { RegistroMantencion } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
-import { Trash2 } from "lucide-react";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Trash2, Wrench } from "lucide-react";
 
 export default function RegistrosMantencionTab() {
   const { data, ui, patchUi, commit } = useApp();
@@ -164,24 +165,28 @@ export default function RegistrosMantencionTab() {
       )}
 
       <h3 style={{ marginTop: 28 }}>Historial de mantenciones</h3>
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {registros.length === 0 ? (
           <div className="empty">Todavía no hay mantenciones registradas</div>
         ) : (
           registros.map((r) => (
-            <div key={r.id} className="flex items-center gap-2 p-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-semibold">{maquinariaNombre(r.maquinariaId)}</div>
-                <div className="truncate text-xs text-muted-foreground">{r.descripcion}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {new Date(r.fecha).toLocaleDateString("es-CL")} · {r.responsable || "Sin responsable"}
-                  {r.costo != null ? ` · $${r.costo.toLocaleString("es-CL")}` : ""}
-                </div>
-              </div>
-              {puedeBorrar && (
-                <MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminarRegistro(r) }]} />
-              )}
-            </div>
+            <MobileRecordCard
+              key={r.id}
+              avatar={<MobileRecordAvatar icon={Wrench} />}
+              title={maquinariaNombre(r.maquinariaId)}
+              subtitle={r.descripcion}
+              menu={
+                puedeBorrar && (
+                  <MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminarRegistro(r) }]} />
+                )
+              }
+              meta={
+                <MobileRecordMeta
+                  left={`${new Date(r.fecha).toLocaleDateString("es-CL")} · ${r.responsable || "Sin responsable"}`}
+                  right={r.costo != null ? `$${r.costo.toLocaleString("es-CL")}` : undefined}
+                />
+              }
+            />
           ))
         )}
       </div>

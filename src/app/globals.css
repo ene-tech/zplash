@@ -677,6 +677,9 @@ h4,
   overflow-x: auto;
 }
 .tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 16px;
   cursor: pointer;
   color: var(--gray);
@@ -684,6 +687,11 @@ h4,
   font-weight: 600;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
+}
+.tab svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 .tab.active {
   color: var(--gold);
@@ -738,6 +746,62 @@ h4,
   .tabs-sidebar .tab.active {
     border-left-color: transparent;
     border-bottom-color: var(--gold);
+  }
+}
+
+/* Mobile: menú de navegación principal como barra fija de iconos arriba
+   (pegada debajo del topbar) en vez de pestañas de texto — así todas las
+   secciones quedan alcanzables sin scroll horizontal, sin importar cuántas
+   pestañas tenga la vista. Solo aplica a .tabs-primary (nav de nivel
+   superior: AdminView) y .tabs-sidebar (Contabilidad/Inventario/Mantención/
+   WebSettings) — NO a un .tabs genérico, porque ese mismo elemento también
+   lo usan sub-pestañas anidadas dentro de una sección (ver "Citas/Servicios/
+   Horario" en AgendaTab) y el portal público (.cliente-tabs); ninguna de esas
+   es la navegación principal y no deben competir por la franja superior. */
+@media (max-width: 640px) {
+  .tabs-primary,
+  .tabs-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    flex-direction: row;
+    flex: initial;
+    width: auto;
+    justify-content: space-around;
+    gap: 2px;
+    margin: 0 0 16px;
+    padding: calc(6px + env(safe-area-inset-top)) 6px 6px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-elevated);
+    overflow: visible;
+  }
+  .tabs-primary .tab,
+  .tabs-sidebar .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    height: 46px;
+    padding: 0;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+  }
+  .tabs-primary .tab-label,
+  .tabs-sidebar .tab-label {
+    display: none;
+  }
+  .tabs-primary .tab svg,
+  .tabs-sidebar .tab svg {
+    width: 20px;
+    height: 20px;
+  }
+  .tabs-primary .tab.active,
+  .tabs-sidebar .tab.active {
+    border-color: transparent;
+    background: rgba(255, 199, 44, 0.12);
+    color: var(--gold);
   }
 }
 

@@ -8,7 +8,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
-import { Pencil, Trash2 } from "lucide-react";
+import { MobileRecordCard, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Pencil, Trash2, UserCog } from "lucide-react";
 
 export default function PerfilesTab() {
   const { data, ui, commit, patchUi } = useApp();
@@ -38,7 +39,7 @@ export default function PerfilesTab() {
           + Nuevo perfil
         </button>
       </div>
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {data.perfiles.length === 0 ? (
           <div className="empty">No hay perfiles registrados</div>
         ) : (
@@ -217,14 +218,11 @@ function PerfilRowMobile({
     usePerfilRowState(perfil);
 
   return (
-    <div className="p-3">
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold">{perfil.nombre}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {perfil.modulos.length ? perfil.modulos.map((m) => MODULO_LABELS[m]).join(", ") : "Sin módulos asignados"}
-          </div>
-        </div>
+    <MobileRecordCard
+      avatar={<MobileRecordAvatar icon={UserCog} />}
+      title={perfil.nombre}
+      subtitle={perfil.modulos.length ? perfil.modulos.map((m) => MODULO_LABELS[m]).join(", ") : "Sin módulos asignados"}
+      menu={
         <MobileRowMenu
           actions={[
             { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "perfil", data: perfil } }) },
@@ -249,7 +247,8 @@ function PerfilRowMobile({
             { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: onEliminar },
           ]}
         />
-      </div>
+      }
+    >
       {editandoModulos && (
         <div className="mt-3">
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -270,7 +269,7 @@ function PerfilRowMobile({
           <ResetClaveForm perfil={perfil} actorId={ui.perfilActual?.id || null} onListo={() => setReseteando(false)} />
         </div>
       )}
-    </div>
+    </MobileRecordCard>
   );
 }
 

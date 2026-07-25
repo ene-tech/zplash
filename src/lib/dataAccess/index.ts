@@ -38,3 +38,4 @@ export * from "./precios";
 export * from "./servicios";
 export * from "./storage";
 export * from "./ventas";
+export * from "./whatsapp";

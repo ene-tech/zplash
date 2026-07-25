@@ -7,7 +7,8 @@ import type { Empresa } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
-import { Pencil, Trash2 } from "lucide-react";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Pencil, Trash2, Building2 } from "lucide-react";
 
 function coincide(e: Empresa, q: string): boolean {
   if (!q) return true;
@@ -84,26 +85,26 @@ export default function EmpresasTab() {
           + Nueva empresa
         </button>
       </div>
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {filtered.length === 0 ? (
           <div className="empty">No hay empresas que coincidan</div>
         ) : (
           filtered.map((e) => (
-            <div key={e.id} className="flex items-center gap-2 p-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-semibold">{e.razonSocial}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {e.rut} · {e.contactoNombre || "Sin contacto"}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">{e.giro || "Sin giro"}</div>
-              </div>
-              <MobileRowMenu
-                actions={[
-                  { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "empresa", data: e } }) },
-                  { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(e) },
-                ]}
-              />
-            </div>
+            <MobileRecordCard
+              key={e.id}
+              avatar={<MobileRecordAvatar icon={Building2} />}
+              title={e.razonSocial}
+              subtitle={`${e.rut} · ${e.contactoNombre || "Sin contacto"}`}
+              menu={
+                <MobileRowMenu
+                  actions={[
+                    { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "empresa", data: e } }) },
+                    { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(e) },
+                  ]}
+                />
+              }
+              meta={<MobileRecordMeta left={e.giro || "Sin giro"} right={e.telefono ? fmtTelefono(e.telefono) : undefined} />}
+            />
           ))
         )}
       </div>

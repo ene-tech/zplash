@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text } from "drizzle-orm/pg-core";
 import { timestamptz } from "../shared";
 import { productos } from "./productos";
 
@@ -26,20 +26,24 @@ export const destinosInventario = pgTable("destinos_inventario", {
 // irrepetible por guía (ver generarFolioTraspaso en helpers/ids.ts): las
 // líneas de una misma guía (un producto por línea) comparten folio, no es
 // único por fila.
-export const movimientosInventario = pgTable("movimientos_inventario", {
-  id: text("id").primaryKey(),
-  folio: text("folio").notNull(),
-  productoId: text("producto_id")
-    .notNull()
-    .references(() => productos.id, { onDelete: "cascade" }),
-  origenId: text("origen_id")
-    .notNull()
-    .references(() => destinosInventario.id, { onDelete: "restrict" }),
-  destinoId: text("destino_id")
-    .notNull()
-    .references(() => destinosInventario.id, { onDelete: "restrict" }),
-  cantidad: integer("cantidad").notNull(),
-  fecha: timestamptz("fecha").notNull().defaultNow(),
-  notas: text("notas"),
-  creadoPor: text("creado_por"),
-});
+export const movimientosInventario = pgTable(
+  "movimientos_inventario",
+  {
+    id: text("id").primaryKey(),
+    folio: text("folio").notNull(),
+    productoId: text("producto_id")
+      .notNull()
+      .references(() => productos.id, { onDelete: "cascade" }),
+    origenId: text("origen_id")
+      .notNull()
+      .references(() => destinosInventario.id, { onDelete: "restrict" }),
+    destinoId: text("destino_id")
+      .notNull()
+      .references(() => destinosInventario.id, { onDelete: "restrict" }),
+    cantidad: integer("cantidad").notNull(),
+    fecha: timestamptz("fecha").notNull().defaultNow(),
+    notas: text("notas"),
+    creadoPor: text("creado_por"),
+  },
+  (t) => [index("movimientos_inventario_fecha_idx").on(t.fecha)]
+);

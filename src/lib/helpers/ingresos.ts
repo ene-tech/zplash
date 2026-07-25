@@ -15,38 +15,51 @@ export function ultimoIngresoCliente(ingresos: Ingreso[], clienteId: string): In
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
 }
 
-const HORAS_MIN_ENTRE_INGRESOS_PLAN = 24.5;
 const HORAS_VENTANA_GARANTIA = 1;
 
 export type EstadoReingresoPlan = "libre" | "garantia" | "bloqueado";
 
+/** Texto legible de horasBloqueoReingresoPlan, ej: 24.5 -> "24:30 horas". */
+function fmtHorasBloqueo(horas: number): string {
+  const horasEnteras = Math.floor(horas);
+  const minutos = Math.round((horas - horasEnteras) * 60);
+  if (minutos === 0) return horasEnteras === 1 ? "1 hora" : `${horasEnteras} horas`;
+  return `${horasEnteras}:${String(minutos).padStart(2, "0")} horas`;
+}
+
 /**
- * Un vehículo con plan solo puede pasar 1 vez cada 24:30 horas. La garantía (repasar
- * el mismo lavado sin cobrar de nuevo) solo se puede hacer efectiva hasta 1 hora
- * después del ingreso anterior; pasada esa hora y hasta que se cumplan las 24:30
- * horas, el reingreso queda bloqueado (ni garantía ni pasada nueva, salvo pagando
- * un lavado único — ver `precioLavadoUnico`).
+ * Un vehículo con plan solo puede pasar 1 vez cada `horasBloqueo` horas (ver
+ * horasBloqueoReingresoPlan en ConfigGlobal, editable en Configuración). La
+ * garantía (repasar el mismo lavado sin cobrar de nuevo) solo se puede hacer
+ * efectiva hasta 1 hora después del ingreso anterior; pasada esa hora y hasta
+ * que se cumpla `horasBloqueo`, el reingreso queda bloqueado (ni garantía ni
+ * pasada nueva, salvo pagando un lavado único — ver `precioLavadoUnico`).
  */
-export function estadoReingresoPlan(ingresos: Ingreso[], clienteId: string, ahora: Date = new Date()): EstadoReingresoPlan {
+export function estadoReingresoPlan(
+  ingresos: Ingreso[],
+  clienteId: string,
+  ahora: Date = new Date(),
+  horasBloqueo: number = 24.5
+): EstadoReingresoPlan {
   const ultimo = ultimoIngresoCliente(ingresos, clienteId);
   if (!ultimo) return "libre";
   const msDesdeUltimo = ahora.getTime() - new Date(ultimo.fecha).getTime();
-  if (msDesdeUltimo >= HORAS_MIN_ENTRE_INGRESOS_PLAN * 3600 * 1000) return "libre";
+  if (msDesdeUltimo >= horasBloqueo * 3600 * 1000) return "libre";
   if (msDesdeUltimo <= HORAS_VENTANA_GARANTIA * 3600 * 1000) return "garantia";
   return "bloqueado";
 }
 
-/** Hora a partir de la cual el vehículo vuelve a poder pasar (último ingreso + 24:30). */
-export function proximoIngresoPermitido(ingresos: Ingreso[], clienteId: string): Date | undefined {
+/** Hora a partir de la cual el vehículo vuelve a poder pasar (último ingreso + horasBloqueo). */
+export function proximoIngresoPermitido(ingresos: Ingreso[], clienteId: string, horasBloqueo: number = 24.5): Date | undefined {
   const ultimo = ultimoIngresoCliente(ingresos, clienteId);
   if (!ultimo) return undefined;
-  return new Date(new Date(ultimo.fecha).getTime() + HORAS_MIN_ENTRE_INGRESOS_PLAN * 3600 * 1000);
+  return new Date(new Date(ultimo.fecha).getTime() + horasBloqueo * 3600 * 1000);
 }
 
-export function mensajeBloqueoReingreso(ingresos: Ingreso[], clienteId: string): string {
-  const proximo = proximoIngresoPermitido(ingresos, clienteId);
+export function mensajeBloqueoReingreso(ingresos: Ingreso[], clienteId: string, horasBloqueo: number = 24.5): string {
+  const proximo = proximoIngresoPermitido(ingresos, clienteId, horasBloqueo);
   const hora = proximo ? fmtHora(proximo.toISOString()) : "";
-  return `VEHICULO HIZO USO DEL SERVICIO TUNEL HACE MENOS DE 24 HORAS. PUEDE REINGRESAR A PARTIR DE LAS ${hora} HRS.`;
+  return `VEHICULO HIZO USO DEL SERVICIO TUNEL HACE MENOS DE ${fmtHorasBloqueo(horasBloqueo).toUpperCase()}. PUEDE REINGRESAR A PARTIR DE LAS ${hora} HRS.`;
 }
 
 /**
@@ -79,6 +92,26 @@ export function visitasUltimoPeriodoVencido(ingresos: Ingreso[], cliente: Pick<C
   const inicio = new Date(fin);
   inicio.setDate(inicio.getDate() - 30);
   return ingresos.filter((i) => i.clienteId === cliente.id && new Date(i.fecha) >= inicio && new Date(i.fecha) < fin).length;
+}
+
+/**
+ * Cantidad de ingresos del cliente desde que contrató su plan actual
+ * (fechaContratacion), sin acotar al ciclo de 30 días vigente — a diferencia
+ * de visitasPeriodoPlan, que solo cuenta el período vigente. Puede abarcar
+ * varias renovaciones, ya que fechaContratacion no se actualiza en cada
+ * renovación (ver renovarPlan en @/lib/actions).
+ */
+export function visitasDesdeContratacion(ingresos: Ingreso[], cliente: Pick<Cliente, "id" | "fechaContratacion">): number {
+  if (!cliente.fechaContratacion) return 0;
+  const inicio = new Date(cliente.fechaContratacion);
+  return ingresos.filter((i) => i.clienteId === cliente.id && new Date(i.fecha) >= inicio).length;
+}
+
+/** Cantidad de ingresos del cliente en los últimos 30 días — para clientes sin plan, que no tienen fechaContratacion que anclar. */
+export function visitasUltimos30Dias(ingresos: Ingreso[], clienteId: string, ahora: Date = ahoraEnSantiago()): number {
+  const inicio = new Date(ahora);
+  inicio.setDate(inicio.getDate() - 30);
+  return ingresos.filter((i) => i.clienteId === clienteId && new Date(i.fecha) >= inicio).length;
 }
 
 export function tipoIngreso(i: Ingreso): { label: string; cls: "ok" | "warn" | "bad" } {

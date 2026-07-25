@@ -7,7 +7,8 @@ import type { MovimientoInventario } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
-import { Trash2 } from "lucide-react";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Trash2, Package, ArrowLeftRight } from "lucide-react";
 
 export default function StockDestinosTab() {
   const { data, ui, patchUi, commit } = useApp();
@@ -59,23 +60,25 @@ export default function StockDestinosTab() {
         </button>
       </div>
 
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {productosFiltrados.length === 0 ? (
           <div className="empty">No hay productos que coincidan</div>
         ) : (
           productosFiltrados.map((p) => {
             const porDestino = stockPorDestino(p, data.destinosInventario, data.movimientosInventario);
             return (
-              <div key={p.id} className="p-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate font-semibold">{p.sku}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">Total: {p.stock}</span>
-                </div>
-                <div className="truncate text-xs text-muted-foreground">{p.detalle}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {destinosActivos.map((d) => `${d.nombre}: ${porDestino.get(d.id) ?? 0}`).join(" · ")}
-                </div>
-              </div>
+              <MobileRecordCard
+                key={p.id}
+                avatar={<MobileRecordAvatar icon={Package} />}
+                title={p.sku}
+                subtitle={p.detalle}
+                meta={
+                  <MobileRecordMeta
+                    left={destinosActivos.map((d) => `${d.nombre}: ${porDestino.get(d.id) ?? 0}`).join(" · ")}
+                    right={<span className="font-medium">Total {p.stock}</span>}
+                  />
+                }
+              />
             );
           })
         )}
@@ -120,26 +123,35 @@ export default function StockDestinosTab() {
       </div>
 
       <h3 style={{ marginTop: 28 }}>Historial de traspasos</h3>
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {historial.length === 0 ? (
           <div className="empty">Todavía no hay traspasos registrados</div>
         ) : (
           historial.map((m) => (
-            <div key={m.id} className="flex items-center gap-2 p-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-semibold">Folio {m.folio}</div>
-                <div className="truncate text-xs text-muted-foreground">{productoNombre(m.productoId)}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {destinoNombre(m.origenId)} → {destinoNombre(m.destinoId)} · {m.cantidad} un. ·{" "}
-                  {new Date(m.fecha).toLocaleDateString("es-CL")}
-                </div>
-              </div>
-              {puedeBorrar && (
-                <MobileRowMenu
-                  actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminarTraspaso(m) }]}
+            <MobileRecordCard
+              key={m.id}
+              avatar={<MobileRecordAvatar icon={ArrowLeftRight} />}
+              title={`Folio ${m.folio}`}
+              subtitle={productoNombre(m.productoId)}
+              menu={
+                puedeBorrar && (
+                  <MobileRowMenu
+                    actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminarTraspaso(m) }]}
+                  />
+                )
+              }
+              meta={
+                <MobileRecordMeta
+                  left={`${destinoNombre(m.origenId)} → ${destinoNombre(m.destinoId)}`}
+                  right={
+                    <>
+                      <div className="font-medium">{m.cantidad} un.</div>
+                      <div className="text-muted-foreground">{new Date(m.fecha).toLocaleDateString("es-CL")}</div>
+                    </>
+                  }
                 />
-              )}
-            </div>
+              }
+            />
           ))
         )}
       </div>

@@ -7,7 +7,8 @@ import type { Insumo } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
-import { Pencil, Trash2 } from "lucide-react";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Pencil, Trash2, Boxes } from "lucide-react";
 
 export default function InsumosTab() {
   const { data, ui, patchUi, commit } = useApp();
@@ -66,31 +67,39 @@ export default function InsumosTab() {
         </button>
       </div>
 
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {filtrados.length === 0 ? (
           <div className="empty">No hay insumos que coincidan</div>
         ) : (
           filtrados.map((i) => (
-            <div key={i.id} className="flex items-center gap-2 p-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate font-semibold">{i.nombre}</span>
-                  {!i.activo && <span className="shrink-0 text-xs text-muted-foreground">Inactivo</span>}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {categoriaNombre(i.categoriaId)} · {proveedorNombre(i.proveedorId)}
-                </div>
-                <div className={`truncate text-xs ${i.stock < i.stockMin ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
-                  Stock {i.stock} (mín {i.stockMin}) · {fmtCLP(i.valorCompra)}
-                </div>
-              </div>
-              <MobileRowMenu
-                actions={[
-                  { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "insumo", data: i } }) },
-                  { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(i) },
-                ]}
-              />
-            </div>
+            <MobileRecordCard
+              key={i.id}
+              avatar={<MobileRecordAvatar icon={Boxes} tone={i.stock < i.stockMin ? "bad" : "neutral"} />}
+              title={
+                <>
+                  {i.nombre} {!i.activo && <span className="font-normal text-muted-foreground">(Inactivo)</span>}
+                </>
+              }
+              subtitle={`${categoriaNombre(i.categoriaId)} · ${proveedorNombre(i.proveedorId)}`}
+              menu={
+                <MobileRowMenu
+                  actions={[
+                    { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "insumo", data: i } }) },
+                    { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(i) },
+                  ]}
+                />
+              }
+              meta={
+                <MobileRecordMeta
+                  left={
+                    <span className={i.stock < i.stockMin ? "font-semibold text-destructive" : undefined}>
+                      Stock {i.stock} (mín {i.stockMin})
+                    </span>
+                  }
+                  right={fmtCLP(i.valorCompra)}
+                />
+              }
+            />
           ))
         )}
       </div>

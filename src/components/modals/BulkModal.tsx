@@ -28,6 +28,10 @@ export default function BulkModal() {
     try {
       const buf = await file.arrayBuffer();
       const XLSX = await import("xlsx");
+      // xlsx tiene una vulnerabilidad conocida sin parche (prototype pollution
+      // + ReDoS, GHSA-4r6h-8v6p-xvw6 / GHSA-5pgg-2g8v-p4x9). Riesgo aceptado:
+      // esto corre en el navegador del propio operador sobre un archivo que
+      // él mismo elige subir — no expone al servidor ni a otros usuarios.
       const wb = XLSX.read(buf, { type: "array", cellDates: true });
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as Record<string, unknown>[];

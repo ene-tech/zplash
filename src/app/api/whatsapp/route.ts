@@ -1,58 +1,147 @@
 import { NextRequest, NextResponse } from "next/server";
-import twilio from "twilio";
-import { responderMensaje } from "@/lib/whatsapp/router";
+import crypto from "crypto";
+import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje } from "@/lib/dataAccess";
+import { uid } from "@/lib/helpers";
 import { rateLimited } from "@/lib/rateLimit";
+import { enviarMensajeImagen, enviarMensajeTexto } from "@/lib/whatsapp/enviar";
+import { responderMensaje } from "@/lib/whatsapp/router";
+import type { EstadoMensajeWhatsapp } from "@/types";
 
 export const runtime = "nodejs";
 
 const LIMITE_MENSAJES = 20;
 const VENTANA_MS = 5 * 60 * 1000;
 
-function xmlEscape(texto: string): string {
-  return texto
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+const ESTADO_META_A_LOCAL: Record<string, EstadoMensajeWhatsapp> = {
+  sent: "enviado",
+  delivered: "entregado",
+  read: "leido",
+  failed: "fallido",
+};
+
+type MetaMensaje = {
+  from: string;
+  id: string;
+  type: string;
+  text?: { body?: string };
+};
+
+type MetaStatus = {
+  id: string;
+  status: string;
+};
+
+type MetaContacto = {
+  wa_id: string;
+  profile?: { name?: string };
+};
+
+// Meta llama a GET una sola vez, al guardar la URL del webhook en Meta for
+// Developers, para confirmar que somos dueños del endpoint.
+export async function GET(request: NextRequest) {
+  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
+  if (!verifyToken) {
+    console.error("META_WEBHOOK_VERIFY_TOKEN no configurado");
+    return NextResponse.json({ error: "No configurado" }, { status: 500 });
+  }
+
+  const params = request.nextUrl.searchParams;
+  const modo = params.get("hub.mode");
+  const token = params.get("hub.verify_token");
+  const challenge = params.get("hub.challenge");
+
+  if (modo === "subscribe" && token === verifyToken && challenge) {
+    return new NextResponse(challenge);
+  }
+  return NextResponse.json({ error: "Token inválido" }, { status: 403 });
+}
+
+function firmaValida(rawBody: string, firma: string | null, secreto: string): boolean {
+  if (!firma || !firma.startsWith("sha256=")) return false;
+  const esperada = crypto.createHmac("sha256", secreto).update(rawBody, "utf8").digest("hex");
+  const a = Buffer.from(esperada);
+  const b = Buffer.from(firma.slice("sha256=".length));
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string | undefined, origen: string) {
+  const telefono = "+" + msg.from;
+
+  if (rateLimited(`whatsapp:${telefono}`, LIMITE_MENSAJES, VENTANA_MS)) return;
+
+  const conversacion = await buscarOCrearConversacion(telefono, nombreContacto);
+  const textoEntrante = msg.type === "text" ? msg.text?.body || "" : "";
+  await insertarMensaje({
+    id: uid(),
+    conversacionId: conversacion.id,
+    direccion: "entrante",
+    texto: textoEntrante || `[${msg.type}]`,
+    tipo: "texto",
+    whatsappMessageId: msg.id,
+  });
+
+  let respuesta;
+  try {
+    respuesta = await responderMensaje(textoEntrante);
+  } catch (error) {
+    console.error("Error respondiendo mensaje de WhatsApp", error);
+    respuesta = { texto: "Ocurrió un error de nuestro lado. Intenta de nuevo en unos minutos." };
+  }
+
+  await enviarMensajeTexto(telefono, respuesta.texto);
+  if (respuesta.mediaPath) {
+    await enviarMensajeImagen(telefono, `${origen}${respuesta.mediaPath}`);
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  if (!authToken) {
-    console.error("TWILIO_AUTH_TOKEN no configurado");
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appSecret) {
+    console.error("META_APP_SECRET no configurado");
     return NextResponse.json({ error: "No configurado" }, { status: 500 });
   }
 
   const rawBody = await request.text();
-  const params = Object.fromEntries(new URLSearchParams(rawBody));
-
-  const firma = request.headers.get("x-twilio-signature");
-  const proto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? request.nextUrl.host;
-  const url = `${proto}://${host}${request.nextUrl.pathname}`;
-  const firmaValida = !!firma && twilio.validateRequest(authToken, firma, url, params);
-  if (!firmaValida) {
-    console.error("Firma inválida en webhook de Twilio WhatsApp", { url, tieneFirma: !!firma });
+  const firma = request.headers.get("x-hub-signature-256");
+  if (!firmaValida(rawBody, firma, appSecret)) {
+    console.error("Firma inválida en webhook de Meta WhatsApp", { tieneFirma: !!firma });
     return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
   }
 
-  const remitente = params.From || "desconocido";
-  if (rateLimited(`whatsapp:${remitente}`, LIMITE_MENSAJES, VENTANA_MS)) {
-    const twiml =
-      '<?xml version="1.0" encoding="UTF-8"?><Response><Message><Body>Estás mandando mensajes muy seguido, espera unos minutos e intenta de nuevo.</Body></Message></Response>';
-    return new NextResponse(twiml, { headers: { "Content-Type": "text/xml" } });
-  }
+  const proto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? request.nextUrl.host;
+  const origen = `${proto}://${host}`;
 
-  const cuerpoMensaje = params.Body || "";
-  let texto: string;
-  let mediaPath: string | undefined;
+  let payload: {
+    entry?: Array<{ changes?: Array<{ value?: { messages?: MetaMensaje[]; statuses?: MetaStatus[]; contacts?: MetaContacto[] } }> }>;
+  };
   try {
-    ({ texto, mediaPath } = await responderMensaje(cuerpoMensaje));
-  } catch (error) {
-    console.error("Error respondiendo mensaje de WhatsApp", error);
-    texto = "Ocurrió un error de nuestro lado. Intenta de nuevo en unos minutos.";
+    payload = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const media = mediaPath ? `<Media>${xmlEscape(`${proto}://${host}${mediaPath}`)}</Media>` : "";
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message><Body>${xmlEscape(texto)}</Body>${media}</Message></Response>`;
-  return new NextResponse(twiml, { headers: { "Content-Type": "text/xml" } });
+  for (const entry of payload.entry || []) {
+    for (const change of entry.changes || []) {
+      const value = change.value;
+      if (!value) continue;
+
+      const nombresPorWaId = new Map((value.contacts || []).map((c) => [c.wa_id, c.profile?.name]));
+      for (const msg of value.messages || []) {
+        try {
+          await manejarMensajeEntrante(msg, nombresPorWaId.get(msg.from), origen);
+        } catch (error) {
+          console.error("Error procesando mensaje entrante de WhatsApp", error);
+        }
+      }
+
+      for (const status of value.statuses || []) {
+        const estado = ESTADO_META_A_LOCAL[status.status];
+        if (estado) await actualizarEstadoMensaje(status.id, estado);
+      }
+    }
+  }
+
+  return NextResponse.json({ ok: true });
 }

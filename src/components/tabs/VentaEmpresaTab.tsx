@@ -21,7 +21,8 @@ import type { Cupon, Empresa, Venta } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
-import { Trash2 } from "lucide-react";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Trash2, Ticket } from "lucide-react";
 
 function valorCupon(c: Cupon): string {
   if (c.tipo === "descuento") return c.esPorcentaje ? `${c.valor}%` : fmtCLP(c.valor);
@@ -554,28 +555,35 @@ export default function VentaEmpresaTab() {
           Descargar (Excel)
         </button>
       </div>
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {filtrados.length === 0 ? (
           <div className="empty">Sin cupones</div>
         ) : (
           filtrados.map((c) => {
             const est = estadoCupon(c);
             return (
-              <div key={c.id} className="flex items-center gap-2 p-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="plate-tag truncate">{c.codigo}</span>
-                    <span className="truncate text-xs text-muted-foreground">{est.label}</span>
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground">{c.nombreLote}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {valorCupon(c)} · Vence {new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}
-                  </div>
-                </div>
-                {!c.usado && (
-                  <MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(c) }]} />
-                )}
-              </div>
+              <MobileRecordCard
+                key={c.id}
+                avatar={<MobileRecordAvatar icon={Ticket} tone={est.cls} />}
+                title={<span className="plate-tag">{c.codigo}</span>}
+                subtitle={c.nombreLote}
+                menu={
+                  !c.usado && (
+                    <MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(c) }]} />
+                  )
+                }
+                meta={
+                  <MobileRecordMeta
+                    left={<span className={`status-pill ${est.cls}`}>{est.label}</span>}
+                    right={
+                      <>
+                        <div className="font-medium">{valorCupon(c)}</div>
+                        <div className="text-muted-foreground">Vence {new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}</div>
+                      </>
+                    }
+                  />
+                }
+              />
             );
           })
         )}

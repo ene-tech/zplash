@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 const ESTADOS_VALIDOS = new Set(["processing", "completed"]);
 
-function verificarFirma(rawBody: string, firma: string | null, secreto: string): boolean {
+export function verificarFirma(rawBody: string, firma: string | null, secreto: string): boolean {
   if (!firma) return false;
   const esperada = crypto.createHmac("sha256", secreto).update(rawBody, "utf8").digest("base64");
   const a = Buffer.from(esperada);
@@ -64,13 +64,13 @@ export async function POST(request: NextRequest) {
 
   const firma = request.headers.get("x-wc-webhook-signature");
   if (!verificarFirma(rawBody, firma, secreto)) {
-    const calculada = crypto.createHmac("sha256", secreto).update(rawBody, "utf8").digest("base64");
+    // No se loggea el body ni la firma calculada: el body de un pedido trae
+    // datos de clientes (nombre, email, teléfono) y no hace falta su
+    // contenido para diagnosticar un problema de firma.
     console.error("Firma invalida en webhook WooCommerce", {
       largoSecreto: secreto.length,
       largoBody: rawBody.length,
       headerRecibida: firma,
-      firmaCalculada: calculada,
-      inicioBody: rawBody.slice(0, 80),
     });
     return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
   }

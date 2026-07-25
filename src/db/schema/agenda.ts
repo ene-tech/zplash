@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text } from "drizzle-orm/pg-core";
 import { clientes } from "./clientes";
 import { servicios } from "./servicios";
 import { timestamptz } from "./shared";
@@ -34,20 +34,24 @@ export const bloqueosAgenda = pgTable("bloqueos_agenda", {
 // catálogo la cita ya creada no se recalcula sola. La cita NO genera
 // automáticamente una Venta/Ingreso: eso sigue siendo el mismo registro que
 // ya hace ServiciosAdicionalesView al guardar.
-export const citas = pgTable("citas", {
-  id: text("id").primaryKey(),
-  clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "cascade" }),
-  patente: text("patente").notNull(),
-  nombre: text("nombre").notNull(),
-  telefono: text("telefono"),
-  fechaHora: timestamptz("fecha_hora").notNull(),
-  duracionMinutos: integer("duracion_minutos").notNull(),
-  estado: text("estado").notNull().default("agendado"),
-  notas: text("notas"),
-  origen: text("origen").notNull().default("interno"),
-  creadoPor: text("creado_por"),
-  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
-});
+export const citas = pgTable(
+  "citas",
+  {
+    id: text("id").primaryKey(),
+    clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "cascade" }),
+    patente: text("patente").notNull(),
+    nombre: text("nombre").notNull(),
+    telefono: text("telefono"),
+    fechaHora: timestamptz("fecha_hora").notNull(),
+    duracionMinutos: integer("duracion_minutos").notNull(),
+    estado: text("estado").notNull().default("agendado"),
+    notas: text("notas"),
+    origen: text("origen").notNull().default("interno"),
+    creadoPor: text("creado_por"),
+    creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  },
+  (t) => [index("citas_fecha_hora_idx").on(t.fechaHora), index("citas_cliente_id_idx").on(t.clienteId)]
+);
 
 // Servicios ligados a una cita (equivalente a cita_procedimientos en
 // ConsultaPro): una cita puede incluir varios servicios del catálogo a la

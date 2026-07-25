@@ -9,7 +9,8 @@ import type { BloqueoAgenda, Cita, HorarioAgenda, Servicio } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
-import { Trash2 } from "lucide-react";
+import { MobileRecordCard, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Trash2, CalendarCheck, Wrench, Clock, CalendarOff } from "lucide-react";
 
 const DIAS = [
   { valor: 1, nombre: "Lunes" },
@@ -420,17 +421,15 @@ function BloqueosPuntuales() {
       </button>
 
       {data.bloqueosAgenda.length > 0 && (
-        <div className="divide-y divide-border rounded-lg border border-border md:hidden" style={{ marginTop: 16 }}>
+        <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card" style={{ marginTop: 16 }}>
           {data.bloqueosAgenda.map((b) => (
-            <div key={b.id} className="flex items-center gap-2 p-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-semibold">{b.fecha}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {b.todoElDia ? "Todo el día" : `${b.horaInicio} – ${b.horaFin}`} · {b.motivo || "Sin motivo"}
-                </div>
-              </div>
-              <MobileRowMenu actions={[{ label: "Quitar", icon: <Trash2 />, destructive: true, onClick: () => quitar(b.id) }]} />
-            </div>
+            <MobileRecordCard
+              key={b.id}
+              avatar={<MobileRecordAvatar icon={CalendarOff} />}
+              title={b.fecha}
+              subtitle={`${b.todoElDia ? "Todo el día" : `${b.horaInicio} – ${b.horaFin}`} · ${b.motivo || "Sin motivo"}`}
+              menu={<MobileRowMenu actions={[{ label: "Quitar", icon: <Trash2 />, destructive: true, onClick: () => quitar(b.id) }]} />}
+            />
           ))}
         </div>
       )}
@@ -480,14 +479,17 @@ export default function AgendaTab() {
   return (
     <div>
       <div className="tabs" style={{ marginBottom: 20 }}>
-        <div className={`tab ${seccion === "citas" ? "active" : ""}`} onClick={() => setSeccion("citas")}>
-          Citas
+        <div className={`tab ${seccion === "citas" ? "active" : ""}`} onClick={() => setSeccion("citas")} title="Citas">
+          <CalendarCheck />
+          <span className="tab-label">Citas</span>
         </div>
-        <div className={`tab ${seccion === "servicios" ? "active" : ""}`} onClick={() => setSeccion("servicios")}>
-          Servicios
+        <div className={`tab ${seccion === "servicios" ? "active" : ""}`} onClick={() => setSeccion("servicios")} title="Servicios">
+          <Wrench />
+          <span className="tab-label">Servicios</span>
         </div>
-        <div className={`tab ${seccion === "horario" ? "active" : ""}`} onClick={() => setSeccion("horario")}>
-          Horario y bloqueos
+        <div className={`tab ${seccion === "horario" ? "active" : ""}`} onClick={() => setSeccion("horario")} title="Horario y bloqueos">
+          <Clock />
+          <span className="tab-label">Horario y bloqueos</span>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { and, eq, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { suscripcionesOneclick } from "@/db/schema";
@@ -9,13 +10,20 @@ export const runtime = "nodejs";
 // Disparado por el cron de Vercel (vercel.json) una vez al día. Vercel manda
 // automáticamente "Authorization: Bearer $CRON_SECRET" en la llamada cuando
 // esa env var está configurada en el proyecto.
+function autorizacionValida(header: string | null, secreto: string): boolean {
+  if (!header) return false;
+  const esperado = Buffer.from(`Bearer ${secreto}`);
+  const recibido = Buffer.from(header);
+  return esperado.length === recibido.length && crypto.timingSafeEqual(esperado, recibido);
+}
+
 export async function POST(request: NextRequest) {
   const secreto = process.env.CRON_SECRET;
   if (!secreto) {
     console.error("CRON_SECRET no configurado");
     return NextResponse.json({ error: "No configurado" }, { status: 500 });
   }
-  if (request.headers.get("authorization") !== `Bearer ${secreto}`) {
+  if (!autorizacionValida(request.headers.get("authorization"), secreto)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

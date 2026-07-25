@@ -2,10 +2,11 @@
 
 import * as dataAccess from "@/lib/dataAccess";
 import { esExentoFormatoCliente, isValidPatente } from "@/lib/helpers";
-import { sesionActual, tieneSesionValida } from "@/lib/session";
+import { sesionActual, tieneModulo } from "@/lib/session";
 import type { Cliente } from "@/types";
 
 export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
+  if (!(await tieneModulo("clientes"))) return false;
   const sesion = await sesionActual();
   if (!sesion) return false;
   // La UI (ClientModal/BulkModal) ya exige nombre y patente válida antes de
@@ -24,6 +25,6 @@ export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
 }
 
 export async function deleteClientes(ids: string[]): Promise<boolean> {
-  if (!(await tieneSesionValida())) return false;
+  if (!(await tieneModulo("clientes"))) return false;
   return dataAccess.deleteClientes(ids);
 }

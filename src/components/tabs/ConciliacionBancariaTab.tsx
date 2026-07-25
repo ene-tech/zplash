@@ -11,8 +11,13 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MobileRowMenu, { type MobileRowAction } from "@/components/tabs/MobileRowMenu";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Landmark } from "lucide-react";
 
 const SIN_VINCULAR = "sin-vincular";
+
+const ESTADO_TONE = { conciliado: "ok", pendiente: "warn", ignorado: "bad" } as const;
+const ESTADO_LABEL = { conciliado: "Conciliado", pendiente: "Pendiente", ignorado: "Ignorado" } as const;
 
 interface FilaCartolaProps {
   m: CartolaMovimiento;
@@ -318,23 +323,18 @@ function FilaCartolaMobile({
   if (m.abono > 0) acciones.push({ label: "Crear ingreso", onClick: () => setMostrarIngreso((v) => !v) });
 
   return (
-    <div className="p-3">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate font-semibold">{new Date(m.fecha).toLocaleDateString("es-CL")}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {m.estado === "conciliado" ? "Conciliado" : m.estado === "ignorado" ? "Ignorado" : "Pendiente"}
-            </span>
-          </div>
-          <div className="truncate text-xs text-muted-foreground">{m.glosa}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {m.cargo ? `Cargo ${fmtCLP(m.cargo)}` : `Abono ${fmtCLP(m.abono)}`}
-          </div>
-        </div>
-        <MobileRowMenu actions={acciones} />
-      </div>
-
+    <MobileRecordCard
+      avatar={<MobileRecordAvatar icon={Landmark} tone={ESTADO_TONE[m.estado]} />}
+      title={new Date(m.fecha).toLocaleDateString("es-CL")}
+      subtitle={m.glosa}
+      menu={<MobileRowMenu actions={acciones} />}
+      meta={
+        <MobileRecordMeta
+          left={<span className={`status-pill ${ESTADO_TONE[m.estado]}`}>{ESTADO_LABEL[m.estado]}</span>}
+          right={<div className="font-medium">{m.cargo ? `Cargo ${fmtCLP(m.cargo)}` : `Abono ${fmtCLP(m.abono)}`}</div>}
+        />
+      }
+    >
       <div className="mt-2">
         <Buscador
           value={categoriaTexto}
@@ -415,7 +415,7 @@ function FilaCartolaMobile({
           </button>
         </div>
       )}
-    </div>
+    </MobileRecordCard>
   );
 }
 
@@ -694,7 +694,7 @@ export default function ConciliacionBancariaTab() {
         </div>
       </div>
 
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {movimientosPeriodo.length === 0 ? (
           <div className="empty">Sin movimientos importados para este período</div>
         ) : (

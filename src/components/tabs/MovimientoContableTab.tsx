@@ -20,7 +20,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
-import { Trash2 } from "lucide-react";
+import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
+import { Trash2, ArrowLeftRight } from "lucide-react";
 
 const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
   ingreso: "Cliente / Origen",
@@ -549,24 +550,24 @@ export default function MovimientoContableTab({
           onChange={(e) => setBusqueda(e.target.value)}
         />
       </div>
-      <div className="divide-y divide-border rounded-lg border border-border md:hidden">
+      <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {items.length === 0 ? (
           <div className="empty">Sin registros</div>
         ) : (
           items.map((m) => (
-            <div key={m.id} className="p-3">
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold">{m.descripcion}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {m.categoria || "Sin categoría"} · {m.contraparte || "-"}
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {fmtCLP(m.monto)} · {new Date(m.fecha).toLocaleDateString("es-CL")}
-                  </div>
-                </div>
-                <MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(m) }]} />
-              </div>
+            <MobileRecordCard
+              key={m.id}
+              avatar={<MobileRecordAvatar icon={ArrowLeftRight} tone={tipo === "egreso" ? "bad" : "ok"} />}
+              title={m.descripcion}
+              subtitle={`${m.categoria || "Sin categoría"} · ${m.contraparte || "-"}`}
+              menu={<MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(m) }]} />}
+              meta={
+                <MobileRecordMeta
+                  left={new Date(m.fecha).toLocaleDateString("es-CL")}
+                  right={<span className="font-medium">{fmtCLP(m.monto)}</span>}
+                />
+              }
+            >
               {tipo === "egreso" ? (
                 <Select value={m.estado} onValueChange={(v) => v && cambiarEstadoEgreso(m, v as MovimientoContable["estado"])}>
                   <SelectTrigger size="sm" className="mt-2 w-full">
@@ -584,7 +585,7 @@ export default function MovimientoContableTab({
                   {m.estado === "pagado" ? "Marcar pendiente" : "Marcar pagado"}
                 </Button>
               )}
-            </div>
+            </MobileRecordCard>
           ))
         )}
       </div>

@@ -45,6 +45,26 @@ export function planStatus(c: Pick<Cliente, "vencimiento">): PlanStatus {
   return { label: "Vigente", cls: "ok" };
 }
 
+/** Duración estándar de un ciclo de plan, en días — mismo bloque usado por vencimientoAnclado/inicioPeriodoPlan. */
+export const DURACION_PLAN_DIAS = 30;
+
+/**
+ * Porcentaje de un ciclo de plan (30 días) que le queda al cliente, para la
+ * barra de progreso de la lista de clientes: 100% recién renovado, 0% el día
+ * del vencimiento. Se satura en 100 si el vencimiento quedó más lejos que un
+ * ciclo completo (p.ej. un plan cargado manualmente a futuro) y en 0 tras
+ * vencido. `null` sin plan asociado (mismo caso que planStatus "Sin plan").
+ */
+export function planProgreso(c: Pick<Cliente, "vencimiento">, ahora: Date = ahoraEnSantiago()): number | null {
+  if (!c.vencimiento) return null;
+  const hoy = new Date(ahora);
+  hoy.setHours(0, 0, 0, 0);
+  const venc = new Date(c.vencimiento);
+  venc.setHours(0, 0, 0, 0);
+  const diasRestantes = Math.round((venc.getTime() - hoy.getTime()) / 86400000);
+  return Math.max(0, Math.min(100, Math.round((diasRestantes / DURACION_PLAN_DIAS) * 100)));
+}
+
 /**
  * Días enteros transcurridos desde que venció el plan (mismo criterio que
  * planStatus: hora de Chile, comparado contra el inicio del día); `null` si

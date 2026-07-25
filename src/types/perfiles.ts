@@ -17,7 +17,8 @@ export type Modulo =
   | "agenda"
   | "web_settings"
   | "inventario"
-  | "mantencion";
+  | "mantencion"
+  | "mensajes";
 
 // Lo que el cliente sí puede cargar: nombre y módulos permitidos, nunca la
 // contraseña. La clave solo se consulta/valida server-side, dentro de las

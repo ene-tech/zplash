@@ -57,4 +57,8 @@ export interface ConfigGlobal {
   // ofrece la promoción (ver precioReactivacionVencido); un cliente Web sin
   // tramo sigue viendo su oferta de renovar al último valor pagado.
   tramosReactivacionVencido: Record<string, TramoReactivacionVencido[]>;
+  // Horas mínimas entre dos ingresos por plan de un mismo vehículo antes de
+  // volver a quedar "libre" para reingresar (ver estadoReingresoPlan en
+  // helpers/ingresos.ts). Acepta decimales (ej: 24.5 = 24 horas 30 min).
+  horasBloqueoReingresoPlan: number;
 }
