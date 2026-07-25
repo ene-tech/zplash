@@ -8,8 +8,8 @@ import type { Cliente } from "@/types";
 // Campos que registrarIngreso() (@/lib/actions) toca como efecto colateral de
 // dar ingreso a un vehículo en el módulo Operador: cualquier sesión válida
 // puede provocar este patch aunque no tenga el módulo "clientes" (ver
-// esSoloActualizacionDeVisita más abajo). El resto de los campos solo puede
-// cambiarlos una sesión con "clientes" (ClientModal/BulkModal).
+// esCambioPermitidoSinModuloClientes más abajo). El resto de los campos solo
+// puede cambiarlos una sesión con "clientes" (ClientModal/BulkModal).
 const CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["visitas", "ultimaVisita"]);
 
 // Antes, upsertClientes exigía solo tieneSesionValida(): cualquier perfil
@@ -21,23 +21,35 @@ const CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["visita
 // de operador no tienen el módulo "clientes" por defecto, ese patch quedaba
 // bloqueado y el commit completo (ingreso incluido) se revertía. Por eso acá
 // se compara cada fila contra lo que ya hay en la base: si el único cambio
-// real es visitas/ultimaVisita, se permite sin el módulo "clientes"; si toca
-// cualquier otro campo (nombre, patente, teléfono, etc.), se sigue exigiendo
-// el módulo, igual que antes de este chequeo.
-async function esSoloActualizacionDeVisita(rows: Cliente[]): Promise<boolean> {
+// real es visitas/ultimaVisita, se permite sin el módulo "clientes".
+//
+// Además, dar de alta un vehículo *nuevo* desde el botón "+ Agregar vehículo
+// nuevo" del módulo Operador (ClientModal con contexto="operador") tampoco
+// pasaba este chequeo: al no existir todavía la fila en la base, no calzaba
+// como "solo visitas" y quedaba bloqueado igual, mostrando "sin conexión" en
+// vez de reflejar que era un tema de permisos — un operador sin el módulo
+// "clientes" (el caso por defecto, ver PERFILES_DEFAULT) nunca podía registrar
+// un cliente que llegaba por primera vez. Se exime también ese caso: una fila
+// que no existe aún en la base es un alta, no una edición de datos ajenos, y
+// cualquier sesión con el módulo "operador" ya puede hacer ese alta desde el
+// punto de venta.
+async function esCambioPermitidoSinModuloClientes(rows: Cliente[]): Promise<boolean> {
   const anteriores = await dataAccess.getClientesByIds(rows.map((r) => r.id));
   const porId = new Map(anteriores.map((c) => [c.id, c]));
-  return rows.every((row) => {
+  const soloVisitas = rows.every((row) => {
     const anterior = porId.get(row.id);
     if (!anterior) return false;
     return (Object.keys(row) as (keyof Cliente)[]).every(
       (campo) => CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo) || row[campo] === anterior[campo]
     );
   });
+  if (soloVisitas) return true;
+  const todasAltasNuevas = rows.every((row) => !porId.has(row.id));
+  return todasAltasNuevas && (await tieneModulo("operador"));
 }
 
 export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
-  if (!(await tieneModulo("clientes")) && !(await esSoloActualizacionDeVisita(rows))) return false;
+  if (!(await tieneModulo("clientes")) && !(await esCambioPermitidoSinModuloClientes(rows))) return false;
   const sesion = await sesionActual();
   if (!sesion) return false;
   // La UI (ClientModal/BulkModal) ya exige nombre y patente válida antes de
