@@ -16,13 +16,14 @@ import {
   isValidRut,
   isValidTelefono,
   normPlate,
+  planStatus,
   precioLavadoUnico,
   precioNormal,
   todayYMD,
   uid,
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
-import type { Cliente, Empresa, PagoInfo, Venta } from "@/types";
+import type { Cliente, Empresa, Ingreso, PagoInfo, Venta } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -153,6 +154,7 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
     const persistir = async (pago?: PagoInfo) => {
       let clientes: Cliente[];
       let ventas = data.ventas;
+      let ingresos = data.ingresos;
       let nuevaEmpresa: Empresa | undefined;
 
       if (c) {
@@ -203,7 +205,13 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           giro,
           vencimiento,
           origen,
-          visitas: 0,
+          // El alta desde el punto de venta del operador ("+ Agregar vehículo
+          // nuevo") es el vehículo entrando físicamente en ese momento, así
+          // que ya cuenta como su primera visita (ver Ingreso más abajo). Un
+          // alta desde el admin (ClientesTab) no implica que el cliente haya
+          // pasado por el local.
+          visitas: contexto === "operador" ? 1 : 0,
+          ultimaVisita: contexto === "operador" ? new Date().toISOString() : undefined,
           creadoEn: new Date().toISOString(),
           creadoPor: contexto === "operador" ? ui.perfilActual?.nombre || "" : "Administrador",
         };
@@ -254,9 +262,30 @@ export default function ClientModal({ data: c, contexto }: { data: Cliente | nul
           };
           ventas = [venta, ...ventas];
         }
+        if (contexto === "operador") {
+          // Sin esto, el cliente y la venta quedaban registrados (aparecía
+          // cobrado en Cierre de Caja) pero el vehículo nunca quedaba
+          // constancia de haber entrado al túnel: Historial de Ingresos no
+          // mostraba nada para esta alta.
+          const ingreso: Ingreso = {
+            id: "i" + Date.now(),
+            clienteId: nuevo.id,
+            patente: nuevo.patente,
+            nombre: nuevo.nombre,
+            fecha: new Date().toISOString(),
+            planEstadoAlIngreso: planStatus(nuevo).cls,
+            creadoPor: ui.perfilActual?.nombre || "",
+          };
+          ingresos = [ingreso, ...ingresos];
+        }
       }
 
-      const ok = await commit({ clientes, ventas, ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}) });
+      const ok = await commit({
+        clientes,
+        ventas,
+        ingresos,
+        ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
+      });
       if (!ok) {
         setErr("No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.");
         return;

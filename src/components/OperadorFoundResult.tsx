@@ -221,7 +221,10 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
 
   const guardarNombre = async () => {
     const val = nombreRef.current?.value.trim();
-    if (!val) return;
+    if (!val) {
+      setGuardarErr("Escribe el nombre antes de tocar Guardar.");
+      return;
+    }
     const updated = { ...c, nombre: val.toUpperCase() };
     const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
     if (!ok) {
@@ -234,7 +237,10 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
 
   const guardarVehiculo = async () => {
     const val = vehiculoRef.current?.value.trim();
-    if (!val) return;
+    if (!val) {
+      setGuardarErr("Escribe el vehículo antes de tocar Guardar.");
+      return;
+    }
     const nombre = nombreParaGuardar();
     if (!nombre) {
       setGuardarErr("Ingresa el nombre del cliente antes de guardar.");
@@ -258,7 +264,10 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
 
   const guardarTelefono = async () => {
     const raw = telefonoRef.current?.value.trim();
-    if (!raw) return;
+    if (!raw) {
+      setGuardarErr("Escribe el teléfono antes de tocar Guardar.");
+      return;
+    }
     const telefono = formatTelefono(raw);
     if (!isValidTelefono(telefono)) {
       setGuardarErr(TELEFONO_FORMATO_MSG);
@@ -281,7 +290,10 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
 
   const guardarEmail = async () => {
     const val = emailRef.current?.value.trim();
-    if (!val) return;
+    if (!val) {
+      setGuardarErr("Escribe el correo antes de tocar Guardar.");
+      return;
+    }
     if (!isValidEmail(val)) {
       setGuardarErr("Ingresa un email válido");
       return;
