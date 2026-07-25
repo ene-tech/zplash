@@ -19,6 +19,18 @@ const CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["visita
 // ya guardado — es completar una ficha "INVITADO"/incompleta, no editarla.
 const CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["nombre", "vehiculo", "telefono", "email"]);
 
+// Campos que renovar/reactivar/renovarWeb/contratarPlan/upgradeAPlan (ver
+// OperadorFoundResult) y renovarPlan (@/lib/actions) tocan sobre un cliente
+// ya existente al vender/renovar/reactivar un plan desde el módulo Operador.
+// Ningún perfil de operador tiene el módulo "clientes" por defecto (ver
+// PERFILES_DEFAULT) — sin esta excepción, cualquier venta de plan quedaba
+// bloqueada acá. Como commit() ya inserta la Venta correspondiente sin
+// depender de que este upsert de clientes tenga éxito (ver AppContext.commit,
+// commitClientes se espera antes que commitVentas pero no lo condiciona), el
+// operador veía "sin conexión", reintentaba, y quedaban Ventas duplicadas
+// cobradas sin que el plan del cliente llegara a activarse nunca.
+const CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["plan", "vencimiento", "ultimaRenovacion"]);
+
 // Antes, upsertClientes exigía solo tieneSesionValida(): cualquier perfil
 // logueado podía guardar un cliente. Al agregar el gate de tieneModulo
 // ("clientes") para proteger la edición real de clientes (alta/edición desde
@@ -71,7 +83,19 @@ async function esCambioPermitidoSinModuloClientes(rows: Cliente[]): Promise<bool
       return campo === "nombre" ? esNombreVacio(anterior.nombre) : !anterior[campo];
     });
   });
-  return soloCompletaDatosVacios && (await tieneModulo("operador"));
+  if (soloCompletaDatosVacios) return tieneModulo("operador");
+
+  const soloVentaDePlan = rows.every((row) => {
+    const anterior = porId.get(row.id);
+    if (!anterior) return false;
+    return (Object.keys(row) as (keyof Cliente)[]).every(
+      (campo) =>
+        CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo) ||
+        CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES.has(campo) ||
+        row[campo] === anterior[campo]
+    );
+  });
+  return soloVentaDePlan && (await tieneModulo("operador"));
 }
 
 export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
