@@ -170,7 +170,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       auditoria.push(...r.auditoria);
     };
 
-    agregar(commitClientes(previous.clientes, patch.clientes, usuario));
+    // clientes se resuelve y espera ANTES de tocar ingresos/ventas (ver
+    // comentario en commitClientes, @/context/commit/clientes): ambas tablas
+    // tienen columnas con FK a clientes.id y, al dar de alta un cliente
+    // nuevo, esa fila recién existe una vez que este await termina.
+    const { ok: clientesOk, auditoria: auditoriaClientes } = await commitClientes(previous.clientes, patch.clientes, usuario);
+    auditoria.push(...auditoriaClientes);
+
     agregar(commitIngresos(previous.ingresos, patch.ingresos, usuario));
 
     // citas se resuelve y espera ANTES de tocar ventas (ver comentario en
@@ -219,7 +225,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error("No se pudo guardar: posible falla de red", err);
       results = [false];
     }
-    const ok = citasOk && results.every(Boolean);
+    const ok = clientesOk && citasOk && results.every(Boolean);
     setStorageReady(ok);
     if (!ok) {
       console.error("No se pudo guardar toda la información en el almacenamiento persistente");
