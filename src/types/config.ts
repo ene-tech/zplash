@@ -29,6 +29,8 @@ export interface TramoReactivacionVencido {
   precio: number;
 }
 
+import type { TextosBotWhatsapp } from "./whatsapp";
+
 export interface ConfigGlobal {
   horarioOperadorSemanaInicio: string;
   horarioOperadorSemanaFin: string;
@@ -61,4 +63,7 @@ export interface ConfigGlobal {
   // volver a quedar "libre" para reingresar (ver estadoReingresoPlan en
   // helpers/ingresos.ts). Acepta decimales (ej: 24.5 = 24 horas 30 min).
   horasBloqueoReingresoPlan: number;
+  // Contenido editable de las respuestas automáticas del bot de WhatsApp —
+  // ver TextosBotWhatsapp.
+  textosBotWhatsapp: TextosBotWhatsapp;
 }

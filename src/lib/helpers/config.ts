@@ -1,5 +1,6 @@
 import type { ConfigGlobal } from "@/types";
 import { esFinDeSemanaOFestivo } from "./fechas";
+import { TEXTOS_BOT_WHATSAPP_DEFAULT } from "./whatsapp";
 
 /** Semilla/fallback de horario del módulo Operador (ver ConfigGlobal) para
  * cuando la tabla `config` todavía no tiene los nuevos campos guardados —
@@ -15,6 +16,7 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   horasVentanaUpgradePlan: 1,
   tramosReactivacionVencido: {},
   horasBloqueoReingresoPlan: 24.5,
+  textosBotWhatsapp: TEXTOS_BOT_WHATSAPP_DEFAULT,
 };
 
 /** true si `ahora` cae dentro del horario configurado para registrar ingresos en el

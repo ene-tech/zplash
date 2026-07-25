@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "textos_bot_whatsapp" jsonb DEFAULT '{}'::jsonb NOT NULL;

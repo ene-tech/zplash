@@ -1,30 +1,17 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones, precios as preciosTabla, servicios as serviciosTabla } from "@/db/schema";
-import { fmtFecha, generarCodigoCupon, isValidPatente, normPlate, planStatus, SERVICIOS_DEFAULT, uid } from "@/lib/helpers";
+import { aplicarVariables, fmtCLP, fmtFecha, generarCodigoCupon, isValidPatente, normPlate, planStatus, SERVICIOS_DEFAULT, uid } from "@/lib/helpers";
 // Directo a la capa de datos, no al Server Action de @/lib/db: este flujo
-// corre dentro del webhook de Twilio (protegido por firma, ver
+// corre dentro del webhook de Meta (protegido por firma, ver
 // /api/whatsapp/route.ts), no hay perfil logueado que pase el chequeo de
-// sesión que exige el Server Action homónimo.
-import { upsertCupones } from "@/lib/dataAccess";
-import type { Cupon, Precios } from "@/types";
-import {
-  CONTACTO_HUMANO,
-  DESCUENTO_PRIMERA_VEZ_DIAS_VALIDEZ,
-  DESCUENTO_PRIMERA_VEZ_VALOR,
-  HORARIO_UBICACION,
-  MENSAJE_NO_ENTENDIDO,
-  MENU_PRINCIPAL,
-  PATENTE_NO_ENCONTRADA,
-  PLAN_IMAGEN_PATH,
-  SERVICIOS_IMAGEN_PATH,
-  TEXTO_CONTRATAR_PLAN,
-  TEXTO_DESCUENTO_INSTRUCCIONES,
-  TEXTO_DESCUENTO_PATENTE_INVALIDA,
-  TEXTO_DESCUENTO_YA_CLIENTE,
-  textoDescuentoConfirmacion,
-  textoPrecios,
-} from "./contenido";
+// sesión que exige el Server Action homónimo. getConfig trae
+// textosBotWhatsapp ya mergeado con TEXTOS_BOT_WHATSAPP_DEFAULT (ver
+// @/lib/dataAccess/config), así que cualquier texto que el admin no haya
+// editado en Web Settings → Menú Bot WhatsApp sigue mostrando el de fábrica.
+import { getConfig, upsertCupones } from "@/lib/dataAccess";
+import type { Cupon, Precios, TextosBotWhatsapp } from "@/types";
+import { DESCUENTO_PRIMERA_VEZ_DIAS_VALIDEZ, DESCUENTO_PRIMERA_VEZ_VALOR, PLAN_IMAGEN_PATH, SERVICIOS_IMAGEN_PATH, textoPrecios } from "./contenido";
 
 export type RespuestaBot = {
   texto: string;
@@ -39,12 +26,12 @@ const OPCIONES_HUMANO = new Set(["4", "humano", "ayuda", "persona"]);
 const OPCIONES_DESCUENTO = new Set(["5", "descuento", "dscto"]);
 const REGEX_DESCUENTO_PATENTE = /^(?:descuento|dscto)\s+([a-z0-9]+)$/i;
 
-async function estadoPlanPorPatente(patenteCruda: string): Promise<RespuestaBot> {
+async function estadoPlanPorPatente(patenteCruda: string, textos: TextosBotWhatsapp): Promise<RespuestaBot> {
   const patente = normPlate(patenteCruda);
   const db = getDb();
   const [cliente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
 
-  if (!cliente) return { texto: PATENTE_NO_ENCONTRADA };
+  if (!cliente) return { texto: textos.patenteNoEncontrada };
 
   const estado = planStatus(cliente);
   const lineas = [
@@ -62,13 +49,18 @@ async function estadoPlanPorPatente(patenteCruda: string): Promise<RespuestaBot>
   return { texto: lineas.join("\n") };
 }
 
-async function manejarDescuentoPrimeraVez(patenteCruda: string): Promise<RespuestaBot> {
+function textoConfirmacionDescuento(textos: TextosBotWhatsapp, codigo: string, fechaCaducidadISO: string): string {
+  const fecha = new Date(fechaCaducidadISO).toLocaleDateString("es-CL");
+  return aplicarVariables(textos.textoDescuentoConfirmacion, { codigo, fecha, monto: fmtCLP(DESCUENTO_PRIMERA_VEZ_VALOR) });
+}
+
+async function manejarDescuentoPrimeraVez(patenteCruda: string, textos: TextosBotWhatsapp): Promise<RespuestaBot> {
   const patente = normPlate(patenteCruda);
-  if (!isValidPatente(patente)) return { texto: TEXTO_DESCUENTO_PATENTE_INVALIDA };
+  if (!isValidPatente(patente)) return { texto: textos.textoDescuentoPatenteInvalida };
 
   const db = getDb();
   const [clienteExistente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
-  if (clienteExistente) return { texto: TEXTO_DESCUENTO_YA_CLIENTE };
+  if (clienteExistente) return { texto: textos.textoDescuentoYaCliente };
 
   const ahora = new Date();
   const [pendiente] = await db
@@ -77,7 +69,7 @@ async function manejarDescuentoPrimeraVez(patenteCruda: string): Promise<Respues
     .where(and(eq(cupones.patenteAsignada, patente), eq(cupones.tipo, "descuento"), eq(cupones.usado, false)))
     .limit(1);
   if (pendiente && new Date(pendiente.fechaCaducidad) > ahora) {
-    return { texto: textoDescuentoConfirmacion(pendiente.codigo, pendiente.fechaCaducidad) };
+    return { texto: textoConfirmacionDescuento(textos, pendiente.codigo, pendiente.fechaCaducidad) };
   }
 
   const existentesRows = await db.select({ codigo: cupones.codigo }).from(cupones);
@@ -100,15 +92,16 @@ async function manejarDescuentoPrimeraVez(patenteCruda: string): Promise<Respues
   };
   await upsertCupones([nuevo]);
 
-  return { texto: textoDescuentoConfirmacion(codigo, fechaCaducidad) };
+  return { texto: textoConfirmacionDescuento(textos, codigo, fechaCaducidad) };
 }
 
 export async function responderMensaje(textoCrudo: string): Promise<RespuestaBot> {
   const texto = (textoCrudo || "").trim();
   const normalizado = texto.toLowerCase();
+  const { textosBotWhatsapp: textos } = await getConfig();
 
-  if (!texto || SALUDOS.has(normalizado)) return { texto: MENU_PRINCIPAL };
-  if (isValidPatente(texto)) return estadoPlanPorPatente(texto);
+  if (!texto || SALUDOS.has(normalizado)) return { texto: textos.menuPrincipal };
+  if (isValidPatente(texto)) return estadoPlanPorPatente(texto, textos);
   if (OPCIONES_PRECIOS.has(normalizado)) {
     const db = getDb();
     const [preciosRows, serviciosRows] = await Promise.all([
@@ -121,13 +114,15 @@ export async function responderMensaje(textoCrudo: string): Promise<RespuestaBot
       : SERVICIOS_DEFAULT;
     return { texto: textoPrecios(precios, servicios), mediaPath: SERVICIOS_IMAGEN_PATH };
   }
-  if (OPCIONES_CONTRATAR_PLAN.has(normalizado)) return { texto: TEXTO_CONTRATAR_PLAN, mediaPath: PLAN_IMAGEN_PATH };
-  if (OPCIONES_HORARIO.has(normalizado)) return { texto: HORARIO_UBICACION };
-  if (OPCIONES_HUMANO.has(normalizado)) return { texto: CONTACTO_HUMANO };
-  if (OPCIONES_DESCUENTO.has(normalizado)) return { texto: TEXTO_DESCUENTO_INSTRUCCIONES };
+  if (OPCIONES_CONTRATAR_PLAN.has(normalizado)) return { texto: textos.textoContratarPlan, mediaPath: PLAN_IMAGEN_PATH };
+  if (OPCIONES_HORARIO.has(normalizado)) return { texto: textos.horarioUbicacion };
+  if (OPCIONES_HUMANO.has(normalizado)) return { texto: textos.contactoHumano };
+  if (OPCIONES_DESCUENTO.has(normalizado)) {
+    return { texto: aplicarVariables(textos.textoDescuentoInstrucciones, { monto: fmtCLP(DESCUENTO_PRIMERA_VEZ_VALOR), dias: String(DESCUENTO_PRIMERA_VEZ_DIAS_VALIDEZ) }) };
+  }
 
   const matchDescuento = normalizado.match(REGEX_DESCUENTO_PATENTE);
-  if (matchDescuento) return manejarDescuentoPrimeraVez(matchDescuento[1]);
+  if (matchDescuento) return manejarDescuentoPrimeraVez(matchDescuento[1], textos);
 
-  return { texto: MENSAJE_NO_ENTENDIDO };
+  return { texto: textos.mensajeNoEntendido };
 }

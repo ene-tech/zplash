@@ -26,6 +26,29 @@ export interface MensajeWhatsapp {
   creadoEn: string;
 }
 
+// Contenido editable de las respuestas automáticas del bot de WhatsApp (ver
+// @/lib/whatsapp/router y @/lib/whatsapp/contenido) — vive dentro de
+// ConfigGlobal.textosBotWhatsapp, editable desde Web Settings → Menú Bot
+// WhatsApp. A diferencia de PlantillaWhatsapp (catálogo abierto, sin
+// conectar todavía), estos son campos fijos: cada uno está atado a una rama
+// específica del router del bot. textoDescuentoInstrucciones acepta
+// {{monto}}/{{dias}}; textoDescuentoConfirmacion acepta
+// {{codigo}}/{{monto}}/{{fecha}} (ver aplicarVariables en
+// @/lib/helpers/whatsapp). La lista de precios (textoPrecios) no es
+// editable acá: se genera desde la tabla de precios/servicios real.
+export interface TextosBotWhatsapp {
+  menuPrincipal: string;
+  textoContratarPlan: string;
+  horarioUbicacion: string;
+  contactoHumano: string;
+  mensajeNoEntendido: string;
+  patenteNoEncontrada: string;
+  textoDescuentoInstrucciones: string;
+  textoDescuentoYaCliente: string;
+  textoDescuentoPatenteInvalida: string;
+  textoDescuentoConfirmacion: string;
+}
+
 // Plantilla de contenido (no una plantilla pre-aprobada de Meta, ver
 // comentario en @/db/schema/whatsapp) para una situación del proceso de
 // venta/suscripción o de ofertas y servicios — editable desde Web Settings →

@@ -279,7 +279,13 @@ create table if not exists config (
   tramos_reactivacion_vencido jsonb not null default '{}'::jsonb,
   -- Horas mínimas entre dos ingresos por plan de un mismo vehículo antes de
   -- volver a quedar "libre" (ver estadoReingresoPlan en @/lib/helpers/ingresos).
-  horas_bloqueo_reingreso_plan numeric not null default 24.5
+  horas_bloqueo_reingreso_plan numeric not null default 24.5,
+  -- Contenido editable de las respuestas del bot de WhatsApp (ver
+  -- TextosBotWhatsapp en @/types), editable en Web Settings → Menú Bot
+  -- WhatsApp. Se guarda parcial a propósito: cualquier clave no presente cae
+  -- a TEXTOS_BOT_WHATSAPP_DEFAULT (@/lib/helpers/whatsapp) al leer (ver
+  -- configFromRow en @/lib/dataAccess/config).
+  textos_bot_whatsapp jsonb not null default '{}'::jsonb
 );
 insert into config (id, pin_admin) values (true, '1234') on conflict (id) do nothing;
 

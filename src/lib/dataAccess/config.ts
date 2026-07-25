@@ -2,7 +2,7 @@ import "server-only";
 
 import { config } from "@/db/schema";
 import type { ConfigGlobal } from "@/types";
-import { CONFIG_DEFAULT } from "@/lib/helpers";
+import { CONFIG_DEFAULT, TEXTOS_BOT_WHATSAPP_DEFAULT } from "@/lib/helpers";
 import { getDb } from "@/db";
 import { upsertRows } from "./shared";
 
@@ -21,6 +21,7 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     horasVentanaUpgradePlan: c.horasVentanaUpgradePlan,
     tramosReactivacionVencido: c.tramosReactivacionVencido,
     horasBloqueoReingresoPlan: c.horasBloqueoReingresoPlan,
+    textosBotWhatsapp: c.textosBotWhatsapp as unknown as Record<string, string>,
   };
 }
 
@@ -36,6 +37,7 @@ export function configFromRow(r: ConfigRow): ConfigGlobal {
     horasVentanaUpgradePlan: r.horasVentanaUpgradePlan || 1,
     tramosReactivacionVencido: r.tramosReactivacionVencido ?? {},
     horasBloqueoReingresoPlan: r.horasBloqueoReingresoPlan || 24.5,
+    textosBotWhatsapp: { ...TEXTOS_BOT_WHATSAPP_DEFAULT, ...(r.textosBotWhatsapp ?? {}) },
   };
 }
 

@@ -6,6 +6,12 @@ import { clientes } from "@/db/schema";
 import type { Cliente } from "@/types";
 import { upsertRows } from "./shared";
 
+export async function getClientesByIds(ids: string[]): Promise<Cliente[]> {
+  if (!ids.length) return [];
+  const rows = await getDb().select().from(clientes).where(inArray(clientes.id, ids));
+  return rows.map(clienteFromRow);
+}
+
 type ClienteRow = typeof clientes.$inferSelect;
 
 export function clienteToRow(c: Cliente): typeof clientes.$inferInsert {

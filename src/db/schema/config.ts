@@ -46,4 +46,13 @@ export const config = pgTable("config", {
   // volver a quedar "libre" (ver estadoReingresoPlan/HORAS_MIN_ENTRE_INGRESOS_PLAN
   // en @/lib/helpers/ingresos). Acepta decimales (ej: 24.5 = 24 horas 30 min).
   horasBloqueoReingresoPlan: numeric("horas_bloqueo_reingreso_plan", { mode: "number" }).notNull().default(24.5),
+  // Contenido editable de las respuestas del bot de WhatsApp (ver
+  // TextosBotWhatsapp en @/types y TEXTOS_BOT_WHATSAPP_DEFAULT en
+  // @/lib/whatsapp/contenido). Se guarda parcial a propósito (default {}):
+  // configFromRow rellena con el default cualquier campo no editado, así el
+  // texto de fábrica no se duplica acá.
+  textosBotWhatsapp: jsonb("textos_bot_whatsapp")
+    .$type<Partial<Record<string, string>>>()
+    .notNull()
+    .default({}),
 });
