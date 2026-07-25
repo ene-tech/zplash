@@ -25,3 +25,15 @@ export interface MensajeWhatsapp {
   enviadoPor?: string;
   creadoEn: string;
 }
+
+// Plantilla de contenido (no una plantilla pre-aprobada de Meta, ver
+// comentario en @/db/schema/whatsapp) para una situación del proceso de
+// venta/suscripción o de ofertas y servicios — editable desde Web Settings →
+// WhatsApp Webhooks, mismo patrón que PlantillaCorreo.
+export interface PlantillaWhatsapp {
+  id: string;
+  nombre: string;
+  categoria?: string;
+  mensaje: string;
+  activo: boolean;
+}

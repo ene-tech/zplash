@@ -4,11 +4,15 @@ import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import WebSettingsTab from "@/components/tabs/WebSettingsTab";
 import WebSettingsServiciosTab from "@/components/tabs/WebSettingsServiciosTab";
-import { CircleDollarSign, Images } from "lucide-react";
+import WebSettingsMailTab from "@/components/tabs/WebSettingsMailTab";
+import WebSettingsWhatsappTab from "@/components/tabs/WebSettingsWhatsappTab";
+import { CircleDollarSign, Images, Mail, MessageCircle } from "lucide-react";
 
 const TABS = [
   { id: "precios", label: "Precios", icon: CircleDollarSign },
   { id: "servicios", label: "Servicios y Banners", icon: Images },
+  { id: "mail", label: "Mail Templates", icon: Mail },
+  { id: "whatsapp", label: "WhatsApp Webhooks", icon: MessageCircle },
 ] as const;
 
 export default function WebSettingsView() {
@@ -40,6 +44,8 @@ export default function WebSettingsView() {
           <div className="sidebar-content">
             {tabActual.id === "precios" && <WebSettingsTab />}
             {tabActual.id === "servicios" && <WebSettingsServiciosTab />}
+            {tabActual.id === "mail" && <WebSettingsMailTab />}
+            {tabActual.id === "whatsapp" && <WebSettingsWhatsappTab />}
           </div>
         </div>
       </div>

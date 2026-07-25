@@ -40,6 +40,8 @@ function appDataVacia(): AppData {
     maquinarias: [],
     registrosMantencion: [],
     alertasMantencion: [],
+    plantillasCorreo: [],
+    plantillasWhatsapp: [],
   };
 }
 

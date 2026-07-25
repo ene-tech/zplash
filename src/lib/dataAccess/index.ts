@@ -31,6 +31,7 @@ export * from "./inventario/insumos";
 export * from "./inventario/productos";
 export * from "./inventario/proveedores";
 export * from "./loadAll";
+export * from "./mail";
 export * from "./mantencion";
 export * from "./oneclick";
 export * from "./perfiles";

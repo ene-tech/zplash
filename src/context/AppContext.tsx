@@ -2,7 +2,16 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { AppData, AuditoriaEntrada, UIState } from "@/types";
-import { CATEGORIAS_GASTO_DEFAULT, CATEGORIAS_INGRESO_DEFAULT, CONFIG_DEFAULT, PERFILES_DEFAULT, PRECIOS_DEFAULT, SERVICIOS_DEFAULT } from "@/lib/helpers";
+import {
+  CATEGORIAS_GASTO_DEFAULT,
+  CATEGORIAS_INGRESO_DEFAULT,
+  CONFIG_DEFAULT,
+  PERFILES_DEFAULT,
+  PLANTILLAS_CORREO_DEFAULT,
+  PLANTILLAS_WHATSAPP_DEFAULT,
+  PRECIOS_DEFAULT,
+  SERVICIOS_DEFAULT,
+} from "@/lib/helpers";
 import { insertAuditoria, loadAll, waitForStorage } from "@/lib/db";
 import {
   commitAlertasMantencion,
@@ -25,6 +34,8 @@ import {
   commitMovimientosContables,
   commitMovimientosInventario,
   commitPerfiles,
+  commitPlantillasCorreo,
+  commitPlantillasWhatsapp,
   commitPrecios,
   commitProductos,
   commitProveedores,
@@ -64,6 +75,8 @@ const initialData: AppData = {
   maquinarias: [],
   registrosMantencion: [],
   alertasMantencion: [],
+  plantillasCorreo: JSON.parse(JSON.stringify(PLANTILLAS_CORREO_DEFAULT)),
+  plantillasWhatsapp: JSON.parse(JSON.stringify(PLANTILLAS_WHATSAPP_DEFAULT)),
 };
 
 const initialUI: UIState = {
@@ -190,6 +203,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     agregar(commitMaquinarias(previous.maquinarias, patch.maquinarias));
     agregar(commitRegistrosMantencion(previous.registrosMantencion, patch.registrosMantencion));
     agregar(commitAlertasMantencion(previous.alertasMantencion, patch.alertasMantencion));
+    agregar(commitPlantillasCorreo(previous.plantillasCorreo, patch.plantillasCorreo));
+    agregar(commitPlantillasWhatsapp(previous.plantillasWhatsapp, patch.plantillasWhatsapp));
 
     let results: boolean[];
     try {

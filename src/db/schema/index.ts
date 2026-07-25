@@ -23,6 +23,7 @@ export * from "./inventario/destinos";
 export * from "./inventario/insumos";
 export * from "./inventario/productos";
 export * from "./inventario/proveedores";
+export * from "./mail";
 export * from "./mantencion";
 export * from "./pagos";
 export * from "./perfiles";

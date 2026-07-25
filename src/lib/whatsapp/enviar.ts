@@ -4,7 +4,7 @@ import { buscarOCrearConversacion, insertarMensaje } from "@/lib/dataAccess";
 import { uid } from "@/lib/helpers";
 import type { EstadoMensajeWhatsapp, MensajeWhatsapp, TipoMensajeWhatsapp } from "@/types";
 
-const GRAPH_API_VERSION = "v21.0";
+const GRAPH_API_VERSION = "v25.0";
 
 function urlMensajes(): string {
   const phoneNumberId = process.env.META_WHATSAPP_PHONE_NUMBER_ID;

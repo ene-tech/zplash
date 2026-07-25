@@ -1,4 +1,4 @@
-import { index, integer, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, text } from "drizzle-orm/pg-core";
 import { clientes } from "./clientes";
 import { timestamptz } from "./shared";
 
@@ -40,3 +40,19 @@ export const mensajesWhatsapp = pgTable(
   },
   (t) => [index("mensajes_whatsapp_conversacion_fecha_idx").on(t.conversacionId, t.creadoEn)]
 );
+
+// Catálogo de plantillas de mensaje WhatsApp administrado desde Web Settings
+// → WhatsApp Webhooks: mismo patrón/propósito que `plantillas_correo` (ver
+// @/db/schema/mail), una fila por situación del proceso de venta/suscripción
+// o para ofertas y servicios. NO son plantillas pre-aprobadas de Meta —
+// enviarMensajePlantilla (@/lib/whatsapp/enviar) sigue referenciando esas por
+// nombre directo contra la Graph API; esto es solo el borrador de contenido
+// para cuando se conecte el envío automático.
+export const plantillasWhatsapp = pgTable("plantillas_whatsapp", {
+  id: text("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  categoria: text("categoria"),
+  mensaje: text("mensaje").notNull(),
+  activo: boolean("activo").notNull().default(true),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+});

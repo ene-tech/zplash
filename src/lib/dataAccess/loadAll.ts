@@ -24,6 +24,8 @@ import {
   movimientosContables,
   movimientosInventario,
   perfiles,
+  plantillasCorreo,
+  plantillasWhatsapp,
   precios,
   productos,
   proveedores,
@@ -37,6 +39,8 @@ import {
   CATEGORIAS_INGRESO_DEFAULT,
   CONFIG_DEFAULT,
   PERFILES_DEFAULT,
+  PLANTILLAS_CORREO_DEFAULT,
+  PLANTILLAS_WHATSAPP_DEFAULT,
   PRECIOS_DEFAULT,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
@@ -53,11 +57,13 @@ import { destinoInventarioFromRow, movimientoInventarioFromRow } from "./inventa
 import { categoriaProductoFromRow, productoFromRow } from "./inventario/productos";
 import { proveedorFromRow } from "./inventario/proveedores";
 import { alertaMantencionFromRow, maquinariaFromRow, registroMantencionFromRow } from "./mantencion";
+import { plantillaCorreoFromRow } from "./mail";
 import { perfilPublicoFromRow } from "./perfiles";
 import { preciosFromRows } from "./precios";
 import { safe } from "./shared";
 import { servicioFromRow } from "./servicios";
 import { ventaFromRow } from "./ventas";
+import { plantillaWhatsappFromRow } from "./whatsapp";
 
 export async function waitForStorage(): Promise<boolean> {
   try {
@@ -100,6 +106,8 @@ export async function loadAll(): Promise<AppData> {
     maquinariasRows,
     registrosMantencionRows,
     alertasMantencionRows,
+    plantillasCorreoRows,
+    plantillasWhatsappRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
@@ -129,6 +137,8 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(maquinarias).orderBy(asc(maquinarias.nombre))),
     safe(db.select().from(registrosMantencion).orderBy(desc(registrosMantencion.fecha))),
     safe(db.select().from(alertasMantencion).orderBy(asc(alertasMantencion.fechaObjetivo))),
+    safe(db.select().from(plantillasCorreo).orderBy(asc(plantillasCorreo.nombre))),
+    safe(db.select().from(plantillasWhatsapp).orderBy(asc(plantillasWhatsapp.nombre))),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -141,6 +151,10 @@ export async function loadAll(): Promise<AppData> {
     : CATEGORIAS_INGRESO_DEFAULT;
   const serviciosData = serviciosRows.length ? serviciosRows.map(servicioFromRow) : SERVICIOS_DEFAULT;
   const configData = configRows.length ? configFromRow(configRows[0]) : CONFIG_DEFAULT;
+  const plantillasCorreoData = plantillasCorreoRows.length ? plantillasCorreoRows.map(plantillaCorreoFromRow) : PLANTILLAS_CORREO_DEFAULT;
+  const plantillasWhatsappData = plantillasWhatsappRows.length
+    ? plantillasWhatsappRows.map(plantillaWhatsappFromRow)
+    : PLANTILLAS_WHATSAPP_DEFAULT;
 
   const servicioIdsPorCita = new Map<string, string[]>();
   for (const cs of citaServiciosRows) {
@@ -200,5 +214,7 @@ export async function loadAll(): Promise<AppData> {
     maquinarias: maquinariasRows.map(maquinariaFromRow),
     registrosMantencion: registrosMantencionRows.map(registroMantencionFromRow),
     alertasMantencion: alertasMantencionRows.map(alertaMantencionFromRow),
+    plantillasCorreo: plantillasCorreoData,
+    plantillasWhatsapp: plantillasWhatsappData,
   };
 }

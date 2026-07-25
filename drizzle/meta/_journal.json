@@ -246,6 +246,20 @@
       "when": 1784866212021,
       "tag": "0034_pale_blue_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1784952187610,
+      "tag": "0035_add_plantillas_correo",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784953760601,
+      "tag": "0036_add_plantillas_whatsapp",
+      "breakpoints": true
     }
   ]
 }

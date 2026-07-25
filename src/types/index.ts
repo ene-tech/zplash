@@ -21,10 +21,12 @@ import type {
   Proveedor,
 } from "./inventario";
 import type { AlertaMantencion, Maquinaria, RegistroMantencion } from "./mantencion";
+import type { PlantillaCorreo } from "./mail";
 import type { PerfilPublico } from "./perfiles";
 import type { Precios } from "./precios";
 import type { Servicio } from "./servicios";
 import type { Venta } from "./ventas";
+import type { PlantillaWhatsapp } from "./whatsapp";
 
 export interface AppData {
   clientes: Cliente[];
@@ -54,6 +56,8 @@ export interface AppData {
   maquinarias: Maquinaria[];
   registrosMantencion: RegistroMantencion[];
   alertasMantencion: AlertaMantencion[];
+  plantillasCorreo: PlantillaCorreo[];
+  plantillasWhatsapp: PlantillaWhatsapp[];
 }
 
 export * from "./agenda";
@@ -65,6 +69,7 @@ export * from "./cupones";
 export * from "./empresas";
 export * from "./ingresos";
 export * from "./inventario";
+export * from "./mail";
 export * from "./mantencion";
 export * from "./perfiles";
 export * from "./precios";
