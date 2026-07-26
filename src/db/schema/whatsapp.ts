@@ -37,6 +37,11 @@ export const mensajesWhatsapp = pgTable(
     estado: text("estado"),
     whatsappMessageId: text("whatsapp_message_id"),
     enviadoPor: text("enviado_por"),
+    // Motivo devuelto por la Graph API (o de red) cuando estado="fallido" —
+    // sin esto, el único rastro del error quedaba en console.error (logs de
+    // Vercel, no consultables desde la base) y diagnosticar un envío
+    // rechazado por Meta exigía revisar el dashboard de Vercel a mano.
+    error: text("error"),
     creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   },
   (t) => [index("mensajes_whatsapp_conversacion_fecha_idx").on(t.conversacionId, t.creadoEn)]

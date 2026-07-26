@@ -510,6 +510,7 @@ create table if not exists mensajes_whatsapp (
   estado text,
   whatsapp_message_id text,
   enviado_por text,
+  error text,
   creado_en timestamptz not null default now()
 );
 create index if not exists mensajes_whatsapp_conversacion_fecha_idx on mensajes_whatsapp (conversacion_id, creado_en);

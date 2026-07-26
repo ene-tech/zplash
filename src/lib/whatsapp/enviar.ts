@@ -41,7 +41,7 @@ async function registrarSalida(
   telefono: string,
   texto: string,
   tipo: TipoMensajeWhatsapp,
-  resultado: { ok: boolean; wamid?: string },
+  resultado: { ok: boolean; wamid?: string; error?: string },
   enviadoPor?: string
 ): Promise<MensajeWhatsapp> {
   const conversacion = await buscarOCrearConversacion(telefono);
@@ -55,6 +55,7 @@ async function registrarSalida(
     estado,
     whatsappMessageId: resultado.wamid,
     enviadoPor,
+    error: resultado.error,
   });
 }
 

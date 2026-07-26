@@ -23,6 +23,8 @@ export interface MensajeWhatsapp {
   estado?: EstadoMensajeWhatsapp;
   whatsappMessageId?: string;
   enviadoPor?: string;
+  // Motivo devuelto por la Graph API (o de red) cuando estado="fallido".
+  error?: string;
   creadoEn: string;
 }
 

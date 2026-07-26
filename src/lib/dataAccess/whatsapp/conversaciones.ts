@@ -31,6 +31,7 @@ export function mensajeFromRow(r: MensajeRow): MensajeWhatsapp {
     estado: (r.estado as EstadoMensajeWhatsapp) || undefined,
     whatsappMessageId: r.whatsappMessageId || undefined,
     enviadoPor: r.enviadoPor || undefined,
+    error: r.error || undefined,
     creadoEn: r.creadoEn,
   };
 }
@@ -73,6 +74,7 @@ type NuevoMensaje = {
   estado?: EstadoMensajeWhatsapp;
   whatsappMessageId?: string;
   enviadoPor?: string;
+  error?: string;
 };
 
 export async function insertarMensaje(m: NuevoMensaje): Promise<MensajeWhatsapp> {
@@ -87,6 +89,7 @@ export async function insertarMensaje(m: NuevoMensaje): Promise<MensajeWhatsapp>
     estado: m.estado || null,
     whatsappMessageId: m.whatsappMessageId || null,
     enviadoPor: m.enviadoPor || null,
+    error: m.error || null,
     creadoEn: ahora,
   };
   await db.insert(mensajesWhatsapp).values(row);

@@ -1,0 +1,1 @@
+ALTER TABLE "mensajes_whatsapp" ADD COLUMN "error" text;
