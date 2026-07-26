@@ -38,17 +38,18 @@ async function estadoPlanPorPatente(patenteCruda: string, textos: TextosBotWhats
   if (!cliente || cliente.telefono !== telefono) return { texto: textos.patenteNoEncontrada };
 
   const estado = planStatus(cliente);
+  const plan = cliente.plan || textos.patenteEstadoPlanVacio;
   const lineas = [
-    `🚗 *${cliente.patente}* — ${cliente.nombre}`,
-    `Plan: ${cliente.plan || "Sin plan"}`,
-    `Estado: ${estado.label}`,
+    aplicarVariables(textos.patenteEstadoEncabezado, { patente: cliente.patente, nombre: cliente.nombre }),
+    aplicarVariables(textos.patenteEstadoPlan, { plan }),
+    aplicarVariables(textos.patenteEstadoLinea, { estado: estado.label }),
   ];
-  if (cliente.vencimiento) lineas.push(`Vencimiento: ${fmtFecha(cliente.vencimiento)}`);
+  if (cliente.vencimiento) lineas.push(aplicarVariables(textos.patenteEstadoVencimiento, { fecha: fmtFecha(cliente.vencimiento) }));
   if (estado.cls === "warn" && estado.diasRestantes !== undefined) {
-    lineas.push(`⚠️ Vence en ${estado.diasRestantes} día(s).`);
+    lineas.push(aplicarVariables(textos.patenteEstadoAvisoPorVencer, { dias: String(estado.diasRestantes) }));
   }
   if (estado.cls === "bad") {
-    lineas.push(``, `Tu plan no está vigente. Escribe *1* para ver precios de renovación.`);
+    lineas.push(``, textos.patenteEstadoAvisoVencido);
   }
   return { texto: lineas.join("\n") };
 }

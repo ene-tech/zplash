@@ -84,6 +84,41 @@ const CAMPOS: { key: keyof TextosBotWhatsapp; label: string; hint?: string }[] =
     label: "Descuento — confirmación con el código generado",
     hint: "Variables disponibles: {{codigo}}, {{monto}}, {{fecha}}",
   },
+  {
+    key: "patenteEstadoEncabezado",
+    label: "Consulta de patente — encabezado",
+    hint: "Variables disponibles: {{patente}}, {{nombre}}",
+  },
+  {
+    key: "patenteEstadoPlan",
+    label: "Consulta de patente — línea de plan",
+    hint: "Variables disponibles: {{plan}}",
+  },
+  {
+    key: "patenteEstadoPlanVacio",
+    label: "Consulta de patente — texto cuando el cliente no tiene plan",
+    hint: "Reemplaza a {{plan}} en la línea anterior cuando el cliente no tiene un plan asignado.",
+  },
+  {
+    key: "patenteEstadoLinea",
+    label: "Consulta de patente — línea de estado",
+    hint: "Variables disponibles: {{estado}} (Vigente, Por vencer, Vencido o Sin plan; esta etiqueta no se puede editar).",
+  },
+  {
+    key: "patenteEstadoVencimiento",
+    label: "Consulta de patente — línea de vencimiento",
+    hint: "Variables disponibles: {{fecha}}. Solo se muestra si el cliente tiene fecha de vencimiento.",
+  },
+  {
+    key: "patenteEstadoAvisoPorVencer",
+    label: "Consulta de patente — aviso cuando el plan está por vencer",
+    hint: "Variables disponibles: {{dias}}. Solo se muestra si el plan vence pronto.",
+  },
+  {
+    key: "patenteEstadoAvisoVencido",
+    label: "Consulta de patente — aviso cuando el plan está vencido o no existe",
+    hint: "Solo se muestra si el plan está vencido o el cliente no tiene plan.",
+  },
 ];
 
 export default function WebSettingsWhatsappBotTab() {

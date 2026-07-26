@@ -67,6 +67,14 @@ El código queda vigente por {{dias}} días.`,
 Vale {{monto}} de descuento en tu próximo lavado. Válido hasta el {{fecha}}.
 
 Muéstralo en el local al momento de pagar.`,
+
+  patenteEstadoEncabezado: `🚗 *{{patente}}* — {{nombre}}`,
+  patenteEstadoPlan: `Plan: {{plan}}`,
+  patenteEstadoPlanVacio: `Sin plan`,
+  patenteEstadoLinea: `Estado: {{estado}}`,
+  patenteEstadoVencimiento: `Vencimiento: {{fecha}}`,
+  patenteEstadoAvisoPorVencer: `⚠️ Vence en {{dias}} día(s).`,
+  patenteEstadoAvisoVencido: `Tu plan no está vigente. Escribe *1* para ver precios de renovación.`,
 };
 
 /** Reemplaza placeholders `{{clave}}` por su valor en `vars` — usado tanto

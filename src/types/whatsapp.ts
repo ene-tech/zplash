@@ -36,7 +36,17 @@ export interface MensajeWhatsapp {
 // {{codigo}}/{{monto}}/{{fecha}} (ver aplicarVariables en
 // @/lib/helpers/whatsapp). textoPreciosIntro es solo el encabezado que
 // antecede a la lista de precios/servicios: la lista en sí siempre se
-// genera desde la tabla real, no es editable como texto libre.
+// genera desde la tabla real, no es editable como texto libre. Los campos
+// patenteEstado* arman, línea por línea, el mensaje de consulta de
+// patente (ver estadoPlanPorPatente en @/lib/whatsapp/router):
+// patenteEstadoEncabezado acepta {{patente}}/{{nombre}}; patenteEstadoPlan
+// acepta {{plan}} (que ya viene resuelto a patenteEstadoPlanVacio si el
+// cliente no tiene plan); patenteEstadoLinea acepta {{estado}};
+// patenteEstadoVencimiento acepta {{fecha}}; patenteEstadoAvisoPorVencer
+// acepta {{dias}}. La etiqueta de estado en sí ("Vigente"/"Por
+// vencer"/"Vencido"/"Sin plan") viene de planStatus() en
+// @/lib/helpers/clientes y no es editable acá porque también se usa en
+// insignias de estado del cliente fuera del bot.
 export interface TextosBotWhatsapp {
   menuPrincipal: string;
   textoPreciosIntro: string;
@@ -49,6 +59,13 @@ export interface TextosBotWhatsapp {
   textoDescuentoYaCliente: string;
   textoDescuentoPatenteInvalida: string;
   textoDescuentoConfirmacion: string;
+  patenteEstadoEncabezado: string;
+  patenteEstadoPlan: string;
+  patenteEstadoPlanVacio: string;
+  patenteEstadoLinea: string;
+  patenteEstadoVencimiento: string;
+  patenteEstadoAvisoPorVencer: string;
+  patenteEstadoAvisoVencido: string;
 }
 
 // Plantilla de contenido (no una plantilla pre-aprobada de Meta, ver
