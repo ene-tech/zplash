@@ -1,6 +1,7 @@
 import "server-only";
 import { TransactionDetail } from "transbank-sdk";
 import { and, eq, sql } from "drizzle-orm";
+import { after } from "next/server";
 import { getDb } from "@/db";
 import { cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
 import { PLAN_ONECLICK_KEY, mesActualKey, precioPlanOneclick } from "@/lib/helpers";
@@ -149,14 +150,20 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
   // Fuera de la transacción/lock a propósito (avisar por WhatsApp no debe
   // retrasar la liberación del advisory lock). `buyOrder` es el id de la fila
   // en cobrosOneclick — sirve de origenId para no avisar dos veces por el
-  // mismo intento de cobro (ver evaluarReglasPorCobroFallido).
-  if (resultado.estado === "rechazada" && suscripcion.clienteId) {
-    evaluarReglasPorCobroFallido({
-      clienteId: suscripcion.clienteId,
-      patente: suscripcion.patente,
-      buyOrderId: resultado.buyOrder,
-      monto: resultado.monto,
-    }).catch((error) => console.error("Error evaluando reglas de WhatsApp por cobro fallido", suscripcion.id, error));
+  // mismo intento de cobro (ver evaluarReglasPorCobroFallido). after() en vez
+  // de un `.catch()` suelto: garantiza que Vercel mantenga la función viva
+  // hasta que termine el envío, en vez de arriesgarse a que se congele a
+  // medio camino y el disparo quede pegado en "programado" para siempre.
+  const clienteId = suscripcion.clienteId;
+  if (resultado.estado === "rechazada" && clienteId) {
+    after(() =>
+      evaluarReglasPorCobroFallido({
+        clienteId,
+        patente: suscripcion.patente,
+        buyOrderId: resultado.buyOrder,
+        monto: resultado.monto,
+      }).catch((error) => console.error("Error evaluando reglas de WhatsApp por cobro fallido", suscripcion.id, error))
+    );
   }
 
   return { estado: resultado.estado };

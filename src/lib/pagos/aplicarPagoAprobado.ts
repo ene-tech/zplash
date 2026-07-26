@@ -1,5 +1,6 @@
 import "server-only";
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { movimientoToRow } from "@/lib/dataAccess";
@@ -121,7 +122,10 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
     cantidadItems: 1,
     creadoPor: p.creadoPor,
   };
-  evaluarReglasPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta (pago externo)", error));
+  // after() en vez de un `.catch()` suelto: garantiza que Vercel mantenga la
+  // función viva hasta que termine el envío (ver mismo fix en dataAccess/
+  // ventas.ts::insertVentas).
+  after(() => evaluarReglasPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta (pago externo)", error)));
 
   // Genera/actualiza el movimiento contable de ingreso ligado a esta venta
   // en la misma transacción — ver movimientoContableDesdeVenta en helpers.ts.
