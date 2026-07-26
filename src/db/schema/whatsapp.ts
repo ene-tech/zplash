@@ -69,6 +69,12 @@ export const plantillasWhatsapp = pgTable("plantillas_whatsapp", {
   // el motor de reglas (@/lib/whatsapp/reglas) arme los `parametros` en el
   // orden correcto al llamar enviarMensajePlantilla.
   metaVariables: jsonb("meta_variables").$type<string[]>(),
+  // Marca manual (no verificada contra la Graph API — el token actual no
+  // expone el listado de templates del WABA, ver comentario en
+  // ReglasWhatsappTab) de que `metaNombre` corresponde a un template
+  // realmente aprobado en Meta Business Manager, no solo guardado acá.
+  // Editable desde Web Settings → WhatsApp Webhooks.
+  metaAprobado: boolean("meta_aprobado").notNull().default(false),
 });
 
 // Definición de una regla de negocio ("cuándo mandar qué"), editable desde
@@ -84,6 +90,8 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   // "venta_creada": se evalúa al insertar una Venta nueva (ver
   // evaluarReglasPorVenta). "plan_proximo_vencer": se evalúa en el cron diario
   // escaneando clientes por vencimiento (ver procesarPendientesYVencimientos).
+  // "cobro_fallido": se evalúa cuando un cobro Oneclick es rechazado (ver
+  // evaluarReglasPorCobroFallido, llamado desde cobrarSuscripcion).
   tipoEvento: text("tipo_evento").notNull(),
   // Solo aplica a tipoEvento="venta_creada": matchea venta.tipo tal cual
   // ("Lavado único", "Plan nuevo", etc.). Null = cualquier tipo de venta.
@@ -115,7 +123,9 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
 
 // Registro de cada disparo de una regla — auditoría (qué se mandó y cuándo) e
 // idempotencia (evita disparar la misma regla dos veces para el mismo
-// origen). `origenId` es el id de la Venta para "venta_creada", o
+// origen). `origenId` es el id de la Venta para "venta_creada", el id del
+// cobro (`cobrosOneclick.id`/buyOrder) para "cobro_fallido" (así cada intento
+// de cobro rechazado dispara su propio aviso), o
 // `${clienteId}:${vencimientoISO}` para "plan_proximo_vencer" (así un plan
 // renovado con un vencimiento nuevo vuelve a ser elegible). El unique
 // (regla_id, origen_tipo, origen_id) es la idempotencia real; `estado` solo

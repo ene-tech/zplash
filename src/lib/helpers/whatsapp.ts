@@ -24,6 +24,8 @@ Elige una opción escribiendo el número, o envía tu *patente* para consultar t
 
 Ejemplo: escribe *AB1234* para ver el estado de tu plan.`,
 
+  textoPreciosIntro: `💰 *Precios*`,
+
   textoContratarPlan: `🚗 *Plan Full Túnel Ilimitado*
 
 Puedes contratarlo directamente en el local, o desde este link:
@@ -88,6 +90,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     nombre: "Confirmación de compra (plan nuevo)",
     mensaje: "¡Hola {{nombre}}! Confirmamos la compra de tu plan {{plan}} para la patente {{patente}}. ¡Bienvenido a ZPlash!",
     activo: true,
+    metaAprobado: false,
   },
   {
     id: "wa-renovacion-confirmada",
@@ -95,6 +98,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     nombre: "Confirmación de renovación de plan",
     mensaje: "Hola {{nombre}}, renovamos tu plan {{plan}} para la patente {{patente}}. Tu nuevo vencimiento es el {{fechaVencimiento}}.",
     activo: true,
+    metaAprobado: false,
   },
   {
     id: "wa-pago-rechazado",
@@ -102,6 +106,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     nombre: "Pago rechazado",
     mensaje: "Hola {{nombre}}, no pudimos procesar el pago de {{monto}} para tu plan {{plan}}. ¿Intentamos de nuevo?",
     activo: true,
+    metaAprobado: false,
   },
   {
     id: "wa-cobro-automatico-exitoso",
@@ -109,6 +114,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     nombre: "Cobro automático (suscripción) exitoso",
     mensaje: "Hola {{nombre}}, cobramos {{monto}} de tu suscripción del plan {{plan}}. Nuevo vencimiento: {{fechaVencimiento}}.",
     activo: true,
+    metaAprobado: false,
   },
   {
     id: "wa-cobro-automatico-fallido",
@@ -116,6 +122,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     nombre: "Cobro automático (suscripción) fallido",
     mensaje: "Hola {{nombre}}, no pudimos cobrar tu suscripción del plan {{plan}}. Revisa tu método de pago para no perderla.",
     activo: true,
+    metaAprobado: false,
   },
   {
     id: "wa-vencimiento-proximo",
@@ -123,6 +130,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     nombre: "Recordatorio de vencimiento próximo",
     mensaje: "Hola {{nombre}}, tu plan {{plan}} vence el {{fechaVencimiento}}. ¡Renueva a tiempo!",
     activo: true,
+    metaAprobado: false,
   },
   {
     id: "wa-reactivacion-plan-vencido",
@@ -130,6 +138,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     nombre: "Reactivación de plan vencido",
     mensaje: "Hola {{nombre}}, tu plan {{plan}} está vencido. Tenemos un precio preferencial de reactivación para ti.",
     activo: true,
+    metaAprobado: false,
   },
   {
     id: "wa-servicio-adicional-confirmado",
@@ -137,6 +146,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     nombre: "Compra de servicio adicional confirmada",
     mensaje: "Hola {{nombre}}, confirmamos tu servicio adicional para la patente {{patente}} por {{monto}}.",
     activo: true,
+    metaAprobado: false,
   },
   {
     id: "wa-oferta-promocional",
@@ -144,5 +154,6 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     nombre: "Oferta promocional",
     mensaje: "",
     activo: true,
+    metaAprobado: false,
   },
 ];

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { PLANES, uid } from "@/lib/helpers";
 import type { AccionReglaWhatsapp, ReglaWhatsapp, TipoEventoReglaWhatsapp } from "@/types";
+import { BadgeAprobadoMeta } from "./WebSettingsWhatsappTab";
 
 const TIPOS_VENTA_CONOCIDOS = [
   "Lavado único",
@@ -12,6 +13,7 @@ const TIPOS_VENTA_CONOCIDOS = [
   "Reactivación promocional",
   "Plan nuevo (Web)",
   "Renovación (Web)",
+  "Renovación automática (Oneclick)",
 ];
 
 function resumenCondicion(r: ReglaWhatsapp): string {
@@ -20,6 +22,10 @@ function resumenCondicion(r: ReglaWhatsapp): string {
     const planes = r.condicionPlanes?.length ? ` (plan: ${r.condicionPlanes.join(", ")})` : "";
     const delay = r.delayDias ? `, ${r.delayDias} día(s) después` : ", de inmediato";
     return `Al vender "${tipo}"${planes}${delay}`;
+  }
+  if (r.tipoEvento === "cobro_fallido") {
+    const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
+    return `Al fallar un cobro automático (Oneclick)${planes}`;
   }
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
   return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}`;
@@ -43,12 +49,15 @@ function ReglaRow({ regla, puedeBorrar }: { regla: ReglaWhatsapp; puedeBorrar: b
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 4 }}>
         {resumenCondicion(regla)}
       </div>
-      <div className="hint" style={{ textAlign: "left", fontSize: 13, marginBottom: 8 }}>
-        {regla.accion === "cupon_descuento"
-          ? `Genera descuento: ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
-          : "Solo manda el mensaje (sin descuento)"}
-        {" · Plantilla: "}
-        {plantilla?.nombre || "(eliminada)"}
+      <div className="hint" style={{ textAlign: "left", fontSize: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span>
+          {regla.accion === "cupon_descuento"
+            ? `Genera descuento: ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
+            : "Solo manda el mensaje (sin descuento)"}
+          {" · Plantilla: "}
+          {plantilla?.nombre || "(eliminada)"}
+        </span>
+        {plantilla && <BadgeAprobadoMeta aprobado={plantilla.metaAprobado} />}
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button className="icon-btn" onClick={toggleActiva}>
@@ -154,10 +163,11 @@ export default function ReglasWhatsappTab() {
           <select value={tipoEvento} onChange={(e) => setTipoEvento(e.target.value as TipoEventoReglaWhatsapp)}>
             <option value="venta_creada">Se registra una venta</option>
             <option value="plan_proximo_vencer">El plan de un cliente está por vencer</option>
+            <option value="cobro_fallido">No se pudo cobrar la mensualidad (Oneclick)</option>
           </select>
         </div>
 
-        {tipoEvento === "venta_creada" ? (
+        {tipoEvento === "venta_creada" && (
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
             <div className="field" style={{ flex: 1, minWidth: 200, margin: 0 }}>
               <label>Tipo de venta (vacío = cualquiera)</label>
@@ -173,7 +183,9 @@ export default function ReglasWhatsappTab() {
               <input ref={delayDiasRef} type="number" min={0} defaultValue={0} />
             </div>
           </div>
-        ) : (
+        )}
+
+        {tipoEvento === "plan_proximo_vencer" && (
           <div className="field" style={{ marginBottom: 10 }}>
             <label>Días antes del vencimiento</label>
             <input ref={diasAntesRef} type="number" min={0} defaultValue={5} />

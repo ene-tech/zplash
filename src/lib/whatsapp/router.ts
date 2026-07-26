@@ -26,12 +26,16 @@ const OPCIONES_HUMANO = new Set(["4", "humano", "ayuda", "persona"]);
 const OPCIONES_DESCUENTO = new Set(["5", "descuento", "dscto"]);
 const REGEX_DESCUENTO_PATENTE = /^(?:descuento|dscto)\s+([a-z0-9]+)$/i;
 
-async function estadoPlanPorPatente(patenteCruda: string, textos: TextosBotWhatsapp): Promise<RespuestaBot> {
+async function estadoPlanPorPatente(patenteCruda: string, textos: TextosBotWhatsapp, telefono: string): Promise<RespuestaBot> {
   const patente = normPlate(patenteCruda);
   const db = getDb();
   const [cliente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
 
-  if (!cliente) return { texto: textos.patenteNoEncontrada };
+  // No entregamos datos del cliente si el teléfono que escribe no es el
+  // registrado para esa patente, para no filtrar información a un número
+  // ajeno (mismo mensaje que "no encontrada" para no confirmar que la
+  // patente existe).
+  if (!cliente || cliente.telefono !== telefono) return { texto: textos.patenteNoEncontrada };
 
   const estado = planStatus(cliente);
   const lineas = [
@@ -95,13 +99,13 @@ async function manejarDescuentoPrimeraVez(patenteCruda: string, textos: TextosBo
   return { texto: textoConfirmacionDescuento(textos, codigo, fechaCaducidad) };
 }
 
-export async function responderMensaje(textoCrudo: string): Promise<RespuestaBot> {
+export async function responderMensaje(textoCrudo: string, telefono: string): Promise<RespuestaBot> {
   const texto = (textoCrudo || "").trim();
   const normalizado = texto.toLowerCase();
-  const { textosBotWhatsapp: textos } = await getConfig();
+  const { textosBotWhatsapp: textos, imagenPreciosWhatsapp, imagenPlanWhatsapp } = await getConfig();
 
   if (!texto || SALUDOS.has(normalizado)) return { texto: textos.menuPrincipal };
-  if (isValidPatente(texto)) return estadoPlanPorPatente(texto, textos);
+  if (isValidPatente(texto)) return estadoPlanPorPatente(texto, textos, telefono);
   if (OPCIONES_PRECIOS.has(normalizado)) {
     const db = getDb();
     const [preciosRows, serviciosRows] = await Promise.all([
@@ -112,9 +116,9 @@ export async function responderMensaje(textoCrudo: string): Promise<RespuestaBot
     const servicios = serviciosRows.length
       ? serviciosRows.map((s) => ({ ...s, categoria: s.categoria ?? undefined }))
       : SERVICIOS_DEFAULT;
-    return { texto: textoPrecios(precios, servicios), mediaPath: SERVICIOS_IMAGEN_PATH };
+    return { texto: textoPrecios(precios, servicios, textos.textoPreciosIntro), mediaPath: imagenPreciosWhatsapp || SERVICIOS_IMAGEN_PATH };
   }
-  if (OPCIONES_CONTRATAR_PLAN.has(normalizado)) return { texto: textos.textoContratarPlan, mediaPath: PLAN_IMAGEN_PATH };
+  if (OPCIONES_CONTRATAR_PLAN.has(normalizado)) return { texto: textos.textoContratarPlan, mediaPath: imagenPlanWhatsapp || PLAN_IMAGEN_PATH };
   if (OPCIONES_HORARIO.has(normalizado)) return { texto: textos.horarioUbicacion };
   if (OPCIONES_HUMANO.has(normalizado)) return { texto: textos.contactoHumano };
   if (OPCIONES_DESCUENTO.has(normalizado)) {

@@ -17,6 +17,8 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   tramosReactivacionVencido: {},
   horasBloqueoReingresoPlan: 24.5,
   textosBotWhatsapp: TEXTOS_BOT_WHATSAPP_DEFAULT,
+  imagenPreciosWhatsapp: undefined,
+  imagenPlanWhatsapp: undefined,
 };
 
 /** true si `ahora` cae dentro del horario configurado para registrar ingresos en el

@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
 import { PLAN_ONECLICK_KEY, mesActualKey, precioPlanOneclick } from "@/lib/helpers";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
+import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
 import type { Precios } from "@/types";
 import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
 
@@ -48,7 +49,7 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
   // misma tarjeta. pg_advisory_xact_lock se libera solo al terminar la
   // transacción (commit o rollback), así que una segunda llamada concurrente
   // espera acá a que la primera termine de verdad antes de mirar el estado.
-  return getDb().transaction(async (tx) => {
+  const resultado = await getDb().transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${suscripcion.id}))`);
 
     const [filaPrecio] = await tx.select().from(precios).where(eq(precios.plan, PLAN_ONECLICK_KEY)).limit(1);
@@ -142,6 +143,21 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
       .set({ proximoCobro: proximoCicloISO(suscripcion.proximoCobro), actualizadoEn: new Date().toISOString() })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
 
-    return { estado };
+    return { estado, buyOrder, monto };
   });
+
+  // Fuera de la transacción/lock a propósito (avisar por WhatsApp no debe
+  // retrasar la liberación del advisory lock). `buyOrder` es el id de la fila
+  // en cobrosOneclick — sirve de origenId para no avisar dos veces por el
+  // mismo intento de cobro (ver evaluarReglasPorCobroFallido).
+  if (resultado.estado === "rechazada" && suscripcion.clienteId) {
+    evaluarReglasPorCobroFallido({
+      clienteId: suscripcion.clienteId,
+      patente: suscripcion.patente,
+      buyOrderId: resultado.buyOrder,
+      monto: resultado.monto,
+    }).catch((error) => console.error("Error evaluando reglas de WhatsApp por cobro fallido", suscripcion.id, error));
+  }
+
+  return { estado: resultado.estado };
 }

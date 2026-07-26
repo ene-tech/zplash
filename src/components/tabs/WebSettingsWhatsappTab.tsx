@@ -9,12 +9,31 @@ const CATEGORIA_DEFAULT = "Proceso de venta";
 
 const VARIABLES_DISPONIBLES = ["nombre", "patente", "plan", "monto", "fechaVencimiento", "montoOferta", "diasValidez"];
 
+export function BadgeAprobadoMeta({ aprobado }: { aprobado: boolean }) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        fontSize: 11,
+        fontWeight: 700,
+        padding: "2px 8px",
+        borderRadius: 999,
+        color: "#fff",
+        background: aprobado ? "var(--green)" : "var(--gray)",
+      }}
+    >
+      {aprobado ? "Aprobado en Meta" : "Pendiente en Meta"}
+    </span>
+  );
+}
+
 function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaWhatsapp; puedeBorrar: boolean }) {
   const { data, commit } = useApp();
   const [mensaje, setMensaje] = useState(plantilla.mensaje);
   const [metaNombre, setMetaNombre] = useState(plantilla.metaNombre || "");
   const [metaIdioma, setMetaIdioma] = useState(plantilla.metaIdioma || "es");
   const [metaVariables, setMetaVariables] = useState((plantilla.metaVariables || []).join(", "));
+  const [metaAprobado, setMetaAprobado] = useState(plantilla.metaAprobado);
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
 
@@ -22,7 +41,8 @@ function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaWhatsapp
     mensaje !== plantilla.mensaje ||
     metaNombre !== (plantilla.metaNombre || "") ||
     metaIdioma !== (plantilla.metaIdioma || "es") ||
-    metaVariables !== (plantilla.metaVariables || []).join(", ");
+    metaVariables !== (plantilla.metaVariables || []).join(", ") ||
+    metaAprobado !== plantilla.metaAprobado;
 
   const guardar = async () => {
     setGuardando(true);
@@ -33,7 +53,14 @@ function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaWhatsapp
     const ok = await commit({
       plantillasWhatsapp: data.plantillasWhatsapp.map((p) =>
         p.id === plantilla.id
-          ? { ...p, mensaje, metaNombre: metaNombre.trim() || undefined, metaIdioma: metaIdioma.trim() || undefined, metaVariables: variables.length ? variables : undefined }
+          ? {
+              ...p,
+              mensaje,
+              metaNombre: metaNombre.trim() || undefined,
+              metaIdioma: metaIdioma.trim() || undefined,
+              metaVariables: variables.length ? variables : undefined,
+              metaAprobado,
+            }
           : p
       ),
     });
@@ -51,7 +78,10 @@ function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaWhatsapp
 
   return (
     <div className="vehicle-card" style={{ opacity: plantilla.activo ? 1 : 0.6, marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>{plantilla.nombre}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        <div style={{ fontWeight: 700 }}>{plantilla.nombre}</div>
+        <BadgeAprobadoMeta aprobado={plantilla.metaAprobado} />
+      </div>
       <div className="field" style={{ margin: "0 0 8px" }}>
         <label>Mensaje</label>
         <textarea rows={4} value={mensaje} onChange={(e) => setMensaje(e.target.value)} placeholder="Mensaje de WhatsApp" />
@@ -78,6 +108,10 @@ function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaWhatsapp
           placeholder={VARIABLES_DISPONIBLES.join(", ")}
         />
       </div>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400, marginBottom: 8 }}>
+        <input type="checkbox" checked={metaAprobado} onChange={(e) => setMetaAprobado(e.target.checked)} />
+        Confirmo que este template ya está Aprobado en Meta Business Manager
+      </label>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button className="btn" style={{ marginTop: 0 }} onClick={guardar} disabled={guardando || !hayCambios}>
           {guardando ? "Guardando..." : "Guardar"}
@@ -117,6 +151,7 @@ export default function WebSettingsWhatsappTab() {
       categoria: categoriaRef.current?.value.trim() || undefined,
       mensaje: "",
       activo: true,
+      metaAprobado: false,
     };
     const ok = await commit({ plantillasWhatsapp: [...data.plantillasWhatsapp, nueva] });
     if (!ok) {

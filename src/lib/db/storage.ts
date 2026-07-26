@@ -12,3 +12,8 @@ export async function subirBannerServicio(servicioId: string, file: File): Promi
   if (!(await tieneModulo("web_settings"))) return null;
   return dataAccess.subirBannerServicio(servicioId, file);
 }
+
+export async function subirImagenBotWhatsapp(clave: "precios" | "plan", file: File): Promise<string | null> {
+  if (!(await tieneModulo("web_settings"))) return null;
+  return dataAccess.subirImagenBotWhatsapp(clave, file);
+}

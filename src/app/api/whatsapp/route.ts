@@ -83,7 +83,7 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
 
   let respuesta;
   try {
-    respuesta = await responderMensaje(textoEntrante);
+    respuesta = await responderMensaje(textoEntrante, telefono);
   } catch (error) {
     console.error("Error respondiendo mensaje de WhatsApp", error);
     respuesta = { texto: "Ocurrió un error de nuestro lado. Intenta de nuevo en unos minutos." };
@@ -91,7 +91,13 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
 
   await enviarMensajeTexto(telefono, respuesta.texto);
   if (respuesta.mediaPath) {
-    await enviarMensajeImagen(telefono, `${origen}${respuesta.mediaPath}`);
+    // mediaPath puede ser una ruta estática de /public (estas se sirven desde
+    // el propio dominio, ej. "/servicios-precios.jpg") o una URL pública ya
+    // absoluta de Supabase Storage cuando el admin subió su propia imagen
+    // desde Web Settings (ver subirImagenBotWhatsapp) — solo la primera
+    // necesita el prefijo de origen.
+    const url = /^https?:\/\//.test(respuesta.mediaPath) ? respuesta.mediaPath : `${origen}${respuesta.mediaPath}`;
+    await enviarMensajeImagen(telefono, url);
   }
 }
 

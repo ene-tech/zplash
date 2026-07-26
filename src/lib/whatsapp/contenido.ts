@@ -13,8 +13,8 @@ export const SERVICIOS_IMAGEN_PATH = "/servicios-precios.jpg";
 
 export const PLAN_IMAGEN_PATH = "/plan-mensual.jpg";
 
-export function textoPrecios(precios: Precios, servicios: Servicio[]): string {
-  const lineas = [`💰 *Precios*`, ``];
+export function textoPrecios(precios: Precios, servicios: Servicio[], intro: string): string {
+  const lineas = [intro, ``];
 
   for (const [plan, precio] of Object.entries(PRECIOS_DEFAULT)) {
     lineas.push(`${plan}: ${fmtCLP(precio.promo)} (normal ${fmtCLP(precio.normal)})`);

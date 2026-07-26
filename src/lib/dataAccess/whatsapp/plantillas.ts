@@ -18,6 +18,7 @@ function plantillaWhatsappToRow(p: PlantillaWhatsapp): typeof plantillasWhatsapp
     metaNombre: p.metaNombre || null,
     metaIdioma: p.metaIdioma || null,
     metaVariables: p.metaVariables?.length ? p.metaVariables : null,
+    metaAprobado: p.metaAprobado,
   };
 }
 
@@ -31,6 +32,7 @@ export function plantillaWhatsappFromRow(r: PlantillaWhatsappRow): PlantillaWhat
     metaNombre: r.metaNombre || undefined,
     metaIdioma: r.metaIdioma || undefined,
     metaVariables: r.metaVariables?.length ? r.metaVariables : undefined,
+    metaAprobado: r.metaAprobado,
   };
 }
 

@@ -22,6 +22,8 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     tramosReactivacionVencido: c.tramosReactivacionVencido,
     horasBloqueoReingresoPlan: c.horasBloqueoReingresoPlan,
     textosBotWhatsapp: c.textosBotWhatsapp as unknown as Record<string, string>,
+    imagenPreciosWhatsapp: c.imagenPreciosWhatsapp || null,
+    imagenPlanWhatsapp: c.imagenPlanWhatsapp || null,
   };
 }
 
@@ -38,6 +40,8 @@ export function configFromRow(r: ConfigRow): ConfigGlobal {
     tramosReactivacionVencido: r.tramosReactivacionVencido ?? {},
     horasBloqueoReingresoPlan: r.horasBloqueoReingresoPlan || 24.5,
     textosBotWhatsapp: { ...TEXTOS_BOT_WHATSAPP_DEFAULT, ...(r.textosBotWhatsapp ?? {}) },
+    imagenPreciosWhatsapp: r.imagenPreciosWhatsapp || undefined,
+    imagenPlanWhatsapp: r.imagenPlanWhatsapp || undefined,
   };
 }
 

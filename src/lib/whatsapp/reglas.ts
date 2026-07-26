@@ -114,8 +114,12 @@ async function ejecutarAccionRegla(regla: ReglaWhatsapp, disparoId: string, clie
 
   const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez });
   const mensaje = await enviarSegunPlantilla(plantilla, cliente.telefono, variables);
+  // `mensaje` siempre existe salvo que falte metaNombre — enviarMensajePlantilla
+  // (@/lib/whatsapp/enviar) registra la fila de todos modos aunque la Graph
+  // API rechace el envío, con estado "fallido" adentro. Hay que mirar ese
+  // estado real, no solo si `mensaje` es truthy.
   await marcarDisparoReglaWhatsapp(disparoId, {
-    estado: mensaje ? "enviado" : "error",
+    estado: mensaje?.estado === "enviado" ? "enviado" : "error",
     cuponId,
     mensajeWhatsappId: mensaje?.id,
   });
@@ -177,6 +181,48 @@ export async function evaluarReglasPorVenta(ventasNuevas: Venta[]): Promise<void
         console.error(`Error disparando regla WhatsApp "${regla.nombre}" para venta ${venta.id}`, error)
       );
     }
+  }
+}
+
+// Llamado por cobrarSuscripcion (@/lib/pagos) cuando un cobro Oneclick queda
+// "rechazada" — fire-and-forget, mismo patrón que evaluarReglasPorVenta (un
+// error acá nunca debe afectar el resultado del cobro, que ya se resolvió).
+// Sin delayDias: siempre inmediato, no hay nada que el cron diario deba
+// procesar después para este tipo de evento.
+export async function evaluarReglasPorCobroFallido(opts: {
+  clienteId: string;
+  patente: string;
+  buyOrderId: string;
+  monto: number;
+}): Promise<void> {
+  let reglas: ReglaWhatsapp[];
+  try {
+    reglas = await listarReglasWhatsappActivas("cobro_fallido");
+  } catch (error) {
+    console.error("Error cargando reglas WhatsApp (cobro_fallido)", error);
+    return;
+  }
+  if (!reglas.length) return;
+
+  const cliente = await buscarCliente(opts.clienteId);
+  if (!cliente) return;
+
+  for (const regla of reglas) {
+    if (regla.condicionPlanes?.length && (!cliente.plan || !regla.condicionPlanes.includes(cliente.plan))) continue;
+    const disparo = await registrarDisparoReglaWhatsapp({
+      id: uid(),
+      reglaId: regla.id,
+      origenTipo: "cobro",
+      origenId: opts.buyOrderId,
+      clienteId: cliente.id,
+      patente: opts.patente,
+      estado: "programado",
+      enviarEn: new Date().toISOString(),
+    });
+    if (!disparo) continue; // ya se disparó esta regla para este intento de cobro
+    await ejecutarAccionRegla(regla, disparo.id, cliente, opts.monto).catch((error) =>
+      console.error(`Error disparando regla WhatsApp "${regla.nombre}" para cobro ${opts.buyOrderId}`, error)
+    );
   }
 }
 

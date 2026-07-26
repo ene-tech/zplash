@@ -4,6 +4,8 @@ import { getDb, type DbOrTx } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { movimientoToRow } from "@/lib/dataAccess";
 import { PLANES, movimientoContableDesdeVenta, uid } from "@/lib/helpers";
+import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
+import type { Venta } from "@/types";
 
 export function addDaysISO(iso: string, dias: number): string {
   const d = new Date(iso);
@@ -85,18 +87,41 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
 
   const tipo = existente ? p.tipoVentaExistente : p.tipoVentaNuevo;
   const nombre = existente?.nombre || "Cliente Web";
+  const fecha = new Date().toISOString();
+  const plan = p.esServicioAdicional ? "" : PLANES[0];
   await db.insert(ventas).values({
     id: p.ventaId,
     clienteId,
     patente: p.patente,
     nombre,
-    plan: p.esServicioAdicional ? "" : PLANES[0],
+    plan,
     precio: p.monto,
     tipo,
+    fecha,
     metodoPago: p.metodoPago,
     esServicioAdicional: p.esServicioAdicional,
     creadoPor: p.creadoPor,
   });
+
+  // A diferencia de insertVentas (@/lib/dataAccess/ventas), esta función no
+  // pasa por ahí — es el choke point de ventas confirmadas por un pago
+  // externo (Webpay, Oneclick), así que dispara las reglas WhatsApp acá
+  // mismo, fire-and-forget, mismo patrón que insertVentas.ts.
+  const venta: Venta = {
+    id: p.ventaId,
+    clienteId,
+    patente: p.patente,
+    nombre,
+    plan,
+    precio: p.monto,
+    tipo,
+    fecha,
+    metodoPago: p.metodoPago as Venta["metodoPago"],
+    esServicioAdicional: p.esServicioAdicional,
+    cantidadItems: 1,
+    creadoPor: p.creadoPor,
+  };
+  evaluarReglasPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta (pago externo)", error));
 
   // Genera/actualiza el movimiento contable de ingreso ligado a esta venta
   // en la misma transacción — ver movimientoContableDesdeVenta en helpers.ts.

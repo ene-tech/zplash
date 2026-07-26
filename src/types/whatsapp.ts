@@ -34,10 +34,12 @@ export interface MensajeWhatsapp {
 // específica del router del bot. textoDescuentoInstrucciones acepta
 // {{monto}}/{{dias}}; textoDescuentoConfirmacion acepta
 // {{codigo}}/{{monto}}/{{fecha}} (ver aplicarVariables en
-// @/lib/helpers/whatsapp). La lista de precios (textoPrecios) no es
-// editable acá: se genera desde la tabla de precios/servicios real.
+// @/lib/helpers/whatsapp). textoPreciosIntro es solo el encabezado que
+// antecede a la lista de precios/servicios: la lista en sí siempre se
+// genera desde la tabla real, no es editable como texto libre.
 export interface TextosBotWhatsapp {
   menuPrincipal: string;
+  textoPreciosIntro: string;
   textoContratarPlan: string;
   horarioUbicacion: string;
   contactoHumano: string;
@@ -69,9 +71,12 @@ export interface PlantillaWhatsapp {
   // template aprobado. Subconjunto de: nombre, patente, plan, monto,
   // fechaVencimiento, montoOferta, diasValidez.
   metaVariables?: string[];
+  // Marca manual de que metaNombre corresponde a un template realmente
+  // aprobado en Meta (ver comentario en @/db/schema/whatsapp).
+  metaAprobado: boolean;
 }
 
-export type TipoEventoReglaWhatsapp = "venta_creada" | "plan_proximo_vencer";
+export type TipoEventoReglaWhatsapp = "venta_creada" | "plan_proximo_vencer" | "cobro_fallido";
 export type AccionReglaWhatsapp = "cupon_descuento" | "mensaje_simple";
 
 // Regla de negocio ("cuándo mandar qué") — ver plan de "motor de reglas
@@ -95,7 +100,7 @@ export interface ReglaWhatsapp {
   creadoPor?: string;
 }
 
-export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente";
+export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente" | "cobro";
 export type EstadoDisparoReglaWhatsapp = "programado" | "enviado" | "error";
 
 // Auditoría + idempotencia de cada disparo de una ReglaWhatsapp — ver

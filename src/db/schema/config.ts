@@ -55,4 +55,10 @@ export const config = pgTable("config", {
     .$type<Partial<Record<string, string>>>()
     .notNull()
     .default({}),
+  // URL pública (Supabase Storage) de la imagen que el bot adjunta en la
+  // Opción 1/2 del menú de WhatsApp (ver SERVICIOS_IMAGEN_PATH/PLAN_IMAGEN_PATH
+  // en @/lib/whatsapp/contenido) — null/vacío usa el archivo estático de
+  // fábrica en vez de uno subido por el admin desde Web Settings.
+  imagenPreciosWhatsapp: text("imagen_precios_whatsapp"),
+  imagenPlanWhatsapp: text("imagen_plan_whatsapp"),
 });

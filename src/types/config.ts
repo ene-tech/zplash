@@ -66,4 +66,10 @@ export interface ConfigGlobal {
   // Contenido editable de las respuestas automáticas del bot de WhatsApp —
   // ver TextosBotWhatsapp.
   textosBotWhatsapp: TextosBotWhatsapp;
+  // URL pública (Supabase Storage) de la imagen adjunta en la Opción 1
+  // (precios) / Opción 2 (plan) del bot de WhatsApp. undefined/vacío usa el
+  // archivo estático de fábrica (ver SERVICIOS_IMAGEN_PATH/PLAN_IMAGEN_PATH
+  // en @/lib/whatsapp/contenido).
+  imagenPreciosWhatsapp?: string;
+  imagenPlanWhatsapp?: string;
 }
