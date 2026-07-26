@@ -137,3 +137,21 @@ export interface DisparoReglaWhatsapp {
   enviarEn: string;
   creadoEn: string;
 }
+
+// Fila enriquecida para el historial de envíos (Web Settings → Historial
+// WhatsApp) — join de disparosReglaWhatsapp con reglasWhatsapp, clientes y
+// mensajesWhatsapp, de solo lectura (no tiene su propio dataAccess de
+// escritura). `mensajeTexto` trae "[Plantilla: nombre]" tal cual lo guarda
+// enviarMensajePlantilla en @/lib/whatsapp/enviar.
+export interface HistorialReglaWhatsapp {
+  id: string;
+  creadoEn: string;
+  reglaNombre: string;
+  origenTipo: OrigenTipoDisparoReglaWhatsapp;
+  patente?: string;
+  clienteNombre?: string;
+  estado: EstadoDisparoReglaWhatsapp;
+  mensajeTexto?: string;
+  mensajeEstado?: EstadoMensajeWhatsapp;
+  mensajeError?: string;
+}

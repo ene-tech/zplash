@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, eq, lte } from "drizzle-orm";
+import { and, desc, eq, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { disparosReglaWhatsapp } from "@/db/schema";
-import type { DisparoReglaWhatsapp, EstadoDisparoReglaWhatsapp, OrigenTipoDisparoReglaWhatsapp } from "@/types";
+import { clientes, disparosReglaWhatsapp, mensajesWhatsapp, reglasWhatsapp } from "@/db/schema";
+import type { DisparoReglaWhatsapp, EstadoDisparoReglaWhatsapp, HistorialReglaWhatsapp, OrigenTipoDisparoReglaWhatsapp } from "@/types";
 
 type DisparoReglaWhatsappRow = typeof disparosReglaWhatsapp.$inferSelect;
 
@@ -84,4 +84,44 @@ export async function listarDisparosProgramadosVencidos(ahoraISO: string): Promi
     .from(disparosReglaWhatsapp)
     .where(and(eq(disparosReglaWhatsapp.estado, "programado"), lte(disparosReglaWhatsapp.enviarEn, ahoraISO)));
   return rows.map(disparoReglaWhatsappFromRow);
+}
+
+// Historial de envíos (Web Settings → Historial WhatsApp) — une cada disparo
+// con el nombre de su regla, el cliente y el resultado real del mensaje
+// (incluido `error`, ver comentario en @/db/schema/whatsapp), para poder
+// auditar qué se mandó y por qué falló sin tener que consultar la base a
+// mano como se hizo hoy diagnosticando la plantilla de reseña Google.
+export async function listarHistorialReglasWhatsapp(limite = 150): Promise<HistorialReglaWhatsapp[]> {
+  const rows = await getDb()
+    .select({
+      id: disparosReglaWhatsapp.id,
+      creadoEn: disparosReglaWhatsapp.creadoEn,
+      reglaNombre: reglasWhatsapp.nombre,
+      origenTipo: disparosReglaWhatsapp.origenTipo,
+      patente: disparosReglaWhatsapp.patente,
+      clienteNombre: clientes.nombre,
+      estado: disparosReglaWhatsapp.estado,
+      mensajeTexto: mensajesWhatsapp.texto,
+      mensajeEstado: mensajesWhatsapp.estado,
+      mensajeError: mensajesWhatsapp.error,
+    })
+    .from(disparosReglaWhatsapp)
+    .leftJoin(reglasWhatsapp, eq(disparosReglaWhatsapp.reglaId, reglasWhatsapp.id))
+    .leftJoin(clientes, eq(disparosReglaWhatsapp.clienteId, clientes.id))
+    .leftJoin(mensajesWhatsapp, eq(disparosReglaWhatsapp.mensajeWhatsappId, mensajesWhatsapp.id))
+    .orderBy(desc(disparosReglaWhatsapp.creadoEn))
+    .limit(limite);
+
+  return rows.map((r) => ({
+    id: r.id,
+    creadoEn: r.creadoEn,
+    reglaNombre: r.reglaNombre || "(regla eliminada)",
+    origenTipo: r.origenTipo as OrigenTipoDisparoReglaWhatsapp,
+    patente: r.patente || undefined,
+    clienteNombre: r.clienteNombre || undefined,
+    estado: r.estado as EstadoDisparoReglaWhatsapp,
+    mensajeTexto: r.mensajeTexto || undefined,
+    mensajeEstado: (r.mensajeEstado as HistorialReglaWhatsapp["mensajeEstado"]) || undefined,
+    mensajeError: r.mensajeError || undefined,
+  }));
 }

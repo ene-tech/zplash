@@ -2,7 +2,7 @@
 
 import * as dataAccess from "@/lib/dataAccess";
 import { tieneModulo } from "@/lib/session";
-import type { PlantillaWhatsapp, ReglaWhatsapp } from "@/types";
+import type { HistorialReglaWhatsapp, PlantillaWhatsapp, ReglaWhatsapp } from "@/types";
 
 export async function upsertPlantillasWhatsapp(rows: PlantillaWhatsapp[]): Promise<boolean> {
   if (!(await tieneModulo("web_settings"))) return false;
@@ -22,4 +22,9 @@ export async function upsertReglasWhatsapp(rows: ReglaWhatsapp[]): Promise<boole
 export async function deleteReglasWhatsapp(ids: string[]): Promise<boolean> {
   if (!(await tieneModulo("web_settings"))) return false;
   return dataAccess.deleteReglasWhatsapp(ids);
+}
+
+export async function listarHistorialReglasWhatsapp(): Promise<HistorialReglaWhatsapp[]> {
+  if (!(await tieneModulo("web_settings"))) return [];
+  return dataAccess.listarHistorialReglasWhatsapp();
 }
