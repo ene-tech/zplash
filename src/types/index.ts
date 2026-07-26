@@ -26,7 +26,7 @@ import type { PerfilPublico } from "./perfiles";
 import type { Precios } from "./precios";
 import type { Servicio } from "./servicios";
 import type { Venta } from "./ventas";
-import type { PlantillaWhatsapp } from "./whatsapp";
+import type { PlantillaWhatsapp, ReglaWhatsapp } from "./whatsapp";
 
 export interface AppData {
   clientes: Cliente[];
@@ -58,6 +58,7 @@ export interface AppData {
   alertasMantencion: AlertaMantencion[];
   plantillasCorreo: PlantillaCorreo[];
   plantillasWhatsapp: PlantillaWhatsapp[];
+  reglasWhatsapp: ReglaWhatsapp[];
 }
 
 export * from "./agenda";

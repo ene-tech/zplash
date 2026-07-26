@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fmtCLP, fmtDate, fmtFecha, isValidPatente, normPlate, PATENTE_FORMATO_MSG } from "@/lib/helpers";
+import { useState } from "react";
+import { fmtCLP, fmtDate, fmtFecha } from "@/lib/helpers";
 import GoogleIcon from "@/components/GoogleIcon";
 import { useSesionCliente } from "@/hooks/useSesionCliente";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
+import { TicketsEmpresaSection } from "@/components/cliente/miCuenta/TicketsEmpresaSection";
+import { SolicitudCambioPatente } from "@/components/cliente/miCuenta/SolicitudCambioPatente";
 
 // Diseño asume que la cuenta de Google se vincula a un cliente por
 // coincidencia de email (clientes.email) — no todos los clientes tienen
@@ -21,9 +23,7 @@ const VEHICULOS_DEMO: VehiculoSesion[] = [
 
 // Espejo de suscripcionesOneclick (@/db/schema): una tarjeta inscrita puede
 // no existir para un vehículo sin renovación automática activada (CD5678).
-const TARJETAS_DEMO = [
-  { patente: "AB1234", cardTipo: "Visa", cardUltimosDigitos: "4321", estado: "activa" as const },
-];
+const TARJETAS_DEMO = [{ patente: "AB1234", cardTipo: "Visa", cardUltimosDigitos: "4321", estado: "activa" as const }];
 
 // Espejo de citas + citaServicios (@/db/schema): agenda de Detailing hecha
 // por el cliente o cargada por un operador desde Servicios Adicionales.
@@ -36,200 +36,6 @@ const COMPRAS_DEMO = [
   { fecha: "2026-06-28T16:40:00", tipo: "Limpieza de Tapiz", monto: 15000 },
   { fecha: "2026-06-10T09:05:00", tipo: "Lavado único", monto: 9990 },
 ];
-
-interface TicketEmpresa {
-  codigo: string;
-  nombreLote: string;
-  numeroLote: number;
-  totalLote: number;
-  estado: string;
-  patenteUso: string | null;
-}
-
-function estadoClase(estado: string): "ok" | "warn" | "bad" {
-  if (estado === "Usado") return "ok";
-  if (estado === "Caducado") return "bad";
-  return "warn";
-}
-
-// A diferencia del resto de esta pantalla (vehículos/tarjetas/detailing, ver
-// *_DEMO más arriba), esta sección SÍ es real: busca en /api/empresa/tickets
-// por el email de la sesión — funciona apenas alguien compra un Pack Empresa
-// con ese correo (ver FormularioCompra en VentaEmpresaInfoTab), sin depender
-// de que el login con Google esté conectado de verdad.
-// Se instancia con key={email} en los call sites para que un cambio de
-// correo remonte el componente en vez de reutilizar el estado — así
-// `cargando` arranca en `true` sin necesidad de resetearlo desde el efecto.
-function TicketsEmpresaSection({ email }: { email: string }) {
-  const [cargando, setCargando] = useState(true);
-  const [tickets, setTickets] = useState<TicketEmpresa[] | null>(null);
-
-  useEffect(() => {
-    let cancelado = false;
-    fetch(`/api/empresa/tickets?email=${encodeURIComponent(email)}`)
-      .then((res) => (res.ok ? res.json() : { tickets: [] }))
-      .then((data) => {
-        if (!cancelado) setTickets(data.tickets || []);
-      })
-      .catch(() => {
-        if (!cancelado) setTickets([]);
-      })
-      .finally(() => {
-        if (!cancelado) setCargando(false);
-      });
-    return () => {
-      cancelado = true;
-    };
-  }, [email]);
-
-  if (cargando) return null;
-  if (!tickets || tickets.length === 0) return null;
-
-  return (
-    <div style={{ marginBottom: 26 }}>
-      <h3 style={{ marginBottom: 12 }}>Tickets de empresa</h3>
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>N°</th>
-              <th>Lote</th>
-              <th>Estado</th>
-              <th>Patente de uso</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tickets.map((t) => (
-              <tr key={t.codigo}>
-                <td className="plate-tag">{t.codigo}</td>
-                <td>
-                  {t.numeroLote}/{t.totalLote}
-                </td>
-                <td>{t.nombreLote}</td>
-                <td>
-                  <span className={`status-pill ${estadoClase(t.estado)}`}>{t.estado}</span>
-                </td>
-                <td>{t.patenteUso || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// Solo aplica a vehículos con un plan mensual vigente: el cambio de patente
-// no es inmediato porque el plan ya está pagado/activo para el mes en curso
-// bajo la patente actual — se hace efectivo recién cuando ese mes termina y
-// empieza el siguiente. Por ahora esto solo queda visible en la pantalla
-// (no hay backend detrás del login todavía, ver MiCuentaTab).
-function SolicitudCambioPatente({ patente, plan, vencimiento }: { patente: string; plan: string; vencimiento: string | null }) {
-  const [abierto, setAbierto] = useState(false);
-  const [nueva, setNueva] = useState("");
-  const [error, setError] = useState("");
-  const [confirmando, setConfirmando] = useState(false);
-  const [solicitada, setSolicitada] = useState<string | null>(null);
-
-  if (solicitada) {
-    return (
-      <p style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 8 }}>
-        Solicitaste cambiar tu patente a <strong>{solicitada}</strong>. El cambio se aplicará
-        automáticamente a tu plan cuando termine tu mes actual{vencimiento ? ` (vence el ${fmtFecha(vencimiento)})` : ""} e
-        inicie el próximo — hasta esa fecha tu plan sigue funcionando con la patente {patente}.
-      </p>
-    );
-  }
-
-  if (!abierto) {
-    return (
-      <button
-        type="button"
-        className="btn ghost"
-        style={{ marginTop: 8, padding: "6px 10px", fontSize: 12.5 }}
-        onClick={() => setAbierto(true)}
-      >
-        Solicitar cambio de patente
-      </button>
-    );
-  }
-
-  const pedirConfirmacion = () => {
-    if (!isValidPatente(nueva)) {
-      setError(PATENTE_FORMATO_MSG);
-      return;
-    }
-    if (normPlate(nueva) === normPlate(patente)) {
-      setError("Esa ya es tu patente actual.");
-      return;
-    }
-    setConfirmando(true);
-  };
-
-  return (
-    <div style={{ marginTop: 8 }}>
-      <div className="field" style={{ marginBottom: 6 }}>
-        <input
-          value={nueva}
-          onChange={(e) => {
-            setNueva(e.target.value.toUpperCase());
-            setError("");
-          }}
-          placeholder="Nueva patente (ej. AB1234)"
-          maxLength={6}
-          style={{ textTransform: "uppercase" }}
-        />
-      </div>
-      {error && <div className="err">{error}</div>}
-      <div style={{ display: "flex", gap: 8 }}>
-        <button type="button" className="btn" style={{ marginTop: 0, padding: "6px 10px", fontSize: 12.5 }} onClick={pedirConfirmacion}>
-          Confirmar
-        </button>
-        <button
-          type="button"
-          className="btn ghost"
-          style={{ marginTop: 0, padding: "6px 10px", fontSize: 12.5 }}
-          onClick={() => {
-            setAbierto(false);
-            setNueva("");
-            setError("");
-          }}
-        >
-          Cancelar
-        </button>
-      </div>
-
-      {confirmando && (
-        <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 400 }}>
-            <h3>Confirmar cambio de patente</h3>
-            <div style={{ color: "var(--white)", fontSize: 14, lineHeight: 1.5, marginBottom: 10 }}>
-              ¿Estás seguro que deseas cambiar tu <strong>{plan}</strong> de tu vehículo patente{" "}
-              <strong>{patente}</strong> a tu patente <strong>{normPlate(nueva)}</strong>?
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn ghost" onClick={() => setConfirmando(false)}>
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  setSolicitada(normPlate(nueva));
-                  setConfirmando(false);
-                  setAbierto(false);
-                }}
-              >
-                Sí, cambiar patente
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function CuentaBar({ email, onLogout }: { email: string; onLogout: () => void }) {
   return (

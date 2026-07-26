@@ -59,4 +59,57 @@ export interface PlantillaWhatsapp {
   categoria?: string;
   mensaje: string;
   activo: boolean;
+  // Nombre/idioma del template ya aprobado en Meta Business Manager que
+  // corresponde a esta situación (ver @/db/schema/whatsapp) — sin esto la
+  // plantilla queda solo como borrador de contenido, no conectable a un envío
+  // real vía enviarMensajePlantilla.
+  metaNombre?: string;
+  metaIdioma?: string;
+  // Orden de variables que calza con los {{1}},{{2}}... posicionales del
+  // template aprobado. Subconjunto de: nombre, patente, plan, monto,
+  // fechaVencimiento, montoOferta, diasValidez.
+  metaVariables?: string[];
+}
+
+export type TipoEventoReglaWhatsapp = "venta_creada" | "plan_proximo_vencer";
+export type AccionReglaWhatsapp = "cupon_descuento" | "mensaje_simple";
+
+// Regla de negocio ("cuándo mandar qué") — ver plan de "motor de reglas
+// WhatsApp" y comentario en @/db/schema/whatsapp. Editable desde Web
+// Settings → Reglas WhatsApp.
+export interface ReglaWhatsapp {
+  id: string;
+  nombre: string;
+  activa: boolean;
+  tipoEvento: TipoEventoReglaWhatsapp;
+  condicionTipoVenta?: string;
+  condicionPlanes?: string[];
+  condicionDiasAntesVencimiento?: number;
+  delayDias: number;
+  accion: AccionReglaWhatsapp;
+  cuponEsPorcentaje?: boolean;
+  cuponValor?: number;
+  cuponValidezDias?: number;
+  plantillaWhatsappId: string;
+  creadoEn: string;
+  creadoPor?: string;
+}
+
+export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente";
+export type EstadoDisparoReglaWhatsapp = "programado" | "enviado" | "error";
+
+// Auditoría + idempotencia de cada disparo de una ReglaWhatsapp — ver
+// comentario en @/db/schema/whatsapp.
+export interface DisparoReglaWhatsapp {
+  id: string;
+  reglaId: string;
+  origenTipo: OrigenTipoDisparoReglaWhatsapp;
+  origenId: string;
+  clienteId?: string;
+  patente?: string;
+  cuponId?: string;
+  mensajeWhatsappId?: string;
+  estado: EstadoDisparoReglaWhatsapp;
+  enviarEn: string;
+  creadoEn: string;
 }

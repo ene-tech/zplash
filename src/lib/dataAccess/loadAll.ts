@@ -31,6 +31,7 @@ import {
   proveedores,
   registrosMantencion,
   reglasConciliacion,
+  reglasWhatsapp,
   servicios,
   ventas,
 } from "@/db/schema";
@@ -63,7 +64,7 @@ import { preciosFromRows } from "./precios";
 import { safe } from "./shared";
 import { servicioFromRow } from "./servicios";
 import { ventaFromRow } from "./ventas";
-import { plantillaWhatsappFromRow } from "./whatsapp";
+import { plantillaWhatsappFromRow, reglaWhatsappFromRow } from "./whatsapp";
 
 export async function waitForStorage(): Promise<boolean> {
   try {
@@ -108,6 +109,7 @@ export async function loadAll(): Promise<AppData> {
     alertasMantencionRows,
     plantillasCorreoRows,
     plantillasWhatsappRows,
+    reglasWhatsappRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
@@ -139,6 +141,7 @@ export async function loadAll(): Promise<AppData> {
     safe(db.select().from(alertasMantencion).orderBy(asc(alertasMantencion.fechaObjetivo))),
     safe(db.select().from(plantillasCorreo).orderBy(asc(plantillasCorreo.nombre))),
     safe(db.select().from(plantillasWhatsapp).orderBy(asc(plantillasWhatsapp.nombre))),
+    safe(db.select().from(reglasWhatsapp).orderBy(asc(reglasWhatsapp.nombre))),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -216,5 +219,6 @@ export async function loadAll(): Promise<AppData> {
     alertasMantencion: alertasMantencionRows.map(alertaMantencionFromRow),
     plantillasCorreo: plantillasCorreoData,
     plantillasWhatsapp: plantillasWhatsappData,
+    reglasWhatsapp: reglasWhatsappRows.map(reglaWhatsappFromRow),
   };
 }

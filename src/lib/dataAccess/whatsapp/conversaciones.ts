@@ -1,22 +1,13 @@
 import "server-only";
 
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, conversacionesWhatsapp, mensajesWhatsapp, plantillasWhatsapp } from "@/db/schema";
+import { clientes, conversacionesWhatsapp, mensajesWhatsapp } from "@/db/schema";
 import { uid } from "@/lib/helpers";
-import type {
-  ConversacionWhatsapp,
-  DireccionMensajeWhatsapp,
-  EstadoMensajeWhatsapp,
-  MensajeWhatsapp,
-  PlantillaWhatsapp,
-  TipoMensajeWhatsapp,
-} from "@/types";
-import { upsertRows } from "./shared";
+import type { ConversacionWhatsapp, DireccionMensajeWhatsapp, EstadoMensajeWhatsapp, MensajeWhatsapp, TipoMensajeWhatsapp } from "@/types";
 
 type ConversacionRow = typeof conversacionesWhatsapp.$inferSelect;
 type MensajeRow = typeof mensajesWhatsapp.$inferSelect;
-type PlantillaWhatsappRow = typeof plantillasWhatsapp.$inferSelect;
 
 export function conversacionFromRow(r: ConversacionRow): ConversacionWhatsapp {
   return {
@@ -148,34 +139,4 @@ export async function dentroVentana24h(conversacionId: string): Promise<boolean>
     .where(and(eq(mensajesWhatsapp.conversacionId, conversacionId), eq(mensajesWhatsapp.direccion, "entrante"), gt(mensajesWhatsapp.creadoEn, hace24h)))
     .limit(1);
   return !!ultimo;
-}
-
-function plantillaWhatsappToRow(p: PlantillaWhatsapp): typeof plantillasWhatsapp.$inferInsert {
-  return { id: p.id, nombre: p.nombre, categoria: p.categoria || null, mensaje: p.mensaje, activo: p.activo };
-}
-
-export function plantillaWhatsappFromRow(r: PlantillaWhatsappRow): PlantillaWhatsapp {
-  return { id: r.id, nombre: r.nombre, categoria: r.categoria || undefined, mensaje: r.mensaje, activo: r.activo };
-}
-
-export async function upsertPlantillasWhatsapp(rows: PlantillaWhatsapp[]): Promise<boolean> {
-  if (!rows.length) return true;
-  try {
-    await upsertRows(plantillasWhatsapp, plantillasWhatsapp.id, rows.map(plantillaWhatsappToRow));
-    return true;
-  } catch (error) {
-    console.error("Error guardando plantillas de WhatsApp", error);
-    return false;
-  }
-}
-
-export async function deletePlantillasWhatsapp(ids: string[]): Promise<boolean> {
-  if (!ids.length) return true;
-  try {
-    await getDb().delete(plantillasWhatsapp).where(inArray(plantillasWhatsapp.id, ids));
-    return true;
-  } catch (error) {
-    console.error("Error eliminando plantillas de WhatsApp", error);
-    return false;
-  }
 }

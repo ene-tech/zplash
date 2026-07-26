@@ -3,6 +3,7 @@ import "server-only";
 import { inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
+import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Venta } from "@/types";
 import { upsertRows } from "./shared";
 
@@ -79,6 +80,12 @@ export async function insertVentas(rows: Venta[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
     await getDb().insert(ventas).values(rows.map(ventaToRow));
+    // Fire-and-forget: evalúa reglas de WhatsApp (ver @/lib/whatsapp/reglas)
+    // sin awaitear el envío. Esto es solo el único choke point de ventas
+    // REALMENTE nuevas (a diferencia de upsertVentas, usado para ediciones)
+    // y cubre todas las vías (operador, Webpay, Oneclick, B2B) — un error de
+    // Meta/WhatsApp acá nunca debe hacer fallar la venta que ya se guardó.
+    evaluarReglasPorVenta(rows).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta", error));
     return true;
   } catch (error) {
     console.error("Error guardando ventas", error);

@@ -63,7 +63,9 @@ export default function BulkModal() {
             <br />
             El vencimiento del plan se calcula automáticamente: 1 mes desde la Fecha de Contratación.
             <br />
-            Las columnas de facturación son opcionales y solo se guardan si Tipo Documento es &quot;Factura&quot;.
+            Las columnas de facturación (Razón Social, RUT, Dirección, Giro) solo se usan si Tipo Documento es
+            &quot;Factura&quot;, y en ese caso son obligatorias: una fila Factura sin todas ellas se marca como error y no
+            se guarda.
             <br />
             La columna Origen es opcional: escribe &quot;Web&quot; si el cliente llegó por la web, o déjala vacía / escribe
             &quot;Local&quot; si fue presencial.
@@ -87,8 +89,8 @@ export default function BulkModal() {
               <p className="font-bold text-primary">{summary.actualizados} actualizados</p>
               {summary.errores.length > 0 && (
                 <p className="font-bold text-destructive">
-                  {summary.errores.length} filas con error (patente inválida/faltante o nombre faltante): filas{" "}
-                  {summary.errores.join(", ")}
+                  {summary.errores.length} filas con error (patente inválida/faltante, nombre faltante, o Factura sin Razón
+                  Social/RUT/Dirección/Giro completos): filas {summary.errores.join(", ")}
                 </p>
               )}
             </div>

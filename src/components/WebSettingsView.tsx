@@ -7,7 +7,8 @@ import WebSettingsServiciosTab from "@/components/tabs/WebSettingsServiciosTab";
 import WebSettingsMailTab from "@/components/tabs/WebSettingsMailTab";
 import WebSettingsWhatsappTab from "@/components/tabs/WebSettingsWhatsappTab";
 import WebSettingsWhatsappBotTab from "@/components/tabs/WebSettingsWhatsappBotTab";
-import { Bot, CircleDollarSign, Images, Mail, MessageCircle } from "lucide-react";
+import ReglasWhatsappTab from "@/components/tabs/ReglasWhatsappTab";
+import { Bot, CircleDollarSign, Images, Mail, MessageCircle, Zap } from "lucide-react";
 
 const TABS = [
   { id: "precios", label: "Precios", icon: CircleDollarSign },
@@ -15,6 +16,7 @@ const TABS = [
   { id: "mail", label: "Mail Templates", icon: Mail },
   { id: "whatsapp", label: "WhatsApp Webhooks", icon: MessageCircle },
   { id: "whatsapp_bot", label: "Menú Bot WhatsApp", icon: Bot },
+  { id: "whatsapp_reglas", label: "Reglas WhatsApp", icon: Zap },
 ] as const;
 
 export default function WebSettingsView() {
@@ -49,6 +51,7 @@ export default function WebSettingsView() {
             {tabActual.id === "mail" && <WebSettingsMailTab />}
             {tabActual.id === "whatsapp" && <WebSettingsWhatsappTab />}
             {tabActual.id === "whatsapp_bot" && <WebSettingsWhatsappBotTab />}
+            {tabActual.id === "whatsapp_reglas" && <ReglasWhatsappTab />}
           </div>
         </div>
       </div>

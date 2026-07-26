@@ -1,5 +1,6 @@
-import { boolean, index, integer, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, numeric, pgTable, text, unique } from "drizzle-orm/pg-core";
 import { clientes } from "./clientes";
+import { cupones } from "./cupones";
 import { timestamptz } from "./shared";
 
 // Un hilo de conversación por número de WhatsApp (wa_id que manda Meta en
@@ -55,4 +56,87 @@ export const plantillasWhatsapp = pgTable("plantillas_whatsapp", {
   mensaje: text("mensaje").notNull(),
   activo: boolean("activo").notNull().default(true),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  // Nombre/idioma del template ya aprobado en Meta Business Manager que
+  // corresponde a esta "situación" — puede ser distinto de `nombre` (que es
+  // solo la etiqueta admin). Sin esto, la plantilla queda como borrador de
+  // contenido nada más (ver comentario arriba) y no se puede conectar a un
+  // envío real vía enviarMensajePlantilla (@/lib/whatsapp/enviar).
+  metaNombre: text("meta_nombre"),
+  metaIdioma: text("meta_idioma"),
+  // Orden de variables (subconjunto de nombre/patente/plan/monto/
+  // fechaVencimiento/montoOferta/diasValidez) que calza con los {{1}},{{2}}...
+  // posicionales del template aprobado — el admin lo llena una vez para que
+  // el motor de reglas (@/lib/whatsapp/reglas) arme los `parametros` en el
+  // orden correcto al llamar enviarMensajePlantilla.
+  metaVariables: jsonb("meta_variables").$type<string[]>(),
 });
+
+// Definición de una regla de negocio ("cuándo mandar qué"), editable desde
+// Web Settings → Reglas WhatsApp — ver plan de "motor de reglas WhatsApp".
+// Reutiliza el catálogo de contenido de `plantillasWhatsapp` (por FK) en vez
+// de duplicar texto/variables acá. Se modela como tabla propia (no jsonb en
+// ConfigGlobal) porque referencia `plantillaWhatsappId` y crece como entidad
+// propia, igual que `cupones`/`servicios`.
+export const reglasWhatsapp = pgTable("reglas_whatsapp", {
+  id: text("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  activa: boolean("activa").notNull().default(true),
+  // "venta_creada": se evalúa al insertar una Venta nueva (ver
+  // evaluarReglasPorVenta). "plan_proximo_vencer": se evalúa en el cron diario
+  // escaneando clientes por vencimiento (ver procesarPendientesYVencimientos).
+  tipoEvento: text("tipo_evento").notNull(),
+  // Solo aplica a tipoEvento="venta_creada": matchea venta.tipo tal cual
+  // ("Lavado único", "Plan nuevo", etc.). Null = cualquier tipo de venta.
+  condicionTipoVenta: text("condicion_tipo_venta"),
+  // Filtro opcional por plan, aplica a ambos tipoEvento. Vacío/null = todos.
+  condicionPlanes: jsonb("condicion_planes").$type<string[]>(),
+  // Solo aplica a tipoEvento="plan_proximo_vencer": cuántos días antes del
+  // vencimiento se dispara.
+  condicionDiasAntesVencimiento: integer("condicion_dias_antes_vencimiento"),
+  // Solo aplica a tipoEvento="venta_creada": días de espera tras la venta
+  // antes de mandar (0 = inmediato). En "plan_proximo_vencer" el "cuándo" ya
+  // lo define condicionDiasAntesVencimiento.
+  delayDias: integer("delay_dias").notNull().default(0),
+  // "cupon_descuento": genera un Cupon tipo "descuento" atado a la patente de
+  // la venta/cliente (ver @/db/schema/cupones), reconocible automáticamente
+  // sin código al volver (ver OperadorFoundResult). "mensaje_simple": solo
+  // manda el WhatsApp, sin generar cupón (ej. ofrecer inscripción Oneclick).
+  accion: text("accion").notNull(),
+  // Solo aplica a accion="cupon_descuento".
+  cuponEsPorcentaje: boolean("cupon_es_porcentaje").notNull().default(false),
+  cuponValor: numeric("cupon_valor", { mode: "number" }),
+  cuponValidezDias: integer("cupon_validez_dias"),
+  plantillaWhatsappId: text("plantilla_whatsapp_id")
+    .notNull()
+    .references(() => plantillasWhatsapp.id),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  creadoPor: text("creado_por"),
+});
+
+// Registro de cada disparo de una regla — auditoría (qué se mandó y cuándo) e
+// idempotencia (evita disparar la misma regla dos veces para el mismo
+// origen). `origenId` es el id de la Venta para "venta_creada", o
+// `${clienteId}:${vencimientoISO}` para "plan_proximo_vencer" (así un plan
+// renovado con un vencimiento nuevo vuelve a ser elegible). El unique
+// (regla_id, origen_tipo, origen_id) es la idempotencia real; `estado` solo
+// distingue disparo inmediato ya enviado de uno programado a futuro
+// (delayDias > 0) que el cron todavía tiene que procesar.
+export const disparosReglaWhatsapp = pgTable(
+  "disparos_regla_whatsapp",
+  {
+    id: text("id").primaryKey(),
+    reglaId: text("regla_id")
+      .notNull()
+      .references(() => reglasWhatsapp.id, { onDelete: "cascade" }),
+    origenTipo: text("origen_tipo").notNull(),
+    origenId: text("origen_id").notNull(),
+    clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
+    patente: text("patente"),
+    cuponId: text("cupon_id").references(() => cupones.id, { onDelete: "set null" }),
+    mensajeWhatsappId: text("mensaje_whatsapp_id").references(() => mensajesWhatsapp.id, { onDelete: "set null" }),
+    estado: text("estado").notNull().default("programado"),
+    enviarEn: timestamptz("enviar_en").notNull(),
+    creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  },
+  (t) => [unique("disparos_regla_whatsapp_regla_origen_unq").on(t.reglaId, t.origenTipo, t.origenId)]
+);

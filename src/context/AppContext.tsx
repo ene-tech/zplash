@@ -41,6 +41,7 @@ import {
   commitProveedores,
   commitRegistrosMantencion,
   commitReglasConciliacion,
+  commitReglasWhatsapp,
   commitServicios,
   commitVentas,
   derivarMovimientosDesdeVentas,
@@ -77,6 +78,7 @@ const initialData: AppData = {
   alertasMantencion: [],
   plantillasCorreo: JSON.parse(JSON.stringify(PLANTILLAS_CORREO_DEFAULT)),
   plantillasWhatsapp: JSON.parse(JSON.stringify(PLANTILLAS_WHATSAPP_DEFAULT)),
+  reglasWhatsapp: [],
 };
 
 const initialUI: UIState = {
@@ -211,6 +213,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     agregar(commitAlertasMantencion(previous.alertasMantencion, patch.alertasMantencion));
     agregar(commitPlantillasCorreo(previous.plantillasCorreo, patch.plantillasCorreo));
     agregar(commitPlantillasWhatsapp(previous.plantillasWhatsapp, patch.plantillasWhatsapp));
+    agregar(commitReglasWhatsapp(previous.reglasWhatsapp, patch.reglasWhatsapp));
 
     let results: boolean[];
     try {

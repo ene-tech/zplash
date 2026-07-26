@@ -42,6 +42,7 @@ function appDataVacia(): AppData {
     alertasMantencion: [],
     plantillasCorreo: [],
     plantillasWhatsapp: [],
+    reglasWhatsapp: [],
   };
 }
 
@@ -283,12 +284,33 @@ describe("importarClientes", () => {
       },
     ];
     const rows = [
-      { patente: "ab1234", nombre: "maria lopez", "tipo documento": "Factura", "razon social": "Otro nombre", rut: "12345678-9" },
+      {
+        patente: "ab1234",
+        nombre: "maria lopez",
+        "tipo documento": "Factura",
+        "razon social": "Otro nombre",
+        rut: "12345678-9",
+        direccion: "Av. Siempre Viva 123",
+        giro: "Comercio",
+      },
     ];
 
     const resultado = importarClientes(data, rows);
 
     expect(resultado.patch.empresas).toBeUndefined();
+  });
+
+  it("marca como error una fila Factura sin Razón Social/RUT/Dirección/Giro completos", () => {
+    const data = appDataVacia();
+    const rows = [
+      { patente: "ab1234", nombre: "maria lopez", "tipo documento": "Factura", "razon social": "Comercial Lopez SpA" },
+    ];
+
+    const resultado = importarClientes(data, rows);
+
+    expect(resultado.errores).toEqual([2]);
+    expect(resultado.patch.clientes).toHaveLength(0);
+    expect(resultado.nuevos).toBe(0);
   });
 });
 

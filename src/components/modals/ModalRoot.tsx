@@ -24,7 +24,7 @@ export default function ModalRoot() {
   if (m.type === "confirm") {
     return <ConfirmModal mensaje={m.mensaje} onConfirm={m.onConfirm} confirmLabel={m.confirmLabel} danger={m.danger} />;
   }
-  if (m.type === "client") return <ClientModal data={m.data} contexto={m.contexto} />;
+  if (m.type === "client") return <ClientModal data={m.data} contexto={m.contexto} patenteInicial={m.patenteInicial} />;
   if (m.type === "perfil") return <PerfilModal data={m.data} />;
   if (m.type === "bulk") return <BulkModal />;
   if (m.type === "pago") return <PagoModal monto={m.monto} descripcion={m.descripcion} onConfirm={m.onConfirm} />;

@@ -1,18 +1,22 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { AppProvider, useApp } from "@/context/AppContext";
 import LoginScreen from "@/components/LoginScreen";
-import OperadorView from "@/components/OperadorView";
-import AdminView from "@/components/AdminView";
-import HubView from "@/components/HubView";
-import ContabilidadView from "@/components/ContabilidadView";
-import InventarioView from "@/components/InventarioView";
-import MantencionView from "@/components/MantencionView";
-import MensajesView from "@/components/MensajesView";
-import ServiciosAdicionalesView from "@/components/ServiciosAdicionalesView";
-import WebSettingsView from "@/components/WebSettingsView";
-import ModalRoot from "@/components/modals/ModalRoot";
+
+// Cada vista se carga solo cuando el usuario navega a ella: evita que el
+// bundle inicial incluya el código de las 9 vistas del panel a la vez.
+const OperadorView = dynamic(() => import("@/components/OperadorView"));
+const AdminView = dynamic(() => import("@/components/AdminView"));
+const HubView = dynamic(() => import("@/components/HubView"));
+const ContabilidadView = dynamic(() => import("@/components/ContabilidadView"));
+const InventarioView = dynamic(() => import("@/components/InventarioView"));
+const MantencionView = dynamic(() => import("@/components/MantencionView"));
+const MensajesView = dynamic(() => import("@/components/MensajesView"));
+const ServiciosAdicionalesView = dynamic(() => import("@/components/ServiciosAdicionalesView"));
+const WebSettingsView = dynamic(() => import("@/components/WebSettingsView"));
+const ModalRoot = dynamic(() => import("@/components/modals/ModalRoot"));
 
 function ZplashApp() {
   const { ui, loading, storageReady, storageChecked } = useApp();

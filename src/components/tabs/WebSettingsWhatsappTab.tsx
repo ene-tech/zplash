@@ -7,18 +7,35 @@ import type { PlantillaWhatsapp } from "@/types";
 
 const CATEGORIA_DEFAULT = "Proceso de venta";
 
+const VARIABLES_DISPONIBLES = ["nombre", "patente", "plan", "monto", "fechaVencimiento", "montoOferta", "diasValidez"];
+
 function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaWhatsapp; puedeBorrar: boolean }) {
   const { data, commit } = useApp();
   const [mensaje, setMensaje] = useState(plantilla.mensaje);
+  const [metaNombre, setMetaNombre] = useState(plantilla.metaNombre || "");
+  const [metaIdioma, setMetaIdioma] = useState(plantilla.metaIdioma || "es");
+  const [metaVariables, setMetaVariables] = useState((plantilla.metaVariables || []).join(", "));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
 
-  const hayCambios = mensaje !== plantilla.mensaje;
+  const hayCambios =
+    mensaje !== plantilla.mensaje ||
+    metaNombre !== (plantilla.metaNombre || "") ||
+    metaIdioma !== (plantilla.metaIdioma || "es") ||
+    metaVariables !== (plantilla.metaVariables || []).join(", ");
 
   const guardar = async () => {
     setGuardando(true);
+    const variables = metaVariables
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
     const ok = await commit({
-      plantillasWhatsapp: data.plantillasWhatsapp.map((p) => (p.id === plantilla.id ? { ...p, mensaje } : p)),
+      plantillasWhatsapp: data.plantillasWhatsapp.map((p) =>
+        p.id === plantilla.id
+          ? { ...p, mensaje, metaNombre: metaNombre.trim() || undefined, metaIdioma: metaIdioma.trim() || undefined, metaVariables: variables.length ? variables : undefined }
+          : p
+      ),
     });
     setGuardando(false);
     setMsg({ texto: ok ? "Guardado" : "No se pudo guardar (sin conexión). Intenta de nuevo.", ok });
@@ -38,6 +55,28 @@ function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaWhatsapp
       <div className="field" style={{ margin: "0 0 8px" }}>
         <label>Mensaje</label>
         <textarea rows={4} value={mensaje} onChange={(e) => setMensaje(e.target.value)} placeholder="Mensaje de WhatsApp" />
+      </div>
+      <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12, margin: "0 0 8px" }}>
+        Para conectar esta situación a un envío automático (Reglas WhatsApp), indica el template ya aprobado en Meta
+        Business Manager:
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+        <div className="field" style={{ flex: 1, minWidth: 160, margin: 0 }}>
+          <label>Nombre del template en Meta</label>
+          <input value={metaNombre} onChange={(e) => setMetaNombre(e.target.value)} placeholder="Ej: oferta_retorno" />
+        </div>
+        <div className="field" style={{ width: 100, margin: 0 }}>
+          <label>Idioma</label>
+          <input value={metaIdioma} onChange={(e) => setMetaIdioma(e.target.value)} placeholder="es" />
+        </div>
+      </div>
+      <div className="field" style={{ margin: "0 0 8px" }}>
+        <label>Variables del template, en orden (separadas por coma)</label>
+        <input
+          value={metaVariables}
+          onChange={(e) => setMetaVariables(e.target.value)}
+          placeholder={VARIABLES_DISPONIBLES.join(", ")}
+        />
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button className="btn" style={{ marginTop: 0 }} onClick={guardar} disabled={guardando || !hayCambios}>
