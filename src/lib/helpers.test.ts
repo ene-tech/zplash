@@ -30,15 +30,17 @@ import {
   precioReactivacionVencido,
   proximoIngresoPermitido,
   puedeBorrarCategoriaInventario,
+  puedeBorrarIngreso,
   resolverDescuento,
   sumarMeses,
   vencimientoAnclado,
+  ventaLavadoUnicoDeIngreso,
   visitasDesdeContratacion,
   visitasPeriodoPlan,
   visitasUltimos30Dias,
   visitasUltimoPeriodoVencido,
 } from "./helpers";
-import type { ConfigGlobal, Cupon, Ingreso, PerfilPublico } from "@/types";
+import type { ConfigGlobal, Cupon, Ingreso, PerfilPublico, Venta } from "@/types";
 
 describe("normPlate", () => {
   it("pasa a mayúsculas y saca todo lo que no sea letra/número", () => {
@@ -447,6 +449,58 @@ describe("precioReactivacionVencido", () => {
   });
 });
 
+function ventaLavadoUnicoBase(overrides: Partial<Venta> = {}): Venta {
+  return {
+    id: "v1",
+    clienteId: "c1",
+    patente: "AB1234",
+    nombre: "JUAN PEREZ",
+    plan: "",
+    precio: 9990,
+    tipo: "Lavado único",
+    fecha: "2026-01-05T10:00:00.000Z",
+    ...overrides,
+  };
+}
+
+describe("ventaLavadoUnicoDeIngreso", () => {
+  it("matchea la venta del mismo cliente con fecha casi idéntica a la del ingreso", () => {
+    const venta = ventaLavadoUnicoBase({ fecha: "2026-01-05T10:00:00.500Z" });
+    const ingreso: Pick<Ingreso, "clienteId" | "fecha"> = { clienteId: "c1", fecha: "2026-01-05T10:00:00.000Z" };
+
+    expect(ventaLavadoUnicoDeIngreso([venta], ingreso)).toBe(venta);
+  });
+
+  it("ignora ventas de otro tipo (p.ej. Plan nuevo o Renovación) aunque calcen en fecha", () => {
+    const venta = ventaLavadoUnicoBase({ tipo: "Plan nuevo" });
+    const ingreso: Pick<Ingreso, "clienteId" | "fecha"> = { clienteId: "c1", fecha: venta.fecha };
+
+    expect(ventaLavadoUnicoDeIngreso([venta], ingreso)).toBeUndefined();
+  });
+
+  it("ignora ventas fuera de la tolerancia de tiempo (otra visita, no la pareja de este ingreso)", () => {
+    const venta = ventaLavadoUnicoBase({ fecha: "2026-01-05T09:00:00.000Z" });
+    const ingreso: Pick<Ingreso, "clienteId" | "fecha"> = { clienteId: "c1", fecha: "2026-01-05T10:00:00.000Z" };
+
+    expect(ventaLavadoUnicoDeIngreso([venta], ingreso)).toBeUndefined();
+  });
+
+  it("ignora ventas de otro cliente", () => {
+    const venta = ventaLavadoUnicoBase({ clienteId: "c2" });
+    const ingreso: Pick<Ingreso, "clienteId" | "fecha"> = { clienteId: "c1", fecha: venta.fecha };
+
+    expect(ventaLavadoUnicoDeIngreso([venta], ingreso)).toBeUndefined();
+  });
+
+  it("con varias candidatas, elige la más cercana en el tiempo", () => {
+    const lejana = ventaLavadoUnicoBase({ id: "v-lejana", fecha: "2026-01-05T10:00:30.000Z" });
+    const cercana = ventaLavadoUnicoBase({ id: "v-cercana", fecha: "2026-01-05T10:00:01.000Z" });
+    const ingreso: Pick<Ingreso, "clienteId" | "fecha"> = { clienteId: "c1", fecha: "2026-01-05T10:00:00.000Z" };
+
+    expect(ventaLavadoUnicoDeIngreso([lejana, cercana], ingreso)).toBe(cercana);
+  });
+});
+
 describe("resolverDescuento", () => {
   const cuponBase: Cupon = {
     id: "cu1",
@@ -588,6 +642,17 @@ describe("puedeBorrarCategoriaInventario", () => {
   it("otros perfiles, incluido Administración, no pueden", () => {
     expect(puedeBorrarCategoriaInventario("Administración")).toBe(false);
     expect(puedeBorrarCategoriaInventario(undefined)).toBe(false);
+  });
+});
+
+describe("puedeBorrarIngreso", () => {
+  it("el perfil Gerencia puede borrar una fila de Historial de Ingresos", () => {
+    expect(puedeBorrarIngreso("Gerencia")).toBe(true);
+  });
+
+  it("otros perfiles, incluido Administración, no pueden", () => {
+    expect(puedeBorrarIngreso("Administración")).toBe(false);
+    expect(puedeBorrarIngreso(undefined)).toBe(false);
   });
 });
 

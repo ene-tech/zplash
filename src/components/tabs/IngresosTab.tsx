@@ -1,12 +1,36 @@
 "use client";
 
+import { useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtFecha, fmtHora, inRange, normPlate, tipoIngreso } from "@/lib/helpers";
+import { eliminarIngreso } from "@/lib/actions";
+import { fmtCLP, fmtFecha, fmtHora, inRange, normPlate, puedeBorrarIngreso, tipoIngreso, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
+import type { Ingreso } from "@/types";
 
 export default function IngresosTab() {
-  const { data, ui, patchUi } = useApp();
+  const { data, ui, patchUi, commit } = useApp();
   const desde = ui.ingresosDesde;
   const hasta = ui.ingresosHasta;
+  const puedeBorrar = puedeBorrarIngreso(ui.perfilActual?.nombre);
+  const [err, setErr] = useState("");
+
+  const borrarIngreso = (ingreso: Ingreso) => {
+    const ventaPareja = ventaLavadoUnicoDeIngreso(data.ventas, ingreso);
+    const avisoVenta = ventaPareja
+      ? ` También se elimina la venta de Lavado único por ${fmtCLP(ventaPareja.precio)} cobrada junto con este ingreso, para que el cliente no siga apareciendo elegible para la promoción de upgrade a plan.`
+      : "";
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `¿Eliminar el ingreso de ${ingreso.nombre} (${ingreso.patente}) del ${fmtFecha(ingreso.fecha)} ${fmtHora(ingreso.fecha)}? Esto también resta la visita que sumó al cliente.${avisoVenta} No se puede deshacer.`,
+        confirmLabel: "Eliminar",
+        danger: true,
+        onConfirm: async () => {
+          const ok = await commit(eliminarIngreso(data, ingreso));
+          setErr(ok ? "" : "No se pudo eliminar el ingreso (sin conexión). Intenta de nuevo.");
+        },
+      },
+    });
+  };
 
   const filtered = data.ingresos
     .filter((i) => !desde || !hasta || inRange(i.fecha, desde, hasta))
@@ -104,6 +128,11 @@ export default function IngresosTab() {
           Exportar (Excel)
         </button>
       </div>
+      {err && (
+        <div className="err" style={{ marginBottom: 10 }}>
+          {err}
+        </div>
+      )}
       <table>
         <thead>
           <tr>
@@ -113,12 +142,13 @@ export default function IngresosTab() {
             <th>Cliente</th>
             <th>Operador</th>
             <th>Tipo de ingreso</th>
+            {puedeBorrar && <th></th>}
           </tr>
         </thead>
         <tbody>
           {filtered.length === 0 ? (
             <tr>
-              <td colSpan={6}>
+              <td colSpan={puedeBorrar ? 7 : 6}>
                 <div className="empty">Sin registros</div>
               </td>
             </tr>
@@ -135,6 +165,13 @@ export default function IngresosTab() {
                   <td>
                     <span className={`status-pill ${tipo.cls}`}>{tipo.label}</span>
                   </td>
+                  {puedeBorrar && (
+                    <td>
+                      <button className="icon-btn" onClick={() => borrarIngreso(i)}>
+                        Eliminar
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })

@@ -76,6 +76,36 @@ export function ventaUpgradeElegible(
   return ultima;
 }
 
+/**
+ * Venta de "Lavado único" pareja de un Ingreso (ver cobrarLavadoUnico en
+ * useIngresoActions): ambas filas se crean juntas en el mismo commit, pero
+ * sin una FK que las ligue explícitamente — se matchean por mismo cliente y
+ * fecha casi idéntica (dentro de `toleranciaMs`, la más cercana si hay más
+ * de una candidata). Usada al borrar un Ingreso (ver eliminarIngreso en
+ * @/lib/actions) para que borrar el paso por el túnel también borre la venta
+ * que lo acompañó: si no, el cliente sigue apareciendo elegible para la
+ * promoción de upgrade a plan (ver ventaUpgradeElegible) por un lavado que,
+ * en teoría, nunca ocurrió.
+ */
+export function ventaLavadoUnicoDeIngreso(
+  ventas: Venta[],
+  ingreso: { clienteId: string; fecha: string },
+  toleranciaMs = 60_000
+): Venta | undefined {
+  const fechaIngreso = new Date(ingreso.fecha).getTime();
+  let mejor: Venta | undefined;
+  let mejorDelta = Infinity;
+  for (const v of ventas) {
+    if (v.clienteId !== ingreso.clienteId || v.tipo !== "Lavado único") continue;
+    const delta = Math.abs(new Date(v.fecha).getTime() - fechaIngreso);
+    if (delta <= toleranciaMs && delta < mejorDelta) {
+      mejor = v;
+      mejorDelta = delta;
+    }
+  }
+  return mejor;
+}
+
 /** Texto legible de la ventana de la promoción de upgrade a plan (ver ventaUpgradeElegible), en horas o días si es múltiplo exacto de 24. */
 export function fmtHorasVentanaUpgradePlan(horas: number): string {
   if (horas % 24 === 0) {

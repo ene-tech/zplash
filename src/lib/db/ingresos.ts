@@ -1,7 +1,7 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
-import { ahoraEnSantiago, dentroDeHorarioOperador, esExentoHorarioOperador } from "@/lib/helpers";
+import { ahoraEnSantiago, dentroDeHorarioOperador, esExentoHorarioOperador, puedeBorrarIngreso } from "@/lib/helpers";
 import { sesionActual } from "@/lib/session";
 import type { ConfigGlobal, Ingreso } from "@/types";
 
@@ -32,4 +32,17 @@ export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
     if (!dentroDeHorarioOperador(config, ahoraEnSantiago())) return false;
   }
   return dataAccess.insertIngresos(rows);
+}
+
+// Gateada con puedeBorrarIngreso (perfil "Gerencia" exacto), a diferencia de
+// insertIngresos: el Historial de Ingresos nace de solo alta (ver el
+// comentario en @/context/commit/ingresos.ts) y borrar una fila ya guardada
+// es la excepción deliberada a eso, así que queda igual de restringida que
+// borrar una Venta o una categoría de Inventario — este es el único lugar
+// que de verdad puede impedirlo, ya que todo Server Action queda invocable
+// por POST directo.
+export async function deleteIngresos(ids: string[]): Promise<boolean> {
+  const sesion = await sesionActual();
+  if (!sesion || !puedeBorrarIngreso(sesion.nombre)) return false;
+  return dataAccess.deleteIngresos(ids);
 }

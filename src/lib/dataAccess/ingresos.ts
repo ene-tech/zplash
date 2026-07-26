@@ -1,5 +1,6 @@
 import "server-only";
 
+import { inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { ingresos } from "@/db/schema";
 import type { Ingreso } from "@/types";
@@ -50,6 +51,17 @@ export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Error guardando ingresos", error);
+    return false;
+  }
+}
+
+export async function deleteIngresos(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(ingresos).where(inArray(ingresos.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error borrando ingresos", error);
     return false;
   }
 }

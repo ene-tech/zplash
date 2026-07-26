@@ -1,6 +1,6 @@
 import type { AppData, Cita, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
 import { esRetrocesoInvalido } from "@/lib/agenda";
-import { GLOSA_SERVICIO_DETAILING, planStatus } from "@/lib/helpers";
+import { GLOSA_SERVICIO_DETAILING, planStatus, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
 
 export function registrarIngreso(
   data: AppData,
@@ -78,6 +78,40 @@ export function registrarIngresoDetailing(
     ingresos: [ingreso, ...data.ingresos],
     clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),
     citas: data.citas.map((ct) => (ct.id === cita.id ? { ...ct, estado: nuevoEstadoCita } : ct)),
+  };
+}
+
+// Reversa el registro de un Ingreso hecho por error (gerencia, ver
+// puedeBorrarIngreso en @/lib/helpers): además de la fila de ingresos, esto
+// deshace el conteo de visitas y recalcula ultimaVisita a partir de los
+// ingresos que queden para ese cliente (no del ingreso borrado), para que
+// quede igual de correcto sin importar si el ingreso borrado era o no el más
+// reciente. Si el ingreso es de un "lavado único" cobrado (ver
+// cobrarLavadoUnico en useIngresoActions), también borra la Venta pareja
+// (ver ventaLavadoUnicoDeIngreso): si no, el cliente sigue apareciendo
+// elegible para la promoción de upgrade a plan (ventaUpgradeElegible) por un
+// lavado que, en teoría, nunca ocurrió. No toca el cupón usado en esa venta
+// ni el estado de la Cita de un check-in de Detailing — esas reversiones, si
+// hacen falta, se hacen aparte.
+export function eliminarIngreso(data: AppData, ingreso: Ingreso): Partial<AppData> {
+  const ingresosRestantes = data.ingresos.filter((i) => i.id !== ingreso.id);
+  const ventaPareja = ventaLavadoUnicoDeIngreso(data.ventas, ingreso);
+  const patchVentas: Partial<AppData> = ventaPareja ? { ventas: data.ventas.filter((v) => v.id !== ventaPareja.id) } : {};
+  const cliente = data.clientes.find((c) => c.id === ingreso.clienteId);
+  if (!cliente) return { ingresos: ingresosRestantes, ...patchVentas };
+  const ingresosCliente = ingresosRestantes.filter((i) => i.clienteId === cliente.id);
+  const ultimaVisita = ingresosCliente.length
+    ? ingresosCliente.reduce((max, i) => (i.fecha > max ? i.fecha : max), ingresosCliente[0].fecha)
+    : undefined;
+  const clienteActualizado: Cliente = {
+    ...cliente,
+    visitas: Math.max(0, (cliente.visitas || 0) - 1),
+    ultimaVisita,
+  };
+  return {
+    ingresos: ingresosRestantes,
+    clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),
+    ...patchVentas,
   };
 }
 

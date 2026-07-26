@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  eliminarIngreso,
   empresasFaltantesDesdeClientes,
   importarCartola,
   importarClientes,
@@ -9,7 +10,7 @@ import {
 } from "./actions";
 import { CONFIG_DEFAULT, PRECIOS_DEFAULT } from "./helpers";
 import type { ParsedMovimiento } from "./cartolaParser";
-import type { AppData, Cita, Cliente } from "@/types";
+import type { AppData, Cita, Cliente, Ingreso, Venta } from "@/types";
 
 function appDataVacia(): AppData {
   return {
@@ -82,6 +83,109 @@ describe("registrarIngreso", () => {
 
     expect(patch.ingresos![0].esGarantia).toBe(true);
     expect(patch.ingresos![0].glosa).toBe("Reclamo");
+  });
+});
+
+function ingresoBase(overrides: Partial<Ingreso> = {}): Ingreso {
+  return {
+    id: "i1",
+    clienteId: "c1",
+    patente: "AB1234",
+    nombre: "JUAN PEREZ",
+    fecha: new Date().toISOString(),
+    planEstadoAlIngreso: "ok",
+    ...overrides,
+  };
+}
+
+describe("eliminarIngreso", () => {
+  it("saca el ingreso de la lista y resta una visita al cliente", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 3 });
+    const ingreso = ingresoBase();
+    data.clientes = [cliente];
+    data.ingresos = [ingreso];
+
+    const patch = eliminarIngreso(data, ingreso);
+
+    expect(patch.ingresos).toHaveLength(0);
+    const clienteActualizado = patch.clientes!.find((c) => c.id === cliente.id)!;
+    expect(clienteActualizado.visitas).toBe(2);
+    expect(clienteActualizado.ultimaVisita).toBeUndefined();
+  });
+
+  it("no deja visitas negativas si el contador ya estaba en 0", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 0 });
+    const ingreso = ingresoBase();
+    data.clientes = [cliente];
+    data.ingresos = [ingreso];
+
+    const patch = eliminarIngreso(data, ingreso);
+
+    const clienteActualizado = patch.clientes!.find((c) => c.id === cliente.id)!;
+    expect(clienteActualizado.visitas).toBe(0);
+  });
+
+  it("recalcula ultimaVisita a partir de los ingresos que quedan, no la deja en la fecha del ingreso borrado", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 2 });
+    const anterior = ingresoBase({ id: "i-anterior", fecha: "2026-01-01T10:00:00.000Z" });
+    const masReciente = ingresoBase({ id: "i-reciente", fecha: "2026-01-05T10:00:00.000Z" });
+    data.clientes = [cliente];
+    data.ingresos = [masReciente, anterior];
+
+    const patch = eliminarIngreso(data, masReciente);
+
+    const clienteActualizado = patch.clientes!.find((c) => c.id === cliente.id)!;
+    expect(clienteActualizado.visitas).toBe(1);
+    expect(clienteActualizado.ultimaVisita).toBe(anterior.fecha);
+  });
+
+  it("borra también la venta de Lavado único cobrada junto con el ingreso (cobrarLavadoUnico)", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 1 });
+    const ingreso = ingresoBase({ fecha: "2026-01-05T10:00:00.000Z" });
+    const venta: Venta = {
+      id: "v1",
+      clienteId: cliente.id,
+      patente: cliente.patente,
+      nombre: cliente.nombre,
+      plan: "",
+      precio: 9990,
+      tipo: "Lavado único",
+      fecha: "2026-01-05T10:00:00.200Z",
+    };
+    data.clientes = [cliente];
+    data.ingresos = [ingreso];
+    data.ventas = [venta];
+
+    const patch = eliminarIngreso(data, ingreso);
+
+    expect(patch.ventas).toHaveLength(0);
+  });
+
+  it("no borra ventas de otro tipo (plan/renovación) ni de otro cliente", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 1 });
+    const ingreso = ingresoBase({ fecha: "2026-01-05T10:00:00.000Z" });
+    const ventaPlan: Venta = {
+      id: "v-plan",
+      clienteId: cliente.id,
+      patente: cliente.patente,
+      nombre: cliente.nombre,
+      plan: "Plan Ilimitado Mensual",
+      precio: 21990,
+      tipo: "Plan nuevo",
+      fecha: ingreso.fecha,
+    };
+    data.clientes = [cliente];
+    data.ingresos = [ingreso];
+    data.ventas = [ventaPlan];
+
+    const patch = eliminarIngreso(data, ingreso);
+
+    expect(patch.ventas).toBeUndefined();
   });
 });
 

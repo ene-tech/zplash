@@ -95,6 +95,17 @@ export function puedeBorrarCategoriaInventario(nombre?: string): boolean {
   return nombre === "Gerencia";
 }
 
+/** Solo el perfil "Gerencia" puede borrar una fila ya guardada de Historial
+ * de Ingresos (ver botón "Eliminar" en IngresosTab y el backstop en
+ * deleteIngresos en @/lib/db) — el resto de los perfiles con acceso al
+ * módulo "ingresos" solo puede consultarlo/exportarlo, nunca editarlo o
+ * borrarlo, para no perder trazabilidad del historial real de pasadas por el
+ * túnel. Se matchea por nombre exacto de perfil, mismo criterio que
+ * esExentoFormatoCliente/puedeBorrarCategoriaInventario. */
+export function puedeBorrarIngreso(nombre?: string): boolean {
+  return nombre === "Gerencia";
+}
+
 /** "Administración" y "Gerencia" pueden dar ingreso a un cliente desde el
  * módulo Operador aunque el teléfono o el email no estén completos/válidos
  * (ver registroIncompleto en OperadorResult): el resto de los perfiles
