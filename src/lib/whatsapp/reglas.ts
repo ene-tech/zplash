@@ -18,7 +18,7 @@ import {
 } from "@/lib/dataAccess/whatsapp";
 import { fmtCLP, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
 import { enviarMensajePlantilla } from "./enviar";
-import type { Cliente, Cupon, DisparoReglaWhatsapp, PlantillaWhatsapp, ReglaWhatsapp, Venta } from "@/types";
+import type { Cliente, Cupon, DisparoReglaWhatsapp, Ingreso, PlantillaWhatsapp, ReglaWhatsapp, Venta } from "@/types";
 
 const MS_POR_DIA = 86_400_000;
 
@@ -55,7 +55,12 @@ async function enviarSegunPlantilla(plantilla: PlantillaWhatsapp, telefono: stri
     console.error(`Plantilla WhatsApp "${plantilla.nombre}" no tiene metaNombre configurado (Web Settings → WhatsApp Webhooks); no se puede enviar`);
     return null;
   }
-  const parametros = (plantilla.metaVariables || []).map((v) => variables[v] ?? "");
+  // metaVariables se guarda en minúsculas (ver auto-rellenado en
+  // WebSettingsWhatsappTab), pero las claves de `variables` son camelCase
+  // (fechaVencimiento, montoOferta) — match insensible a mayúsculas para que
+  // el admin no tenga que escribir el camelCase exacto a mano.
+  const porClaveMinuscula = Object.fromEntries(Object.entries(variables).map(([k, v]) => [k.toLowerCase(), v]));
+  const parametros = (plantilla.metaVariables || []).map((v) => porClaveMinuscula[v.toLowerCase()] ?? "");
   return enviarMensajePlantilla(telefono, plantilla.metaNombre, plantilla.metaIdioma || "es", parametros, "regla-whatsapp");
 }
 
@@ -179,6 +184,50 @@ export async function evaluarReglasPorVenta(ventasNuevas: Venta[]): Promise<void
     for (const regla of reglas.filter((r) => coincideVenta(r, venta))) {
       await dispararPorVenta(regla, venta).catch((error) =>
         console.error(`Error disparando regla WhatsApp "${regla.nombre}" para venta ${venta.id}`, error)
+      );
+    }
+  }
+}
+
+// Se llama desde dataAccess/ingresos.ts::insertIngresos justo después del
+// INSERT, sin awaitear el resultado (fire-and-forget) — mismo patrón que
+// evaluarReglasPorVenta. Solo dispara para ingresos de un cliente con plan
+// vigente al momento de registrar (planEstadoAlIngreso === "ok"): un ingreso
+// "warn"/"bad" (plan por vencer/vencido) o sin clienteId (lavado sin
+// registro, canje de cupón) no corresponde a la situación "cliente de plan
+// que acaba de usar el servicio" que esta regla busca (ej. pedir reseña de
+// Google 5 estrellas).
+export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promise<void> {
+  if (!ingresosNuevos.length) return;
+  let reglas: ReglaWhatsapp[];
+  try {
+    reglas = await listarReglasWhatsappActivas("ingreso_plan_registrado");
+  } catch (error) {
+    console.error("Error cargando reglas WhatsApp (ingreso_plan_registrado)", error);
+    return;
+  }
+  if (!reglas.length) return;
+
+  for (const ingreso of ingresosNuevos) {
+    if (!ingreso.clienteId || ingreso.planEstadoAlIngreso !== "ok") continue;
+    const cliente = await buscarCliente(ingreso.clienteId);
+    if (!cliente || !cliente.plan) continue;
+
+    for (const regla of reglas) {
+      if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(cliente.plan)) continue;
+      const disparo = await registrarDisparoReglaWhatsapp({
+        id: uid(),
+        reglaId: regla.id,
+        origenTipo: "ingreso",
+        origenId: ingreso.id,
+        clienteId: cliente.id,
+        patente: ingreso.patente,
+        estado: "programado",
+        enviarEn: new Date().toISOString(),
+      });
+      if (!disparo) continue; // ya se disparó esta regla para este ingreso
+      await ejecutarAccionRegla(regla, disparo.id, cliente).catch((error) =>
+        console.error(`Error disparando regla WhatsApp "${regla.nombre}" para ingreso ${ingreso.id}`, error)
       );
     }
   }

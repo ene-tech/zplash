@@ -27,6 +27,10 @@ function resumenCondicion(r: ReglaWhatsapp): string {
     const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
     return `Al fallar un cobro automático (Oneclick)${planes}`;
   }
+  if (r.tipoEvento === "ingreso_plan_registrado") {
+    const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
+    return `Al registrar el ingreso de un cliente con plan vigente${planes}`;
+  }
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
   return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}`;
 }
@@ -164,6 +168,7 @@ export default function ReglasWhatsappTab() {
             <option value="venta_creada">Se registra una venta</option>
             <option value="plan_proximo_vencer">El plan de un cliente está por vencer</option>
             <option value="cobro_fallido">No se pudo cobrar la mensualidad (Oneclick)</option>
+            <option value="ingreso_plan_registrado">Se registra el ingreso de un cliente con plan vigente</option>
           </select>
         </div>
 

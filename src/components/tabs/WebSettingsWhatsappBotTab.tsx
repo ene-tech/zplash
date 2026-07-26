@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { TEXTOS_BOT_WHATSAPP_DEFAULT } from "@/lib/helpers";
 import { subirImagenBotWhatsapp } from "@/lib/db";
@@ -8,6 +8,7 @@ import type { ConfigGlobal, TextosBotWhatsapp } from "@/types";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { EmojiBar, VariableBar, insertarEnCursor } from "@/components/ui/mensaje-toolbar";
 import { MessageCircle } from "lucide-react";
 import ConfigSection from "@/components/tabs/config/ConfigSection";
 import SaveBar from "@/components/tabs/config/SaveBar";
@@ -60,7 +61,7 @@ function ImagenBotWhatsapp({ clave, campo, label }: { clave: "precios" | "plan";
   );
 }
 
-const CAMPOS: { key: keyof TextosBotWhatsapp; label: string; hint?: string }[] = [
+const CAMPOS: { key: keyof TextosBotWhatsapp; label: string; hint?: string; variables?: string[] }[] = [
   { key: "menuPrincipal", label: "Menú principal (saludo)" },
   {
     key: "textoPreciosIntro",
@@ -76,6 +77,7 @@ const CAMPOS: { key: keyof TextosBotWhatsapp; label: string; hint?: string }[] =
     key: "textoDescuentoInstrucciones",
     label: "Opción 5 — Instrucciones del descuento de primera vez",
     hint: "Variables disponibles: {{monto}}, {{dias}}",
+    variables: ["monto", "dias"],
   },
   { key: "textoDescuentoYaCliente", label: "Descuento — cuando la patente ya es cliente" },
   { key: "textoDescuentoPatenteInvalida", label: "Descuento — cuando la patente escrita no es válida" },
@@ -83,16 +85,19 @@ const CAMPOS: { key: keyof TextosBotWhatsapp; label: string; hint?: string }[] =
     key: "textoDescuentoConfirmacion",
     label: "Descuento — confirmación con el código generado",
     hint: "Variables disponibles: {{codigo}}, {{monto}}, {{fecha}}",
+    variables: ["codigo", "monto", "fecha"],
   },
   {
     key: "patenteEstadoEncabezado",
     label: "Consulta de patente — encabezado",
     hint: "Variables disponibles: {{patente}}, {{nombre}}",
+    variables: ["patente", "nombre"],
   },
   {
     key: "patenteEstadoPlan",
     label: "Consulta de patente — línea de plan",
     hint: "Variables disponibles: {{plan}}",
+    variables: ["plan"],
   },
   {
     key: "patenteEstadoPlanVacio",
@@ -103,16 +108,19 @@ const CAMPOS: { key: keyof TextosBotWhatsapp; label: string; hint?: string }[] =
     key: "patenteEstadoLinea",
     label: "Consulta de patente — línea de estado",
     hint: "Variables disponibles: {{estado}} (Vigente, Por vencer, Vencido o Sin plan; esta etiqueta no se puede editar).",
+    variables: ["estado"],
   },
   {
     key: "patenteEstadoVencimiento",
     label: "Consulta de patente — línea de vencimiento",
     hint: "Variables disponibles: {{fecha}}. Solo se muestra si el cliente tiene fecha de vencimiento.",
+    variables: ["fecha"],
   },
   {
     key: "patenteEstadoAvisoPorVencer",
     label: "Consulta de patente — aviso cuando el plan está por vencer",
     hint: "Variables disponibles: {{dias}}. Solo se muestra si el plan vence pronto.",
+    variables: ["dias"],
   },
   {
     key: "patenteEstadoAvisoVencido",
@@ -126,6 +134,7 @@ export default function WebSettingsWhatsappBotTab() {
   const [valores, setValores] = useState<TextosBotWhatsapp>(() => data.config.textosBotWhatsapp);
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
+  const textareaRefs = useRef<Partial<Record<keyof TextosBotWhatsapp, HTMLTextAreaElement | null>>>({});
 
   const setCampo = (key: keyof TextosBotWhatsapp, value: string) => setValores((v) => ({ ...v, [key]: value }));
 
@@ -152,7 +161,26 @@ export default function WebSettingsWhatsappBotTab() {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={c.key}>{c.label}</Label>
             {c.hint && <div className="text-xs text-muted-foreground">{c.hint}</div>}
-            <Textarea id={c.key} rows={4} value={valores[c.key]} onChange={(e) => setCampo(c.key, e.target.value)} />
+            <EmojiBar
+              onSeleccionar={(emoji) =>
+                insertarEnCursor(textareaRefs.current[c.key] || null, valores[c.key], emoji, (v) => setCampo(c.key, v))
+              }
+            />
+            <VariableBar
+              variables={c.variables || []}
+              onSeleccionar={(placeholder) =>
+                insertarEnCursor(textareaRefs.current[c.key] || null, valores[c.key], placeholder, (v) => setCampo(c.key, v))
+              }
+            />
+            <Textarea
+              id={c.key}
+              ref={(el) => {
+                textareaRefs.current[c.key] = el;
+              }}
+              rows={4}
+              value={valores[c.key]}
+              onChange={(e) => setCampo(c.key, e.target.value)}
+            />
           </div>
           {c.key === "textoPreciosIntro" && (
             <div className="mt-3">

@@ -93,7 +93,7 @@ export interface PlantillaWhatsapp {
   metaAprobado: boolean;
 }
 
-export type TipoEventoReglaWhatsapp = "venta_creada" | "plan_proximo_vencer" | "cobro_fallido";
+export type TipoEventoReglaWhatsapp = "venta_creada" | "plan_proximo_vencer" | "cobro_fallido" | "ingreso_plan_registrado";
 export type AccionReglaWhatsapp = "cupon_descuento" | "mensaje_simple";
 
 // Regla de negocio ("cuándo mandar qué") — ver plan de "motor de reglas
@@ -117,7 +117,7 @@ export interface ReglaWhatsapp {
   creadoPor?: string;
 }
 
-export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente" | "cobro";
+export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente" | "cobro" | "ingreso";
 export type EstadoDisparoReglaWhatsapp = "programado" | "enviado" | "error";
 
 // Auditoría + idempotencia de cada disparo de una ReglaWhatsapp — ver

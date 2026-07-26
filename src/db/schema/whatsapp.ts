@@ -92,6 +92,9 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   // escaneando clientes por vencimiento (ver procesarPendientesYVencimientos).
   // "cobro_fallido": se evalúa cuando un cobro Oneclick es rechazado (ver
   // evaluarReglasPorCobroFallido, llamado desde cobrarSuscripcion).
+  // "ingreso_plan_registrado": se evalúa al insertar un Ingreso nuevo de un
+  // cliente con plan vigente (planEstadoAlIngreso === "ok"), ver
+  // evaluarReglasPorIngreso llamado desde dataAccess/ingresos.ts::insertIngresos.
   tipoEvento: text("tipo_evento").notNull(),
   // Solo aplica a tipoEvento="venta_creada": matchea venta.tipo tal cual
   // ("Lavado único", "Plan nuevo", etc.). Null = cualquier tipo de venta.

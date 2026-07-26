@@ -86,6 +86,43 @@ export function aplicarVariables(texto: string, vars: Record<string, string>): s
   return texto.replace(/\{\{(\w+)\}\}/g, (_, clave: string) => vars[clave] ?? "");
 }
 
+/** Convierte un nombre libre (el de `PlantillaWhatsapp.nombre`, o cualquier
+ * texto) al formato que exige Meta para el nombre de un template: solo
+ * minúsculas, dígitos y guion bajo, sin tildes ni espacios. Usado por el
+ * generador "Copiar para Meta" en WebSettingsWhatsappTab para sugerir
+ * `metaNombre` a partir de la situación ya definida en la app. */
+export function slugMetaTemplate(nombre: string): string {
+  return nombre
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+/** Convierte el cuerpo de una PlantillaWhatsapp (placeholders con nombre,
+ * `{{nombre}}`, `{{patente}}`, etc.) al formato posicional numerado
+ * (`{{1}}`, `{{2}}`, ...) que Meta exige al crear el template en Meta
+ * Business Manager. Devuelve también `variables`, el orden de aparición de
+ * cada placeholder — el mismo orden que corresponde guardar en
+ * `PlantillaWhatsapp.metaVariables` para que enviarMensajePlantilla arme los
+ * parámetros posicionales correctos. Una misma variable repetida más de una
+ * vez en el texto reutiliza su número. */
+export function convertirVariablesMeta(mensaje: string): { texto: string; variables: string[] } {
+  const variables: string[] = [];
+  const numeroDeVariable = new Map<string, number>();
+  const texto = mensaje.replace(/\{\{(\w+)\}\}/g, (_, clave: string) => {
+    let n = numeroDeVariable.get(clave);
+    if (!n) {
+      variables.push(clave);
+      n = variables.length;
+      numeroDeVariable.set(clave, n);
+    }
+    return `{{${n}}}`;
+  });
+  return { texto, variables };
+}
+
 /** Semilla/fallback de catálogo para cuando la tabla `plantillas_whatsapp`
  * está vacía o la migración todavía no corrió — mismo patrón que
  * PLANTILLAS_CORREO_DEFAULT. Mensajes cortos e informales, tono WhatsApp.
@@ -163,5 +200,15 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     mensaje: "",
     activo: true,
     metaAprobado: false,
+  },
+  {
+    id: "wa-plan-review-google",
+    categoria: "Fidelización",
+    nombre: "Solicitud de reseña Google (cliente con plan)",
+    mensaje:
+      "¡Hola {{nombre}}! Gracias por confiar en ZPlash con tu plan {{plan}} 🚗✨. ¿Nos regalas una reseña de 5 estrellas en Google? Nos ayuda muchísimo: https://g.page/r/CAMBIAR-ESTE-LINK/review",
+    activo: true,
+    metaAprobado: false,
+    metaNombre: "mensaje_cliente_plan_review_google",
   },
 ];
