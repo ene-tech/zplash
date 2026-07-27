@@ -14,6 +14,7 @@ const cspHeader = `
   img-src 'self' data: https://*.supabase.co;
   font-src 'self';
   connect-src 'self';
+  worker-src 'self';
   form-action 'self' https://webpay3g.transbank.cl https://webpay3gint.transbank.cl;
   object-src 'none';
   base-uri 'self';

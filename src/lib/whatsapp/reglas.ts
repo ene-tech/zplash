@@ -16,7 +16,8 @@ import {
   obtenerReglaWhatsapp,
   registrarDisparoReglaWhatsapp,
 } from "@/lib/dataAccess/whatsapp";
-import { fmtCLP, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
+import { aplicarVariables, fmtCLP, fmtFecha, generarCodigoCupon, mesKey, uid } from "@/lib/helpers";
+import { enviarPush } from "@/lib/push/enviar";
 import { enviarMensajePlantilla } from "./enviar";
 import type { Cliente, Cupon, DisparoReglaWhatsapp, Ingreso, PlantillaWhatsapp, ReglaWhatsapp, Venta } from "@/types";
 
@@ -140,6 +141,29 @@ async function ejecutarAccionRegla(
   }
 
   const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior });
+
+  // Con PUSH_FALLBACK_A_WHATSAPP="true" (opt-in, ver plan de la PWA), si el
+  // cliente tiene una suscripción push activa y el envío llega, nos ahorramos
+  // el mensaje de plantilla pago; sin la variable (o en "false") el
+  // comportamiento queda igual que siempre — push es aditivo, no reemplaza
+  // nada hasta que el dueño del negocio confirme que quiere el ahorro real.
+  let pushEntregado = false;
+  if (process.env.PUSH_FALLBACK_A_WHATSAPP === "true") {
+    pushEntregado = await enviarPush(cliente.id, {
+      title: regla.nombre,
+      body: aplicarVariables(plantilla.mensaje, variables),
+      url: "/cliente",
+    }).catch((error) => {
+      console.error(`Regla WhatsApp "${regla.nombre}": error enviando push`, error);
+      return false;
+    });
+  }
+
+  if (pushEntregado) {
+    await marcarDisparoReglaWhatsapp(disparoId, { estado: "enviado", cuponId });
+    return;
+  }
+
   const mensaje = await enviarSegunPlantilla(plantilla, cliente.telefono, variables);
   // `mensaje` siempre existe salvo que falte metaNombre — enviarMensajePlantilla
   // (@/lib/whatsapp/enviar) registra la fila de todos modos aunque la Graph
@@ -218,17 +242,25 @@ export async function evaluarReglasPorVenta(ventasNuevas: Venta[]): Promise<void
 // "warn"/"bad" (plan por vencer/vencido) o sin clienteId (lavado sin
 // registro, canje de cupón) no corresponde a la situación "cliente de plan
 // que acaba de usar el servicio" que esta regla busca (ej. pedir reseña de
-// Google 5 estrellas).
+// Google 5 estrellas). También evalúa "primer_ingreso_mes" (mismo filtro),
+// pero con origenId `${clienteId}:${mesKey}` en vez del id del Ingreso, para
+// que el unique de disparos_regla_whatsapp bloquee cualquier ingreso
+// siguiente del mismo cliente ese mes calendario (ver comentario en
+// @/db/schema/whatsapp).
 export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promise<void> {
   if (!ingresosNuevos.length) return;
   let reglas: ReglaWhatsapp[];
+  let reglasPrimerIngresoMes: ReglaWhatsapp[];
   try {
-    reglas = await listarReglasWhatsappActivas("ingreso_plan_registrado");
+    [reglas, reglasPrimerIngresoMes] = await Promise.all([
+      listarReglasWhatsappActivas("ingreso_plan_registrado"),
+      listarReglasWhatsappActivas("primer_ingreso_mes"),
+    ]);
   } catch (error) {
-    console.error("Error cargando reglas WhatsApp (ingreso_plan_registrado)", error);
+    console.error("Error cargando reglas WhatsApp (ingreso_plan_registrado/primer_ingreso_mes)", error);
     return;
   }
-  if (!reglas.length) return;
+  if (!reglas.length && !reglasPrimerIngresoMes.length) return;
 
   for (const ingreso of ingresosNuevos) {
     if (!ingreso.clienteId || ingreso.planEstadoAlIngreso !== "ok") continue;
@@ -248,6 +280,24 @@ export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promis
         enviarEn: new Date().toISOString(),
       });
       if (!disparo) continue; // ya se disparó esta regla para este ingreso
+      await ejecutarAccionRegla(regla, disparo.id, cliente).catch((error) =>
+        console.error(`Error disparando regla WhatsApp "${regla.nombre}" para ingreso ${ingreso.id}`, error)
+      );
+    }
+
+    for (const regla of reglasPrimerIngresoMes) {
+      if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(cliente.plan)) continue;
+      const disparo = await registrarDisparoReglaWhatsapp({
+        id: uid(),
+        reglaId: regla.id,
+        origenTipo: "ingreso",
+        origenId: `${cliente.id}:${mesKey(ingreso.fecha)}`,
+        clienteId: cliente.id,
+        patente: ingreso.patente,
+        estado: "programado",
+        enviarEn: new Date().toISOString(),
+      });
+      if (!disparo) continue; // ya se disparó esta regla para este cliente este mes
       await ejecutarAccionRegla(regla, disparo.id, cliente).catch((error) =>
         console.error(`Error disparando regla WhatsApp "${regla.nombre}" para ingreso ${ingreso.id}`, error)
       );

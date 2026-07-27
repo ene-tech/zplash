@@ -76,19 +76,31 @@ export async function enviarMensajeImagen(telefono: string, urlPublica: string, 
 // Mensaje iniciado por el negocio usando una plantilla pre-aprobada en Meta
 // Business Manager (no se gestionan plantillas desde esta app). `parametros`
 // son los valores posicionales de las variables {{1}}, {{2}}, ... del cuerpo
-// de la plantilla.
+// de la plantilla. `codigoBotonUrl` es solo para plantillas de categoría
+// Authentication con botón "Copiar código" (ej. mensaje_otp): Meta lo
+// implementa como un botón tipo URL cuyo sufijo dinámico es el código, y sin
+// ese parámetro la Graph API rechaza el envío con "(#131008) buttons: Button
+// at index 0 of type Url requires a parameter" — no confundir con las
+// plantillas normales del motor de reglas, que no llevan botón.
 export async function enviarMensajePlantilla(
   telefono: string,
   nombrePlantilla: string,
   idioma: string,
   parametros?: string[],
-  enviadoPor?: string
+  enviadoPor?: string,
+  codigoBotonUrl?: string
 ): Promise<MensajeWhatsapp> {
-  const components = parametros?.length ? [{ type: "body", parameters: parametros.map((p) => ({ type: "text", text: p })) }] : undefined;
+  const components: Record<string, unknown>[] = [];
+  if (parametros?.length) {
+    components.push({ type: "body", parameters: parametros.map((p) => ({ type: "text", text: p })) });
+  }
+  if (codigoBotonUrl) {
+    components.push({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: codigoBotonUrl }] });
+  }
   const resultado = await llamarGraphApi({
     to: telefono,
     type: "template",
-    template: { name: nombrePlantilla, language: { code: idioma }, components },
+    template: { name: nombrePlantilla, language: { code: idioma }, components: components.length ? components : undefined },
   });
   return registrarSalida(telefono, `[Plantilla: ${nombrePlantilla}]`, "plantilla", resultado, enviadoPor);
 }

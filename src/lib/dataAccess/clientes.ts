@@ -20,6 +20,16 @@ export async function buscarClientePorPatente(patente: string): Promise<Cliente 
   return row ? clienteFromRow(row) : null;
 }
 
+// Usado por el login por OTP del Portal Cliente (@/app/api/cliente/otp):
+// clientes.telefono no es único, así que un mismo teléfono puede resolver a
+// varias filas (varias patentes de una misma persona) — la sesión que arma
+// otp/verificar/route.ts cubre todas las que devuelva esta consulta.
+export async function buscarClientesPorTelefono(telefono: string): Promise<Cliente[]> {
+  if (!telefono) return [];
+  const rows = await getDb().select().from(clientes).where(eq(clientes.telefono, telefono));
+  return rows.map(clienteFromRow);
+}
+
 type ClienteRow = typeof clientes.$inferSelect;
 
 export function clienteToRow(c: Cliente): typeof clientes.$inferInsert {

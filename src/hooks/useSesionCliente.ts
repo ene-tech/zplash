@@ -1,41 +1,44 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
-import {
-  SESION_EVENT,
-  cerrarSesion,
-  iniciarSesion,
-  invalidarCacheSesion,
-  leerSesion,
-  type SesionCliente,
-} from "@/lib/sesionCliente";
+import { useCallback, useEffect, useState } from "react";
+import type { SesionCliente } from "@/lib/sesionCliente";
 
-function subscribe(callback: () => void) {
-  const onStorage = () => {
-    invalidarCacheSesion();
-    callback();
-  };
-  window.addEventListener(SESION_EVENT, callback);
-  window.addEventListener("storage", onStorage);
-  return () => {
-    window.removeEventListener(SESION_EVENT, callback);
-    window.removeEventListener("storage", onStorage);
-  };
-}
-
-function getServerSnapshot(): SesionCliente | null {
-  return null;
-}
-
+// A diferencia de la versión anterior (localStorage + useSyncExternalStore),
+// la sesión real vive en una cookie httpOnly del servidor: este hook solo
+// refleja lo que devuelve GET /api/cliente/sesion. `sesion === undefined`
+// mientras está cargando, para que MiCuentaTab no muestre el formulario de
+// login por un instante antes de confirmar que sí hay sesión vigente.
 export function useSesionCliente() {
-  const sesion = useSyncExternalStore(subscribe, leerSesion, getServerSnapshot);
+  const [sesion, setSesion] = useState<SesionCliente | null | undefined>(undefined);
 
-  const iniciar = useCallback((s: SesionCliente) => {
-    iniciarSesion(s);
-  }, []);
-  const cerrar = useCallback(() => {
-    cerrarSesion();
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/cliente/sesion")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelado) setSesion(data);
+      })
+      .catch(() => {
+        if (!cancelado) setSesion(null);
+      });
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
-  return { sesion, iniciar, cerrar };
+  const refrescar = useCallback(async () => {
+    try {
+      const res = await fetch("/api/cliente/sesion");
+      setSesion(res.ok ? await res.json() : null);
+    } catch {
+      setSesion(null);
+    }
+  }, []);
+
+  const cerrar = useCallback(async () => {
+    await fetch("/api/cliente/logout", { method: "POST" });
+    setSesion(null);
+  }, []);
+
+  return { sesion, cargando: sesion === undefined, refrescar, cerrar };
 }

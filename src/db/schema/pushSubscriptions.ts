@@ -1,0 +1,35 @@
+import { index, pgTable, text, unique } from "drizzle-orm/pg-core";
+import { timestamptz } from "./shared";
+import { clientes } from "./clientes";
+
+// Suscripción de Web Push (ver src/lib/push/enviar.ts) de un navegador/
+// dispositivo instalado como PWA, para avisos que hoy solo se mandan por
+// WhatsApp (ver el enganche en @/lib/whatsapp/reglas::ejecutarAccionRegla).
+// Como la sesión del Portal Cliente puede resolver a varias filas de
+// `clientes` a la vez (un mismo teléfono con varias patentes, ver
+// otps_cliente), al suscribirse se inserta una fila por cada clienteId de la
+// sesión con el mismo endpoint/keys — así una alerta puntual de un vehículo
+// (ej. plan_proximo_vencer de una patente específica) puede enviarse
+// filtrando solo por ese clienteId, sin mandarle a todos los vehículos del
+// teléfono un aviso que era de uno solo. El unique es sobre (endpoint,
+// cliente_id) y no sobre endpoint solo, justamente para permitir esas varias
+// filas por dispositivo.
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    clienteId: text("cliente_id")
+      .notNull()
+      .references(() => clientes.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+    ultimoEnvioEn: timestamptz("ultimo_envio_en"),
+  },
+  (t) => [
+    index("push_subscriptions_cliente_id_idx").on(t.clienteId),
+    unique("push_subscriptions_endpoint_cliente_id_unq").on(t.endpoint, t.clienteId),
+  ]
+);

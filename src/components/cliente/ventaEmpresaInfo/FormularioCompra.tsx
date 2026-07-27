@@ -10,7 +10,7 @@ type ModoPatente = "abierto" | "lista";
 
 export function FormularioCompra({ cantidad, precio }: { cantidad: number; precio: number }) {
   const { sesion } = useSesionCliente();
-  const patentesPropias = sesion?.paso === "encontrado" ? sesion.vehiculos.map((v) => v.patente) : [];
+  const patentesPropias = sesion?.vehiculos.map((v) => v.patente) ?? [];
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>("Boleta");
   const [email, setEmail] = useState("");
   const [nombreLote, setNombreLote] = useState("");
