@@ -28,7 +28,10 @@ function coincideVenta(regla: ReglaWhatsapp, venta: Venta): boolean {
   return true;
 }
 
-function construirVariables(opts: {
+// Exportada para que enviarMensajesMasivosWhatsapp (@/lib/whatsapp/masivo,
+// Web Settings → Mensajes Únicos) arme las mismas variables que el motor de
+// reglas a partir de un Cliente, sin duplicar esta lógica.
+export function construirVariables(opts: {
   cliente: Cliente;
   monto?: number;
   montoOferta?: number;
@@ -51,8 +54,17 @@ function construirVariables(opts: {
 // logs si algo falla) y el envío real vía enviarMensajePlantilla, que exige
 // metaNombre — sin eso la plantilla sigue siendo solo un borrador de
 // contenido (ver comentario en @/db/schema/whatsapp) y no hay a qué template
-// aprobado de Meta mandarle el mensaje.
-async function enviarSegunPlantilla(plantilla: PlantillaWhatsapp, telefono: string, variables: Record<string, string>) {
+// aprobado de Meta mandarle el mensaje. Exportada (con `enviadoPor`
+// configurable, antes fijo en "regla-whatsapp") para que
+// enviarMensajesMasivosWhatsapp (@/lib/whatsapp/masivo) la reutilice sin
+// duplicar el manejo de metaVariables/parámetros posicionales, dejando su
+// propio remitente en el registro del mensaje.
+export async function enviarSegunPlantilla(
+  plantilla: PlantillaWhatsapp,
+  telefono: string,
+  variables: Record<string, string>,
+  enviadoPor = "regla-whatsapp"
+) {
   if (!plantilla.metaNombre) {
     console.error(`Plantilla WhatsApp "${plantilla.nombre}" no tiene metaNombre configurado (Web Settings → WhatsApp Webhooks); no se puede enviar`);
     return null;
@@ -63,7 +75,7 @@ async function enviarSegunPlantilla(plantilla: PlantillaWhatsapp, telefono: stri
   // el admin no tenga que escribir el camelCase exacto a mano.
   const porClaveMinuscula = Object.fromEntries(Object.entries(variables).map(([k, v]) => [k.toLowerCase(), v]));
   const parametros = (plantilla.metaVariables || []).map((v) => porClaveMinuscula[v.toLowerCase()] ?? "");
-  return enviarMensajePlantilla(telefono, plantilla.metaNombre, plantilla.metaIdioma || "es", parametros, "regla-whatsapp");
+  return enviarMensajePlantilla(telefono, plantilla.metaNombre, plantilla.metaIdioma || "es", parametros, enviadoPor);
 }
 
 async function generarCodigoCuponUnico(): Promise<string> {

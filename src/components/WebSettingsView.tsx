@@ -9,7 +9,8 @@ import WebSettingsWhatsappTab from "@/components/tabs/WebSettingsWhatsappTab";
 import WebSettingsWhatsappBotTab from "@/components/tabs/WebSettingsWhatsappBotTab";
 import ReglasWhatsappTab from "@/components/tabs/ReglasWhatsappTab";
 import HistorialWhatsappTab from "@/components/tabs/HistorialWhatsappTab";
-import { Bot, CircleDollarSign, History, Images, Mail, MessageCircle, Zap } from "lucide-react";
+import WebSettingsMensajesUnicosTab from "@/components/tabs/WebSettingsMensajesUnicosTab";
+import { Bot, CircleDollarSign, History, Images, Mail, MessageCircle, Send, Zap } from "lucide-react";
 
 const TABS = [
   { id: "precios", label: "Precios", icon: CircleDollarSign },
@@ -19,6 +20,7 @@ const TABS = [
   { id: "whatsapp_bot", label: "Menú Bot WhatsApp", icon: Bot },
   { id: "whatsapp_reglas", label: "Reglas WhatsApp", icon: Zap },
   { id: "whatsapp_historial", label: "Historial WhatsApp", icon: History },
+  { id: "whatsapp_masivo", label: "Mensajes Únicos", icon: Send },
 ] as const;
 
 export default function WebSettingsView() {
@@ -55,6 +57,7 @@ export default function WebSettingsView() {
             {tabActual.id === "whatsapp_bot" && <WebSettingsWhatsappBotTab />}
             {tabActual.id === "whatsapp_reglas" && <ReglasWhatsappTab />}
             {tabActual.id === "whatsapp_historial" && <HistorialWhatsappTab />}
+            {tabActual.id === "whatsapp_masivo" && <WebSettingsMensajesUnicosTab />}
           </div>
         </div>
       </div>

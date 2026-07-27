@@ -197,3 +197,18 @@ export interface HistorialReglaWhatsapp {
   mensajeEstado?: EstadoMensajeWhatsapp;
   mensajeError?: string;
 }
+
+// Resultado de un envío masivo manual (Web Settings → Mensajes Únicos, ver
+// @/lib/whatsapp/masivo) — a diferencia de ReglaWhatsapp/DisparoReglaWhatsapp
+// (motor de eventos, con su propia tabla de auditoría) este es un envío
+// puntual disparado a mano por un admin a un grupo de clientes filtrado en el
+// momento, así que no queda fila de "campaña" propia: el resultado se
+// muestra una sola vez en la UI justo después de enviar, y cada mensaje
+// individual sigue quedando igual en mensajes_whatsapp (visible en la
+// conversación del cliente respectivo).
+export interface ResultadoEnvioMasivoWhatsapp {
+  total: number;
+  enviados: number;
+  fallidos: number;
+  sinTelefono: number;
+}

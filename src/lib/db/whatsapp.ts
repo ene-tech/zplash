@@ -1,8 +1,9 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
-import { tieneModulo } from "@/lib/session";
-import type { HistorialReglaWhatsapp, PlantillaWhatsapp, ReglaWhatsapp } from "@/types";
+import { sesionActual, tieneModulo } from "@/lib/session";
+import { enviarMensajesMasivosWhatsapp as enviarMensajesMasivosWhatsappImpl } from "@/lib/whatsapp/masivo";
+import type { HistorialReglaWhatsapp, PlantillaWhatsapp, ReglaWhatsapp, ResultadoEnvioMasivoWhatsapp } from "@/types";
 
 export async function upsertPlantillasWhatsapp(rows: PlantillaWhatsapp[]): Promise<boolean> {
   if (!(await tieneModulo("web_settings"))) return false;
@@ -27,4 +28,17 @@ export async function deleteReglasWhatsapp(ids: string[]): Promise<boolean> {
 export async function listarHistorialReglasWhatsapp(): Promise<HistorialReglaWhatsapp[]> {
   if (!(await tieneModulo("web_settings"))) return [];
   return dataAccess.listarHistorialReglasWhatsapp();
+}
+
+export async function enviarMensajesMasivosWhatsapp(opts: {
+  plantillaId: string;
+  clienteIds: string[];
+  montoOferta?: number;
+  diasValidez?: number;
+}): Promise<ResultadoEnvioMasivoWhatsapp> {
+  const vacio: ResultadoEnvioMasivoWhatsapp = { total: 0, enviados: 0, fallidos: 0, sinTelefono: 0 };
+  if (!(await tieneModulo("web_settings"))) return vacio;
+  const sesion = await sesionActual();
+  if (!sesion) return vacio;
+  return enviarMensajesMasivosWhatsappImpl({ ...opts, enviadoPor: sesion.nombre });
 }
