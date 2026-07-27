@@ -2,10 +2,11 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { TEXTOS_BOT_WHATSAPP_DEFAULT } from "@/lib/helpers";
+import { CONFIG_DEFAULT, TEXTOS_BOT_WHATSAPP_DEFAULT } from "@/lib/helpers";
 import { subirImagenBotWhatsapp } from "@/lib/db";
 import type { ConfigGlobal, TextosBotWhatsapp } from "@/types";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { EmojiBar, VariableBar, insertarEnCursor } from "@/components/ui/mensaje-toolbar";
@@ -75,15 +76,19 @@ const CAMPOS: { key: keyof TextosBotWhatsapp; label: string; hint?: string; vari
   { key: "patenteNoEncontrada", label: "Cuando la patente consultada no existe" },
   {
     key: "textoDescuentoInstrucciones",
-    label: "Opción 5 — Instrucciones del descuento de primera vez",
-    hint: "Variables disponibles: {{monto}}, {{dias}}",
+    label: "Opción 5 — Bienvenida e inicio del registro (paso 1: pide el nombre)",
+    hint: "Variables disponibles: {{monto}}, {{dias}}. Es el primer mensaje del flujo: da la bienvenida y ya invita a responder con el nombre.",
     variables: ["monto", "dias"],
   },
-  { key: "textoDescuentoYaCliente", label: "Descuento — cuando la patente ya es cliente" },
-  { key: "textoDescuentoPatenteInvalida", label: "Descuento — cuando la patente escrita no es válida" },
+  { key: "textoDescuentoPedirNombre", label: "Descuento — repregunta si el nombre viene vacío (paso 1)" },
+  { key: "textoDescuentoPedirPatente", label: "Descuento — pide la patente (paso 2)" },
+  { key: "textoDescuentoPatenteInvalida", label: "Descuento — cuando la patente escrita no es válida (paso 2)" },
+  { key: "textoDescuentoPedirMail", label: "Descuento — pide el correo (paso 3)" },
+  { key: "textoDescuentoMailInvalido", label: "Descuento — cuando el correo escrito no es válido (paso 3)" },
+  { key: "textoDescuentoYaCliente", label: "Descuento — cuando el número o la patente ya es cliente" },
   {
     key: "textoDescuentoConfirmacion",
-    label: "Descuento — confirmación con el código generado",
+    label: "Descuento — confirmación con el código generado (fin del flujo)",
     hint: "Variables disponibles: {{codigo}}, {{monto}}, {{fecha}}",
     variables: ["codigo", "monto", "fecha"],
   },
@@ -132,6 +137,8 @@ const CAMPOS: { key: keyof TextosBotWhatsapp; label: string; hint?: string; vari
 export default function WebSettingsWhatsappBotTab() {
   const { data, commit } = useApp();
   const [valores, setValores] = useState<TextosBotWhatsapp>(() => data.config.textosBotWhatsapp);
+  const [descuentoValor, setDescuentoValor] = useState(() => String(data.config.descuentoPrimeraVezValor));
+  const [descuentoDias, setDescuentoDias] = useState(() => String(data.config.descuentoPrimeraVezDiasValidez));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
   const textareaRefs = useRef<Partial<Record<keyof TextosBotWhatsapp, HTMLTextAreaElement | null>>>({});
@@ -139,14 +146,22 @@ export default function WebSettingsWhatsappBotTab() {
   const setCampo = (key: keyof TextosBotWhatsapp, value: string) => setValores((v) => ({ ...v, [key]: value }));
 
   const guardar = async () => {
+    const descuentoPrimeraVezValor = Math.max(0, Math.round(Number(descuentoValor) || 0));
+    const descuentoPrimeraVezDiasValidez = Math.max(1, Math.round(Number(descuentoDias) || 0));
     setGuardando(true);
-    const ok = await commit({ config: { ...data.config, textosBotWhatsapp: valores } });
+    const ok = await commit({
+      config: { ...data.config, textosBotWhatsapp: valores, descuentoPrimeraVezValor, descuentoPrimeraVezDiasValidez },
+    });
     setGuardando(false);
+    setDescuentoValor(String(descuentoPrimeraVezValor));
+    setDescuentoDias(String(descuentoPrimeraVezDiasValidez));
     setMsg({ texto: ok ? "Menú del bot actualizado correctamente" : "No se pudo guardar (sin conexión). Intenta de nuevo.", ok });
   };
 
   const restablecer = () => {
     setValores(TEXTOS_BOT_WHATSAPP_DEFAULT);
+    setDescuentoValor(String(CONFIG_DEFAULT.descuentoPrimeraVezValor));
+    setDescuentoDias(String(CONFIG_DEFAULT.descuentoPrimeraVezDiasValidez));
     setMsg(null);
   };
 
@@ -190,6 +205,37 @@ export default function WebSettingsWhatsappBotTab() {
           {c.key === "textoContratarPlan" && (
             <div className="mt-3">
               <ImagenBotWhatsapp clave="plan" campo="imagenPlanWhatsapp" label="Opción 2 — Imagen adjunta" />
+            </div>
+          )}
+          {c.key === "textoDescuentoInstrucciones" && (
+            <div className="mt-3 flex flex-wrap items-end gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="descuentoValor">Monto del descuento (CLP)</Label>
+                <Input
+                  id="descuentoValor"
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="w-32"
+                  value={descuentoValor}
+                  onChange={(e) => setDescuentoValor(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="descuentoDias">Días de validez del cupón</Label>
+                <Input
+                  id="descuentoDias"
+                  type="number"
+                  min={1}
+                  step={1}
+                  className="w-32"
+                  value={descuentoDias}
+                  onChange={(e) => setDescuentoDias(e.target.value)}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground basis-full">
+                Se usan tanto en el texto de arriba ({"{{monto}}"}/{"{{dias}}"}) como en el cupón real que se genera al terminar el registro.
+              </div>
             </div>
           )}
         </div>

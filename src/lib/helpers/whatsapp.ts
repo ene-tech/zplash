@@ -7,10 +7,11 @@ import type { PlantillaWhatsapp, TextosBotWhatsapp } from "@/types";
 // @/lib/whatsapp/contenido, que ya importa de este barrel) para que
 // lib/helpers/config.ts pueda usarlo sin generar un ciclo de imports. Los
 // campos de descuento llevan placeholders {{...}} que reemplaza
-// aplicarVariables al responder, con los valores reales calculados desde
-// DESCUENTO_PRIMERA_VEZ_VALOR/_DIAS_VALIDEZ (@/lib/whatsapp/contenido) — así
-// el texto se puede editar sin tocar código y sigue mostrando el
-// monto/plazo vigente mientras el admin no borre el placeholder.
+// aplicarVariables al responder, con los valores reales tomados de
+// ConfigGlobal.descuentoPrimeraVezValor/DiasValidez (editables en Web
+// Settings → Menú Bot WhatsApp) — así el texto se puede editar sin tocar
+// código y sigue mostrando el monto/plazo vigente mientras el admin no
+// borre el placeholder.
 export const TEXTOS_BOT_WHATSAPP_DEFAULT: TextosBotWhatsapp = {
   menuPrincipal: `¡Hola! 👋 Soy el asistente de ZPlash.
 
@@ -52,15 +53,21 @@ Escribe *menu* para ver las opciones, o envía tu *patente* para consultar tu pl
 
   textoDescuentoInstrucciones: `🎉 ¡Bienvenido a ZPlash!
 
-Por tu primera vez te regalamos {{monto}} de descuento en tu lavado.
+Por tu primera vez te regalamos {{monto}} de descuento en tu lavado, válido por {{dias}} días.
 
-Escribe *descuento* seguido de tu patente para recibir tu código. Ejemplo: *descuento AB1234*
+Para generar tu código, dime primero tu *nombre completo*.`,
 
-El código queda vigente por {{dias}} días.`,
+  textoDescuentoPedirNombre: `Para generar tu código de descuento, dime tu *nombre completo*.`,
+
+  textoDescuentoPedirPatente: `Gracias 🙌 Ahora dime la *patente* de tu vehículo (ej. AB1234).`,
+
+  textoDescuentoPedirMail: `Perfecto. Por último, déjame tu *correo electrónico* para enviarte el código.`,
+
+  textoDescuentoMailInvalido: `Ese correo no parece válido. Escríbelo de nuevo (ej. nombre@correo.com).`,
 
   textoDescuentoYaCliente: `Ya eres cliente ZPlash 🙌 Este descuento es solo para quienes nunca han venido. Escribe *1* para ver nuestros precios.`,
 
-  textoDescuentoPatenteInvalida: `No reconocí esa patente. Escribe *descuento* seguido de tu patente, por ejemplo: *descuento AB1234*`,
+  textoDescuentoPatenteInvalida: `No reconocí esa patente. Escríbela de nuevo, por ejemplo: *AB1234*`,
 
   textoDescuentoConfirmacion: `🎉 ¡Listo! Tu código de descuento es *{{codigo}}*
 

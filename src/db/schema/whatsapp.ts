@@ -14,6 +14,13 @@ export const conversacionesWhatsapp = pgTable("conversaciones_whatsapp", {
   telefono: text("telefono").notNull().unique(),
   clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
   nombreContacto: text("nombre_contacto"),
+  // Estado del flujo conversacional de varios pasos en curso (ej. registro +
+  // descuento de primera vez, ver manejarPasoRegistroDescuento en
+  // @/lib/whatsapp/router) — null cuando no hay ningún flujo a mitad de
+  // camino. El bot en general es stateless (cada mensaje se interpreta solo
+  // por su texto), esta columna es la única excepción, acotada a flujos que
+  // piden varios datos en mensajes sucesivos.
+  flowState: jsonb("flow_state").$type<{ tipo: "registro_descuento"; paso: "nombre" | "patente" | "mail"; nombre?: string; patente?: string }>(),
   ultimoMensajeEn: timestamptz("ultimo_mensaje_en").notNull().defaultNow(),
   noLeidos: integer("no_leidos").notNull().default(0),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),

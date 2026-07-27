@@ -1,0 +1,1 @@
+ALTER TABLE "conversaciones_whatsapp" ADD COLUMN "flow_state" jsonb;

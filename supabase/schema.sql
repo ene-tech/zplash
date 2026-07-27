@@ -501,6 +501,7 @@ create table if not exists conversaciones_whatsapp (
   telefono text not null unique,
   cliente_id text references clientes(id) on delete set null,
   nombre_contacto text,
+  flow_state jsonb,
   ultimo_mensaje_en timestamptz not null default now(),
   no_leidos integer not null default 0,
   creado_en timestamptz not null default now()

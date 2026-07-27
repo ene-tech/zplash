@@ -2,6 +2,16 @@ export type DireccionMensajeWhatsapp = "entrante" | "saliente";
 export type TipoMensajeWhatsapp = "texto" | "imagen" | "plantilla";
 export type EstadoMensajeWhatsapp = "enviado" | "entregado" | "leido" | "fallido";
 
+// Estado de un flujo conversacional de varios pasos en curso — ver
+// manejarPasoRegistroDescuento (registro + descuento de primera vez, Opción
+// 5) en @/lib/whatsapp/router.
+export interface FlowStateWhatsapp {
+  tipo: "registro_descuento";
+  paso: "nombre" | "patente" | "mail";
+  nombre?: string;
+  patente?: string;
+}
+
 // Hilo de conversación con un número de WhatsApp — ver comentario en
 // @/db/schema/whatsapp sobre el enlace opcional a Cliente.
 export interface ConversacionWhatsapp {
@@ -9,6 +19,7 @@ export interface ConversacionWhatsapp {
   telefono: string;
   clienteId?: string;
   nombreContacto?: string;
+  flowState?: FlowStateWhatsapp | null;
   ultimoMensajeEn: string;
   noLeidos: number;
   creadoEn: string;
@@ -36,7 +47,12 @@ export interface MensajeWhatsapp {
 // específica del router del bot. textoDescuentoInstrucciones acepta
 // {{monto}}/{{dias}}; textoDescuentoConfirmacion acepta
 // {{codigo}}/{{monto}}/{{fecha}} (ver aplicarVariables en
-// @/lib/helpers/whatsapp). textoPreciosIntro es solo el encabezado que
+// @/lib/helpers/whatsapp). textoDescuentoPedirNombre/PedirPatente/PedirMail
+// son los 3 pasos del flujo de registro de la Opción 5 (ver
+// manejarPasoRegistroDescuento en @/lib/whatsapp/router);
+// textoDescuentoPatenteInvalida/textoDescuentoMailInvalido se repiten como
+// reintento si el dato no pasa la validación, sin avanzar de paso.
+// textoPreciosIntro es solo el encabezado que
 // antecede a la lista de precios/servicios: la lista en sí siempre se
 // genera desde la tabla real, no es editable como texto libre. Los campos
 // patenteEstado* arman, línea por línea, el mensaje de consulta de
@@ -58,6 +74,10 @@ export interface TextosBotWhatsapp {
   mensajeNoEntendido: string;
   patenteNoEncontrada: string;
   textoDescuentoInstrucciones: string;
+  textoDescuentoPedirNombre: string;
+  textoDescuentoPedirPatente: string;
+  textoDescuentoPedirMail: string;
+  textoDescuentoMailInvalido: string;
   textoDescuentoYaCliente: string;
   textoDescuentoPatenteInvalida: string;
   textoDescuentoConfirmacion: string;

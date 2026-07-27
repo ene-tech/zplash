@@ -4,7 +4,7 @@ import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, conversacionesWhatsapp, mensajesWhatsapp } from "@/db/schema";
 import { uid } from "@/lib/helpers";
-import type { ConversacionWhatsapp, DireccionMensajeWhatsapp, EstadoMensajeWhatsapp, MensajeWhatsapp, TipoMensajeWhatsapp } from "@/types";
+import type { ConversacionWhatsapp, DireccionMensajeWhatsapp, EstadoMensajeWhatsapp, FlowStateWhatsapp, MensajeWhatsapp, TipoMensajeWhatsapp } from "@/types";
 
 type ConversacionRow = typeof conversacionesWhatsapp.$inferSelect;
 type MensajeRow = typeof mensajesWhatsapp.$inferSelect;
@@ -15,6 +15,7 @@ export function conversacionFromRow(r: ConversacionRow): ConversacionWhatsapp {
     telefono: r.telefono,
     clienteId: r.clienteId || undefined,
     nombreContacto: r.nombreContacto || undefined,
+    flowState: r.flowState || undefined,
     ultimoMensajeEn: r.ultimoMensajeEn,
     noLeidos: r.noLeidos,
     creadoEn: r.creadoEn,
@@ -63,6 +64,21 @@ export async function buscarOCrearConversacion(telefono: string, nombreContacto?
   };
   await db.insert(conversacionesWhatsapp).values(nueva);
   return conversacionFromRow(nueva as ConversacionRow);
+}
+
+// `null` limpia el flujo (lo completó, lo canceló, o escribió "hola"/"menu"
+// a mitad de camino, ver responderMensaje en @/lib/whatsapp/router).
+export async function actualizarFlowStateConversacion(conversacionId: string, flowState: FlowStateWhatsapp | null): Promise<void> {
+  await getDb().update(conversacionesWhatsapp).set({ flowState }).where(eq(conversacionesWhatsapp.id, conversacionId));
+}
+
+// Enlaza la conversación al Cliente recién pre-registrado desde el flujo de
+// descuento de primera vez (ver manejarPasoRegistroDescuento) — mismo campo
+// que buscarOCrearConversacion enlaza por teléfono al crear la conversación,
+// pero acá se completa después porque el Cliente no existía todavía cuando
+// el número escribió su primer mensaje.
+export async function vincularClienteConversacion(conversacionId: string, clienteId: string): Promise<void> {
+  await getDb().update(conversacionesWhatsapp).set({ clienteId }).where(eq(conversacionesWhatsapp.id, conversacionId));
 }
 
 type NuevoMensaje = {

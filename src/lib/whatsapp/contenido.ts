@@ -6,9 +6,6 @@ import {
 } from "@/lib/helpers";
 import type { Precios, Servicio } from "@/types";
 
-export const DESCUENTO_PRIMERA_VEZ_VALOR = 1000;
-export const DESCUENTO_PRIMERA_VEZ_DIAS_VALIDEZ = 7;
-
 export const SERVICIOS_IMAGEN_PATH = "/servicios-precios.jpg";
 
 export const PLAN_IMAGEN_PATH = "/plan-mensual.jpg";

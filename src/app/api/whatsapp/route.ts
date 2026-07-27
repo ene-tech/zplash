@@ -83,7 +83,7 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
 
   let respuesta;
   try {
-    respuesta = await responderMensaje(textoEntrante, telefono);
+    respuesta = await responderMensaje(textoEntrante, telefono, conversacion);
   } catch (error) {
     console.error("Error respondiendo mensaje de WhatsApp", error);
     respuesta = { texto: "Ocurrió un error de nuestro lado. Intenta de nuevo en unos minutos." };
