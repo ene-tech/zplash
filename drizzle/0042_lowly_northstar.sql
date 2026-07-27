@@ -1,0 +1,2 @@
+ALTER TABLE "config" ADD COLUMN "descuento_primera_vez_valor" integer DEFAULT 1000 NOT NULL;--> statement-breakpoint
+ALTER TABLE "config" ADD COLUMN "descuento_primera_vez_dias_validez" integer DEFAULT 7 NOT NULL;

@@ -16,6 +16,8 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   horasVentanaUpgradePlan: 1,
   tramosReactivacionVencido: {},
   horasBloqueoReingresoPlan: 24.5,
+  descuentoPrimeraVezValor: 1000,
+  descuentoPrimeraVezDiasValidez: 7,
   textosBotWhatsapp: TEXTOS_BOT_WHATSAPP_DEFAULT,
   imagenPreciosWhatsapp: undefined,
   imagenPlanWhatsapp: undefined,

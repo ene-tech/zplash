@@ -63,6 +63,11 @@ export interface ConfigGlobal {
   // volver a quedar "libre" para reingresar (ver estadoReingresoPlan en
   // helpers/ingresos.ts). Acepta decimales (ej: 24.5 = 24 horas 30 min).
   horasBloqueoReingresoPlan: number;
+  // Monto (CLP) y días de vigencia del cupón de descuento que arma la
+  // Opción 5 del bot de WhatsApp para clientes nuevos (ver
+  // manejarPasoRegistroDescuento en @/lib/whatsapp/router).
+  descuentoPrimeraVezValor: number;
+  descuentoPrimeraVezDiasValidez: number;
   // Contenido editable de las respuestas automáticas del bot de WhatsApp —
   // ver TextosBotWhatsapp.
   textosBotWhatsapp: TextosBotWhatsapp;

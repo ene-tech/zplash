@@ -280,6 +280,8 @@ create table if not exists config (
   -- Horas mínimas entre dos ingresos por plan de un mismo vehículo antes de
   -- volver a quedar "libre" (ver estadoReingresoPlan en @/lib/helpers/ingresos).
   horas_bloqueo_reingreso_plan numeric not null default 24.5,
+  descuento_primera_vez_valor integer not null default 1000,
+  descuento_primera_vez_dias_validez integer not null default 7,
   -- Contenido editable de las respuestas del bot de WhatsApp (ver
   -- TextosBotWhatsapp en @/types), editable en Web Settings → Menú Bot
   -- WhatsApp. Se guarda parcial a propósito: cualquier clave no presente cae

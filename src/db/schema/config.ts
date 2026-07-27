@@ -46,6 +46,13 @@ export const config = pgTable("config", {
   // volver a quedar "libre" (ver estadoReingresoPlan/HORAS_MIN_ENTRE_INGRESOS_PLAN
   // en @/lib/helpers/ingresos). Acepta decimales (ej: 24.5 = 24 horas 30 min).
   horasBloqueoReingresoPlan: numeric("horas_bloqueo_reingreso_plan", { mode: "number" }).notNull().default(24.5),
+  // Monto y vigencia del cupón que arma el flujo de registro de primera vez
+  // del bot de WhatsApp (Opción 5, ver manejarPasoRegistroDescuento en
+  // @/lib/whatsapp/router) — antes constantes fijas
+  // DESCUENTO_PRIMERA_VEZ_VALOR/_DIAS_VALIDEZ en @/lib/whatsapp/contenido,
+  // ahora autoadministrable desde Web Settings → Menú Bot WhatsApp.
+  descuentoPrimeraVezValor: integer("descuento_primera_vez_valor").notNull().default(1000),
+  descuentoPrimeraVezDiasValidez: integer("descuento_primera_vez_dias_validez").notNull().default(7),
   // Contenido editable de las respuestas del bot de WhatsApp (ver
   // TextosBotWhatsapp en @/types y TEXTOS_BOT_WHATSAPP_DEFAULT en
   // @/lib/whatsapp/contenido). Se guarda parcial a propósito (default {}):
