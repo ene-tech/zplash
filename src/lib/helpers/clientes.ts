@@ -82,6 +82,45 @@ export function diasVencido(c: Pick<Cliente, "vencimiento">, ahora: Date = ahora
   return Math.round((hoy.getTime() - venc.getTime()) / 86400000);
 }
 
+/**
+ * Resuelve si un cambio de patente pendiente (solicitado desde el módulo
+ * Clientes o desde Mi Cuenta, ver `patentePendiente`/`patentePendienteDesde`
+ * en @/db/schema/clientes) debe aplicarse en esta escritura: solo cuando
+ * `vencimiento` avanza a una fecha estrictamente posterior a la que tenía
+ * `anterior` en la base — eso es lo que distingue una renovación real (nuevo
+ * período) de cualquier otra edición de la ficha (nombre, teléfono, o incluso
+ * la propia solicitud de cambio, que no toca vencimiento).
+ *
+ * Si no corresponde aplicar todavía, igual se preservan
+ * patentePendiente/patentePendienteDesde de `anterior` en el resultado: así
+ * un caller que arma su patch a partir de una copia en memoria desactualizada
+ * (sin estos campos, ej. un `cliente` cargado antes de esta feature) nunca
+ * borra sin querer una solicitud real al guardar cambios de otro tipo.
+ *
+ * Se usa desde dataAccess/clientes.ts::upsertClientes (con `anterior` recién
+ * leído de la base) y replicado a mano en @/lib/pagos/aplicarPagoAprobado
+ * (que no pasa por upsertClientes).
+ */
+export function resolverPatentePendiente(
+  anterior: Cliente | undefined,
+  nuevo: Cliente
+): { fila: Cliente; patenteAnterior?: string } {
+  if (!anterior?.patentePendiente) return { fila: nuevo };
+
+  const vencAnteriorTime = anterior.vencimiento ? new Date(anterior.vencimiento).getTime() : null;
+  const vencNuevoTime = nuevo.vencimiento ? new Date(nuevo.vencimiento).getTime() : null;
+  const renovado = vencNuevoTime !== null && (vencAnteriorTime === null || vencNuevoTime > vencAnteriorTime);
+
+  if (!renovado) {
+    return { fila: { ...nuevo, patentePendiente: anterior.patentePendiente, patentePendienteDesde: anterior.patentePendienteDesde } };
+  }
+
+  return {
+    fila: { ...nuevo, patente: anterior.patentePendiente, patentePendiente: null, patentePendienteDesde: null },
+    patenteAnterior: anterior.patente,
+  };
+}
+
 /** 30 days from `desde` (por defecto ahora), as an ISO string. Kept outside component bodies since it is not a pure computation. */
 export function vencimientoPorDefectoISO(desde: Date = new Date()): string {
   const d = new Date(desde);

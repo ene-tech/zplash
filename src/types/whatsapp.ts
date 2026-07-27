@@ -88,14 +88,21 @@ export interface PlantillaWhatsapp {
   metaIdioma?: string;
   // Orden de variables que calza con los {{1}},{{2}}... posicionales del
   // template aprobado. Subconjunto de: nombre, patente, plan, monto,
-  // fechaVencimiento, montoOferta, diasValidez.
+  // fechaVencimiento, montoOferta, diasValidez, patenteAnterior (patente y
+  // patenteAnterior solo difieren en tipoEvento="cambio_patente", ver
+  // construirVariables en @/lib/whatsapp/reglas).
   metaVariables?: string[];
   // Marca manual de que metaNombre corresponde a un template realmente
   // aprobado en Meta (ver comentario en @/db/schema/whatsapp).
   metaAprobado: boolean;
 }
 
-export type TipoEventoReglaWhatsapp = "venta_creada" | "plan_proximo_vencer" | "cobro_fallido" | "ingreso_plan_registrado";
+export type TipoEventoReglaWhatsapp =
+  | "venta_creada"
+  | "plan_proximo_vencer"
+  | "cobro_fallido"
+  | "ingreso_plan_registrado"
+  | "cambio_patente";
 export type AccionReglaWhatsapp = "cupon_descuento" | "mensaje_simple";
 
 // Regla de negocio ("cuándo mandar qué") — ver plan de "motor de reglas

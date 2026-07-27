@@ -21,6 +21,8 @@ export interface Cliente extends DatosFacturacion {
   vehiculo?: string;
   plan?: string;
   vencimiento?: string | null;
+  patentePendiente?: string | null;
+  patentePendienteDesde?: string | null;
   fechaContratacion?: string | null;
   origen?: "WEB" | "LOCAL";
   visitas?: number;

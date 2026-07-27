@@ -2,11 +2,11 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
-import { clientes, movimientosContables, ventas } from "@/db/schema";
-import { movimientoToRow } from "@/lib/dataAccess";
-import { PLANES, movimientoContableDesdeVenta, uid } from "@/lib/helpers";
-import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
-import type { Venta } from "@/types";
+import { clientes, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
+import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
+import { PLANES, movimientoContableDesdeVenta, resolverPatentePendiente, uid } from "@/lib/helpers";
+import { evaluarReglasPorCambioPatente, evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
+import type { Cliente, Venta } from "@/types";
 
 export function addDaysISO(iso: string, dias: number): string {
   const d = new Date(iso);
@@ -47,6 +47,7 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
   const [existente] = await db.select().from(clientes).where(eq(clientes.patente, p.patente)).limit(1);
 
   let clienteId: string;
+  let cambioPatente: { cliente: Cliente; patenteAnterior: string } | undefined;
   if (p.esServicioAdicional) {
     if (existente) {
       clienteId = existente.id;
@@ -66,10 +67,35 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
     const vencActual = existente.vencimiento ? new Date(existente.vencimiento) : null;
     const base = vencActual && vencActual > new Date() ? vencActual.toISOString() : new Date().toISOString();
     clienteId = existente.id;
+    const anterior = clienteFromRow(existente);
+    // Resuelve un cambio de patente pendiente (ver clientes.patente_pendiente,
+    // solicitado desde el módulo Clientes) — este es el único sitio de
+    // renovación que NO pasa por dataAccess/clientes.ts::upsertClientes (ver
+    // mismo tratamiento ahí), así que hay que replicar la resolución acá.
+    const { fila, patenteAnterior } = resolverPatentePendiente(anterior, { ...anterior, vencimiento: addDaysISO(base, 30) });
     await db
       .update(clientes)
-      .set({ vencimiento: addDaysISO(base, 30), plan: existente.plan || PLANES[0], origen: "WEB" })
+      .set({
+        patente: fila.patente,
+        patentePendiente: fila.patentePendiente || null,
+        patentePendienteDesde: fila.patentePendienteDesde || null,
+        vencimiento: addDaysISO(base, 30),
+        plan: existente.plan || PLANES[0],
+        origen: "WEB",
+      })
       .where(eq(clientes.id, clienteId));
+    if (patenteAnterior) {
+      // suscripcionesOneclick guarda su propia columna `patente` como clave de
+      // búsqueda del cobro mensual siguiente (ver cobrarSuscripcion en
+      // @/lib/pagos): si no se actualiza acá también, el próximo cobro
+      // automático busca al cliente por la patente vieja, ya no la
+      // encuentra, y termina creando un "Cliente Web" duplicado.
+      await db
+        .update(suscripcionesOneclick)
+        .set({ patente: fila.patente, actualizadoEn: new Date().toISOString() })
+        .where(eq(suscripcionesOneclick.patente, p.patente));
+      cambioPatente = { cliente: fila, patenteAnterior };
+    }
   } else {
     clienteId = uid();
     await db.insert(clientes).values({
@@ -126,6 +152,14 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
   // función viva hasta que termine el envío (ver mismo fix en dataAccess/
   // ventas.ts::insertVentas).
   after(() => evaluarReglasPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta (pago externo)", error)));
+  if (cambioPatente) {
+    const { cliente: clienteCambiado, patenteAnterior } = cambioPatente;
+    after(() =>
+      evaluarReglasPorCambioPatente(clienteCambiado, patenteAnterior).catch((error) =>
+        console.error("Error evaluando reglas de WhatsApp por cambio de patente (pago externo)", error)
+      )
+    );
+  }
 
   // Genera/actualiza el movimiento contable de ingreso ligado a esta venta
   // en la misma transacción — ver movimientoContableDesdeVenta en helpers.ts.

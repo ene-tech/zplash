@@ -1,6 +1,6 @@
 import "server-only";
 
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes } from "@/db/schema";
 import type { Cliente } from "@/types";
@@ -10,6 +10,14 @@ export async function getClientesByIds(ids: string[]): Promise<Cliente[]> {
   if (!ids.length) return [];
   const rows = await getDb().select().from(clientes).where(inArray(clientes.id, ids));
   return rows.map(clienteFromRow);
+}
+
+// Usado por solicitarCambioPatente (@/lib/db/clientes) para chequear que la
+// nueva patente solicitada no choque con la de otro cliente ya existente
+// (misma restricción única que protege `patente` al guardar).
+export async function buscarClientePorPatente(patente: string): Promise<Cliente | null> {
+  const [row] = await getDb().select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
+  return row ? clienteFromRow(row) : null;
 }
 
 type ClienteRow = typeof clientes.$inferSelect;
@@ -29,6 +37,8 @@ export function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
     direccion: c.direccion || null,
     giro: c.giro || null,
     vencimiento: c.vencimiento || null,
+    patentePendiente: c.patentePendiente || null,
+    patentePendienteDesde: c.patentePendienteDesde || null,
     fechaContratacion: c.fechaContratacion || null,
     origen: c.origen || "LOCAL",
     visitas: c.visitas || 0,
@@ -54,6 +64,8 @@ export function clienteFromRow(r: ClienteRow): Cliente {
     direccion: r.direccion || undefined,
     giro: r.giro || undefined,
     vencimiento: r.vencimiento || null,
+    patentePendiente: r.patentePendiente || undefined,
+    patentePendienteDesde: r.patentePendienteDesde || undefined,
     fechaContratacion: r.fechaContratacion || null,
     origen: (r.origen as Cliente["origen"]) || "LOCAL",
     visitas: r.visitas || 0,
@@ -101,6 +113,27 @@ export async function deleteClientes(ids: string[]): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Error eliminando clientes", error);
+    return false;
+  }
+}
+
+// Update puntual (no pasa por el upsert en lote de arriba) para la solicitud
+// de cambio de patente diferido — ver solicitarCambioPatente/
+// cancelarCambioPatente en @/lib/db/clientes. `patentePendiente: null` limpia
+// también la fecha de solicitud (no tiene sentido guardarla sin una patente
+// pendiente asociada).
+export async function actualizarPatentePendiente(id: string, patentePendiente: string | null): Promise<boolean> {
+  try {
+    await getDb()
+      .update(clientes)
+      .set({
+        patentePendiente,
+        patentePendienteDesde: patentePendiente ? new Date().toISOString() : null,
+      })
+      .where(eq(clientes.id, id));
+    return true;
+  } catch (error) {
+    console.error("Error actualizando patente pendiente del cliente", id, error);
     return false;
   }
 }

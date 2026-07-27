@@ -100,6 +100,11 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   // "ingreso_plan_registrado": se evalúa al insertar un Ingreso nuevo de un
   // cliente con plan vigente (planEstadoAlIngreso === "ok"), ver
   // evaluarReglasPorIngreso llamado desde dataAccess/ingresos.ts::insertIngresos.
+  // "cambio_patente": se evalúa cuando un cambio de patente pendiente
+  // (solicitado desde el módulo Clientes, ver clientes.patente_pendiente) se
+  // aplica de verdad porque el plan renovó a un período nuevo — ver
+  // evaluarReglasPorCambioPatente, llamado desde @/lib/db/clientes.ts::
+  // upsertClientes y desde @/lib/pagos/aplicarPagoAprobado.
   tipoEvento: text("tipo_evento").notNull(),
   // Solo aplica a tipoEvento="venta_creada": matchea venta.tipo tal cual
   // ("Lavado único", "Plan nuevo", etc.). Null = cualquier tipo de venta.

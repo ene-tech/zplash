@@ -33,6 +33,7 @@ function construirVariables(opts: {
   monto?: number;
   montoOferta?: number;
   diasValidez?: number;
+  patenteAnterior?: string;
 }): Record<string, string> {
   return {
     nombre: opts.cliente.nombre || "",
@@ -42,6 +43,7 @@ function construirVariables(opts: {
     fechaVencimiento: opts.cliente.vencimiento ? fmtFecha(opts.cliente.vencimiento) : "",
     montoOferta: opts.montoOferta !== undefined ? fmtCLP(opts.montoOferta) : "",
     diasValidez: opts.diasValidez !== undefined ? String(opts.diasValidez) : "",
+    patenteAnterior: opts.patenteAnterior || "",
   };
 }
 
@@ -75,8 +77,16 @@ async function generarCodigoCuponUnico(): Promise<string> {
 // volver, ver OperadorFoundResult) y siempre intenta el envío de WhatsApp.
 // `ventaMonto` solo se usa para el placeholder {{monto}} en reglas
 // "venta_creada" (ej. "confirmamos tu compra de {{monto}}"); en
-// "plan_proximo_vencer" no aplica.
-async function ejecutarAccionRegla(regla: ReglaWhatsapp, disparoId: string, cliente: Cliente, ventaMonto?: number): Promise<void> {
+// "plan_proximo_vencer" no aplica. `patenteAnterior` solo se usa en
+// "cambio_patente" (ver evaluarReglasPorCambioPatente), para el placeholder
+// {{patenteAnterior}}.
+async function ejecutarAccionRegla(
+  regla: ReglaWhatsapp,
+  disparoId: string,
+  cliente: Cliente,
+  ventaMonto?: number,
+  patenteAnterior?: string
+): Promise<void> {
   if (!cliente.telefono) {
     console.error(`Regla WhatsApp "${regla.nombre}": cliente ${cliente.id} sin teléfono, no se puede enviar`);
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
@@ -117,7 +127,7 @@ async function ejecutarAccionRegla(regla: ReglaWhatsapp, disparoId: string, clie
     }
   }
 
-  const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez });
+  const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior });
   const mensaje = await enviarSegunPlantilla(plantilla, cliente.telefono, variables);
   // `mensaje` siempre existe salvo que falte metaNombre — enviarMensajePlantilla
   // (@/lib/whatsapp/enviar) registra la fila de todos modos aunque la Graph
@@ -271,6 +281,45 @@ export async function evaluarReglasPorCobroFallido(opts: {
     if (!disparo) continue; // ya se disparó esta regla para este intento de cobro
     await ejecutarAccionRegla(regla, disparo.id, cliente, opts.monto).catch((error) =>
       console.error(`Error disparando regla WhatsApp "${regla.nombre}" para cobro ${opts.buyOrderId}`, error)
+    );
+  }
+}
+
+// Llamado desde @/lib/db/clientes.ts::upsertClientes y desde
+// @/lib/pagos/aplicarPagoAprobado cuando un cambio de patente pendiente
+// (solicitado desde el módulo Clientes) se aplica de verdad porque el plan
+// renovó a un período nuevo (ver resolverPatentePendiente en @/lib/helpers) —
+// fire-and-forget, mismo patrón que evaluarReglasPorCobroFallido. `cliente`
+// ya trae la patente NUEVA (post-swap); `patenteAnterior` es la que tenía
+// antes, para el placeholder {{patenteAnterior}}.
+export async function evaluarReglasPorCambioPatente(cliente: Cliente, patenteAnterior: string): Promise<void> {
+  let reglas: ReglaWhatsapp[];
+  try {
+    reglas = await listarReglasWhatsappActivas("cambio_patente");
+  } catch (error) {
+    console.error("Error cargando reglas WhatsApp (cambio_patente)", error);
+    return;
+  }
+  if (!reglas.length) return;
+
+  for (const regla of reglas) {
+    if (regla.condicionPlanes?.length && (!cliente.plan || !regla.condicionPlanes.includes(cliente.plan))) continue;
+    // origenId incluye la patente nueva: si el cliente vuelve a cambiar de
+    // patente más adelante, es un origenId distinto y vuelve a ser elegible.
+    const disparo = await registrarDisparoReglaWhatsapp({
+      id: uid(),
+      reglaId: regla.id,
+      origenTipo: "cliente",
+      origenId: `${cliente.id}:${cliente.patente}`,
+      clienteId: cliente.id,
+      patente: cliente.patente,
+      estado: "programado",
+      enviarEn: new Date().toISOString(),
+    });
+    if (!disparo) continue; // ya se avisó este cambio de patente para este cliente
+
+    await ejecutarAccionRegla(regla, disparo.id, cliente, undefined, patenteAnterior).catch((error) =>
+      console.error(`Error disparando regla WhatsApp "${regla.nombre}" para cambio de patente de ${cliente.id}`, error)
     );
   }
 }

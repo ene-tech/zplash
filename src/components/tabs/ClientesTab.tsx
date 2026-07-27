@@ -8,7 +8,23 @@ import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
 import { MobileRecordCard, MobileRecordMeta } from "@/components/MobileRecordCard";
-import { Info, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Info, Pencil, Trash2 } from "lucide-react";
+
+// Indicador visual de que el cliente tiene una solicitud de cambio de
+// patente pendiente (ver ClientModal → SolicitudCambioPatenteAdmin): se
+// aplicará recién cuando el plan renueve a un período nuevo, ver
+// resolverPatentePendiente en @/lib/helpers.
+function IconoCambioPatentePendiente({ patentePendiente }: { patentePendiente: string }) {
+  return (
+    <span
+      className="inline-flex shrink-0"
+      title={`Cambio de patente pendiente a ${patentePendiente}`}
+      aria-label={`Cambio de patente pendiente a ${patentePendiente}`}
+    >
+      <ArrowLeftRight size={13} style={{ color: "var(--blue)" }} />
+    </span>
+  );
+}
 
 const ESTADO_PRIORIDAD: Record<string, number> = { Vencido: 0, "Por vencer": 1, "Sin plan": 2, Vigente: 3 };
 
@@ -149,7 +165,8 @@ export default function ClientesTab() {
                 title={<span className="mt-1.5 ml-1 block">{c.nombre}</span>}
                 subtitle={
                   <>
-                    <span className={`plate-tag ${plateEstadoCls(c)}`}>{c.patente}</span> ·{" "}
+                    <span className={`plate-tag ${plateEstadoCls(c)}`}>{c.patente}</span>{" "}
+                    {c.patentePendiente && <IconoCambioPatentePendiente patentePendiente={c.patentePendiente} />} ·{" "}
                     {c.telefono ? fmtTelefono(c.telefono) : "Sin teléfono"}
                   </>
                 }
@@ -223,7 +240,12 @@ export default function ClientesTab() {
                 const prog = planProgreso(c);
                 return (
                   <TableRow key={`${c.id}-${c.patente}-${idx}`}>
-                    <TableCell className={`plate-tag ${plateEstadoCls(c)}`}>{c.patente}</TableCell>
+                    <TableCell className={`plate-tag ${plateEstadoCls(c)}`}>
+                      <span className="inline-flex items-center gap-1">
+                        {c.patente}
+                        {c.patentePendiente && <IconoCambioPatentePendiente patentePendiente={c.patentePendiente} />}
+                      </span>
+                    </TableCell>
                     <TableCell className="max-w-[140px] truncate" title={c.nombre}>{c.nombre}</TableCell>
                     <TableCell>{c.telefono ? fmtTelefono(c.telefono) : "-"}</TableCell>
                     <TableCell className="col-mail" title={c.email || ""}>{c.email || "-"}</TableCell>

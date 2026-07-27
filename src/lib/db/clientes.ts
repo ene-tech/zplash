@@ -1,8 +1,10 @@
 "use server";
 
+import { after } from "next/server";
 import * as dataAccess from "@/lib/dataAccess";
-import { esExentoFormatoCliente, esNombreVacio, isValidPatente } from "@/lib/helpers";
+import { esExentoFormatoCliente, esNombreVacio, isValidPatente, normPlate, resolverPatentePendiente } from "@/lib/helpers";
 import { sesionActual, tieneModulo } from "@/lib/session";
+import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
 import type { Cliente } from "@/types";
 
 // Campos que registrarIngreso() (@/lib/actions) toca como efecto colateral de
@@ -10,7 +12,20 @@ import type { Cliente } from "@/types";
 // puede provocar este patch aunque no tenga el módulo "clientes" (ver
 // esCambioPermitidoSinModuloClientes más abajo). El resto de los campos solo
 // puede cambiarlos una sesión con "clientes" (ClientModal/BulkModal).
-const CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["visitas", "ultimaVisita"]);
+// patentePendiente/patentePendienteDesde también van acá aunque no las toque
+// registrarIngreso(): son un campo administrado por el sistema (ver
+// resolverPatentePendiente), no algo que un operador renovando un plan
+// (CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES) esté pidiendo cambiar — sin esto,
+// si su copia local del cliente queda desactualizada respecto a una
+// solicitud de cambio de patente guardada recién por un admin, la
+// comparación `row[campo] === anterior[campo]` de abajo las ve distintas y
+// bloquea sin motivo una renovación legítima.
+const CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>([
+  "visitas",
+  "ultimaVisita",
+  "patentePendiente",
+  "patentePendienteDesde",
+]);
 
 // Campos que OperadorFoundResult deja completar cuando llegan vacíos (nombre,
 // vehículo, teléfono, correo): la UI solo muestra el input de cada uno
@@ -52,9 +67,7 @@ const CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["plan", "v
 // que no existe aún en la base es un alta, no una edición de datos ajenos, y
 // cualquier sesión con el módulo "operador" ya puede hacer ese alta desde el
 // punto de venta.
-async function esCambioPermitidoSinModuloClientes(rows: Cliente[]): Promise<boolean> {
-  const anteriores = await dataAccess.getClientesByIds(rows.map((r) => r.id));
-  const porId = new Map(anteriores.map((c) => [c.id, c]));
+async function esCambioPermitidoSinModuloClientes(rows: Cliente[], porId: Map<string, Cliente>): Promise<boolean> {
   const soloVisitas = rows.every((row) => {
     const anterior = porId.get(row.id);
     if (!anterior) return false;
@@ -99,7 +112,9 @@ async function esCambioPermitidoSinModuloClientes(rows: Cliente[]): Promise<bool
 }
 
 export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
-  if (!(await tieneModulo("clientes")) && !(await esCambioPermitidoSinModuloClientes(rows))) return false;
+  const anteriores = await dataAccess.getClientesByIds(rows.map((r) => r.id));
+  const porId = new Map(anteriores.map((c) => [c.id, c]));
+  if (!(await tieneModulo("clientes")) && !(await esCambioPermitidoSinModuloClientes(rows, porId))) return false;
   const sesion = await sesionActual();
   if (!sesion) return false;
   // La UI (ClientModal/BulkModal) ya exige nombre y patente válida antes de
@@ -114,7 +129,65 @@ export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
   const exentoFormato = esExentoFormatoCliente(sesion.nombre);
   if (rows.some((r) => !r.nombre?.trim() || !r.patente?.trim() || (!exentoFormato && !isValidPatente(r.patente))))
     return false;
-  return dataAccess.upsertClientes(rows);
+
+  // Resuelve un cambio de patente pendiente (ver solicitarCambioPatente más
+  // abajo) DESPUÉS del chequeo de permisos de arriba: ese chequeo debe evaluar
+  // lo que el caller pidió cambiar de verdad (p.ej. un operador renovando un
+  // plan, sin el módulo "clientes"), no el efecto colateral automático del
+  // sistema de reemplazar la patente cuando el plan renueva a un período
+  // nuevo — igual que vencimiento/plan/ultimaRenovacion en
+  // CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES, este swap nunca debe bloquearse
+  // por falta del módulo "clientes".
+  const cambiosPatente: { cliente: Cliente; patenteAnterior: string }[] = [];
+  const filasResueltas = rows.map((row) => {
+    const { fila, patenteAnterior } = resolverPatentePendiente(porId.get(row.id), row);
+    if (patenteAnterior) cambiosPatente.push({ cliente: fila, patenteAnterior });
+    return fila;
+  });
+
+  const ok = await dataAccess.upsertClientes(filasResueltas);
+  // after() (no un .catch() suelto): mismo motivo que insertVentas/insertIngresos
+  // (@/lib/dataAccess/ventas, ingresos) — que Vercel mantenga viva la función
+  // hasta que termine el envío del WhatsApp de aviso.
+  if (ok && cambiosPatente.length) {
+    after(() =>
+      Promise.all(
+        cambiosPatente.map(({ cliente, patenteAnterior }) =>
+          evaluarReglasPorCambioPatente(cliente, patenteAnterior).catch((error) =>
+            console.error("Error evaluando reglas de WhatsApp por cambio de patente", cliente.id, error)
+          )
+        )
+      )
+    );
+  }
+  return ok;
+}
+
+// Guarda la solicitud de cambio de patente (módulo Clientes, ver ClientModal):
+// no se aplica de inmediato — recién se reemplaza `patente` cuando el plan
+// vigente renueva a un período nuevo (ver resolverPatentePendiente en
+// @/lib/helpers y su uso más arriba en upsertClientes, y en
+// @/lib/pagos/aplicarPagoAprobado para renovaciones automáticas Oneclick).
+export async function solicitarCambioPatente(clienteId: string, nuevaPatente: string): Promise<boolean> {
+  if (!(await tieneModulo("clientes"))) return false;
+  const sesion = await sesionActual();
+  if (!sesion) return false;
+  const patente = normPlate(nuevaPatente);
+  if (!patente || (!esExentoFormatoCliente(sesion.nombre) && !isValidPatente(patente))) return false;
+
+  const [actual] = await dataAccess.getClientesByIds([clienteId]);
+  if (!actual) return false;
+  if (normPlate(actual.patente) === patente) return false; // ya es la patente vigente, nada que solicitar
+
+  const otro = await dataAccess.buscarClientePorPatente(patente);
+  if (otro && otro.id !== clienteId) return false; // ya hay otro cliente con esa patente
+
+  return dataAccess.actualizarPatentePendiente(clienteId, patente);
+}
+
+export async function cancelarCambioPatente(clienteId: string): Promise<boolean> {
+  if (!(await tieneModulo("clientes"))) return false;
+  return dataAccess.actualizarPatentePendiente(clienteId, null);
 }
 
 export async function deleteClientes(ids: string[]): Promise<boolean> {

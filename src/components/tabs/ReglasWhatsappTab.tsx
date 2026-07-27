@@ -31,6 +31,10 @@ function resumenCondicion(r: ReglaWhatsapp): string {
     const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
     return `Al registrar el ingreso de un cliente con plan vigente${planes}`;
   }
+  if (r.tipoEvento === "cambio_patente") {
+    const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
+    return `Al aplicarse un cambio de patente${planes}`;
+  }
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
   return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}`;
 }
@@ -169,6 +173,7 @@ export default function ReglasWhatsappTab() {
             <option value="plan_proximo_vencer">El plan de un cliente está por vencer</option>
             <option value="cobro_fallido">No se pudo cobrar la mensualidad (Oneclick)</option>
             <option value="ingreso_plan_registrado">Se registra el ingreso de un cliente con plan vigente</option>
+            <option value="cambio_patente">Se aplica un cambio de patente</option>
           </select>
         </div>
 

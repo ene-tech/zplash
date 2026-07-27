@@ -15,6 +15,8 @@ create table if not exists clientes (
   direccion text,
   giro text,
   vencimiento timestamptz,
+  patente_pendiente text,
+  patente_pendiente_desde timestamptz,
   fecha_contratacion timestamptz,
   origen text not null default 'LOCAL',
   visitas integer not null default 0,

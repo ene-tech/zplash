@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { PLANES, fmtTelefono, todayYMD, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useClientModal } from "@/components/modals/useClientModal";
+import SolicitudCambioPatenteAdmin from "@/components/modals/SolicitudCambioPatenteAdmin";
 
 export default function ClientModal({
   data: c,
@@ -43,6 +44,10 @@ export default function ClientModal({
     vencRef,
   });
   const cli = r.cli;
+  // Estado propio (no pasa por AppContext.commit) para reflejar al toque el
+  // resultado de solicitar/cancelar un cambio de patente diferido — ver
+  // SolicitudCambioPatenteAdmin, que llama a los Server Actions directo.
+  const [clienteConPatentePendiente, setClienteConPatentePendiente] = useState(c);
 
   return (
     <Dialog open onOpenChange={(open) => !open && r.cerrar()}>
@@ -60,6 +65,9 @@ export default function ClientModal({
             <Label htmlFor="cli-patente">Patente</Label>
             <Input id="cli-patente" ref={patenteRef} defaultValue={cli.patente || patenteInicial || ""} className="uppercase" />
           </div>
+          {contexto !== "operador" && clienteConPatentePendiente && clienteConPatentePendiente.vencimiento && (
+            <SolicitudCambioPatenteAdmin cliente={clienteConPatentePendiente} onActualizado={setClienteConPatentePendiente} />
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor="cli-telefono">Teléfono</Label>
             <Input

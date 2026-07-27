@@ -15,6 +15,13 @@ export const clientes = pgTable("clientes", {
   direccion: text("direccion"),
   giro: text("giro"),
   vencimiento: timestamptz("vencimiento"),
+  // Patente solicitada para reemplazar la actual, que recién se aplica cuando
+  // el plan vigente renueva a un período nuevo (ver resolverPatentePendiente
+  // en @/lib/helpers/clientes y su uso en dataAccess/clientes.ts::upsertClientes
+  // y en @/lib/pagos/aplicarPagoAprobado) — hasta entonces `patente` sigue
+  // siendo la registrada, para no perder validez de ingreso a mitad de mes.
+  patentePendiente: text("patente_pendiente"),
+  patentePendienteDesde: timestamptz("patente_pendiente_desde"),
   fechaContratacion: timestamptz("fecha_contratacion"),
   origen: text("origen").notNull().default("LOCAL"),
   visitas: integer("visitas").notNull().default(0),
