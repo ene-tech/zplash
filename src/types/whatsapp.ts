@@ -4,10 +4,11 @@ export type EstadoMensajeWhatsapp = "enviado" | "entregado" | "leido" | "fallido
 
 // Estado de un flujo conversacional de varios pasos en curso — ver
 // manejarPasoRegistroDescuento (registro + descuento de primera vez, Opción
-// 5) en @/lib/whatsapp/router.
+// 5) y manejarPasoCambioPatente (invitado tras una consulta de patente
+// exitosa) en @/lib/whatsapp/router.
 export interface FlowStateWhatsapp {
-  tipo: "registro_descuento";
-  paso: "nombre" | "patente" | "mail";
+  tipo: "registro_descuento" | "cambio_patente";
+  paso: "nombre" | "patente" | "mail" | "nueva_patente";
   nombre?: string;
   patente?: string;
 }
@@ -64,7 +65,14 @@ export interface MensajeWhatsapp {
 // acepta {{dias}}. La etiqueta de estado en sí ("Vigente"/"Por
 // vencer"/"Vencido"/"Sin plan") viene de planStatus() en
 // @/lib/helpers/clientes y no es editable acá porque también se usa en
-// insignias de estado del cliente fuera del bot.
+// insignias de estado del cliente fuera del bot. patenteEstadoCambioInvitacion
+// es la línea que se agrega al final de una consulta de patente exitosa,
+// invitando a escribir "cambio de patente" (ver iniciarCambioPatente en
+// @/lib/whatsapp/router); los textoCambioPatente* son el flujo de un solo
+// paso que sigue — mismo mecanismo diferido (patentePendiente) que
+// solicitarCambioPatente en @/lib/db/clientes, solo que iniciado por el
+// propio cliente desde el bot. textoCambioPatenteConfirmacion acepta
+// {{patente}}.
 export interface TextosBotWhatsapp {
   menuPrincipal: string;
   textoPreciosIntro: string;
@@ -88,6 +96,13 @@ export interface TextosBotWhatsapp {
   patenteEstadoVencimiento: string;
   patenteEstadoAvisoPorVencer: string;
   patenteEstadoAvisoVencido: string;
+  patenteEstadoCambioInvitacion: string;
+  textoCambioPatenteSinCliente: string;
+  textoCambioPatentePedirNueva: string;
+  textoCambioPatenteInvalida: string;
+  textoCambioPatenteEsLaMisma: string;
+  textoCambioPatenteYaExiste: string;
+  textoCambioPatenteConfirmacion: string;
 }
 
 // Plantilla de contenido (no una plantilla pre-aprobada de Meta, ver

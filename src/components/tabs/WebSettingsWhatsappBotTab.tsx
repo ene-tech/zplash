@@ -132,6 +132,25 @@ const CAMPOS: { key: keyof TextosBotWhatsapp; label: string; hint?: string; vari
     label: "Consulta de patente — aviso cuando el plan está vencido o no existe",
     hint: "Solo se muestra si el plan está vencido o el cliente no tiene plan.",
   },
+  {
+    key: "patenteEstadoCambioInvitacion",
+    label: "Consulta de patente — invitación a cambiar de patente (fin del mensaje)",
+    hint: "Se agrega siempre al final de una consulta de patente exitosa, invitando a escribir 'cambio de patente'.",
+  },
+  {
+    key: "textoCambioPatenteSinCliente",
+    label: "Cambio de patente — cuando se escribe sin haber consultado antes una patente",
+  },
+  { key: "textoCambioPatentePedirNueva", label: "Cambio de patente — pide la patente nueva" },
+  { key: "textoCambioPatenteInvalida", label: "Cambio de patente — cuando la patente escrita no es válida" },
+  { key: "textoCambioPatenteEsLaMisma", label: "Cambio de patente — cuando la patente nueva es igual a la actual" },
+  { key: "textoCambioPatenteYaExiste", label: "Cambio de patente — cuando la patente nueva ya es de otro cliente" },
+  {
+    key: "textoCambioPatenteConfirmacion",
+    label: "Cambio de patente — confirmación (fin del flujo)",
+    hint: "Variables disponibles: {{patente}}. El cambio queda pendiente y se aplica recién cuando el plan renueve al próximo período, igual que la solicitud de cambio de patente desde el módulo Clientes.",
+    variables: ["patente"],
+  },
 ];
 
 export default function WebSettingsWhatsappBotTab() {

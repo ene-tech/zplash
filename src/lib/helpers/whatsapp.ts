@@ -82,6 +82,19 @@ Muéstralo en el local al momento de pagar.`,
   patenteEstadoVencimiento: `Vencimiento: {{fecha}}`,
   patenteEstadoAvisoPorVencer: `⚠️ Vence en {{dias}} día(s).`,
   patenteEstadoAvisoVencido: `Tu plan no está vigente. Escribe *1* para ver precios de renovación.`,
+  patenteEstadoCambioInvitacion: `✏️ ¿Cambiaste de vehículo? Escribe *cambio de patente* para actualizar tu patente registrada.`,
+
+  textoCambioPatenteSinCliente: `Primero envía tu patente actual para identificar tu cuenta, y luego escribe *cambio de patente*.`,
+
+  textoCambioPatentePedirNueva: `Escríbeme la *patente nueva* de tu vehículo (ej. AB1234).`,
+
+  textoCambioPatenteInvalida: `No reconocí esa patente. Escríbela de nuevo (ej. AB1234), o escribe *cancelar* para salir.`,
+
+  textoCambioPatenteEsLaMisma: `Esa ya es tu patente registrada. Escribe otra, o *cancelar* para salir.`,
+
+  textoCambioPatenteYaExiste: `Ya hay un vehículo registrado con esa patente. Si crees que es un error, escribe *4* para hablar con una persona.`,
+
+  textoCambioPatenteConfirmacion: `✅ Listo, registramos tu solicitud para cambiar tu patente a *{{patente}}*. El cambio se aplicará automáticamente cuando termine tu plan actual e inicie el próximo período.`,
 };
 
 /** Reemplaza placeholders `{{clave}}` por su valor en `vars` — usado tanto

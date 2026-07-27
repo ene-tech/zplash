@@ -1,4 +1,5 @@
 import { boolean, index, integer, jsonb, numeric, pgTable, text, unique } from "drizzle-orm/pg-core";
+import type { FlowStateWhatsapp } from "@/types";
 import { clientes } from "./clientes";
 import { cupones } from "./cupones";
 import { timestamptz } from "./shared";
@@ -20,7 +21,7 @@ export const conversacionesWhatsapp = pgTable("conversaciones_whatsapp", {
   // camino. El bot en general es stateless (cada mensaje se interpreta solo
   // por su texto), esta columna es la única excepción, acotada a flujos que
   // piden varios datos en mensajes sucesivos.
-  flowState: jsonb("flow_state").$type<{ tipo: "registro_descuento"; paso: "nombre" | "patente" | "mail"; nombre?: string; patente?: string }>(),
+  flowState: jsonb("flow_state").$type<FlowStateWhatsapp>(),
   ultimoMensajeEn: timestamptz("ultimo_mensaje_en").notNull().defaultNow(),
   noLeidos: integer("no_leidos").notNull().default(0),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),

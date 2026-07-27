@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones, precios as preciosTabla, servicios as serviciosTabla } from "@/db/schema";
-import { aplicarVariables, fmtCLP, fmtFecha, generarCodigoCupon, isValidEmail, isValidPatente, normPlate, planStatus, SERVICIOS_DEFAULT, uid } from "@/lib/helpers";
+import { aplicarVariables, fmtCLP, generarCodigoCupon, isValidEmail, isValidPatente, normPlate, SERVICIOS_DEFAULT, uid } from "@/lib/helpers";
 // Directo a la capa de datos, no al Server Action de @/lib/db: este flujo
 // corre dentro del webhook de Meta (protegido por firma, ver
 // /api/whatsapp/route.ts), no hay perfil logueado que pase el chequeo de
@@ -12,6 +12,7 @@ import { aplicarVariables, fmtCLP, fmtFecha, generarCodigoCupon, isValidEmail, i
 import { actualizarFlowStateConversacion, cuponFromRow, getConfig, upsertClientes, upsertCupones, vincularClienteConversacion } from "@/lib/dataAccess";
 import type { Cliente, ConversacionWhatsapp, Cupon, FlowStateWhatsapp, Precios, TextosBotWhatsapp } from "@/types";
 import { PLAN_IMAGEN_PATH, SERVICIOS_IMAGEN_PATH, textoPrecios } from "./contenido";
+import { estadoPlanPorPatente, iniciarCambioPatente, manejarPasoCambioPatente } from "./patente";
 
 export type RespuestaBot = {
   texto: string;
@@ -24,35 +25,8 @@ const OPCIONES_CONTRATAR_PLAN = new Set(["2", "contratar", "quiero el plan", "qu
 const OPCIONES_HORARIO = new Set(["3", "horario", "horarios", "ubicacion", "ubicación"]);
 const OPCIONES_HUMANO = new Set(["4", "humano", "ayuda", "persona"]);
 const OPCIONES_DESCUENTO = new Set(["5", "descuento", "dscto"]);
+const OPCIONES_CAMBIO_PATENTE = new Set(["cambio de patente", "cambio patente", "cambiar patente"]);
 const PALABRAS_SALIDA_FLUJO = new Set(["cancelar", "salir"]);
-
-async function estadoPlanPorPatente(patenteCruda: string, textos: TextosBotWhatsapp, telefono: string): Promise<RespuestaBot> {
-  const patente = normPlate(patenteCruda);
-  const db = getDb();
-  const [cliente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
-
-  // No entregamos datos del cliente si el teléfono que escribe no es el
-  // registrado para esa patente, para no filtrar información a un número
-  // ajeno (mismo mensaje que "no encontrada" para no confirmar que la
-  // patente existe).
-  if (!cliente || cliente.telefono !== telefono) return { texto: textos.patenteNoEncontrada };
-
-  const estado = planStatus(cliente);
-  const plan = cliente.plan || textos.patenteEstadoPlanVacio;
-  const lineas = [
-    aplicarVariables(textos.patenteEstadoEncabezado, { patente: cliente.patente, nombre: cliente.nombre }),
-    aplicarVariables(textos.patenteEstadoPlan, { plan }),
-    aplicarVariables(textos.patenteEstadoLinea, { estado: estado.label }),
-  ];
-  if (cliente.vencimiento) lineas.push(aplicarVariables(textos.patenteEstadoVencimiento, { fecha: fmtFecha(cliente.vencimiento) }));
-  if (estado.cls === "warn" && estado.diasRestantes !== undefined) {
-    lineas.push(aplicarVariables(textos.patenteEstadoAvisoPorVencer, { dias: String(estado.diasRestantes) }));
-  }
-  if (estado.cls === "bad") {
-    lineas.push(``, textos.patenteEstadoAvisoVencido);
-  }
-  return { texto: lineas.join("\n") };
-}
 
 function textoConfirmacionDescuento(textos: TextosBotWhatsapp, codigo: string, fechaCaducidadISO: string, valor: number): string {
   const fecha = new Date(fechaCaducidadISO).toLocaleDateString("es-CL");
@@ -225,21 +199,24 @@ export async function responderMensaje(textoCrudo: string, telefono: string, con
     descuentoPrimeraVezDiasValidez,
   } = await getConfig();
 
-  // El flujo de registro + descuento (Opción 5) es la única rama con estado
-  // entre mensajes: mientras esté activo, cualquier texto se interpreta como
-  // el dato que toca (nombre/patente/mail), salvo que el usuario escriba un
-  // saludo/"menu"/"cancelar" para salir sin terminarlo.
-  const enFlujoRegistro = conversacion.flowState?.tipo === "registro_descuento";
+  // El registro + descuento (Opción 5) y el cambio de patente son las únicas
+  // ramas con estado entre mensajes: mientras alguna esté activa, cualquier
+  // texto se interpreta como el dato que toca, salvo que el usuario escriba
+  // un saludo/"menu"/"cancelar" para salir sin terminarla.
+  const flujoActivo = conversacion.flowState?.tipo;
   const quiereSalirDelFlujo = SALUDOS.has(normalizado) || PALABRAS_SALIDA_FLUJO.has(normalizado);
-  if (enFlujoRegistro && !quiereSalirDelFlujo) {
-    return manejarPasoRegistroDescuento(texto, conversacion, telefono, textos, descuentoPrimeraVezValor, descuentoPrimeraVezDiasValidez);
+  if (flujoActivo && !quiereSalirDelFlujo) {
+    if (flujoActivo === "registro_descuento") {
+      return manejarPasoRegistroDescuento(texto, conversacion, telefono, textos, descuentoPrimeraVezValor, descuentoPrimeraVezDiasValidez);
+    }
+    return manejarPasoCambioPatente(texto, conversacion, textos);
   }
-  if (enFlujoRegistro && quiereSalirDelFlujo) {
+  if (flujoActivo && quiereSalirDelFlujo) {
     await actualizarFlowStateConversacion(conversacion.id, null);
   }
 
   if (!texto || SALUDOS.has(normalizado)) return { texto: textos.menuPrincipal };
-  if (isValidPatente(texto)) return estadoPlanPorPatente(texto, textos, telefono);
+  if (isValidPatente(texto)) return estadoPlanPorPatente(texto, textos, telefono, conversacion);
   if (OPCIONES_PRECIOS.has(normalizado)) {
     const db = getDb();
     const [preciosRows, serviciosRows] = await Promise.all([
@@ -258,6 +235,7 @@ export async function responderMensaje(textoCrudo: string, telefono: string, con
   if (OPCIONES_DESCUENTO.has(normalizado)) {
     return iniciarRegistroDescuento(conversacion, telefono, textos, descuentoPrimeraVezValor, descuentoPrimeraVezDiasValidez);
   }
+  if (OPCIONES_CAMBIO_PATENTE.has(normalizado)) return iniciarCambioPatente(conversacion, textos);
 
   return { texto: textos.mensajeNoEntendido };
 }
