@@ -2,7 +2,7 @@
 
 import { after } from "next/server";
 import * as dataAccess from "@/lib/dataAccess";
-import { esExentoFormatoCliente, esNombreVacio, isValidPatente, normPlate, resolverPatentePendiente } from "@/lib/helpers";
+import { esExentoFormatoCliente, esNombreVacio, isValidPatente, isValidTelefono, normPlate, resolverPatentePendiente } from "@/lib/helpers";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
 import type { Cliente } from "@/types";
@@ -91,9 +91,20 @@ async function esCambioPermitidoSinModuloClientes(rows: Cliente[], porId: Map<st
       if (CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo) || row[campo] === anterior[campo]) return true;
       if (!CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES.has(campo)) return false;
       // "nombre" cuenta como vacío también con el placeholder "Sin nombre"
-      // que deja la carga masiva por Excel (ver esNombreVacio) — un string
-      // truthy que un simple !anterior[campo] no detectaría.
-      return campo === "nombre" ? esNombreVacio(anterior.nombre) : !anterior[campo];
+      // que deja la carga masiva por Excel (ver esNombreVacio), y "telefono"
+      // con cualquier valor que no pase isValidTelefono — p.ej. el
+      // placeholder "+569" que queda guardado tal cual si alguna vez se tocó
+      // "Guardar" sin tipear los 8 dígitos (ver el input en
+      // OperadorFoundResult, que precarga "+569" como ayuda). En ambos casos
+      // es un string truthy que un simple !anterior[campo] no detecta como
+      // "vacío", y sin esto un operador sin el módulo "clientes" queda
+      // bloqueado para siempre corrigiendo ese dato corrupto — ve "sin
+      // conexión" en vez de poder completar el teléfono real.
+      if (campo === "nombre") return esNombreVacio(anterior.nombre);
+      // isValidTelefono("") es true (el teléfono es opcional), así que hay
+      // que seguir cubriendo el caso realmente vacío además del inválido.
+      if (campo === "telefono") return !anterior.telefono || !isValidTelefono(anterior.telefono);
+      return !anterior[campo];
     });
   });
   if (soloCompletaDatosVacios) return tieneModulo("operador");
