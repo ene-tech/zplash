@@ -127,13 +127,18 @@ export function usePlanActions(
   };
 
   // Convierte el lavado único recién pagado (ventaUpgrade) en la
-  // contratación del Plan Ilimitado Mensual: se cobra solo el adicional y se
-  // actualiza esa misma venta (en vez de crear una nueva) a "Plan nuevo", que
-  // es el tipo que Cierre de Caja y Estadísticas ya reconocen como
-  // "Contratación de plan". El vencimiento se ancla a la fecha del lavado
-  // original (no al momento del pago del upgrade), para que el cliente no
-  // pierda el tiempo transcurrido dentro de la ventana de la promoción (ver
-  // ConfigGlobal.horasVentanaUpgradePlan).
+  // contratación del Plan Ilimitado Mensual, cobrando solo el adicional. La
+  // venta original del lavado único NO se toca: pudo quedar dentro de un
+  // Cierre de Caja de un día ya reportado, y ese reporte no debe cambiar
+  // retroactivamente (Cierre de Caja se calcula en vivo filtrando `ventas`
+  // por fecha, ver useCierreData). El adicional se registra como una venta
+  // nueva, fechada hoy (el día real del pago), con tipo "Plan nuevo" para que
+  // Cierre de Caja y Estadísticas la reconozcan como "Contratación de plan".
+  // El vencimiento del cliente sí se ancla a la fecha del lavado original
+  // (no al momento del pago del upgrade), para que no pierda el tiempo
+  // transcurrido dentro de la ventana de la promoción (ver
+  // ConfigGlobal.horasVentanaUpgradePlan) — eso es un dato del plan, no un
+  // monto de caja, así que no tiene el mismo problema.
   const upgradeAPlan = () => {
     if (!ventaUpgrade) return;
     const plan = PLANES[0];
@@ -146,18 +151,23 @@ export function usePlanActions(
     const distintoDia = new Date(ventaUpgrade.fecha).toDateString() !== new Date().toDateString();
     pedirPago(precioUpgrade, `Upgrade a ${plan} para ${c.nombre} (adicional al lavado ya pagado)`, async (pago) => {
       const updated = { ...c, plan, vencimiento: vencimientoPorDefectoISO(new Date(ventaUpgrade.fecha)) };
-      const ventaActualizada: Venta = {
-        ...ventaUpgrade,
+      const ventaAdicional: Venta = {
+        id: "v" + Date.now(),
+        clienteId: c.id,
+        patente: c.patente,
+        nombre: c.nombre,
         plan,
-        precio: ventaUpgrade.precio + precioUpgrade,
+        precio: precioUpgrade,
         tipo: "Plan nuevo",
+        fecha: new Date().toISOString(),
+        creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
       const patchIngreso = distintoDia ? registrarIngreso(data, updated, ui.perfilActual?.nombre) : {};
       const ok = await commit({
         clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
-        ventas: data.ventas.map((v) => (v.id === ventaUpgrade.id ? ventaActualizada : v)),
+        ventas: [ventaAdicional, ...data.ventas],
         ...patchIngreso,
       });
       if (!ok) {
