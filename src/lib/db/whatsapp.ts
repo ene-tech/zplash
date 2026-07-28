@@ -30,6 +30,11 @@ export async function listarHistorialReglasWhatsapp(): Promise<HistorialReglaWha
   return dataAccess.listarHistorialReglasWhatsapp();
 }
 
+export async function contarMensajesWhatsappGenerados(desdeISO: string, hastaISO: string): Promise<number> {
+  if (!(await tieneModulo("web_settings"))) return 0;
+  return dataAccess.contarMensajesWhatsappGenerados(desdeISO, hastaISO);
+}
+
 export async function enviarMensajesMasivosWhatsapp(opts: {
   plantillaId: string;
   clienteIds: string[];

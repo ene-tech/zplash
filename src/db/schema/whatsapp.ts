@@ -113,6 +113,11 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   // aplica de verdad porque el plan renovó a un período nuevo — ver
   // evaluarReglasPorCambioPatente, llamado desde @/lib/db/clientes.ts::
   // upsertClientes y desde @/lib/pagos/aplicarPagoAprobado.
+  // "primer_ingreso_mes": igual disparador que "ingreso_plan_registrado"
+  // (mismo filtro planEstadoAlIngreso === "ok"), pero solo en el primer
+  // ingreso del cliente dentro del mes calendario — el origenId de su disparo
+  // es `${clienteId}:${YYYY-MM}` en vez del id del Ingreso, así el unique de
+  // abajo bloquea cualquier ingreso siguiente del mismo cliente en ese mes.
   tipoEvento: text("tipo_evento").notNull(),
   // Solo aplica a tipoEvento="venta_creada": matchea venta.tipo tal cual
   // ("Lavado único", "Plan nuevo", etc.). Null = cualquier tipo de venta.

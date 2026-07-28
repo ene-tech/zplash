@@ -137,7 +137,8 @@ export type TipoEventoReglaWhatsapp =
   | "plan_proximo_vencer"
   | "cobro_fallido"
   | "ingreso_plan_registrado"
-  | "cambio_patente";
+  | "cambio_patente"
+  | "primer_ingreso_mes";
 export type AccionReglaWhatsapp = "cupon_descuento" | "mensaje_simple";
 
 // Regla de negocio ("cuándo mandar qué") — ver plan de "motor de reglas
