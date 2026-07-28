@@ -624,12 +624,13 @@ describe("esExentoHorarioOperador", () => {
 });
 
 describe("esExentoFormatoCliente", () => {
-  it("el perfil Gerencia está exento de la validación de formato", () => {
+  it("los perfiles Gerencia y Administración están exentos de la validación de formato", () => {
     expect(esExentoFormatoCliente("Gerencia")).toBe(true);
+    expect(esExentoFormatoCliente("Administración")).toBe(true);
   });
 
-  it("otros perfiles, incluido Administración, no están exentos", () => {
-    expect(esExentoFormatoCliente("Administración")).toBe(false);
+  it("otros perfiles no están exentos", () => {
+    expect(esExentoFormatoCliente("Christian")).toBe(false);
     expect(esExentoFormatoCliente(undefined)).toBe(false);
   });
 });
