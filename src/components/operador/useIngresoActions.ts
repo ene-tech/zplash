@@ -2,8 +2,8 @@
 
 import { useApp } from "@/context/AppContext";
 import { registrarIngreso, registrarIngresoDetailing } from "@/lib/actions";
-import { montoDescuento, precioLavadoUnico, yaIngresoHoy, type EstadoReingresoPlan } from "@/lib/helpers";
-import type { Cita, Cliente, Cupon, Venta } from "@/types";
+import { yaIngresoHoy, type EstadoReingresoPlan } from "@/lib/helpers";
+import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
 // Acciones de "dar ingreso" al vehículo: la garantía/bloqueo de reingreso, el
@@ -17,10 +17,11 @@ export function useIngresoActions(
     estadoIngreso: EstadoReingresoPlan;
     citaDetailingPendiente: Cita | undefined;
     cuponDescuentoVigente: Cupon | undefined;
+    precioLavadoUnicoFinal: number;
   }
 ) {
   const { data, ui, commit, patchUi } = useApp();
-  const { estadoIngreso, citaDetailingPendiente, cuponDescuentoVigente } = opts;
+  const { estadoIngreso, citaDetailingPendiente, cuponDescuentoVigente, precioLavadoUnicoFinal } = opts;
 
   const hacerRegistro = async (esGarantia: boolean) => {
     const patch = registrarIngreso(data, c, ui.perfilActual?.nombre, esGarantia);
@@ -65,51 +66,59 @@ export function useIngresoActions(
   // usado tanto desde "Lavado Full Túnel" (plan no vigente) como desde el
   // botón de "comprar de todas formas" cuando el reingreso está bloqueado.
   const cobrarLavadoUnico = () => {
-    const precioBase = precioLavadoUnico(data.precios);
-    const precio = cuponDescuentoVigente ? Math.max(0, precioBase - montoDescuento(cuponDescuentoVigente, precioBase)) : precioBase;
+    const precio = precioLavadoUnicoFinal;
+    const confirmarCobro = async (pago: PagoInfo) => {
+      const ahora = new Date().toISOString();
+      const patch = registrarIngreso(data, c, ui.perfilActual?.nombre);
+      const venta: Venta = {
+        id: "v" + Date.now(),
+        clienteId: c.id,
+        patente: c.patente,
+        nombre: c.nombre,
+        plan: c.plan || "",
+        precio,
+        tipo: "Lavado único",
+        fecha: ahora,
+        creadoPor: ui.perfilActual?.nombre || "",
+        metodoPago: pago.metodo,
+        voucher: pago.voucher,
+        viaCupon: !!cuponDescuentoVigente,
+        cuponCodigo: cuponDescuentoVigente?.codigo,
+      };
+      const ok = await commit({
+        ...patch,
+        ventas: [venta, ...data.ventas],
+        ...(cuponDescuentoVigente
+          ? {
+              cupones: data.cupones.map((x) =>
+                x.id === cuponDescuentoVigente.id
+                  ? { ...cuponDescuentoVigente, usado: true, patenteUso: c.patente, fechaUso: ahora, operadorUso: ui.perfilActual?.nombre || "" }
+                  : x
+              ),
+            }
+          : {}),
+      });
+      if (!ok) {
+        setGuardarErr(ERROR_GUARDADO_INGRESO);
+        return;
+      }
+      clearPlate();
+      patchUi({ operResult: null });
+    };
+    // Con un cupón de 100% el precio queda en $0: el cliente no está pagando
+    // nada, así que no corresponde pedirle un método de pago (ver el mismo
+    // criterio en movimientoContableDesdeVenta, que tampoco genera un
+    // movimiento contable para esta venta).
+    if (precio <= 0) {
+      confirmarCobro({ metodo: undefined });
+      return;
+    }
     patchUi({
       modal: {
         type: "pago",
         monto: precio,
         descripcion: `Lavado único para ${c.nombre} (${c.patente})`,
-        onConfirm: async (pago) => {
-          const ahora = new Date().toISOString();
-          const patch = registrarIngreso(data, c, ui.perfilActual?.nombre);
-          const venta: Venta = {
-            id: "v" + Date.now(),
-            clienteId: c.id,
-            patente: c.patente,
-            nombre: c.nombre,
-            plan: c.plan || "",
-            precio,
-            tipo: "Lavado único",
-            fecha: ahora,
-            creadoPor: ui.perfilActual?.nombre || "",
-            metodoPago: pago.metodo,
-            voucher: pago.voucher,
-            viaCupon: !!cuponDescuentoVigente,
-            cuponCodigo: cuponDescuentoVigente?.codigo,
-          };
-          const ok = await commit({
-            ...patch,
-            ventas: [venta, ...data.ventas],
-            ...(cuponDescuentoVigente
-              ? {
-                  cupones: data.cupones.map((x) =>
-                    x.id === cuponDescuentoVigente.id
-                      ? { ...cuponDescuentoVigente, usado: true, patenteUso: c.patente, fechaUso: ahora, operadorUso: ui.perfilActual?.nombre || "" }
-                      : x
-                  ),
-                }
-              : {}),
-          });
-          if (!ok) {
-            setGuardarErr(ERROR_GUARDADO_INGRESO);
-            return;
-          }
-          clearPlate();
-          patchUi({ operResult: null });
-        },
+        onConfirm: confirmarCobro,
       },
     });
   };

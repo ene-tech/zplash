@@ -25,7 +25,14 @@ export function usePlanActions(
   const { data, ui, commit, patchUi } = useApp();
   const { pPromo, precioReactivacion, precioOfertaWeb, precioUpgrade, ventaUpgrade } = opts;
 
+  // Si el precio con descuento queda en $0, no corresponde pedir método de
+  // pago (el cliente no está pagando nada) — mismo criterio que en
+  // useIngresoActions.cobrarLavadoUnico y useOperadorNotFoundResult.
   const pedirPago = (monto: number, descripcion: string, onConfirm: (pago: PagoInfo) => void) => {
+    if (monto <= 0) {
+      onConfirm({ metodo: undefined });
+      return;
+    }
     patchUi({ modal: { type: "pago", monto, descripcion, onConfirm } });
   };
 

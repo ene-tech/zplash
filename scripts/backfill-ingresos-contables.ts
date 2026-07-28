@@ -42,6 +42,9 @@ async function main() {
         creadoPor: v.creadoPor,
       })
     )
+    // null = venta en $0 (cupón de 100%), no genera movimiento: no hay
+    // ingreso real que respaldar en Contabilidad.
+    .filter((m): m is NonNullable<typeof m> => m !== null)
     // No pisar nada que ya exista (ej. si esa venta ya se había cargado a
     // mano con otro id de movimiento, o si el script ya corrió antes).
     .filter((m) => !existentes.has(m.id));

@@ -163,22 +163,25 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
 
   // Genera/actualiza el movimiento contable de ingreso ligado a esta venta
   // en la misma transacción — ver movimientoContableDesdeVenta en helpers.ts.
-  const movimientoRow = movimientoToRow(
-    movimientoContableDesdeVenta({
-      id: p.ventaId,
-      tipo,
-      precio: p.monto,
-      fecha: new Date().toISOString(),
-      patente: p.patente,
-      nombre,
-      metodoPago: p.metodoPago,
-      creadoPor: p.creadoPor,
-    })
-  );
-  await db
-    .insert(movimientosContables)
-    .values(movimientoRow)
-    .onConflictDoUpdate({ target: movimientosContables.id, set: movimientoRow });
+  // null solo podría darse con monto $0, algo que Webpay nunca cobra, pero
+  // igual se respeta el contrato de la función.
+  const movimiento = movimientoContableDesdeVenta({
+    id: p.ventaId,
+    tipo,
+    precio: p.monto,
+    fecha: new Date().toISOString(),
+    patente: p.patente,
+    nombre,
+    metodoPago: p.metodoPago,
+    creadoPor: p.creadoPor,
+  });
+  if (movimiento) {
+    const movimientoRow = movimientoToRow(movimiento);
+    await db
+      .insert(movimientosContables)
+      .values(movimientoRow)
+      .onConflictDoUpdate({ target: movimientosContables.id, set: movimientoRow });
+  }
 
   return { clienteId };
 }

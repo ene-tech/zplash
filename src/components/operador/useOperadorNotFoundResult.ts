@@ -53,7 +53,14 @@ export function useOperadorNotFoundResult(
   const [err, setErr] = useState("");
   const [codigoInput, setCodigoInput] = useState(codigoDescuento || "");
 
+  // Si el precio con descuento/cupón queda en $0, no corresponde pedir método
+  // de pago (el cliente no está pagando nada) — mismo criterio que en
+  // useIngresoActions.cobrarLavadoUnico y usePlanActions.
   const pedirPago = (monto: number, descripcion: string, onConfirm: (pago: PagoInfo) => void) => {
+    if (monto <= 0) {
+      onConfirm({ metodo: undefined });
+      return;
+    }
     patchUi({ modal: { type: "pago", monto, descripcion, onConfirm } });
   };
 

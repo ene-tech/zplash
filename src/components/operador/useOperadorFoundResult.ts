@@ -11,7 +11,9 @@ import {
   esServicioTunelLibre,
   estadoReingresoPlan,
   isValidTelefono,
+  montoDescuento,
   planStatus,
+  precioLavadoUnico,
   precioNormal,
   precioReactivacionVencido,
   precioRenovacionLocal,
@@ -100,6 +102,10 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const cuponDescuentoVigente = data.cupones.find(
     (cup) => cup.tipo === "descuento" && !cup.usado && cup.patenteAsignada === c.patente && new Date(cup.fechaCaducidad) > new Date()
   );
+  const precioBaseLavadoUnico = precioLavadoUnico(data.precios);
+  const precioLavadoUnicoFinal = cuponDescuentoVigente
+    ? Math.max(0, precioBaseLavadoUnico - montoDescuento(cuponDescuentoVigente, precioBaseLavadoUnico))
+    : precioBaseLavadoUnico;
 
   // Servicio con pasada libre por el túnel (Lavado Completo Detailing o un
   // add-on de chasis, ver esServicioTunelLibre) vendido en Servicios
@@ -126,7 +132,12 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
-  const ingreso = useIngresoActions(c, clearPlate, setGuardarErr, { estadoIngreso, citaDetailingPendiente, cuponDescuentoVigente });
+  const ingreso = useIngresoActions(c, clearPlate, setGuardarErr, {
+    estadoIngreso,
+    citaDetailingPendiente,
+    cuponDescuentoVigente,
+    precioLavadoUnicoFinal,
+  });
   const plan = usePlanActions(c, setGuardarErr, updateResult, {
     pPromo,
     precioReactivacion,
@@ -157,6 +168,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     precioUpgrade,
     horasVentanaUpgrade,
     cuponDescuentoVigente,
+    precioLavadoUnicoFinal,
     citaDetailingPendiente,
     ...ingreso,
     ...plan,

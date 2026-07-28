@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { esNombreVacio, fmtCLP, fmtTelefono, isValidTelefono, mensajeBloqueoReingreso, plateEstadoCls, precioLavadoUnico } from "@/lib/helpers";
+import { esNombreVacio, fmtCLP, fmtTelefono, isValidTelefono, mensajeBloqueoReingreso, plateEstadoCls } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { DetailList, DetailRow } from "@/components/DetailList";
 import { useOperadorFoundResult } from "@/components/operador/useOperadorFoundResult";
@@ -154,7 +154,7 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
               disabled={r.registroIncompleto}
               title={r.registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
             >
-              Comprar lavado por {fmtCLP(precioLavadoUnico(data.precios))} e ingresar de todas formas
+              Comprar lavado por {fmtCLP(r.precioLavadoUnicoFinal)} e ingresar de todas formas
             </button>
           </>
         ) : r.planVigente ? (
@@ -183,7 +183,7 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
                 disabled={r.registroIncompleto}
                 title={r.registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
               >
-                Lavado Full Túnel ({fmtCLP(precioLavadoUnico(data.precios))})
+                Lavado Full Túnel ({fmtCLP(r.precioLavadoUnicoFinal)})
               </button>
             </div>
           </>

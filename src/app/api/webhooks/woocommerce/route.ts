@@ -193,23 +193,26 @@ export async function POST(request: NextRequest) {
       .onConflictDoUpdate({ target: ventas.id, set: ventaData });
 
     // Genera/actualiza el movimiento contable de ingreso ligado a esta venta
-    // — ver movimientoContableDesdeVenta en @/lib/helpers.
-    const movimientoRow = movimientoToRow(
-      movimientoContableDesdeVenta({
-        id: ventaId,
-        tipo: tipoVenta,
-        precio: monto,
-        fecha: fechaOrden,
-        patente: patente || "",
-        nombre,
-        metodoPago: "tarjeta",
-        creadoPor: "Automático (Web)",
-      })
-    );
-    await db
-      .insert(movimientosContables)
-      .values(movimientoRow)
-      .onConflictDoUpdate({ target: movimientosContables.id, set: movimientoRow });
+    // — ver movimientoContableDesdeVenta en @/lib/helpers. null solo se daría
+    // con monto $0, algo que WooCommerce nunca cobra, pero igual se respeta
+    // el contrato de la función.
+    const movimiento = movimientoContableDesdeVenta({
+      id: ventaId,
+      tipo: tipoVenta,
+      precio: monto,
+      fecha: fechaOrden,
+      patente: patente || "",
+      nombre,
+      metodoPago: "tarjeta",
+      creadoPor: "Automático (Web)",
+    });
+    if (movimiento) {
+      const movimientoRow = movimientoToRow(movimiento);
+      await db
+        .insert(movimientosContables)
+        .values(movimientoRow)
+        .onConflictDoUpdate({ target: movimientosContables.id, set: movimientoRow });
+    }
   } catch (error) {
     console.error("Error guardando venta desde webhook WooCommerce", error);
     return NextResponse.json({ error: "Error guardando venta" }, { status: 500 });

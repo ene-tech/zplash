@@ -16,7 +16,9 @@ export function derivarMovimientosDesdeVentas(previous: AppData, patch: Partial<
   const derivados = ventasCambiadas.map(movimientoContableDesdeVenta);
   const baseMovimientos = patch.movimientosContables || previous.movimientosContables;
   const porId = new Map(baseMovimientos.map((m) => [m.id, m]));
-  for (const d of derivados) porId.set(d.id, d);
+  // null = venta en $0 (cupón de 100%), no genera movimiento (ver
+  // movimientoContableDesdeVenta): no hay nada que registrar en Contabilidad.
+  for (const d of derivados) if (d) porId.set(d.id, d);
   return { ...patch, movimientosContables: Array.from(porId.values()) };
 }
 

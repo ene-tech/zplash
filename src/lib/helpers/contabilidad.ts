@@ -100,7 +100,12 @@ export function idMovimientoContableDeVenta(ventaId: string): string {
  * tenga que volver a tipear cada venta a mano (ver EERRTab/MovimientoContableTab).
  * "estadoPago" sin definir siempre significó "pagado al momento" en los
  * flujos existentes (ver OperadorResult), así que solo "pendiente"/"abono50"
- * cuentan como no cobrado todavía. */
+ * cuentan como no cobrado todavía.
+ * Devuelve null si el precio quedó en $0 (cupón/descuento de 100%): no hubo
+ * ingreso real que registrar en Contabilidad, así que no corresponde crear el
+ * movimiento (ver pedirPago en useIngresoActions/usePlanActions/
+ * useOperadorNotFoundResult, que por el mismo motivo tampoco piden medio de
+ * pago cuando el monto es $0). */
 export function movimientoContableDesdeVenta(venta: {
   id: string;
   tipo: string;
@@ -111,7 +116,8 @@ export function movimientoContableDesdeVenta(venta: {
   metodoPago?: string | null;
   estadoPago?: string | null;
   creadoPor?: string | null;
-}): MovimientoContable {
+}): MovimientoContable | null {
+  if (venta.precio <= 0) return null;
   const pagado = venta.estadoPago !== "pendiente" && venta.estadoPago !== "abono50";
   return {
     id: idMovimientoContableDeVenta(venta.id),

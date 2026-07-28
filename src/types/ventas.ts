@@ -1,7 +1,11 @@
 import type { DatosFacturacion } from "./clientes";
 
 export interface PagoInfo {
-  metodo: "efectivo" | "tarjeta" | "transferencia";
+  // Sin definir cuando el monto a cobrar es $0 (venta cubierta 100% por un
+  // cupón/descuento): ahí no corresponde pedir método de pago porque el
+  // cliente no está pagando nada (ver pedirPago en useIngresoActions/
+  // usePlanActions/useOperadorNotFoundResult).
+  metodo?: "efectivo" | "tarjeta" | "transferencia";
   voucher?: string;
 }
 
