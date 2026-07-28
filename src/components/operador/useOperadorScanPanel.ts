@@ -4,6 +4,7 @@ import { useEffect, useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
 import {
   PATENTE_FORMATO_MSG,
+  ahoraEnSantiago,
   dentroDeHorarioOperador,
   esExentoHorarioOperador,
   findClient,
@@ -67,12 +68,17 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
   // Bloqueo horario del registro de vehículos (ver ConfigTab → "Horario de
   // registro"). El backstop real vive en insertIngresos (@/lib/db) — esto es
   // solo para no ofrecerle al operador un flujo que el servidor va a
-  // rechazar. `ahora` se refresca solo (no en cada render) para que el
-  // bloqueo se levante/active solo al cruzar la hora configurada, sin que el
-  // operador tenga que recargar la página.
-  const [ahora, setAhora] = useState(() => new Date());
+  // rechazar. Se usa ahoraEnSantiago() en vez de `new Date()` porque esto
+  // corre en el navegador del operador: si el reloj/zona horaria del celular
+  // o tablet no está bien puesto en America/Santiago, comparar contra la
+  // hora local del dispositivo bloquea el panel aunque sea horario normal
+  // (mismo motivo por el que insertIngresos usa ahoraEnSantiago() en vez de
+  // confiar en la hora del servidor). `ahora` se refresca solo (no en cada
+  // render) para que el bloqueo se levante/active solo al cruzar la hora
+  // configurada, sin que el operador tenga que recargar la página.
+  const [ahora, setAhora] = useState(() => ahoraEnSantiago());
   useEffect(() => {
-    const id = setInterval(() => setAhora(new Date()), INTERVALO_RELOJ_MS);
+    const id = setInterval(() => setAhora(ahoraEnSantiago()), INTERVALO_RELOJ_MS);
     return () => clearInterval(id);
   }, []);
   const exento = esExentoHorarioOperador(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
