@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje } from "@/lib/dataAccess";
 import { uid } from "@/lib/helpers";
+import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
 import { enviarMensajeImagen, enviarMensajeTexto } from "@/lib/whatsapp/enviar";
 import { responderMensaje } from "@/lib/whatsapp/router";
@@ -87,6 +88,25 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
   } catch (error) {
     console.error("Error respondiendo mensaje de WhatsApp", error);
     respuesta = { texto: "Ocurrió un error de nuestro lado. Intenta de nuevo en unos minutos." };
+  }
+
+  if (respuesta.solicitaHumano) {
+    const quien = nombreContacto || conversacion.nombreContacto || telefono;
+    try {
+      // Awaited (no fire-and-forget): en el runtime serverless de Vercel una
+      // promesa suelta puede quedar cortada apenas la función responde, así
+      // que hay que esperarla antes de seguir aunque no bloquee la
+      // conversación si falla (VAPID sin configurar, Gerencia sin
+      // suscripción activa, etc. — enviarPushAGerencia no lanza en esos
+      // casos, solo devuelve false).
+      await enviarPushAGerencia({
+        title: "Piden hablar con una persona",
+        body: `${quien} escribió por WhatsApp pidiendo hablar con alguien.`,
+        url: "/",
+      });
+    } catch (error) {
+      console.error("Error avisando a Gerencia por push", error);
+    }
   }
 
   await enviarMensajeTexto(telefono, respuesta.texto);

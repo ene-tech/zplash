@@ -13,7 +13,7 @@ function claveVapidComoBytes(base64url: string): Uint8Array {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-export function usePushSubscription() {
+export function usePushSubscription(endpointSuscribir: string = "/api/cliente/push/suscribir") {
   const [estado, setEstado] = useState<EstadoPush>("cargando");
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export function usePushSubscription() {
         applicationServerKey: claveVapidComoBytes(vapidKey) as BufferSource,
       });
       const json = suscripcion.toJSON();
-      await fetch("/api/cliente/push/suscribir", {
+      await fetch(endpointSuscribir, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
@@ -59,7 +59,7 @@ export function usePushSubscription() {
       console.error("Error activando notificaciones push", error);
       setEstado("error");
     }
-  }, []);
+  }, [endpointSuscribir]);
 
   return { estado, activar };
 }

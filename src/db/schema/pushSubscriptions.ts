@@ -1,6 +1,7 @@
 import { index, pgTable, text, unique } from "drizzle-orm/pg-core";
 import { timestamptz } from "./shared";
 import { clientes } from "./clientes";
+import { perfiles } from "./perfiles";
 
 // Suscripción de Web Push (ver src/lib/push/enviar.ts) de un navegador/
 // dispositivo instalado como PWA, para avisos que hoy solo se mandan por
@@ -31,5 +32,31 @@ export const pushSubscriptions = pgTable(
   (t) => [
     index("push_subscriptions_cliente_id_idx").on(t.clienteId),
     unique("push_subscriptions_endpoint_cliente_id_unq").on(t.endpoint, t.clienteId),
+  ]
+);
+
+// Suscripción de Web Push de un perfil de staff (ver src/lib/push/enviar.ts,
+// enviarPushAGerencia) — misma mecánica que `pushSubscriptions`, pero atada a
+// `perfiles` en vez de `clientes`: hoy solo la usa el aviso al perfil
+// "Gerencia" cuando un cliente pide hablar con una persona en el bot de
+// WhatsApp (ver OPCIONES_HUMANO en @/lib/whatsapp/router), separada de la
+// tabla de clientes porque un perfil de staff no tiene fila en `clientes`.
+export const pushSubscripcionesPerfil = pgTable(
+  "push_subscripciones_perfil",
+  {
+    id: text("id").primaryKey(),
+    perfilId: text("perfil_id")
+      .notNull()
+      .references(() => perfiles.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+    ultimoEnvioEn: timestamptz("ultimo_envio_en"),
+  },
+  (t) => [
+    index("push_subscripciones_perfil_perfil_id_idx").on(t.perfilId),
+    unique("push_subscripciones_perfil_endpoint_perfil_id_unq").on(t.endpoint, t.perfilId),
   ]
 );

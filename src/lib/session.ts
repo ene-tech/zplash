@@ -10,7 +10,7 @@ import type { Modulo } from "@/types";
 // (payload + firma, ambos en la misma cookie) que el servidor puede validar
 // sin ir a la base de datos. Alcanza para lo que necesita esta app —cerrar
 // el hueco de Server Actions invocables sin haber iniciado sesión (ver
-// exigirSesion/exigirModulo en @/lib/db)— sin sumar una dependencia nueva.
+// exigirSesion/exigirModulo en @/lib/serverActions)— sin sumar una dependencia nueva.
 //
 // Única excepción: `claveVersion` sí se revalida contra la base de datos
 // (ver sesionVigente más abajo) para poder invalidar una sesión ya emitida
@@ -109,10 +109,10 @@ export async function tieneModulo(modulo: Modulo): Promise<boolean> {
   return !!sesion && sesion.modulos.includes(modulo);
 }
 
-// Expone nombre + módulos del perfil de la sesión vigente, para chequeos que
-// necesitan algo más que "¿tiene este módulo?" (ver esExentoHorarioOperador
-// en @/lib/helpers, usado por insertIngresos en @/lib/db).
-export async function sesionActual(): Promise<{ nombre: string; modulos: Modulo[] } | null> {
+// Expone id + nombre + módulos del perfil de la sesión vigente, para chequeos
+// que necesitan algo más que "¿tiene este módulo?" (ver esExentoHorarioOperador
+// en @/lib/helpers, usado por insertIngresos en @/lib/serverActions).
+export async function sesionActual(): Promise<{ id: string; nombre: string; modulos: Modulo[] } | null> {
   const sesion = await sesionVigente();
-  return sesion ? { nombre: sesion.nombre, modulos: sesion.modulos } : null;
+  return sesion ? { id: sesion.id, nombre: sesion.nombre, modulos: sesion.modulos } : null;
 }

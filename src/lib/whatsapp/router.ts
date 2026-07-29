@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones, precios as preciosTabla, servicios as serviciosTabla } from "@/db/schema";
 import { aplicarVariables, fmtCLP, generarCodigoCupon, isValidEmail, isValidPatente, normPlate, SERVICIOS_DEFAULT, uid } from "@/lib/helpers";
-// Directo a la capa de datos, no al Server Action de @/lib/db: este flujo
+// Directo a la capa de datos, no al Server Action de @/lib/serverActions: este flujo
 // corre dentro del webhook de Meta (protegido por firma, ver
 // /api/whatsapp/route.ts), no hay perfil logueado que pase el chequeo de
 // sesión que exige el Server Action homónimo. getConfig trae
@@ -17,6 +17,11 @@ import { estadoPlanPorPatente, iniciarCambioPatente, manejarPasoCambioPatente } 
 export type RespuestaBot = {
   texto: string;
   mediaPath?: string;
+  // true solo cuando el mensaje matchea OPCIONES_HUMANO — el webhook
+  // (@/app/api/whatsapp/route.ts) lo usa para avisar a Gerencia por push
+  // (ver enviarPushAGerencia en @/lib/push/enviar), sin acoplar este router
+  // (que no tiene acceso a VAPID/DB de push) a esa capa de envío.
+  solicitaHumano?: boolean;
 };
 
 const SALUDOS = new Set(["hola", "buenas", "buenos dias", "buenos días", "buenas tardes", "buenas noches", "menu", "menú", "hi", "hello"]);
@@ -231,7 +236,7 @@ export async function responderMensaje(textoCrudo: string, telefono: string, con
   }
   if (OPCIONES_CONTRATAR_PLAN.has(normalizado)) return { texto: textos.textoContratarPlan, mediaPath: imagenPlanWhatsapp || PLAN_IMAGEN_PATH };
   if (OPCIONES_HORARIO.has(normalizado)) return { texto: textos.horarioUbicacion };
-  if (OPCIONES_HUMANO.has(normalizado)) return { texto: textos.contactoHumano };
+  if (OPCIONES_HUMANO.has(normalizado)) return { texto: textos.contactoHumano, solicitaHumano: true };
   if (OPCIONES_DESCUENTO.has(normalizado)) {
     return iniciarRegistroDescuento(conversacion, telefono, textos, descuentoPrimeraVezValor, descuentoPrimeraVezDiasValidez);
   }
