@@ -2,27 +2,24 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { validarDisponibilidad } from "@/lib/agenda";
 import {
   PATENTE_FORMATO_MSG,
-  RUT_FORMATO_MSG,
-  TELEFONO_FORMATO_MSG,
   findClient,
-  fmtCLP,
   fmtTelefono,
   formatRut,
   formatTelefono,
-  isValidEmail,
   isValidPatente,
   isValidRut,
-  isValidTelefono,
   normPlate,
   sumarMinutos,
   todayYMD,
-  uid,
-  uidVenta,
 } from "@/lib/helpers";
-import type { Cita, Cliente, Empresa, Venta } from "@/types";
+import { registrarServicioAdicional } from "@/lib/logic";
+import {
+  validarRegistroServicioAdicional,
+  type EstadoPagoServicioAdicional as EstadoPago,
+  type MetodoPagoServicioAdicional,
+} from "./validarRegistroServicioAdicional";
 import { useServicioSeleccion } from "./useServicioSeleccion";
 
 const ERROR_GUARDADO = "No se pudo guardar el servicio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
@@ -31,12 +28,6 @@ export const AJUSTES = [5000, 10000] as const;
 // Duración a usar en la agenda cuando lo vendido no incluye ningún servicio
 // del catálogo con duración propia (p. ej. solo un ítem personalizado).
 const DURACION_DEFAULT_MINUTOS = 15;
-
-// "abono50" quedó como nombre histórico del estado, pero ya no implica
-// exactamente 50%: es cualquier abono parcial, siempre que cumpla el mínimo
-// del 50% del total (ver montoAbonoMinimo). Se conserva el nombre porque así
-// se guarda en ventas.estadoPago y no tiene equivalente cruzado con Cierre.
-type EstadoPago = "pagado" | "abono50";
 
 type FormRefs = {
   patenteRef: RefObject<HTMLInputElement | null>;
@@ -80,7 +71,7 @@ export function useServiciosAdicionalesForm(refs: FormRefs) {
   const [patenteBuscada, setPatenteBuscada] = useState<string | null>(null);
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
   const [estadoPago, setEstadoPago] = useState<EstadoPago | null>(null);
-  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
+  const [metodoPago, setMetodoPago] = useState<MetodoPagoServicioAdicional | null>(null);
   const [fechaCita, setFechaCita] = useState(todayYMD());
   const [horaCita, setHoraCita] = useState("");
   const [fechaEntregaManual, setFechaEntregaManual] = useState("");
@@ -174,222 +165,76 @@ export function useServiciosAdicionalesForm(refs: FormRefs) {
 
   const registrar = async () => {
     if (!patenteBuscada) return;
-    if (lineas.length === 0) {
-      setErr("Selecciona al menos un servicio");
-      return;
-    }
     const nombre = (nombreRef.current?.value.trim() || "").toUpperCase();
-    if (!nombre) {
-      setErr("El nombre es obligatorio");
-      return;
-    }
     const telefonoValor = telefonoRef.current?.value.trim() || "";
-    if (!telefonoValor) {
-      setErr("El teléfono es obligatorio");
-      return;
-    }
-    if (!isValidTelefono(telefonoValor)) {
-      setErr(TELEFONO_FORMATO_MSG);
-      return;
-    }
     const emailValor = emailRef.current?.value.trim() || "";
-    if (!emailValor) {
-      setErr("El correo electrónico es obligatorio");
-      return;
-    }
-    if (!isValidEmail(emailValor)) {
-      setErr("El correo electrónico no es válido");
-      return;
-    }
     const vehiculoValor = vehiculoRef.current?.value.trim() || "";
-    if (!vehiculoValor) {
-      setErr("El vehículo es obligatorio");
-      return;
-    }
-    if (!estadoPago) {
-      setErr("Indica si el servicio está pagado 100% o con abono");
-      return;
-    }
-    if (estadoPago === "abono50") {
-      if (!montoAbono || montoAbono < montoAbonoMinimo) {
-        setErr(`El abono debe ser como mínimo ${fmtCLP(montoAbonoMinimo)} (50% del total)`);
-        return;
-      }
-      if (montoAbono > totalListado) {
-        setErr("El abono no puede superar el total del servicio");
-        return;
-      }
-    }
-    if (!metodoPago) {
-      setErr("Selecciona efectivo, tarjeta o transferencia");
-      return;
-    }
-    if (horarioConfigurado && !horaCita) {
-      setErr("Selecciona una hora de inicio para el servicio");
-      return;
-    }
-    if (horaCita && horarioConfigurado) {
-      const motivo = validarDisponibilidad(fechaCita, horaCita, duracionCita, data.horariosAgenda, data.bloqueosAgenda, citasDelDiaCita);
-      if (motivo) {
-        setErr(motivo);
-        return;
-      }
-    }
+    const razonSocialValor = tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
+    const rutRawValor = tipoDoc === "Factura" ? rutRef.current?.value.trim() || "" : "";
+    const direccionValor = tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "";
+    const giroValor = tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "";
 
-    const telefono = formatTelefono(telefonoValor);
-    const email = emailValor;
-    const vehiculo = vehiculoValor;
-    const razonSocial = tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
-    const rutRaw = tipoDoc === "Factura" ? rutRef.current?.value.trim() || "" : "";
-    const direccion = tipoDoc === "Factura" ? direccionRef.current?.value.trim() || "" : "";
-    const giro = tipoDoc === "Factura" ? giroRef.current?.value.trim() || "" : "";
-    if (tipoDoc === "Factura") {
-      if (!razonSocial || !direccion || !giro) {
-        setErr("Completa Razón Social, Dirección y Giro para la factura");
-        return;
-      }
-      if (!isValidRut(rutRaw)) {
-        setErr(RUT_FORMATO_MSG);
-        return;
-      }
+    const resultado = validarRegistroServicioAdicional({
+      lineasCount: lineas.length,
+      nombre,
+      telefonoValor,
+      emailValor,
+      vehiculoValor,
+      estadoPago,
+      montoAbono,
+      montoAbonoMinimo,
+      totalListado,
+      metodoPago,
+      horarioConfigurado,
+      horaCita,
+      fechaCita,
+      duracionCita,
+      horariosAgenda: data.horariosAgenda,
+      bloqueosAgenda: data.bloqueosAgenda,
+      citasDelDiaCita,
+      tipoDoc,
+      razonSocialValor,
+      rutRawValor,
+      direccionValor,
+      giroValor,
+    });
+    if (!resultado.ok) {
+      setErr(resultado.error);
+      return;
     }
-    const rut = tipoDoc === "Factura" ? formatRut(rutRaw) : "";
-    const horaEntrega = horaEntregaCampo || "";
-    const fechaEntrega = horaEntregaCampo ? fechaEntregaCampo || fechaCita : "";
-    const notas = notasRef.current?.value.trim() || "";
 
     setErr("");
-    const patente = patenteBuscada;
-    const existente = clienteExistente;
+    const notas = notasRef.current?.value.trim() || "";
 
-    let clientes = data.clientes;
-    let clienteId: string;
-
-    if (existente) {
-      const actualizado: Cliente = {
-        ...existente,
-        nombre,
-        telefono: telefono || existente.telefono,
-        email: email || existente.email,
-        vehiculo: vehiculo || existente.vehiculo,
-        tipoDocumento: tipoDoc,
-        razonSocial: tipoDoc === "Factura" ? razonSocial : existente.razonSocial,
-        rut: tipoDoc === "Factura" ? rut : existente.rut,
-        direccion: tipoDoc === "Factura" ? direccion : existente.direccion,
-        giro: tipoDoc === "Factura" ? giro : existente.giro,
-      };
-      clientes = data.clientes.map((c) => (c.id === existente.id ? actualizado : c));
-      clienteId = existente.id;
-    } else {
-      const nuevo: Cliente = {
-        id: uid(),
-        nombre,
-        patente,
-        telefono,
-        email,
-        vehiculo,
-        tipoDocumento: tipoDoc,
-        razonSocial,
-        rut,
-        direccion,
-        giro,
-        vencimiento: null,
-        fechaContratacion: null,
-        origen: "LOCAL",
-        visitas: 0,
-        creadoEn: new Date().toISOString(),
-        creadoPor: ui.perfilActual?.nombre || "",
-      };
-      clientes = [...data.clientes, nuevo];
-      clienteId = nuevo.id;
-    }
-
-    // El RUT manda: si es Factura y ese RUT no pertenece a ninguna empresa ya
-    // registrada, se crea una nueva en Empresas con este cliente como contacto.
-    let nuevaEmpresa: Empresa | undefined;
-    if (tipoDoc === "Factura" && rut && !data.empresas.some((e) => formatRut(e.rut) === rut)) {
-      nuevaEmpresa = {
-        id: uid(),
-        razonSocial,
-        rut,
-        giro,
-        direccion,
-        telefono,
-        contactoClienteId: clienteId,
-        contactoNombre: nombre,
-        creadoEn: new Date().toISOString(),
-        creadoPor: ui.perfilActual?.nombre || "",
-      };
-    }
-
-    const ahora = new Date().toISOString();
-
-    // Un lavado completo/detailing implica que el vehículo va a pasar por el
-    // túnel, pero el registro en Historial de Ingresos (glosa "Limpieza
-    // Completa") NO se crea acá: recién se genera cuando el operador registra
-    // la patente en el módulo Operador al llegar el vehículo (ver
-    // registrarIngresoDetailing en lib/actions.ts) — este alta solo deja la
-    // Venta y la Cita agendadas.
-
-    // La Agenda queda fusionada con la venta: el registro deja reservada su
-    // hora en `citas`, con los servicios del catálogo elegidos ligados vía
-    // cita_servicios (ver upsertCitas en dataAccess.ts) — equivalente a
-    // cita_procedimientos en ConsultaPro, no un nombre concatenado en texto.
-    // citaId se comparte con las ventas para poder mostrar/editar el Status
-    // (circuito interno del vehículo) desde el log de Servicios registrados.
-    // Se crea siempre, aunque no se haya elegido "Fecha y hora de Inicio"
-    // (sin horario de atención configurado ese campo es opcional y casi
-    // nunca se llena): todo vehículo que pasa por acá debe quedar trackeable
-    // en el circuito, se haya agendado con hora o no.
-    const citaId = uid();
-
-    // Un vehículo = un registro: aunque se hayan elegido varios servicios,
-    // se guarda UNA sola Venta con el precio total y el detalle de
-    // servicios listado en `tipo` (cantidadItems guarda cuántos se
-    // combinaron, para no perder esa métrica en Cierre de Caja).
-    const ventaNueva: Venta = {
-      id: uidVenta(),
-      clienteId,
-      patente,
+    const patch = registrarServicioAdicional(data, {
+      existente: clienteExistente,
+      patente: patenteBuscada,
       nombre,
-      plan: "",
-      precio: totalListado,
-      tipo: lineas.map((l) => l.nombre).join(", "),
-      fecha: ahora,
+      telefono: formatTelefono(telefonoValor),
+      email: emailValor,
+      vehiculo: vehiculoValor,
+      tipoDoc,
+      razonSocial: razonSocialValor,
+      rut: resultado.rut,
+      direccion: direccionValor,
+      giro: giroValor,
+      notas,
+      horaEntrega: horaEntregaCampo || "",
+      fechaEntrega: horaEntregaCampo ? fechaEntregaCampo || fechaCita : "",
+      lineas,
+      serviciosSeleccionados,
+      totalListado,
+      // ya validados no-null por validarRegistroServicioAdicional arriba
+      metodoPago: metodoPago!,
+      estadoPago: estadoPago!,
+      montoCobradoTotal,
+      horaCita,
+      fechaCita,
+      duracionCita,
       creadoPor: ui.perfilActual?.nombre || "",
-      metodoPago: metodoPago || undefined,
-      horaEntrega: horaEntrega || undefined,
-      fechaEntrega: fechaEntrega || undefined,
-      citaId,
-      cantidadItems: lineas.length,
-      notas: notas || undefined,
-      estadoPago,
-      montoCobrado: montoCobradoTotal,
-      esServicioAdicional: true,
-    };
-
-    const citaNueva: Cita = {
-      id: citaId,
-      clienteId,
-      servicioIds: serviciosSeleccionados,
-      patente,
-      nombre,
-      telefono: telefono || undefined,
-      fechaHora: horaCita ? `${fechaCita}T${horaCita}:00` : ahora,
-      duracionMinutos: duracionCita,
-      estado: "agendado",
-      notas: notas || undefined,
-      origen: "interno",
-      creadoPor: ui.perfilActual?.nombre || "",
-      creadoEn: ahora,
-    };
-
-    const ok = await commit({
-      clientes,
-      ventas: [ventaNueva, ...data.ventas],
-      ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
-      citas: [citaNueva, ...data.citas],
     });
+
+    const ok = await commit(patch);
     if (!ok) {
       setErr(ERROR_GUARDADO);
       return;

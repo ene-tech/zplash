@@ -2,26 +2,10 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { registrarIngreso } from "@/lib/actions";
-import {
-  PLANES,
-  RUT_FORMATO_MSG,
-  TELEFONO_FORMATO_MSG,
-  esExentoValidacionRegistroOperador,
-  fmtTelefono,
-  formatRut,
-  formatTelefono,
-  isValidEmail,
-  isValidRut,
-  isValidTelefono,
-  montoDescuento,
-  normPlate,
-  precioLavadoUnico,
-  precioNormal,
-  resolverDescuento,
-  uid,
-} from "@/lib/helpers";
-import type { Cliente, Cupon, Empresa, Ingreso, PagoInfo, Venta } from "@/types";
+import { finalizarClienteRapido, prepararClienteRapido, registrarIngresoInvitado } from "@/lib/logic";
+import { esExentoValidacionRegistroOperador, fmtTelefono, formatRut, isValidRut, montoDescuento, normPlate, precioLavadoUnico, resolverDescuento } from "@/lib/helpers";
+import type { PagoInfo } from "@/types";
+import { validarQuickAddCliente } from "./validarQuickAdd";
 
 const ERROR_GUARDADO = "No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
 
@@ -101,140 +85,45 @@ export function useOperadorNotFoundResult(
   const bloqueaInvitado = !!codigoTrim;
 
   const quickAdd = () => {
-    const nombre = (qNombreRef.current?.value.trim() || "").toUpperCase();
-    const telefonoRaw = qTelefonoRef.current?.value.trim() || "";
-    const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
-    const email = qEmailRef.current?.value.trim() || "";
-    const vehiculo = qVehiculoRef.current?.value.trim() || "";
-    if (!nombre || (!exentoValidacion && (!telefonoRaw || !email))) {
-      setErr("Completa Nombre, Teléfono y Correo electrónico para registrar al cliente");
+    const resultado = validarQuickAddCliente({
+      nombreRaw: qNombreRef.current?.value || "",
+      telefonoRaw: qTelefonoRef.current?.value || "",
+      emailRaw: qEmailRef.current?.value || "",
+      exentoValidacion,
+      tipoDocumento: tipoDoc,
+      razonSocialRaw: qRazonSocialRef.current?.value || "",
+      rutRaw: qRutRef.current?.value || "",
+      direccionRaw: qDireccionRef.current?.value || "",
+      giroRaw: qGiroRef.current?.value || "",
+    });
+    if (!resultado.ok) {
+      setErr(resultado.error);
       return;
     }
-    if (!exentoValidacion && !isValidTelefono(telefono)) {
-      setErr(TELEFONO_FORMATO_MSG);
-      return;
-    }
-    if (!exentoValidacion && !isValidEmail(email)) {
-      setErr("Ingresa un email válido");
-      return;
-    }
-    const tipoCliente = tipoLavado;
-    const plan = PLANES[0];
-    const tipoDocumento = tipoDoc;
-    const razonSocial = tipoDocumento === "Factura" ? qRazonSocialRef.current?.value.trim() || "" : "";
-    const rutRaw = tipoDocumento === "Factura" ? qRutRef.current?.value.trim() || "" : "";
-    const direccion = tipoDocumento === "Factura" ? qDireccionRef.current?.value.trim() || "" : "";
-    const giro = tipoDocumento === "Factura" ? qGiroRef.current?.value.trim() || "" : "";
-    if (tipoDocumento === "Factura") {
-      if (!email || !isValidEmail(email)) {
-        setErr("Ingresa un email válido para la factura");
-        return;
-      }
-      if (!razonSocial || !direccion || !giro) {
-        setErr("Completa Razón Social, Dirección y Giro para la factura");
-        return;
-      }
-      if (!isValidRut(rutRaw)) {
-        setErr(RUT_FORMATO_MSG);
-        return;
-      }
-    }
-    const rut = tipoDocumento === "Factura" ? formatRut(rutRaw) : "";
-    let vencimiento: string | null = null;
-    if (tipoCliente === "plan") {
-      const venc = new Date();
-      venc.setDate(venc.getDate() + 30);
-      vencimiento = venc.toISOString();
-    }
-    const nuevo: Cliente = {
-      id: uid(),
-      nombre,
-      telefono,
-      email,
-      vehiculo,
+
+    const preparado = prepararClienteRapido(data, {
       patente: normPlate(plate),
-      plan: tipoCliente === "plan" ? plan : "",
-      tipoDocumento,
-      razonSocial,
-      rut,
-      direccion,
-      giro,
-      vencimiento,
-      origen: "LOCAL",
-      visitas: 0,
-      creadoEn: new Date().toISOString(),
-      creadoPor: ui.perfilActual?.nombre || "",
-    };
-    const precioBase = tipoCliente === "plan" ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
-    let precio = precioBase;
-    let cuponAplicado: Cupon | undefined;
-    if (tipoCliente === "unico") {
-      const codigoCupon = qCuponRef.current?.value.trim() || "";
-      if (codigoCupon) {
-        const resultado = resolverDescuento(codigoCupon, nuevo.patente, data.cupones);
-        if (!resultado.ok) {
-          setErr(resultado.msg);
-          return;
-        }
-        cuponAplicado = resultado.cupon;
-        precio = Math.max(0, precioBase - montoDescuento(resultado.cupon, precioBase));
-      }
-    }
-    const tipoVenta = tipoCliente === "plan" ? "Plan nuevo" : "Lavado único";
-    const descripcion = tipoCliente === "plan" ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
-
-    // Si es Factura y el RUT no pertenece a ninguna empresa ya registrada, se
-    // crea una nueva en Empresas con este cliente como persona de contacto.
-    let nuevaEmpresa: Empresa | undefined;
-    if (tipoDocumento === "Factura" && rut && !data.empresas.some((e) => formatRut(e.rut) === rut)) {
-      nuevaEmpresa = {
-        id: uid(),
-        razonSocial,
-        rut,
-        giro,
-        direccion,
-        telefono,
-        contactoClienteId: nuevo.id,
-        contactoNombre: nuevo.nombre,
-        creadoEn: new Date().toISOString(),
-        creadoPor: ui.perfilActual?.nombre || "",
-      };
+      nombre: resultado.nombre,
+      telefono: resultado.telefono,
+      email: resultado.email,
+      vehiculo: qVehiculoRef.current?.value.trim() || "",
+      tipoDocumento: tipoDoc,
+      razonSocial: resultado.razonSocial,
+      rut: resultado.rut,
+      direccion: resultado.direccion,
+      giro: resultado.giro,
+      tipoCliente: tipoLavado,
+      codigoCupon: tipoLavado === "unico" ? qCuponRef.current?.value.trim() || "" : "",
+      perfilNombre: ui.perfilActual?.nombre,
+    });
+    if (!preparado.ok) {
+      setErr(preparado.error);
+      return;
     }
 
-    pedirPago(precio, descripcion, async (pago) => {
-      const ahora = new Date().toISOString();
-      const venta: Venta = {
-        id: "v" + Date.now(),
-        clienteId: nuevo.id,
-        patente: nuevo.patente,
-        nombre: nuevo.nombre,
-        plan: nuevo.plan || "",
-        precio,
-        tipo: tipoVenta,
-        fecha: ahora,
-        creadoPor: ui.perfilActual?.nombre || "",
-        metodoPago: pago.metodo,
-        voucher: pago.voucher,
-        viaCupon: !!cuponAplicado,
-        cuponCodigo: cuponAplicado?.codigo,
-      };
-      const tempData = { ...data, clientes: [...data.clientes, nuevo], ventas: [venta, ...data.ventas] };
-      const ingresoPatch = registrarIngreso(tempData, nuevo, ui.perfilActual?.nombre);
-      const ok = await commit({
-        clientes: ingresoPatch.clientes,
-        ventas: tempData.ventas,
-        ingresos: ingresoPatch.ingresos,
-        ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
-        ...(cuponAplicado
-          ? {
-              cupones: data.cupones.map((x) =>
-                x.id === cuponAplicado!.id
-                  ? { ...cuponAplicado!, usado: true, patenteUso: nuevo.patente, fechaUso: ahora, operadorUso: ui.perfilActual?.nombre || "" }
-                  : x
-              ),
-            }
-          : {}),
-      });
+    pedirPago(preparado.precio, preparado.descripcion, async (pago) => {
+      const patch = finalizarClienteRapido(data, preparado, pago, ui.perfilActual?.nombre);
+      const ok = await commit(patch);
       if (!ok) {
         setErr(ERROR_GUARDADO);
         return;
@@ -252,50 +141,8 @@ export function useOperadorNotFoundResult(
     const patente = normPlate(plate);
     const precio = precioLavadoUnico(data.precios);
     pedirPago(precio, `Lavado único sin registro (${patente})`, async (pago) => {
-      const ahora = new Date().toISOString();
-      // No queda "sin registro" de verdad: se crea una ficha de Cliente
-      // identificada como "Invitado" para esa patente, así el próximo
-      // ingreso la encuentra por findClient() y queda historial de
-      // visitas/frecuencia de ese vehículo aunque nunca haya dado sus datos.
-      const invitado: Cliente = {
-        id: uid(),
-        nombre: "Invitado",
-        patente,
-        plan: "",
-        vencimiento: null,
-        origen: "LOCAL",
-        visitas: 1,
-        ultimaVisita: ahora,
-        creadoEn: ahora,
-        creadoPor: ui.perfilActual?.nombre || "",
-      };
-      const ingreso: Ingreso = {
-        id: "i" + Date.now(),
-        clienteId: invitado.id,
-        patente,
-        nombre: invitado.nombre,
-        fecha: ahora,
-        planEstadoAlIngreso: "bad",
-        creadoPor: ui.perfilActual?.nombre || "",
-      };
-      const venta: Venta = {
-        id: "v" + Date.now(),
-        clienteId: invitado.id,
-        patente,
-        nombre: invitado.nombre,
-        plan: "",
-        precio,
-        tipo: "Lavado único",
-        fecha: ahora,
-        creadoPor: ui.perfilActual?.nombre || "",
-        metodoPago: pago.metodo,
-        voucher: pago.voucher,
-      };
-      const ok = await commit({
-        clientes: [...data.clientes, invitado],
-        ingresos: [ingreso, ...data.ingresos],
-        ventas: [venta, ...data.ventas],
-      });
+      const patch = registrarIngresoInvitado(data, { patente, precio, pago, perfilNombre: ui.perfilActual?.nombre });
+      const ok = await commit(patch);
       if (!ok) {
         setErr(ERROR_GUARDADO);
         return;
