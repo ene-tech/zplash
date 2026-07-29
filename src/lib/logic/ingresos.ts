@@ -1,6 +1,6 @@
 import type { AppData, Cita, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
 import { esRetrocesoInvalido } from "@/lib/agenda";
-import { GLOSA_SERVICIO_DETAILING, planStatus, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
+import { GLOSA_SERVICIO_DETAILING, MAX_INGRESOS_TUNEL_DETAILING_POR_CITA, planStatus, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
 
 export function registrarIngreso(
   data: AppData,
@@ -44,12 +44,14 @@ export function registrarIngresoDetailing(
   cita: Cita,
   operadorActual: string | null | undefined
 ): Partial<AppData> {
-  // Si el operador vuelve a escanear la misma patente (la cita se sigue
-  // ofreciendo como "pendiente" mientras esté en recibido/en_limpieza/
-  // listo_entrega, ver puedeIngresarTunelDetailing), no hay que duplicar el
-  // Ingreso ni el conteo de visitas del cliente — ya quedó constancia del
-  // paso por el túnel para esta cita.
-  if (data.ingresos.some((i) => i.citaId === cita.id)) {
+  // La cita puede pasar hasta MAX_INGRESOS_TUNEL_DETAILING_POR_CITA veces por
+  // el túnel (p. ej. un segundo enjuague tras lavado de motor/chasis) sin que
+  // eso duplique la venta. Una vez alcanzado el máximo, si el operador vuelve
+  // a escanear la misma patente (la cita se sigue ofreciendo como
+  // "pendiente" mientras esté en recibido/en_limpieza/listo_entrega, ver
+  // puedeIngresarTunelDetailing) no hay que seguir sumando Ingresos ni visitas.
+  const pasadasRegistradas = data.ingresos.filter((i) => i.citaId === cita.id).length;
+  if (pasadasRegistradas >= MAX_INGRESOS_TUNEL_DETAILING_POR_CITA) {
     return {};
   }
   const ahora = new Date().toISOString();

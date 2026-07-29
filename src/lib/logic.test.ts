@@ -7,7 +7,7 @@ import {
   registrarIngreso,
   registrarIngresoDetailing,
   renovarPlan,
-} from "./actions";
+} from "./logic";
 import { CONFIG_DEFAULT, PRECIOS_DEFAULT } from "./helpers";
 import type { ParsedMovimiento } from "./cartolaParser";
 import type { AppData, Cita, Cliente, Ingreso, Venta } from "@/types";
@@ -225,7 +225,7 @@ describe("registrarIngresoDetailing", () => {
     expect(citaActualizada.estado).toBe("en_limpieza");
   });
 
-  it("no duplica el ingreso ni toca la cita si el operador vuelve a escanear la misma patente", () => {
+  it("permite una segunda pasada por el túnel para la misma cita", () => {
     const data = appDataVacia();
     const cliente = clienteBase({ visitas: 1 });
     const cita = citaDetailingBase({ estado: "listo_entrega" });
@@ -234,6 +234,42 @@ describe("registrarIngresoDetailing", () => {
     data.ingresos = [
       {
         id: "i-ya-registrado",
+        clienteId: cliente.id,
+        patente: cliente.patente,
+        nombre: cliente.nombre,
+        fecha: new Date().toISOString(),
+        planEstadoAlIngreso: "ok",
+        glosa: "Servicio de Detailing",
+        citaId: cita.id,
+      },
+    ];
+
+    const patch = registrarIngresoDetailing(data, cliente, cita, "Operador X");
+
+    expect(patch.ingresos).toHaveLength(2);
+    expect(patch.ingresos![0].citaId).toBe(cita.id);
+    expect(patch.ventas).toBeUndefined();
+  });
+
+  it("no permite una tercera pasada ni toca la cita una vez alcanzado el máximo de 2", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 1 });
+    const cita = citaDetailingBase({ estado: "listo_entrega" });
+    data.clientes = [cliente];
+    data.citas = [cita];
+    data.ingresos = [
+      {
+        id: "i-pasada-1",
+        clienteId: cliente.id,
+        patente: cliente.patente,
+        nombre: cliente.nombre,
+        fecha: new Date().toISOString(),
+        planEstadoAlIngreso: "ok",
+        glosa: "Servicio de Detailing",
+        citaId: cita.id,
+      },
+      {
+        id: "i-pasada-2",
         clienteId: cliente.id,
         patente: cliente.patente,
         nombre: cliente.nombre,

@@ -704,14 +704,15 @@ describe("esServicioTunelLibre", () => {
     expect(esServicioTunelLibre({ id: "detailing-pequeno", categoria: CATEGORIA_DETAILING })).toBe(true);
   });
 
-  it("Lavado de Chasis y Lavado de Chasis + Grafitado también dan pasada libre", () => {
+  it("Lavado de Chasis, Lavado de Chasis + Grafitado y Lavado de Motor también dan pasada libre", () => {
     expect(esServicioTunelLibre({ id: "chasis", categoria: "Servicios Adicionales" })).toBe(true);
     expect(esServicioTunelLibre({ id: "chasis-grafitado", categoria: "Servicios Adicionales" })).toBe(true);
+    expect(esServicioTunelLibre({ id: "motor", categoria: "Servicios Adicionales" })).toBe(true);
   });
 
-  it("otros Servicios Adicionales (tapiz, alfombra, techo, motor) no dan pasada libre", () => {
+  it("otros Servicios Adicionales (tapiz, alfombra, techo) no dan pasada libre", () => {
     expect(esServicioTunelLibre({ id: "tapiz", categoria: "Servicios Adicionales" })).toBe(false);
-    expect(esServicioTunelLibre({ id: "motor", categoria: "Servicios Adicionales" })).toBe(false);
+    expect(esServicioTunelLibre({ id: "alfombra", categoria: "Servicios Adicionales" })).toBe(false);
   });
 });
 

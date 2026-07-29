@@ -11,6 +11,7 @@ import {
   esServicioTunelLibre,
   estadoReingresoPlan,
   isValidTelefono,
+  MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   montoDescuento,
   planStatus,
   precioLavadoUnico,
@@ -108,7 +109,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     : precioBaseLavadoUnico;
 
   // Servicio con pasada libre por el túnel (Lavado Completo Detailing o un
-  // add-on de chasis, ver esServicioTunelLibre) vendido en Servicios
+  // add-on de motor/chasis, ver esServicioTunelLibre) vendido en Servicios
   // Adicionales (Venta + Cita ya creadas ahí), a la espera de que el
   // vehículo entre físicamente al túnel: se detecta por la Cita del día que
   // incluya alguno de esos servicios y ya esté físicamente en el local
@@ -119,11 +120,12 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     if (cita.clienteId !== c.id) return false;
     if (!puedeIngresarTunelDetailing(cita.estado)) return false;
     if (new Date(cita.fechaHora).toDateString() !== new Date().toDateString()) return false;
-    // Si ya existe un Ingreso ligado a esta cita, el paso por el túnel ya
-    // quedó registrado (ver registrarIngresoDetailing en @/lib/actions): no
-    // volver a ofrecer el botón para no invitar a un doble check-in del
-    // mismo vehículo.
-    if (data.ingresos.some((i) => i.citaId === cita.id)) return false;
+    // La cita puede pasar hasta MAX_INGRESOS_TUNEL_DETAILING_POR_CITA veces
+    // por el túnel (ver registrarIngresoDetailing en @/lib/logic/ingresos):
+    // una vez alcanzado el máximo, no volver a ofrecer el botón para no
+    // invitar a un check-in de más del mismo vehículo.
+    const pasadasRegistradas = data.ingresos.filter((i) => i.citaId === cita.id).length;
+    if (pasadasRegistradas >= MAX_INGRESOS_TUNEL_DETAILING_POR_CITA) return false;
     return cita.servicioIds.some((id) => {
       const s = data.servicios.find((sv) => sv.id === id);
       return s ? esServicioTunelLibre(s) : false;
