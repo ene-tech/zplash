@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 
 export const metadata: Metadata = {
   title: "ZPlash · Control de Acceso",
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body>
         {children}
         <Toaster />
+        <RegisterServiceWorker />
       </body>
     </html>
   );
