@@ -12,7 +12,7 @@
 // de Next.js) y solo exporta funciones async, como exige esa directiva. Este
 // archivo es un barrel de puro re-export (sin declaraciones propias), así
 // que no necesita el directive él mismo — reexporta todo para que los
-// callers existentes (`import { X } from "@/lib/db"`) no necesiten cambiar.
+// callers existentes (`import { X } from "@/lib/serverActions"`) no necesiten cambiar.
 
 export * from "./agenda";
 export * from "./auditoria";

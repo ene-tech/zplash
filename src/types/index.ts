@@ -1,5 +1,5 @@
 // Tipos de dominio de la app, divididos por entidad de negocio bajo
-// src/types/ (mismos dominios que @/lib/dataAccess y @/lib/db). AppData
+// src/types/ (mismos dominios que @/lib/dataAccess y @/lib/serverActions). AppData
 // agrega un campo por entidad y por eso importa de todos los submódulos;
 // vive acá en vez de en un archivo de dominio propio porque no es en sí una
 // entidad, es el snapshot completo que carga loadAll() (ver

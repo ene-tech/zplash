@@ -11,7 +11,7 @@ export interface Ingreso {
   cuponCodigo?: string;
   glosa?: string;
   // Liga este ingreso a la Cita de la venta que lo originó (ver
-  // registrarIngresoDetailing en lib/actions.ts): un lavado completo/
+  // registrarIngresoDetailing en lib/logic): un lavado completo/
   // detailing se vende en Servicios Adicionales, pero el Ingreso recién se
   // crea al registrar la patente en el módulo Operador, sin generar una
   // venta nueva.

@@ -1,4 +1,4 @@
-import { deletePlantillasWhatsapp, deleteReglasWhatsapp, upsertPlantillasWhatsapp, upsertReglasWhatsapp } from "@/lib/db";
+import { deletePlantillasWhatsapp, deleteReglasWhatsapp, upsertPlantillasWhatsapp, upsertReglasWhatsapp } from "@/lib/serverActions";
 import type { PlantillaWhatsapp, ReglaWhatsapp } from "@/types";
 import { diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 

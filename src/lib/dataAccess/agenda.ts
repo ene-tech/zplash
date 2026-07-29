@@ -127,7 +127,7 @@ export function citaFromRow(r: CitaRow, servicioIds: string[]): Cita {
   };
 }
 
-/** Estado real en la base de un set de citas, para validar transiciones antes de escribir (ver upsertCitas en @/lib/db). */
+/** Estado real en la base de un set de citas, para validar transiciones antes de escribir (ver upsertCitas en @/lib/serverActions). */
 export async function getEstadosCitas(ids: string[]): Promise<Map<string, Cita["estado"]>> {
   if (!ids.length) return new Map();
   const rows = await getDb().select({ id: citas.id, estado: citas.estado }).from(citas).where(inArray(citas.id, ids));

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { eliminarIngreso } from "@/lib/actions";
+import { eliminarIngreso } from "@/lib/logic";
 import { fmtCLP, fmtFecha, fmtHora, inRange, normPlate, puedeBorrarIngreso, tipoIngreso, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
 import type { Ingreso } from "@/types";
 

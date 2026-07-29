@@ -1,4 +1,4 @@
-import { deleteEmpresas, upsertEmpresas } from "@/lib/db";
+import { deleteEmpresas, upsertEmpresas } from "@/lib/serverActions";
 import type { Empresa } from "@/types";
 import { auditEntries, diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 

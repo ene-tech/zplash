@@ -1,4 +1,4 @@
-import { upsertConfig } from "@/lib/db";
+import { upsertConfig } from "@/lib/serverActions";
 import type { ConfigGlobal } from "@/types";
 import { SIN_CAMBIOS, type CommitResult } from "./shared";
 

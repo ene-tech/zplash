@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 // eso implicaría — en Node, pdfjs-dist corre el "worker" en el mismo proceso.
 // Nada de esto se guarda acá: el resultado vuelve al cliente para que el
 // usuario revise el preview antes de confirmar la importación (ver
-// ConciliacionBancariaTab e importarCartola en @/lib/actions).
+// ConciliacionBancariaTab e importarCartola en @/lib/logic).
 export async function POST(request: NextRequest) {
   try {
     if (!(await tieneModulo("contabilidad"))) {

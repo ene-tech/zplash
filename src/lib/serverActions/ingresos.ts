@@ -8,7 +8,7 @@ import type { ConfigGlobal, Ingreso } from "@/types";
 // El bloqueo horario del módulo Operador (ver ConfigGlobal/ConfigTab) se
 // revisa acá, no solo en la UI: la UI ya oculta los botones de registro fuera
 // de horario, pero como todo Server Action queda invocable por POST directo
-// (ver comentario al inicio de src/lib/db/index.ts), este es el único lugar
+// (ver comentario al inicio de src/lib/serverActions/index.ts), este es el único lugar
 // que de verdad puede impedirlo. Se exime a quien tenga acceso a Configuración
 // o sea el perfil "Administración" (ver esExentoHorarioOperador) y se relee
 // `config` desde la base en vez de confiar en el horario que traiga el cliente.

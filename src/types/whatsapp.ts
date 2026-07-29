@@ -70,7 +70,7 @@ export interface MensajeWhatsapp {
 // invitando a escribir "cambio de patente" (ver iniciarCambioPatente en
 // @/lib/whatsapp/router); los textoCambioPatente* son el flujo de un solo
 // paso que sigue — mismo mecanismo diferido (patentePendiente) que
-// solicitarCambioPatente en @/lib/db/clientes, solo que iniciado por el
+// solicitarCambioPatente en @/lib/serverActions/clientes, solo que iniciado por el
 // propio cliente desde el bot. textoCambioPatenteConfirmacion acepta
 // {{patente}}.
 export interface TextosBotWhatsapp {

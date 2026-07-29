@@ -6,7 +6,7 @@ import {
   upsertCategoriasIngreso,
   upsertMovimientosContables,
   upsertReglasConciliacion,
-} from "@/lib/db";
+} from "@/lib/serverActions";
 import type { CartolaMovimiento, CategoriaGasto, CategoriaIngreso, MovimientoContable, ReglaConciliacion } from "@/types";
 import { auditEntries, diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 

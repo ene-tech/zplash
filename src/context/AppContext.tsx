@@ -12,7 +12,7 @@ import {
   PRECIOS_DEFAULT,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
-import { insertAuditoria, loadAll, waitForStorage } from "@/lib/db";
+import { insertAuditoria, loadAll, waitForStorage } from "@/lib/serverActions";
 import {
   commitAlertasMantencion,
   commitBloqueosAgenda,
@@ -238,7 +238,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setData(previous);
     } else if (auditoria.length) {
       // Best-effort: un fallo acá no revierte la escritura de negocio, que
-      // ya se confirmó guardada (ver insertAuditoria en @/lib/db).
+      // ya se confirmó guardada (ver insertAuditoria en @/lib/serverActions).
       insertAuditoria(auditoria);
     }
     return ok;

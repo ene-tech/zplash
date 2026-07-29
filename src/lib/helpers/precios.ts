@@ -82,7 +82,7 @@ export function ventaUpgradeElegible(
  * sin una FK que las ligue explícitamente — se matchean por mismo cliente y
  * fecha casi idéntica (dentro de `toleranciaMs`, la más cercana si hay más
  * de una candidata). Usada al borrar un Ingreso (ver eliminarIngreso en
- * @/lib/actions) para que borrar el paso por el túnel también borre la venta
+ * @/lib/logic) para que borrar el paso por el túnel también borre la venta
  * que lo acompañó: si no, el cliente sigue apareciendo elegible para la
  * promoción de upgrade a plan (ver ventaUpgradeElegible) por un lavado que,
  * en teoría, nunca ocurrió.

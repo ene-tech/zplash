@@ -1,4 +1,4 @@
-import { deleteCupones, upsertCupones } from "@/lib/db";
+import { deleteCupones, upsertCupones } from "@/lib/serverActions";
 import type { Cupon } from "@/types";
 import { auditEntries, diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 

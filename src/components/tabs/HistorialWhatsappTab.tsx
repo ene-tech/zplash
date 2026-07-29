@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { contarMensajesWhatsappGenerados, listarHistorialReglasWhatsapp } from "@/lib/db";
+import { contarMensajesWhatsappGenerados, listarHistorialReglasWhatsapp } from "@/lib/serverActions";
 import { fmtCLP, fmtFecha, fmtHora, primerDiaMesActualYMD, todayYMD } from "@/lib/helpers";
 import type { EstadoDisparoReglaWhatsapp, HistorialReglaWhatsapp, OrigenTipoDisparoReglaWhatsapp } from "@/types";
 

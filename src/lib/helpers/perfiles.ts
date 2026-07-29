@@ -79,7 +79,7 @@ export function esExentoHorarioOperador(modulos: Modulo[], nombre?: string): boo
  * campos cumplan el formato esperado (patente, teléfono, RUT, email de
  * factura): siempre pueden dar a "Guardar" (ver ClientModal y el backstop en
  * upsertClientes), y lo mismo aplica al cambio de patente diferido (ver
- * solicitarCambioPatente en @/lib/db/clientes). Nombre y patente no vacíos
+ * solicitarCambioPatente en @/lib/serverActions/clientes). Nombre y patente no vacíos
  * siguen siendo obligatorios porque son columnas NOT NULL de "clientes"
  * (patente además UNIQUE) — sin eso el guardado fallaría igual a nivel de
  * base de datos. Se matchea por nombre exacto de perfil, mismo criterio que
@@ -90,7 +90,7 @@ export function esExentoFormatoCliente(nombre?: string): boolean {
 
 /** Solo el perfil "Gerencia" puede borrar una categoría de producto o de
  * insumo (ver CategoriasProductoTab/CategoriasInsumoTab y el backstop en
- * deleteCategoriasProducto/deleteCategoriasInsumo en @/lib/db) — el resto de
+ * deleteCategoriasProducto/deleteCategoriasInsumo en @/lib/serverActions) — el resto de
  * los perfiles con acceso a Inventario solo puede desactivarlas. Se matchea
  * por nombre exacto de perfil, mismo criterio que esExentoFormatoCliente. */
 export function puedeBorrarCategoriaInventario(nombre?: string): boolean {
@@ -99,7 +99,7 @@ export function puedeBorrarCategoriaInventario(nombre?: string): boolean {
 
 /** Solo el perfil "Gerencia" puede borrar una fila ya guardada de Historial
  * de Ingresos (ver botón "Eliminar" en IngresosTab y el backstop en
- * deleteIngresos en @/lib/db) — el resto de los perfiles con acceso al
+ * deleteIngresos en @/lib/serverActions) — el resto de los perfiles con acceso al
  * módulo "ingresos" solo puede consultarlo/exportarlo, nunca editarlo o
  * borrarlo, para no perder trazabilidad del historial real de pasadas por el
  * túnel. Se matchea por nombre exacto de perfil, mismo criterio que

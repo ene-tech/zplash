@@ -3,7 +3,7 @@ import "server-only";
 // Capa de acceso a datos "cruda": sin chequeos de sesión/permiso. La usan
 // dos tipos de caller, cada uno con su propia forma de autenticarse antes de
 // llegar acá:
-//   1) Los Server Actions de @/lib/db (capa fina, ver ese archivo), que
+//   1) Los Server Actions de @/lib/serverActions (capa fina, ver ese archivo), que
 //      exigen una sesión de perfil válida antes de delegar acá.
 //   2) Rutas server-to-server que no tienen perfil logueado pero ya
 //      verificaron al llamante por otro medio (ej. lib/whatsapp/router.ts,

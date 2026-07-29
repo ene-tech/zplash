@@ -2,7 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { subirComprobanteGasto } from "@/lib/db";
+import { subirComprobanteGasto } from "@/lib/serverActions";
 import { CANAL_INGRESO_OTROS, CANAL_INGRESO_TUNEL, RUT_FORMATO_MSG, esEstadoPagadoEgreso, formatRut, isValidRut, todayYMD } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 

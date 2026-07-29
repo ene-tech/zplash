@@ -13,7 +13,7 @@ import {
   upsertMovimientosInventario,
   upsertProductos,
   upsertProveedores,
-} from "@/lib/db";
+} from "@/lib/serverActions";
 import type { CategoriaInsumo, CategoriaProducto, DestinoInventario, Insumo, MovimientoInventario, Producto, Proveedor } from "@/types";
 import { diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 

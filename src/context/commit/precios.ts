@@ -1,4 +1,4 @@
-import { upsertPrecios } from "@/lib/db";
+import { upsertPrecios } from "@/lib/serverActions";
 import type { Precios } from "@/types";
 import { SIN_CAMBIOS, type CommitResult } from "./shared";
 

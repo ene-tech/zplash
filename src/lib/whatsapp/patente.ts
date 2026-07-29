@@ -65,7 +65,7 @@ export async function iniciarCambioPatente(conversacion: ConversacionWhatsapp, t
   return { texto: textos.textoCambioPatentePedirNueva };
 }
 
-// Mismo mecanismo diferido que solicitarCambioPatente (@/lib/db/clientes):
+// Mismo mecanismo diferido que solicitarCambioPatente (@/lib/serverActions/clientes):
 // deja la patente nueva en patentePendiente, no reemplaza `patente` al
 // toque — recién se aplica cuando el plan renueva a un período nuevo (ver
 // resolverPatentePendiente en @/lib/helpers). Se llama directo a

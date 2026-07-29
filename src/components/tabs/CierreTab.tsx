@@ -1,6 +1,6 @@
 "use client";
 
-import { descargarCierre, descargarFacturables } from "@/lib/actions";
+import { descargarCierre, descargarFacturables } from "@/lib/logic";
 import { todayYMD } from "@/lib/helpers";
 import { useCierreData } from "@/components/tabs/cierre/useCierreData";
 import { DetalleVentaYMetodosPago } from "@/components/tabs/cierre/DetalleVentaYMetodosPago";

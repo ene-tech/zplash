@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { CONFIG_DEFAULT, TEXTOS_BOT_WHATSAPP_DEFAULT } from "@/lib/helpers";
-import { subirImagenBotWhatsapp } from "@/lib/db";
+import { subirImagenBotWhatsapp } from "@/lib/serverActions";
 import type { ConfigGlobal, TextosBotWhatsapp } from "@/types";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";

@@ -5,7 +5,7 @@ import {
   upsertAlertasMantencion,
   upsertMaquinarias,
   upsertRegistrosMantencion,
-} from "@/lib/db";
+} from "@/lib/serverActions";
 import type { AlertaMantencion, Maquinaria, RegistroMantencion } from "@/types";
 import { diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 

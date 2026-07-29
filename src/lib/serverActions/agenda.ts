@@ -34,9 +34,9 @@ export async function deleteBloqueosAgenda(ids: string[]): Promise<boolean> {
 // vez en un estado final (ver esRetrocesoInvalido/esEstadoFinal en
 // @/lib/agenda) — la UI ya deshabilita esas opciones en los <select> de
 // Agenda/Servicios Adicionales, pero como todo Server Action queda invocable
-// por POST directo (ver comentario al inicio de src/lib/db/index.ts) y ya
+// por POST directo (ver comentario al inicio de src/lib/serverActions/index.ts) y ya
 // hubo un bug real de este tipo en otro llamador (registrarIngresoDetailing
-// en @/lib/actions), acá se vuelve a comprobar contra el estado real en la
+// en @/lib/logic), acá se vuelve a comprobar contra el estado real en la
 // base antes de escribir, en vez de confiar en el estado que traiga el
 // cliente.
 export async function upsertCitas(rows: Cita[]): Promise<boolean> {

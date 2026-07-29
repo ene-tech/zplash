@@ -8,7 +8,7 @@ import type { CartolaMovimiento, CategoriaGasto, CategoriaIngreso, MovimientoCon
 // derivarMovimientosDesdeVentas en @/context/commit/ventas), y eso pasa en
 // TODO comit que incluya una venta — incluido "Registrar y dar ingreso" del
 // módulo Operador, que corre con sesiones sin el módulo "contabilidad" (ver
-// insertVentas en @/lib/db/ventas.ts: "cualquier sesión válida puede
+// insertVentas en @/lib/serverActions/ventas.ts: "cualquier sesión válida puede
 // insertar ventas"). Exigir acá el módulo "contabilidad" para CUALQUIER
 // movimiento —incluido este derivado— bloqueaba ese insert en silencio: el
 // cliente/venta/ingreso quedaban guardados pero el commit completo se

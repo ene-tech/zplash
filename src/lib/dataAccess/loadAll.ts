@@ -168,7 +168,7 @@ export async function loadAll(): Promise<AppData> {
 
   // clientes.visitas/ultima_visita se escriben con un upsertClientes()
   // separado del insertIngresos() que crea la fila de Historial de Ingresos
-  // que las originó (ver registrarIngreso en @/lib/actions y commit() en
+  // que las originó (ver registrarIngreso en @/lib/logic y commit() en
   // AppContext) — dos escrituras independientes, no una transacción. Si una
   // llega a la base y la otra no (conexión intermitente, por ejemplo), el
   // contador queda desincronizado del historial real y no hay forma de que

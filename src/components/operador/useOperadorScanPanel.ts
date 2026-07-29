@@ -66,7 +66,7 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
   const [codigoDescuento, setCodigoDescuento] = useState("");
 
   // Bloqueo horario del registro de vehículos (ver ConfigTab → "Horario de
-  // registro"). El backstop real vive en insertIngresos (@/lib/db) — esto es
+  // registro"). El backstop real vive en insertIngresos (@/lib/serverActions) — esto es
   // solo para no ofrecerle al operador un flujo que el servidor va a
   // rechazar. Se usa ahoraEnSantiago() en vez de `new Date()` porque esto
   // corre en el navegador del operador: si el reloj/zona horaria del celular

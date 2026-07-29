@@ -8,7 +8,7 @@ import {
   listarSuscripcionesOneclick,
   reactivarSuscripcionOneclick,
   suspenderSuscripcionOneclick,
-} from "@/lib/db";
+} from "@/lib/serverActions";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import { fmtDate, normPlate } from "@/lib/helpers";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";

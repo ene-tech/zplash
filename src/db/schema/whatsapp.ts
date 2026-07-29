@@ -111,7 +111,7 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   // "cambio_patente": se evalúa cuando un cambio de patente pendiente
   // (solicitado desde el módulo Clientes, ver clientes.patente_pendiente) se
   // aplica de verdad porque el plan renovó a un período nuevo — ver
-  // evaluarReglasPorCambioPatente, llamado desde @/lib/db/clientes.ts::
+  // evaluarReglasPorCambioPatente, llamado desde @/lib/serverActions/clientes.ts::
   // upsertClientes y desde @/lib/pagos/aplicarPagoAprobado.
   // "primer_ingreso_mes": igual disparador que "ingreso_plan_registrado"
   // (mismo filtro planEstadoAlIngreso === "ok"), pero solo en el primer

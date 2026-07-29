@@ -48,7 +48,7 @@ export const cartolaMovimientos = pgTable(
     numeroDocumento: text("numero_documento"),
     sucursal: text("sucursal"),
     // Etiqueta libre (ej. "Ingreso Tarjeta POS (GETNET)"), asignada por una
-    // regla de @/lib/db#reglasConciliacion o a mano en la UI. Taxonomía propia,
+    // regla de @/lib/serverActions#reglasConciliacion o a mano en la UI. Taxonomía propia,
     // sin relación con `movimientosContables.categoria` (esa sigue el EERR).
     categoria: text("categoria"),
     estado: text("estado").notNull().default("pendiente"), // pendiente | conciliado | ignorado
@@ -62,7 +62,7 @@ export const cartolaMovimientos = pgTable(
 
 // Reglas "aprendidas" para clasificar automáticamente futuras líneas de
 // cartola: si la glosa contiene `id` (case-insensitive), se le asigna
-// `categoria` al importar (ver importarCartola en @/lib/actions). `id` es el
+// `categoria` al importar (ver importarCartola en @/lib/logic). `id` es el
 // propio patrón (mismo criterio que `precios.plan`) para que enseñar una
 // regla nueva sea un upsert simple, sin necesitar una columna unique aparte.
 export const reglasConciliacion = pgTable("reglas_conciliacion", {

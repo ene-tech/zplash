@@ -1,4 +1,4 @@
-import { deleteBloqueosAgenda, deleteCitas, deleteHorariosAgenda, upsertBloqueosAgenda, upsertCitas, upsertHorariosAgenda } from "@/lib/db";
+import { deleteBloqueosAgenda, deleteCitas, deleteHorariosAgenda, upsertBloqueosAgenda, upsertCitas, upsertHorariosAgenda } from "@/lib/serverActions";
 import type { AuditoriaEntrada, BloqueoAgenda, Cita, HorarioAgenda } from "@/types";
 import { auditEntries, diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 

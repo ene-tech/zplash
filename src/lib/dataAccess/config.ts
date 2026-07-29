@@ -50,7 +50,7 @@ export function configFromRow(r: ConfigRow): ConfigGlobal {
 }
 
 /** Lectura directa (sin pasar por loadAll) para el chequeo server-side del bloqueo
- * horario del módulo Operador (ver insertIngresos en @/lib/db) — no confía en el
+ * horario del módulo Operador (ver insertIngresos en @/lib/serverActions) — no confía en el
  * horario que traiga el cliente en AppData, que podría estar desactualizado o alterado. */
 export async function getConfig(): Promise<ConfigGlobal> {
   const [row] = await getDb().select().from(config).limit(1);

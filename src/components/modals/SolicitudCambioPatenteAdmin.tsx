@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cancelarCambioPatente, solicitarCambioPatente } from "@/lib/db";
+import { cancelarCambioPatente, solicitarCambioPatente } from "@/lib/serverActions";
 import { PATENTE_FORMATO_MSG, isValidPatente, normPlate } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 // inmediata, para corregir errores de tipeo), esto no se aplica al toque —
 // queda guardado en clientes.patente_pendiente hasta que el plan renueve a
 // un período nuevo (ver resolverPatentePendiente en @/lib/helpers y su uso en
-// @/lib/db/clientes.ts::upsertClientes / @/lib/pagos/aplicarPagoAprobado).
+// @/lib/serverActions/clientes.ts::upsertClientes / @/lib/pagos/aplicarPagoAprobado).
 // Llama a los Server Actions directo (no pasa por AppContext.commit ni por
 // el array `data.clientes` en memoria), mismo patrón que la suscripción
 // Oneclick en ClienteInfoModal.tsx.

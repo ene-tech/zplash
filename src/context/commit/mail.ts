@@ -1,4 +1,4 @@
-import { deletePlantillasCorreo, upsertPlantillasCorreo } from "@/lib/db";
+import { deletePlantillasCorreo, upsertPlantillasCorreo } from "@/lib/serverActions";
 import type { PlantillaCorreo } from "@/types";
 import { diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 

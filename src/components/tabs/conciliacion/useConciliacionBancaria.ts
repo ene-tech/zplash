@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { importarCartola } from "@/lib/actions";
+import { importarCartola } from "@/lib/logic";
 import type { CartolaParseResult } from "@/lib/cartolaParser";
 import { mesActualKey, mesKey, uidMovimientoContable } from "@/lib/helpers";
 import type { CartolaMovimiento, MovimientoContable } from "@/types";

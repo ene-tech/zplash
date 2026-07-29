@@ -99,7 +99,7 @@ export function visitasUltimoPeriodoVencido(ingresos: Ingreso[], cliente: Pick<C
  * (fechaContratacion), sin acotar al ciclo de 30 días vigente — a diferencia
  * de visitasPeriodoPlan, que solo cuenta el período vigente. Puede abarcar
  * varias renovaciones, ya que fechaContratacion no se actualiza en cada
- * renovación (ver renovarPlan en @/lib/actions).
+ * renovación (ver renovarPlan en @/lib/logic).
  */
 export function visitasDesdeContratacion(ingresos: Ingreso[], cliente: Pick<Cliente, "id" | "fechaContratacion">): number {
   if (!cliente.fechaContratacion) return 0;

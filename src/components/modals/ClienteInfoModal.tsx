@@ -8,7 +8,7 @@ import {
   obtenerSuscripcionOneclick,
   reactivarSuscripcionOneclick,
   suspenderSuscripcionOneclick,
-} from "@/lib/db";
+} from "@/lib/serverActions";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import {
   fmtDate,

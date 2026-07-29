@@ -1,7 +1,7 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { empresasFaltantesDesdeClientes } from "@/lib/actions";
+import { empresasFaltantesDesdeClientes } from "@/lib/logic";
 import { fmtTelefono } from "@/lib/helpers";
 import type { Empresa } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";

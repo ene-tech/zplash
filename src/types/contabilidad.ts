@@ -64,7 +64,7 @@ export interface CartolaMovimiento {
 
 // Regla "aprendida" para clasificar automáticamente futuras líneas de
 // cartola cuya glosa contenga `id` (case-insensitive) — ver importarCartola
-// en @/lib/actions. `id` es el propio patrón (ej. "GETNET").
+// en @/lib/logic. `id` es el propio patrón (ej. "GETNET").
 export interface ReglaConciliacion {
   id: string;
   categoria: string;

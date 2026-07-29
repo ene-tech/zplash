@@ -39,7 +39,7 @@ export function esRetrocesoInvalido(estadoActual: Cita["estado"], estadoDestino:
 // Estados en los que el vehículo ya está físicamente en el local: antes de
 // "recibido" (o sea "agendado") todavía no ha llegado, así que no se le
 // puede dar ingreso al túnel por un Lavado Completo Detailing vendido de
-// antemano (ver registrarIngresoDetailing en lib/actions.ts, único llamador
+// antemano (ver registrarIngresoDetailing en lib/logic, único llamador
 // que depende de este chequeo vía citaDetailingPendiente en OperadorResult.tsx).
 const ESTADOS_INGRESO_TUNEL_DETAILING: Cita["estado"][] = ["recibido", "en_limpieza", "listo_entrega"];
 

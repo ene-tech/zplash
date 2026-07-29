@@ -1,4 +1,4 @@
-import { deletePerfiles, upsertPerfiles } from "@/lib/db";
+import { deletePerfiles, upsertPerfiles } from "@/lib/serverActions";
 import type { PerfilPublico } from "@/types";
 import { diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 

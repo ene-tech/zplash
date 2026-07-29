@@ -1,12 +1,12 @@
-import { deleteIngresos, insertIngresos } from "@/lib/db";
+import { deleteIngresos, insertIngresos } from "@/lib/serverActions";
 import type { Ingreso } from "@/types";
 import { auditEntries, diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 
 // El historial de ingresos es casi de solo alta: nunca se actualiza una fila
 // ya guardada (a diferencia de clientes/ventas), y el único borrado permitido
-// es el manual de Gerencia (ver eliminarIngreso en @/lib/actions y el botón
+// es el manual de Gerencia (ver eliminarIngreso en @/lib/logic y el botón
 // "Eliminar" en IngresosTab, gateado con puedeBorrarIngreso) — deleteIngresos
-// en @/lib/db vuelve a exigir ese mismo permiso del lado del servidor.
+// en @/lib/serverActions vuelve a exigir ese mismo permiso del lado del servidor.
 export function commitIngresos(previous: Ingreso[], siguientes: Ingreso[] | undefined, usuario: string | null): CommitResult {
   if (!siguientes) return SIN_CAMBIOS;
   const prevIds = new Set(previous.map((i) => i.id));

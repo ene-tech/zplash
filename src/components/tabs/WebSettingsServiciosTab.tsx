@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import { precioServicio, uid } from "@/lib/helpers";
-import { subirBannerServicio } from "@/lib/db";
+import { subirBannerServicio } from "@/lib/serverActions";
 import type { Servicio } from "@/types";
 
 const DURACION_DEFAULT = 30;

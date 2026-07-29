@@ -1,4 +1,4 @@
-import { deleteVentas, insertVentas, upsertVentas } from "@/lib/db";
+import { deleteVentas, insertVentas, upsertVentas } from "@/lib/serverActions";
 import { movimientoContableDesdeVenta } from "@/lib/helpers";
 import type { AppData, Venta } from "@/types";
 import { auditEntries, diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
