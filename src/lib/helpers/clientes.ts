@@ -1,4 +1,4 @@
-import type { Cliente, PlanStatus } from "@/types";
+import type { Cliente, ClientePatch, PlanStatus } from "@/types";
 import { ahoraEnSantiago } from "./fechas";
 import { normPlate } from "./validadores";
 
@@ -83,13 +83,37 @@ export function diasVencido(c: Pick<Cliente, "vencimiento">, ahora: Date = ahora
 }
 
 /**
+ * Arma el patch a guardar para un cliente ya existente: solo los campos donde
+ * `siguiente` difiere de `anterior` (la copia que esta sesión leyó por
+ * última vez), más `id`. Sin esto, guardar un cliente reenvía la fila
+ * completa tal cual la tiene la sesión en memoria — si esa copia quedó
+ * desactualizada (otra sesión guardó un cambio distinto mientras tanto), el
+ * upsert de fila completa pisa silenciosamente ese cambio ajeno con el valor
+ * viejo que esta sesión nunca supo que había cambiado (ver memoria del caso
+ * HERNAN, 2026-07-27). Un alta nueva (sin `anterior`) no tiene nada que
+ * diffear: se guarda la fila completa, como siempre.
+ */
+export function patchDeCliente(anterior: Cliente | undefined, siguiente: Cliente): ClientePatch {
+  if (!anterior) return siguiente;
+  const patch: ClientePatch = { id: siguiente.id };
+  const campos = new Set([...Object.keys(anterior), ...Object.keys(siguiente)]) as Set<keyof Cliente>;
+  for (const campo of campos) {
+    if (campo === "id") continue;
+    if (siguiente[campo] !== anterior[campo]) (patch as Record<string, unknown>)[campo] = siguiente[campo];
+  }
+  return patch;
+}
+
+/**
  * Resuelve si un cambio de patente pendiente (solicitado desde el módulo
  * Clientes o desde Mi Cuenta, ver `patentePendiente`/`patentePendienteDesde`
  * en @/db/schema/clientes) debe aplicarse en esta escritura: solo cuando
  * `vencimiento` avanza a una fecha estrictamente posterior a la que tenía
  * `anterior` en la base — eso es lo que distingue una renovación real (nuevo
  * período) de cualquier otra edición de la ficha (nombre, teléfono, o incluso
- * la propia solicitud de cambio, que no toca vencimiento).
+ * la propia solicitud de cambio, que no toca vencimiento). Si `nuevo` es un
+ * patch parcial (ver patchDeCliente) sin `vencimiento`, nunca cuenta como
+ * renovación — correcto, ese patch no está tocando el plan.
  *
  * Si no corresponde aplicar todavía, igual se preservan
  * patentePendiente/patentePendienteDesde de `anterior` en el resultado: así
@@ -103,8 +127,8 @@ export function diasVencido(c: Pick<Cliente, "vencimiento">, ahora: Date = ahora
  */
 export function resolverPatentePendiente(
   anterior: Cliente | undefined,
-  nuevo: Cliente
-): { fila: Cliente; patenteAnterior?: string } {
+  nuevo: ClientePatch
+): { fila: ClientePatch; patenteAnterior?: string } {
   if (!anterior?.patentePendiente) return { fila: nuevo };
 
   const vencAnteriorTime = anterior.vencimiento ? new Date(anterior.vencimiento).getTime() : null;

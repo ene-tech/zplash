@@ -3,7 +3,7 @@ import "server-only";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes } from "@/db/schema";
-import type { Cliente } from "@/types";
+import type { Cliente, ClientePatch } from "@/types";
 import { upsertRows } from "./shared";
 
 export async function getClientesByIds(ids: string[]): Promise<Cliente[]> {
@@ -12,7 +12,7 @@ export async function getClientesByIds(ids: string[]): Promise<Cliente[]> {
   return rows.map(clienteFromRow);
 }
 
-// Usado por solicitarCambioPatente (@/lib/db/clientes) para chequear que la
+// Usado por solicitarCambioPatente (@/lib/serverActions/clientes) para chequear que la
 // nueva patente solicitada no choque con la de otro cliente ya existente
 // (misma restricción única que protege `patente` al guardar).
 export async function buscarClientePorPatente(patente: string): Promise<Cliente | null> {
@@ -86,34 +86,71 @@ export function clienteFromRow(r: ClienteRow): Cliente {
   };
 }
 
-export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
-  if (!rows.length) return true;
-  try {
-    await upsertRows(clientes, clientes.id, rows.map(clienteToRow));
-    return true;
-  } catch (error) {
-    // El upsert en lote (un solo INSERT ... ON CONFLICT(id) para todas las
-    // filas) falla completo si UNA sola fila choca con la restricción única
-    // de `patente` — por ejemplo, otro admin registró esa patente después de
-    // que este navegador cargó sus datos (la carga masiva por Excel detecta
-    // duplicados contra la copia en memoria, no contra la base), o dos filas
-    // del mismo Excel normalizan a la misma patente. Sin este fallback, se
-    // perdían en pantalla TODOS los clientes del lote — incluidos los
-    // legítimos — hasta recargar la página, sin indicar cuál fue el
-    // problema. Acá se reintenta fila por fila para aislar solo la(s)
-    // fila(s) realmente conflictivas y no perder el resto.
-    console.error("Error guardando clientes en lote, reintentando fila por fila", error);
-    let algunaFalla = false;
-    for (const row of rows) {
-      try {
-        await upsertRows(clientes, clientes.id, [clienteToRow(row)]);
-      } catch (errorFila) {
-        algunaFalla = true;
-        console.error("No se pudo guardar el cliente (probable choque de patente con otro id)", row.id, row.patente, errorFila);
+// `nuevos` son altas: se insertan completas, igual que antes. `actualizaciones`
+// son ediciones de filas que ya existen en la base: se escriben campo por
+// campo (solo las columnas presentes en `patch`), no la fila completa — así
+// una sesión con una copia desactualizada del cliente nunca pisa en la base
+// un campo que ella nunca tocó (ver memoria del caso HERNAN, 2026-07-27, y el
+// comentario de patchDeCliente en @/lib/helpers/clientes).
+export async function upsertClientes(
+  nuevos: Cliente[],
+  actualizaciones: { anterior: Cliente; patch: ClientePatch }[] = []
+): Promise<boolean> {
+  let ok = true;
+
+  if (nuevos.length) {
+    try {
+      await upsertRows(clientes, clientes.id, nuevos.map(clienteToRow));
+    } catch (error) {
+      // El upsert en lote (un solo INSERT ... ON CONFLICT(id) para todas las
+      // filas) falla completo si UNA sola fila choca con la restricción única
+      // de `patente` — por ejemplo, otro admin registró esa patente después de
+      // que este navegador cargó sus datos (la carga masiva por Excel detecta
+      // duplicados contra la copia en memoria, no contra la base), o dos filas
+      // del mismo Excel normalizan a la misma patente. Sin este fallback, se
+      // perdían en pantalla TODOS los clientes del lote — incluidos los
+      // legítimos — hasta recargar la página, sin indicar cuál fue el
+      // problema. Acá se reintenta fila por fila para aislar solo la(s)
+      // fila(s) realmente conflictivas y no perder el resto.
+      console.error("Error guardando clientes nuevos en lote, reintentando fila por fila", error);
+      for (const row of nuevos) {
+        try {
+          await upsertRows(clientes, clientes.id, [clienteToRow(row)]);
+        } catch (errorFila) {
+          ok = false;
+          console.error("No se pudo guardar el cliente (probable choque de patente con otro id)", row.id, row.patente, errorFila);
+        }
       }
     }
-    return !algunaFalla;
   }
+
+  for (const { anterior, patch } of actualizaciones) {
+    const set = columnasDelPatch(anterior, patch);
+    if (!Object.keys(set).length) continue; // patch sin campos reales (solo id): nada que escribir
+    try {
+      await getDb().update(clientes).set(set).where(eq(clientes.id, patch.id));
+    } catch (error) {
+      ok = false;
+      console.error("No se pudo actualizar el cliente", patch.id, error);
+    }
+  }
+
+  return ok;
+}
+
+// Arma el SET de un UPDATE parcial: reutiliza clienteToRow (mismas
+// normalizaciones falsy→null que un guardado completo) sobre la fila
+// mezclada, pero solo toma de ahí las columnas que el patch realmente trae —
+// el resto de `anterior` está ahí únicamente para que esas normalizaciones
+// tengan de dónde leer, no para reescribirse.
+function columnasDelPatch(anterior: Cliente, patch: ClientePatch): Record<string, unknown> {
+  const fila = clienteToRow({ ...anterior, ...patch } as Cliente) as Record<string, unknown>;
+  const set: Record<string, unknown> = {};
+  for (const campo of Object.keys(patch)) {
+    if (campo === "id") continue;
+    set[campo] = fila[campo];
+  }
+  return set;
 }
 
 export async function deleteClientes(ids: string[]): Promise<boolean> {
@@ -129,7 +166,7 @@ export async function deleteClientes(ids: string[]): Promise<boolean> {
 
 // Update puntual (no pasa por el upsert en lote de arriba) para la solicitud
 // de cambio de patente diferido — ver solicitarCambioPatente/
-// cancelarCambioPatente en @/lib/db/clientes. `patentePendiente: null` limpia
+// cancelarCambioPatente en @/lib/serverActions/clientes. `patentePendiente: null` limpia
 // también la fecha de solicitud (no tiene sentido guardarla sin una patente
 // pendiente asociada).
 export async function actualizarPatentePendiente(id: string, patentePendiente: string | null): Promise<boolean> {

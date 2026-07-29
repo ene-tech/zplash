@@ -5,9 +5,9 @@ import * as dataAccess from "@/lib/dataAccess";
 import { esExentoFormatoCliente, esNombreVacio, isValidPatente, isValidTelefono, normPlate, resolverPatentePendiente } from "@/lib/helpers";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
-import type { Cliente } from "@/types";
+import type { Cliente, ClientePatch } from "@/types";
 
-// Campos que registrarIngreso() (@/lib/actions) toca como efecto colateral de
+// Campos que registrarIngreso() (@/lib/logic) toca como efecto colateral de
 // dar ingreso a un vehículo en el módulo Operador: cualquier sesión válida
 // puede provocar este patch aunque no tenga el módulo "clientes" (ver
 // esCambioPermitidoSinModuloClientes más abajo). El resto de los campos solo
@@ -35,7 +35,7 @@ const CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>([
 const CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["nombre", "vehiculo", "telefono", "email"]);
 
 // Campos que renovar/reactivar/renovarWeb/contratarPlan/upgradeAPlan (ver
-// OperadorFoundResult) y renovarPlan (@/lib/actions) tocan sobre un cliente
+// OperadorFoundResult) y renovarPlan (@/lib/logic) tocan sobre un cliente
 // ya existente al vender/renovar/reactivar un plan desde el módulo Operador.
 // Ningún perfil de operador tiene el módulo "clientes" por defecto (ver
 // PERFILES_DEFAULT) — sin esta excepción, cualquier venta de plan quedaba
@@ -67,28 +67,34 @@ const CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["plan", "v
 // que no existe aún en la base es un alta, no una edición de datos ajenos, y
 // cualquier sesión con el módulo "operador" ya puede hacer ese alta desde el
 // punto de venta.
-async function esCambioPermitidoSinModuloClientes(rows: Cliente[], porId: Map<string, Cliente>): Promise<boolean> {
-  const soloVisitas = rows.every((row) => {
-    const anterior = porId.get(row.id);
-    if (!anterior) return false;
-    return (Object.keys(row) as (keyof Cliente)[]).every(
-      (campo) => CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo) || row[campo] === anterior[campo]
-    );
-  });
+// Desde que upsertClientes recibe patches (solo los campos que la sesión
+// realmente cambió, ver patchDeCliente en @/lib/helpers/clientes) en vez de
+// la fila completa, "qué campos toca esta escritura" es simplemente
+// Object.keys(patch) — ya no hace falta comparar valor por valor contra
+// `anterior` para saberlo (un campo ausente del patch, por definición, no
+// cambió).
+function patchSoloContiene(patch: ClientePatch, permitidos: Set<keyof Cliente>): boolean {
+  return (Object.keys(patch) as (keyof Cliente)[]).every((campo) => campo === "id" || permitidos.has(campo));
+}
+
+async function esCambioPermitidoSinModuloClientes(patches: ClientePatch[], porId: Map<string, Cliente>): Promise<boolean> {
+  const soloVisitas = patches.every(
+    (patch) => porId.has(patch.id) && patchSoloContiene(patch, CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES)
+  );
   if (soloVisitas) return true;
 
-  const todasAltasNuevas = rows.every((row) => !porId.has(row.id));
+  const todasAltasNuevas = patches.every((patch) => !porId.has(patch.id));
   if (todasAltasNuevas) return tieneModulo("operador");
 
   // Fila ya existente (p.ej. "INVITADO" creada con datos mínimos) a la que
   // el operador le está completando nombre/vehículo/teléfono/correo desde
   // OperadorFoundResult: mismo criterio que un alta, solo que la fila ya
   // existía en la base con esos campos vacíos.
-  const soloCompletaDatosVacios = rows.every((row) => {
-    const anterior = porId.get(row.id);
+  const soloCompletaDatosVacios = patches.every((patch) => {
+    const anterior = porId.get(patch.id);
     if (!anterior) return false;
-    return (Object.keys(row) as (keyof Cliente)[]).every((campo) => {
-      if (CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo) || row[campo] === anterior[campo]) return true;
+    return (Object.keys(patch) as (keyof Cliente)[]).every((campo) => {
+      if (campo === "id" || CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo)) return true;
       if (!CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES.has(campo)) return false;
       // "nombre" cuenta como vacío también con el placeholder "Sin nombre"
       // que deja la carga masiva por Excel (ver esNombreVacio), y "telefono"
@@ -109,36 +115,43 @@ async function esCambioPermitidoSinModuloClientes(rows: Cliente[], porId: Map<st
   });
   if (soloCompletaDatosVacios) return tieneModulo("operador");
 
-  const soloVentaDePlan = rows.every((row) => {
-    const anterior = porId.get(row.id);
-    if (!anterior) return false;
-    return (Object.keys(row) as (keyof Cliente)[]).every(
-      (campo) =>
-        CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo) ||
-        CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES.has(campo) ||
-        row[campo] === anterior[campo]
-    );
-  });
+  const soloVentaDePlan = patches.every(
+    (patch) =>
+      porId.has(patch.id) &&
+      patchSoloContiene(patch, new Set([...CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES, ...CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES]))
+  );
   return soloVentaDePlan && (await tieneModulo("operador"));
 }
 
-export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
-  const anteriores = await dataAccess.getClientesByIds(rows.map((r) => r.id));
+export async function upsertClientes(patches: ClientePatch[]): Promise<boolean> {
+  const anteriores = await dataAccess.getClientesByIds(patches.map((p) => p.id));
   const porId = new Map(anteriores.map((c) => [c.id, c]));
-  if (!(await tieneModulo("clientes")) && !(await esCambioPermitidoSinModuloClientes(rows, porId))) return false;
+  if (!(await tieneModulo("clientes")) && !(await esCambioPermitidoSinModuloClientes(patches, porId))) return false;
   const sesion = await sesionActual();
   if (!sesion) return false;
   // La UI (ClientModal/BulkModal) ya exige nombre y patente válida antes de
   // llamar acá, pero como todo Server Action queda invocable por POST directo
-  // (ver comentario al inicio de src/lib/db/index.ts), este es el único lugar
+  // (ver comentario al inicio de src/lib/serverActions/index.ts), este es el único lugar
   // que de verdad puede impedir que se guarde un cliente sin nombre o con una
   // patente vacía — son las dos columnas NOT NULL de "clientes" (ver
-  // src/db/schema.ts). El perfil "Gerencia" queda exento de la validación de
-  // *formato* de la patente (ver esExentoFormatoCliente en @/lib/helpers),
-  // igual que en ClientModal, pero nombre y patente no vacíos se exigen a
-  // todos porque ninguna sesión puede saltarse un NOT NULL de la base.
+  // src/db/schema.ts). Un patch que no toca nombre/patente se valida contra
+  // el valor ya guardado (`anterior`): esos ya pasaron esta misma validación
+  // cuando se escribieron, así que solo hay algo nuevo que chequear cuando el
+  // patch los incluye — igual que un alta nueva, donde `anterior` no existe y
+  // el patch (la fila completa, ver patchDeCliente) los tiene que traer sí o
+  // sí. El perfil "Gerencia" queda exento de la validación de *formato* de la
+  // patente (ver esExentoFormatoCliente en @/lib/helpers), igual que en
+  // ClientModal, pero nombre y patente no vacíos se exigen a todos porque
+  // ninguna sesión puede saltarse un NOT NULL de la base.
   const exentoFormato = esExentoFormatoCliente(sesion.nombre);
-  if (rows.some((r) => !r.nombre?.trim() || !r.patente?.trim() || (!exentoFormato && !isValidPatente(r.patente))))
+  if (
+    patches.some((patch) => {
+      const anterior = porId.get(patch.id);
+      const nombre = patch.nombre ?? anterior?.nombre;
+      const patente = patch.patente ?? anterior?.patente;
+      return !nombre?.trim() || !patente?.trim() || (!exentoFormato && !isValidPatente(patente));
+    })
+  )
     return false;
 
   // Resuelve un cambio de patente pendiente (ver solicitarCambioPatente más
@@ -149,25 +162,42 @@ export async function upsertClientes(rows: Cliente[]): Promise<boolean> {
   // nuevo — igual que vencimiento/plan/ultimaRenovacion en
   // CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES, este swap nunca debe bloquearse
   // por falta del módulo "clientes".
-  const cambiosPatente: { cliente: Cliente; patenteAnterior: string }[] = [];
-  const filasResueltas = rows.map((row) => {
-    const { fila, patenteAnterior } = resolverPatentePendiente(porId.get(row.id), row);
+  const cambiosPatente: { cliente: ClientePatch; patenteAnterior: string }[] = [];
+  const parchesResueltos = patches.map((patch) => {
+    const { fila, patenteAnterior } = resolverPatentePendiente(porId.get(patch.id), patch);
     if (patenteAnterior) cambiosPatente.push({ cliente: fila, patenteAnterior });
     return fila;
   });
 
-  const ok = await dataAccess.upsertClientes(filasResueltas);
+  // Separa altas (la fila no existe todavía en la base, ver porId recién
+  // leído) de ediciones: solo las primeras se insertan completas, las
+  // segundas se escriben campo por campo (ver dataAccess.upsertClientes) para
+  // no pisar en la base algo que esta sesión nunca supo que había cambiado.
+  const nuevos: Cliente[] = [];
+  const actualizaciones: { anterior: Cliente; patch: ClientePatch }[] = [];
+  for (const patch of parchesResueltos) {
+    const anterior = porId.get(patch.id);
+    if (anterior) actualizaciones.push({ anterior, patch });
+    else nuevos.push(patch as Cliente); // alta nueva: patchDeCliente ya garantiza la fila completa
+  }
+
+  const ok = await dataAccess.upsertClientes(nuevos, actualizaciones);
   // after() (no un .catch() suelto): mismo motivo que insertVentas/insertIngresos
   // (@/lib/dataAccess/ventas, ingresos) — que Vercel mantenga viva la función
   // hasta que termine el envío del WhatsApp de aviso.
   if (ok && cambiosPatente.length) {
     after(() =>
       Promise.all(
-        cambiosPatente.map(({ cliente, patenteAnterior }) =>
-          evaluarReglasPorCambioPatente(cliente, patenteAnterior).catch((error) =>
+        cambiosPatente.map(({ cliente, patenteAnterior }) => {
+          // evaluarReglasPorCambioPatente necesita la ficha completa (nombre,
+          // plan, etc. para evaluar condiciones y armar el mensaje) — `cliente`
+          // acá puede ser un patch parcial, así que se reconstruye mezclando
+          // con `anterior` (recién leído de la base, ver arriba).
+          const completo = { ...porId.get(cliente.id), ...cliente } as Cliente;
+          return evaluarReglasPorCambioPatente(completo, patenteAnterior).catch((error) =>
             console.error("Error evaluando reglas de WhatsApp por cambio de patente", cliente.id, error)
-          )
-        )
+          );
+        })
       )
     );
   }

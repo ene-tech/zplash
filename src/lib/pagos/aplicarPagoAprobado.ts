@@ -76,7 +76,7 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
     await db
       .update(clientes)
       .set({
-        patente: fila.patente,
+        patente: fila.patente ?? anterior.patente,
         patentePendiente: fila.patentePendiente || null,
         patentePendienteDesde: fila.patentePendienteDesde || null,
         vencimiento: addDaysISO(base, 30),
@@ -94,7 +94,7 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
         .update(suscripcionesOneclick)
         .set({ patente: fila.patente, actualizadoEn: new Date().toISOString() })
         .where(eq(suscripcionesOneclick.patente, p.patente));
-      cambioPatente = { cliente: fila, patenteAnterior };
+      cambioPatente = { cliente: { ...anterior, ...fila }, patenteAnterior };
     }
   } else {
     clienteId = uid();

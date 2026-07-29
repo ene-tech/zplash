@@ -1,6 +1,43 @@
-import { deleteClientes, upsertClientes } from "@/lib/db";
-import type { AuditoriaEntrada, Cliente } from "@/types";
-import { auditEntries, diffPorId } from "./shared";
+import { deleteClientes, upsertClientes } from "@/lib/serverActions";
+import { patchDeCliente } from "@/lib/helpers";
+import type { AuditoriaEntrada, Cliente, ClientePatch } from "@/types";
+import { diffPorId } from "./shared";
+
+// Arma las entradas de auditoría a partir de los patches (no de la fila
+// completa, ver patchDeCliente): `datosNuevos` queda con solo los campos que
+// esta sesión realmente cambió. No se reutiliza auditEntries() de ./shared
+// porque esa función asume que `previos` y `cambiados` son del mismo tipo
+// completo T — acá son Cliente[] y ClientePatch[] a propósito.
+function auditEntriesClientes(
+  previos: Cliente[],
+  patches: ClientePatch[],
+  eliminados: string[],
+  usuario: string | null
+): AuditoriaEntrada[] {
+  const prevById = new Map(previos.map((x) => [x.id, x]));
+  const entradas: AuditoriaEntrada[] = patches.map((patch) => {
+    const anterior = prevById.get(patch.id);
+    return {
+      tabla: "clientes",
+      registroId: patch.id,
+      accion: anterior ? "update" : "insert",
+      datosAnteriores: anterior ?? null,
+      datosNuevos: patch,
+      usuario,
+    };
+  });
+  for (const id of eliminados) {
+    entradas.push({
+      tabla: "clientes",
+      registroId: id,
+      accion: "delete",
+      datosAnteriores: prevById.get(id) ?? null,
+      datosNuevos: null,
+      usuario,
+    });
+  }
+  return entradas;
+}
 
 // A diferencia del resto de las entidades (que se disparan todas juntas en
 // el `ops` compartido de commit() y se esperan recién al final con
@@ -23,11 +60,15 @@ export async function commitClientes(
   if (!siguientes) return { ok: true, auditoria: [] };
   try {
     const { cambiados, eliminados } = diffPorId(previous, siguientes);
+    const prevById = new Map(previous.map((c) => [c.id, c]));
+    // Solo los campos que esta sesión realmente cambió respecto a su propia
+    // copia (`prevById`), no la fila completa — ver patchDeCliente.
+    const patches = cambiados.map((c) => patchDeCliente(prevById.get(c.id), c));
     const resultados = await Promise.all([
-      cambiados.length ? upsertClientes(cambiados) : true,
+      patches.length ? upsertClientes(patches) : true,
       eliminados.length ? deleteClientes(eliminados) : true,
     ]);
-    return { ok: resultados.every(Boolean), auditoria: auditEntries("clientes", previous, cambiados, eliminados, usuario) };
+    return { ok: resultados.every(Boolean), auditoria: auditEntriesClientes(previous, patches, eliminados, usuario) };
   } catch (err) {
     // Igual que commitCitas: si el fetch de la Server Action nunca llega al
     // servidor (offline), la promesa rechaza en vez de resolver `false`.

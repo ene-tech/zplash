@@ -31,3 +31,12 @@ export interface Cliente extends DatosFacturacion {
   creadoEn: string;
   creadoPor?: string;
 }
+
+// Patch de un cliente existente: solo los campos que una sesión realmente
+// cambió respecto a su propia copia previa (ver patchDeCliente en
+// @/lib/helpers/clientes), no la fila completa. upsertClientes (@/lib/serverActions y
+// @/lib/dataAccess) escribe en la base únicamente estas columnas — así una
+// sesión con una copia desactualizada nunca pisa un campo que no tocó (ver
+// memoria del caso HERNAN, 2026-07-27). Un Cliente completo también es un
+// ClientePatch válido: es como se representa un alta nueva.
+export type ClientePatch = { id: string } & Partial<Omit<Cliente, "id">>;

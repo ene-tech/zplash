@@ -26,12 +26,14 @@ import {
   montoDescuento,
   normPlate,
   ordenarPerfiles,
+  patchDeCliente,
   planStatus,
   precioReactivacionVencido,
   proximoIngresoPermitido,
   puedeBorrarCategoriaInventario,
   puedeBorrarIngreso,
   resolverDescuento,
+  resolverPatentePendiente,
   sumarMeses,
   vencimientoAnclado,
   ventaLavadoUnicoDeIngreso,
@@ -40,7 +42,7 @@ import {
   visitasUltimos30Dias,
   visitasUltimoPeriodoVencido,
 } from "./helpers";
-import type { ConfigGlobal, Cupon, Ingreso, PerfilPublico, Venta } from "@/types";
+import type { Cliente, ConfigGlobal, Cupon, Ingreso, PerfilPublico, Venta } from "@/types";
 
 describe("normPlate", () => {
   it("pasa a mayúsculas y saca todo lo que no sea letra/número", () => {
@@ -710,5 +712,87 @@ describe("esServicioTunelLibre", () => {
   it("otros Servicios Adicionales (tapiz, alfombra, techo, motor) no dan pasada libre", () => {
     expect(esServicioTunelLibre({ id: "tapiz", categoria: "Servicios Adicionales" })).toBe(false);
     expect(esServicioTunelLibre({ id: "motor", categoria: "Servicios Adicionales" })).toBe(false);
+  });
+});
+
+describe("patchDeCliente", () => {
+  const cliente = (extra: Partial<Cliente> = {}): Cliente => ({
+    id: "c1",
+    nombre: "Juan",
+    patente: "AB1234",
+    telefono: "+56912345678",
+    email: "juan@mail.com",
+    creadoEn: "2026-01-01T00:00:00.000Z",
+    ...extra,
+  });
+
+  it("sin anterior (alta nueva), devuelve la fila completa tal cual", () => {
+    const nuevo = cliente();
+    expect(patchDeCliente(undefined, nuevo)).toBe(nuevo);
+  });
+
+  it("solo incluye los campos que cambiaron respecto a anterior, más id", () => {
+    const anterior = cliente();
+    const siguiente = cliente({ email: "nuevo@mail.com" });
+    expect(patchDeCliente(anterior, siguiente)).toEqual({ id: "c1", email: "nuevo@mail.com" });
+  });
+
+  it("caso HERNAN: una sesión desactualizada que no toca email no lo incluye en el patch", () => {
+    // La sesión leyó al cliente ANTES de que otra sesión le guardara el email
+    // (por eso su copia todavía no lo tiene) y ahora guarda un cambio de otro
+    // tipo (p.ej. "dar ingreso" tocando visitas) — el patch resultante no debe
+    // mencionar `email` en absoluto, para no pisar el valor que la otra
+    // sesión ya guardó.
+    const suCopiaDesactualizada = cliente({ email: undefined, visitas: 3 });
+    const siguiente = cliente({ email: undefined, visitas: 4 });
+    const patch = patchDeCliente(suCopiaDesactualizada, siguiente);
+    expect(patch).toEqual({ id: "c1", visitas: 4 });
+    expect("email" in patch).toBe(false);
+  });
+
+  it("sin ningún campo cambiado, el patch queda solo con id", () => {
+    const anterior = cliente();
+    const siguiente = cliente();
+    expect(patchDeCliente(anterior, siguiente)).toEqual({ id: "c1" });
+  });
+});
+
+describe("resolverPatentePendiente", () => {
+  const anterior = (extra: Partial<Cliente> = {}): Cliente => ({
+    id: "c1",
+    nombre: "Juan",
+    patente: "AB1234",
+    creadoEn: "2026-01-01T00:00:00.000Z",
+    ...extra,
+  });
+
+  it("sin patentePendiente, devuelve la fila (patch) sin tocar nada", () => {
+    const patch = { id: "c1", email: "x@mail.com" };
+    expect(resolverPatentePendiente(anterior(), patch)).toEqual({ fila: patch });
+  });
+
+  it("con patentePendiente pero sin renovación (patch no toca vencimiento), preserva la solicitud pendiente", () => {
+    const conSolicitud = anterior({ vencimiento: "2026-01-10", patentePendiente: "XY9876", patentePendienteDesde: "2026-01-05" });
+    const patch = { id: "c1", email: "x@mail.com" };
+    expect(resolverPatentePendiente(conSolicitud, patch)).toEqual({
+      fila: { id: "c1", email: "x@mail.com", patentePendiente: "XY9876", patentePendienteDesde: "2026-01-05" },
+    });
+  });
+
+  it("renovación real (vencimiento avanza), aplica el swap de patente y limpia la solicitud", () => {
+    const conSolicitud = anterior({ vencimiento: "2026-01-10", patentePendiente: "XY9876", patentePendienteDesde: "2026-01-05" });
+    const patch = { id: "c1", vencimiento: "2026-02-10" };
+    const { fila, patenteAnterior } = resolverPatentePendiente(conSolicitud, patch);
+    expect(fila).toEqual({ id: "c1", vencimiento: "2026-02-10", patente: "XY9876", patentePendiente: null, patentePendienteDesde: null });
+    expect(patenteAnterior).toBe("AB1234");
+  });
+
+  it("un patch parcial que no incluye vencimiento nunca cuenta como renovación", () => {
+    const conSolicitud = anterior({ vencimiento: "2026-01-10", patentePendiente: "XY9876", patentePendienteDesde: "2026-01-05" });
+    const patch = { id: "c1", visitas: 5 };
+    const { fila, patenteAnterior } = resolverPatentePendiente(conSolicitud, patch);
+    expect(patenteAnterior).toBeUndefined();
+    expect(fila.patente).toBeUndefined();
+    expect(fila.patentePendiente).toBe("XY9876");
   });
 });
