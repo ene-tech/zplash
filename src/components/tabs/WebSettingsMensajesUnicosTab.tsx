@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { enviarMensajesMasivosWhatsapp } from "@/lib/db";
+import { enviarMensajesMasivosWhatsapp } from "@/lib/serverActions";
 import { ahoraEnSantiago, aplicarVariables, fmtFecha, planStatus } from "@/lib/helpers";
-import { BadgeAprobadoMeta } from "./WebSettingsWhatsappTab";
+import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
 import type { ResultadoEnvioMasivoWhatsapp } from "@/types";
 
 const FILTROS_ESTADO = ["todos", "Vigente", "Por vencer", "Vencido", "Sin plan"] as const;

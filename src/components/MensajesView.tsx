@@ -6,7 +6,7 @@ import Topbar from "@/components/Topbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { enviarMensajeManual, listarConversaciones, listarMensajes, marcarLeida } from "@/lib/db";
+import { enviarMensajeManual, listarConversaciones, listarMensajes, marcarLeida } from "@/lib/serverActions";
 import { fmtFecha, fmtHora } from "@/lib/helpers";
 import type { ConversacionWhatsapp, MensajeWhatsapp } from "@/types";
 import { MessageCircle, Send } from "lucide-react";
@@ -75,7 +75,7 @@ export default function MensajesView() {
   const enviar = async () => {
     if (!conversacionActual || !texto.trim() || enviando) return;
     setEnviando(true);
-    const ok = await enviarMensajeManual(conversacionActual.telefono, texto);
+    const ok = await enviarMensajeManual(conversacionActual.id, conversacionActual.telefono, texto);
     if (ok) {
       setTexto("");
       const rows = await listarMensajes(conversacionActual.id);

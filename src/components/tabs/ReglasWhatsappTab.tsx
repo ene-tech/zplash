@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { PLANES, uid } from "@/lib/helpers";
 import type { AccionReglaWhatsapp, ReglaWhatsapp, TipoEventoReglaWhatsapp } from "@/types";
-import { BadgeAprobadoMeta } from "./WebSettingsWhatsappTab";
+import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
 
 const TIPOS_VENTA_CONOCIDOS = [
   "Lavado único",

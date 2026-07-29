@@ -21,11 +21,17 @@ export async function marcarLeida(conversacionId: string): Promise<boolean> {
   return true;
 }
 
-export async function enviarMensajeManual(telefono: string, texto: string): Promise<boolean> {
+export async function enviarMensajeManual(conversacionId: string, telefono: string, texto: string): Promise<boolean> {
   if (!(await tieneModulo("mensajes"))) return false;
   const sesion = await sesionActual();
   if (!sesion) return false;
   if (!texto.trim()) return false;
+
+  // Fuera de la ventana de 24h desde el último mensaje entrante, WhatsApp
+  // rechaza texto libre (solo admite plantillas pre-aprobadas) — la UI ya
+  // deshabilita el botón (ver fueraDeVentana24h en MensajesView.tsx), esto es
+  // el backstop server-side para no depender solo de ese chequeo del cliente.
+  if (!(await dataAccess.dentroVentana24h(conversacionId))) return false;
 
   try {
     await enviarMensajeTexto(telefono, texto.trim(), sesion.nombre);
