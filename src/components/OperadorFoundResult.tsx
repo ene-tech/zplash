@@ -21,7 +21,8 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
     <>
       {r.registroIncompleto && (
         <div className="err" style={{ marginBottom: 10 }}>
-          Registro de Cliente Incompleto, corrija la información faltante o inválida para poder dar Ingreso
+          Registro de Cliente Incompleto: completa los datos faltantes arriba y presiona la opción de ingreso o plan
+          que corresponda — se guardarán automáticamente
         </div>
       )}
       <OperadorFoundOfertas {...r} />
@@ -147,24 +148,12 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
               {mensajeBloqueoReingreso(data.ingresos, c.id, r.horasBloqueoReingreso)}
             </div>
-            <button
-              className="btn secondary"
-              style={{ marginTop: 8 }}
-              onClick={r.cobrarLavadoUnico}
-              disabled={r.registroIncompleto}
-              title={r.registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
-            >
+            <button className="btn secondary" style={{ marginTop: 8 }} onClick={r.cobrarLavadoUnico}>
               Comprar lavado por {fmtCLP(r.precioLavadoUnicoFinal)} e ingresar de todas formas
             </button>
           </>
         ) : r.planVigente ? (
-          <button
-            className="btn"
-            style={{ marginTop: 16 }}
-            onClick={r.registrar}
-            disabled={r.registroIncompleto}
-            title={r.registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
-          >
+          <button className="btn" style={{ marginTop: 16 }} onClick={r.registrar}>
             Registrar ingreso
           </button>
         ) : (
@@ -176,13 +165,7 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
               <button className="btn" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.contratarPlan}>
                 Renovar / Contratar plan
               </button>
-              <button
-                className="btn secondary"
-                style={{ marginTop: 0, flex: "1 1 160px" }}
-                onClick={r.registrarPagado}
-                disabled={r.registroIncompleto}
-                title={r.registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
-              >
+              <button className="btn secondary" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.registrarPagado}>
                 Lavado Full Túnel ({fmtCLP(r.precioLavadoUnicoFinal)})
               </button>
             </div>

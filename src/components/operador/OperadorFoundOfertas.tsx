@@ -6,7 +6,6 @@ import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 type Props = Pick<
   ReturnType<typeof useOperadorFoundResult>,
   | "c"
-  | "registroIncompleto"
   | "citaDetailingPendiente"
   | "registrarDetailing"
   | "showOffer"
@@ -47,12 +46,7 @@ export default function OperadorFoundOfertas(props: Props) {
             {c.nombre} tiene un servicio vendido en Servicios Adicionales que incluye pasada por el túnel.
             Regístralo para dejarlo entrar — esto no genera una venta nueva, la venta ya está hecha.
           </div>
-          <button
-            className="btn secondary"
-            onClick={props.registrarDetailing}
-            disabled={props.registroIncompleto}
-            title={props.registroIncompleto ? "Completa el registro del cliente para poder dar ingreso" : undefined}
-          >
+          <button className="btn secondary" onClick={props.registrarDetailing}>
             Registrar ingreso — Servicio de Detailing
           </button>
         </div>

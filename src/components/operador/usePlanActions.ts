@@ -1,7 +1,7 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { registrarIngreso, renovarPlan } from "@/lib/actions";
+import { registrarIngreso, renovarPlan } from "@/lib/logic";
 import { PLANES, precioNormal, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -36,45 +36,45 @@ export function usePlanActions(
     patchUi({ modal: { type: "pago", monto, descripcion, onConfirm } });
   };
 
-  const renovar = () => {
-    pedirPago(pPromo, `Renovación temprana del plan de ${c.nombre} a precio preferencial`, async (pago) => {
-      const patch = renovarPlan(data, c, ui.perfilActual?.nombre, pPromo, pago);
+  const renovar = (cliente: Cliente = c) => {
+    pedirPago(pPromo, `Renovación temprana del plan de ${cliente.nombre} a precio preferencial`, async (pago) => {
+      const patch = renovarPlan(data, cliente, ui.perfilActual?.nombre, pPromo, pago);
       const ok = await commit(patch);
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
         return;
       }
       setGuardarErr("");
-      const updated = patch.clientes?.find((x) => x.id === c.id);
+      const updated = patch.clientes?.find((x) => x.id === cliente.id);
       if (updated) updateResult(updated);
     });
   };
 
-  const reactivar = () => {
+  const reactivar = (cliente: Cliente = c) => {
     if (precioReactivacion === undefined) return;
-    pedirPago(precioReactivacion, `Reactivación promocional del plan de ${c.nombre} a precio preferencial`, async (pago) => {
-      const patch = renovarPlan(data, c, ui.perfilActual?.nombre, precioReactivacion, pago, "Reactivación promocional");
+    pedirPago(precioReactivacion, `Reactivación promocional del plan de ${cliente.nombre} a precio preferencial`, async (pago) => {
+      const patch = renovarPlan(data, cliente, ui.perfilActual?.nombre, precioReactivacion, pago, "Reactivación promocional");
       const ok = await commit(patch);
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
         return;
       }
       setGuardarErr("");
-      const updated = patch.clientes?.find((x) => x.id === c.id);
+      const updated = patch.clientes?.find((x) => x.id === cliente.id);
       if (updated) updateResult(updated);
     });
   };
 
-  const renovarWeb = () => {
-    pedirPago(precioOfertaWeb, `Renovación de plan Web para ${c.nombre} (${c.patente})`, async (pago) => {
-      const nuevoVencimiento = vencimientoAnclado(c.fechaContratacion || c.vencimiento);
-      const updated: Cliente = { ...c, vencimiento: nuevoVencimiento, ultimaRenovacion: new Date().toISOString() };
+  const renovarWeb = (cliente: Cliente = c) => {
+    pedirPago(precioOfertaWeb, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
+      const nuevoVencimiento = vencimientoAnclado(cliente.fechaContratacion || cliente.vencimiento);
+      const updated: Cliente = { ...cliente, vencimiento: nuevoVencimiento, ultimaRenovacion: new Date().toISOString() };
       const venta: Venta = {
         id: "v" + Date.now(),
-        clienteId: c.id,
-        patente: c.patente,
-        nombre: c.nombre,
-        plan: c.plan || PLANES[0],
+        clienteId: cliente.id,
+        patente: cliente.patente,
+        nombre: cliente.nombre,
+        plan: cliente.plan || PLANES[0],
         precio: precioOfertaWeb,
         tipo: "Renovación Web (manual)",
         fecha: new Date().toISOString(),
@@ -83,7 +83,7 @@ export function usePlanActions(
         voucher: pago.voucher,
       };
       const ok = await commit({
-        clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
+        clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)),
         ventas: [venta, ...data.ventas],
       });
       if (!ok) {
@@ -95,16 +95,16 @@ export function usePlanActions(
     });
   };
 
-  const contratarPlan = () => {
-    const plan = c.plan || PLANES[0];
+  const contratarPlan = (cliente: Cliente = c) => {
+    const plan = cliente.plan || PLANES[0];
     const precio = precioNormal(data.precios, plan);
-    pedirPago(precio, `Contratación de plan (${plan}) para ${c.nombre}`, async (pago) => {
-      const updated = { ...c, vencimiento: vencimientoPorDefectoISO(), plan };
+    pedirPago(precio, `Contratación de plan (${plan}) para ${cliente.nombre}`, async (pago) => {
+      const updated = { ...cliente, vencimiento: vencimientoPorDefectoISO(), plan };
       const venta: Venta = {
         id: "v" + Date.now(),
-        clienteId: c.id,
-        patente: c.patente,
-        nombre: c.nombre,
+        clienteId: cliente.id,
+        patente: cliente.patente,
+        nombre: cliente.nombre,
         plan,
         precio,
         tipo: "Plan nuevo",
@@ -114,7 +114,7 @@ export function usePlanActions(
         voucher: pago.voucher,
       };
       const ok = await commit({
-        clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
+        clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)),
         ventas: [venta, ...data.ventas],
       });
       if (!ok) {
@@ -139,7 +139,7 @@ export function usePlanActions(
   // transcurrido dentro de la ventana de la promoción (ver
   // ConfigGlobal.horasVentanaUpgradePlan) — eso es un dato del plan, no un
   // monto de caja, así que no tiene el mismo problema.
-  const upgradeAPlan = () => {
+  const upgradeAPlan = (cliente: Cliente = c) => {
     if (!ventaUpgrade) return;
     const plan = PLANES[0];
     // Si el upgrade se hace el mismo día del lavado único original, el
@@ -149,13 +149,13 @@ export function usePlanActions(
     // varios días, ver ConfigGlobal.horasVentanaUpgradePlan), el cliente está
     // volviendo a pasar físicamente hoy y sí corresponde un Ingreso nuevo.
     const distintoDia = new Date(ventaUpgrade.fecha).toDateString() !== new Date().toDateString();
-    pedirPago(precioUpgrade, `Upgrade a ${plan} para ${c.nombre} (adicional al lavado ya pagado)`, async (pago) => {
-      const updated = { ...c, plan, vencimiento: vencimientoPorDefectoISO(new Date(ventaUpgrade.fecha)) };
+    pedirPago(precioUpgrade, `Upgrade a ${plan} para ${cliente.nombre} (adicional al lavado ya pagado)`, async (pago) => {
+      const updated = { ...cliente, plan, vencimiento: vencimientoPorDefectoISO(new Date(ventaUpgrade.fecha)) };
       const ventaAdicional: Venta = {
         id: "v" + Date.now(),
-        clienteId: c.id,
-        patente: c.patente,
-        nombre: c.nombre,
+        clienteId: cliente.id,
+        patente: cliente.patente,
+        nombre: cliente.nombre,
         plan,
         precio: precioUpgrade,
         tipo: "Plan nuevo",
@@ -166,7 +166,7 @@ export function usePlanActions(
       };
       const patchIngreso = distintoDia ? registrarIngreso(data, updated, ui.perfilActual?.nombre) : {};
       const ok = await commit({
-        clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)),
+        clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)),
         ventas: [ventaAdicional, ...data.ventas],
         ...patchIngreso,
       });

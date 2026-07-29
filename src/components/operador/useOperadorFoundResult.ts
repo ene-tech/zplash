@@ -149,6 +149,31 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   });
   const ficha = useFichaClienteActions(c, refs, setGuardarErr, updateResult);
 
+  // Envuelve una acción de ingreso/plan para que, si el registro está
+  // incompleto, primero intente completarlo y guardarlo con lo que el
+  // operador ya dejó tipeado en los inputs de la ficha (ver
+  // resolverFichaPendiente): así no hace falta tocar el botón "Guardar" de
+  // cada campo antes de poder dar ingreso o vender un plan — basta con
+  // completar los datos y tocar directamente la opción deseada (por ejemplo
+  // "Lavado Full Túnel ($9.990)"). Si tras eso los datos siguen incompletos
+  // o inválidos, se corta acá y se muestra el error en vez de intentar la
+  // acción con un cliente sin los datos requeridos.
+  const conFichaCompleta = <A extends unknown[]>(accion: (cliente: Cliente, ...args: A) => void | Promise<void>) => {
+    return async (...args: A) => {
+      if (!registroIncompleto) {
+        await accion(c, ...args);
+        return;
+      }
+      const resultado = await ficha.resolverFichaPendiente(exentoValidacion);
+      if (!resultado.ok) {
+        setGuardarErr(resultado.error);
+        return;
+      }
+      setGuardarErr("");
+      await accion(resultado.cliente, ...args);
+    };
+  };
+
   return {
     c,
     st,
@@ -175,5 +200,14 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     ...ingreso,
     ...plan,
     ...ficha,
+    registrar: conFichaCompleta(ingreso.registrar),
+    registrarPagado: conFichaCompleta(ingreso.registrarPagado),
+    cobrarLavadoUnico: conFichaCompleta(ingreso.cobrarLavadoUnico),
+    registrarDetailing: conFichaCompleta(ingreso.registrarDetailing),
+    contratarPlan: conFichaCompleta(plan.contratarPlan),
+    renovar: conFichaCompleta(plan.renovar),
+    reactivar: conFichaCompleta(plan.reactivar),
+    renovarWeb: conFichaCompleta(plan.renovarWeb),
+    upgradeAPlan: conFichaCompleta(plan.upgradeAPlan),
   };
 }
