@@ -1,6 +1,7 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
+import { diagnosticoPushGerencia, type DiagnosticoPushGerencia } from "@/lib/push/enviar";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
 import type { ConversacionWhatsapp, MensajeWhatsapp } from "@/types";
@@ -40,4 +41,20 @@ export async function enviarMensajeManual(conversacionId: string, telefono: stri
     console.error("Error enviando mensaje manual de WhatsApp", error);
     return false;
   }
+}
+
+// Botón "Probar notificación" en MensajesView (solo perfil Gerencia) — corre
+// el mismo camino que dispara el bot al recibir OPCIONES_HUMANO, pero desde
+// una Server Action invocada a mano, para diagnosticar en qué paso se corta
+// el aviso (VAPID sin configurar en el deploy, Gerencia sin suscripción,
+// webpush rechazado) sin depender de mirar los logs de Vercel.
+export async function probarPushGerencia(): Promise<DiagnosticoPushGerencia> {
+  if (!(await tieneModulo("mensajes"))) {
+    return { vapidConfigurado: false, gerenciaExiste: false, suscripciones: 0, entregadoAlMenosUna: false };
+  }
+  return diagnosticoPushGerencia({
+    title: "Prueba de notificaciones",
+    body: "Si ves esto, las notificaciones de ZPlash funcionan en producción.",
+    url: "/",
+  });
 }

@@ -72,6 +72,42 @@ export async function enviarPush(clienteId: string, payload: PayloadPush): Promi
   );
 }
 
+export type DiagnosticoPushGerencia = {
+  vapidConfigurado: boolean;
+  gerenciaExiste: boolean;
+  suscripciones: number;
+  entregadoAlMenosUna: boolean;
+};
+
+// Misma lógica que antes tenía enviarPushAGerencia, pero exponiendo en qué
+// paso se quedó corto en vez de un solo booleano — se agregó porque el
+// bot marcaba solicitaHumano correctamente pero el aviso nunca llegaba y no
+// había forma de distinguir "Vercel sin VAPID configurado" de "Gerencia sin
+// suscripción" de "webpush.sendNotification rechazado" sin mirar los logs
+// de Vercel a mano. La usa tanto enviarPushAGerencia como el botón "Probar
+// notificación" de MensajesView (ver probarPushGerencia en
+// @/lib/serverActions/mensajes), este último llamado por Gerencia misma para
+// autodiagnosticar su propio dispositivo.
+export async function diagnosticoPushGerencia(payload: PayloadPush): Promise<DiagnosticoPushGerencia> {
+  if (!vapidConfigurado()) return { vapidConfigurado: false, gerenciaExiste: false, suscripciones: 0, entregadoAlMenosUna: false };
+  configurarVapid();
+
+  const db = getDb();
+  const [gerencia] = await db.select({ id: perfiles.id }).from(perfiles).where(eq(perfiles.nombre, "Gerencia")).limit(1);
+  if (!gerencia) return { vapidConfigurado: true, gerenciaExiste: false, suscripciones: 0, entregadoAlMenosUna: false };
+
+  const suscripciones = await db.select().from(pushSubscripcionesPerfil).where(eq(pushSubscripcionesPerfil.perfilId, gerencia.id));
+  if (!suscripciones.length) return { vapidConfigurado: true, gerenciaExiste: true, suscripciones: 0, entregadoAlMenosUna: false };
+
+  const entregadoAlMenosUna = await despacharPush(
+    suscripciones,
+    payload,
+    (id) => db.update(pushSubscripcionesPerfil).set({ ultimoEnvioEn: new Date().toISOString() }).where(eq(pushSubscripcionesPerfil.id, id)),
+    (id) => db.delete(pushSubscripcionesPerfil).where(eq(pushSubscripcionesPerfil.id, id))
+  );
+  return { vapidConfigurado: true, gerenciaExiste: true, suscripciones: suscripciones.length, entregadoAlMenosUna };
+}
+
 // Avisa al perfil de staff "Gerencia" (ver PERFILES_DEFAULT en
 // @/lib/helpers/perfiles, único con ese nombre por el unique de
 // perfiles.nombre) — hoy solo lo dispara OPCIONES_HUMANO en
@@ -80,20 +116,5 @@ export async function enviarPush(clienteId: string, payload: PayloadPush): Promi
 // configurado, o no tiene ningún dispositivo suscrito — el bot igual sigue
 // respondiendo al cliente aunque el aviso no llegue a nadie.
 export async function enviarPushAGerencia(payload: PayloadPush): Promise<boolean> {
-  if (!vapidConfigurado()) return false;
-  configurarVapid();
-
-  const db = getDb();
-  const [gerencia] = await db.select({ id: perfiles.id }).from(perfiles).where(eq(perfiles.nombre, "Gerencia")).limit(1);
-  if (!gerencia) return false;
-
-  const suscripciones = await db.select().from(pushSubscripcionesPerfil).where(eq(pushSubscripcionesPerfil.perfilId, gerencia.id));
-  if (!suscripciones.length) return false;
-
-  return despacharPush(
-    suscripciones,
-    payload,
-    (id) => db.update(pushSubscripcionesPerfil).set({ ultimoEnvioEn: new Date().toISOString() }).where(eq(pushSubscripcionesPerfil.id, id)),
-    (id) => db.delete(pushSubscripcionesPerfil).where(eq(pushSubscripcionesPerfil.id, id))
-  );
+  return (await diagnosticoPushGerencia(payload)).entregadoAlMenosUna;
 }

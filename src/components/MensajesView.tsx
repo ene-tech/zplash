@@ -6,11 +6,19 @@ import Topbar from "@/components/Topbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { enviarMensajeManual, listarConversaciones, listarMensajes, marcarLeida } from "@/lib/serverActions";
+import { enviarMensajeManual, listarConversaciones, listarMensajes, marcarLeida, probarPushGerencia } from "@/lib/serverActions";
 import { fmtFecha, fmtHora } from "@/lib/helpers";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import type { ConversacionWhatsapp, MensajeWhatsapp } from "@/types";
 import { ArrowLeft, Bell, MessageCircle, Send } from "lucide-react";
+
+function textoDiagnosticoPush(diag: Awaited<ReturnType<typeof probarPushGerencia>>): string {
+  if (!diag.vapidConfigurado) return "Falta configurar VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY en Vercel (producción).";
+  if (!diag.gerenciaExiste) return "No existe un perfil llamado exactamente \"Gerencia\" en la base de datos.";
+  if (!diag.suscripciones) return "Gerencia no tiene ningún dispositivo con notificaciones activas todavía.";
+  if (!diag.entregadoAlMenosUna) return "Se intentó enviar pero ningún dispositivo lo recibió (revisa los logs de Vercel).";
+  return "Enviado — revisa si te llegó la notificación en este dispositivo.";
+}
 
 const INTERVALO_POLL_MS = 10000;
 const VENTANA_24H_MS = 24 * 60 * 60 * 1000;
@@ -25,6 +33,8 @@ export default function MensajesView() {
   const { data, ui, patchUi, logout } = useApp();
   const esGerencia = ui.perfilActual?.nombre === "Gerencia";
   const { estado: estadoPush, activar: activarPush } = usePushSubscription("/api/perfiles/push/suscribir");
+  const [probandoPush, setProbandoPush] = useState(false);
+  const [resultadoPrueba, setResultadoPrueba] = useState<string | null>(null);
   const [conversaciones, setConversaciones] = useState<ConversacionWhatsapp[]>([]);
   const [seleccionada, setSeleccionada] = useState<string | null>(null);
   const [mensajes, setMensajes] = useState<MensajeWhatsapp[]>([]);
@@ -87,6 +97,14 @@ export default function MensajesView() {
     setEnviando(false);
   };
 
+  const probarPush = async () => {
+    setProbandoPush(true);
+    setResultadoPrueba(null);
+    const diag = await probarPushGerencia();
+    setResultadoPrueba(textoDiagnosticoPush(diag));
+    setProbandoPush(false);
+  };
+
   return (
     <>
       <Topbar mode={`Mensajes WhatsApp · ${ui.perfilActual?.nombre || ""}`} onLogout={() => logout()} onBack={() => patchUi({ view: "hub" })} />
@@ -100,6 +118,17 @@ export default function MensajesView() {
             </span>
             <Button variant="outline" size="sm" onClick={activarPush}>
               Activar notificaciones
+            </Button>
+          </div>
+        )}
+        {esGerencia && estadoPush === "activo" && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Bell size={16} />
+              {resultadoPrueba || "Notificaciones activas en este dispositivo."}
+            </span>
+            <Button variant="outline" size="sm" onClick={probarPush} disabled={probandoPush}>
+              {probandoPush ? "Probando..." : "Probar notificación"}
             </Button>
           </div>
         )}
@@ -156,7 +185,15 @@ export default function MensajesView() {
                     <div className="truncate font-medium">{clienteActual?.nombre || conversacionActual.nombreContacto || conversacionActual.telefono}</div>
                     <div className="truncate text-xs text-muted-foreground">
                       {clienteActual?.patente ? `${clienteActual.patente} · ` : ""}
-                      {conversacionActual.telefono}
+                      <a
+                        href={`https://wa.me/${conversacionActual.telefono.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-dotted hover:text-foreground"
+                        title="Abrir chat en WhatsApp Business"
+                      >
+                        {conversacionActual.telefono}
+                      </a>
                     </div>
                   </div>
                 </div>
