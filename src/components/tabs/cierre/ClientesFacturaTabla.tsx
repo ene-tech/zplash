@@ -1,12 +1,13 @@
 "use client";
 
 import { fmtCLP, inRange, planStatus } from "@/lib/helpers";
-import type { Cliente, Ingreso, Venta } from "@/types";
+import { montoAFacturar } from "@/lib/logic";
+import type { Cliente, Precios, Venta } from "@/types";
 
 export function ClientesFacturaTabla({
   facturaFiltrados,
-  ingresos,
   ventas,
+  precios,
   desde,
   hasta,
   facturaSearch,
@@ -14,8 +15,8 @@ export function ClientesFacturaTabla({
   onDescargar,
 }: {
   facturaFiltrados: Cliente[];
-  ingresos: Ingreso[];
   ventas: Venta[];
+  precios: Precios;
   desde: string;
   hasta: string;
   facturaSearch: string;
@@ -45,21 +46,19 @@ export function ClientesFacturaTabla({
             <th>Giro</th>
             <th>Dirección</th>
             <th>Email</th>
-            <th>Ingresos período</th>
-            <th>Planes período</th>
             <th>Estado plan</th>
+            <th>Monto a facturar</th>
           </tr>
         </thead>
         <tbody>
           {facturaFiltrados.length === 0 ? (
             <tr>
-              <td colSpan={10}>
+              <td colSpan={9}>
                 <div className="empty">No hay clientes con Factura{facturaSearch ? " que coincidan con la búsqueda" : ""}</div>
               </td>
             </tr>
           ) : (
             facturaFiltrados.map((c) => {
-              const ingPeriodo = ingresos.filter((i) => i.clienteId === c.id && inRange(i.fecha, desde, hasta)).length;
               const ventPeriodo = ventas.filter((v) => v.clienteId === c.id && inRange(v.fecha, desde, hasta));
               const montoVentas = ventPeriodo.reduce((s, v) => s + (v.precio || 0), 0);
               const st = planStatus(c);
@@ -72,14 +71,10 @@ export function ClientesFacturaTabla({
                   <td>{c.giro || "-"}</td>
                   <td>{c.direccion || "-"}</td>
                   <td>{c.email || "-"}</td>
-                  <td>{ingPeriodo}</td>
-                  <td>
-                    {ventPeriodo.length}
-                    {ventPeriodo.length ? " · " + fmtCLP(montoVentas) : ""}
-                  </td>
                   <td>
                     <span className={`status-pill ${st.cls}`}>{st.label}</span>
                   </td>
+                  <td>{fmtCLP(montoAFacturar(c, montoVentas, precios))}</td>
                 </tr>
               );
             })

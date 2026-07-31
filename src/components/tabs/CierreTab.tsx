@@ -103,8 +103,8 @@ export default function CierreTab() {
 
       <ClientesFacturaTabla
         facturaFiltrados={r.facturaFiltrados}
-        ingresos={r.ingresos}
         ventas={r.ventas}
+        precios={r.data.precios}
         desde={r.desde}
         hasta={r.hasta}
         facturaSearch={r.ui.facturaSearch || ""}

@@ -1,5 +1,5 @@
 import type { AppData, Cliente } from "@/types";
-import { esTarjetaWeb, planStatus } from "@/lib/helpers";
+import { esTarjetaWeb, PLANES, planStatus, precioNormal } from "@/lib/helpers";
 
 function inRangeLocal(iso: string | null | undefined, desde: string, hasta: string): boolean {
   if (!iso) return false;
@@ -95,6 +95,19 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
   });
 }
 
+// Monto a facturar a un cliente: si tuvo ventas en el período, esa suma (caso
+// de clientes que facturan por visita/lavado único). Si no tuvo ninguna pero
+// su plan sigue Vigente o Por vencer, el precio del plan (caso de empresas
+// con flota en Plan Ilimitado Mensual, que se factura mes a mes aunque el
+// ciclo de renovación no haya caído dentro del período seleccionado). Sin
+// ventas y sin plan activo, no hay nada que facturar.
+export function montoAFacturar(c: Cliente, montoVentas: number, precios: AppData["precios"]): number {
+  if (montoVentas > 0) return montoVentas;
+  const st = planStatus(c);
+  if (st.label !== "Vigente" && st.label !== "Por vencer") return 0;
+  return precioNormal(precios, c.plan || PLANES[0]);
+}
+
 export function descargarFacturables(data: AppData, listaClientes: Cliente[], desde: string, hasta: string) {
   const filas = listaClientes.map((c) => {
     const ingPeriodo = data.ingresos.filter((i) => i.clienteId === c.id && inRangeLocal(i.fecha, desde, hasta)).length;
@@ -114,6 +127,7 @@ export function descargarFacturables(data: AppData, listaClientes: Cliente[], de
       "Planes vendidos en el período": ventPeriodo.length,
       "Monto planes período": montoVentas,
       "Estado plan actual": st.label,
+      "Monto a facturar": montoAFacturar(c, montoVentas, data.precios),
     };
   });
   import("xlsx").then((XLSX) => {
@@ -137,6 +151,7 @@ export function descargarFacturables(data: AppData, listaClientes: Cliente[], de
                 "Planes vendidos en el período": "",
                 "Monto planes período": "",
                 "Estado plan actual": "",
+                "Monto a facturar": "",
               },
             ]
       ),
