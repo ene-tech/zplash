@@ -35,7 +35,11 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
                     right={
                       <>
                         <div className="font-medium">{valorCupon(c)}</div>
-                        <div className="text-muted-foreground">Vence {new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}</div>
+                        <div className="text-muted-foreground">
+                          {c.usado && c.fechaUso
+                            ? `Usado ${new Date(c.fechaUso).toLocaleDateString("es-CL")}`
+                            : `Vence ${new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}`}
+                        </div>
                       </>
                     }
                   />
@@ -58,13 +62,14 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
               <TableHead>Caducidad</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Patente</TableHead>
+              <TableHead>Fecha de uso</TableHead>
               <TableHead className="sticky right-0 z-10 w-0 bg-background" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtrados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9}>
+                <TableCell colSpan={10}>
                   <div className="empty">Sin cupones</div>
                 </TableCell>
               </TableRow>
@@ -85,6 +90,7 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
                       <span className={`status-pill ${est.cls}`}>{est.label}</span>
                     </TableCell>
                     <TableCell>{c.patenteUso || c.patenteAsignada || (c.tipo === "descuento" ? "Abierto" : "-")}</TableCell>
+                    <TableCell>{c.usado && c.fechaUso ? new Date(c.fechaUso).toLocaleDateString("es-CL") : "-"}</TableCell>
                     <TableCell className="sticky right-0 z-10 bg-background">
                       {!c.usado && (
                         <Button
