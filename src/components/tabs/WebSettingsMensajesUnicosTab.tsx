@@ -3,8 +3,10 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { enviarMensajesMasivosWhatsapp } from "@/lib/serverActions";
-import { ahoraEnSantiago, aplicarVariables, fmtFecha, planStatus } from "@/lib/helpers";
+import { aplicarVariables, fmtFecha } from "@/lib/helpers";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
+import { ClientesSeleccionablesList } from "./mensajesUnicos/ClientesSeleccionablesList";
+import { filtrarClientesMensajeMasivo } from "./mensajesUnicos/filtrarClientesMensajeMasivo";
 import type { ResultadoEnvioMasivoWhatsapp } from "@/types";
 
 const FILTROS_ESTADO = ["todos", "Vigente", "Por vencer", "Vencido", "Sin plan"] as const;
@@ -12,18 +14,6 @@ type FiltroEstado = (typeof FILTROS_ESTADO)[number];
 
 const FILTROS_ORIGEN = ["todos", "WEB", "LOCAL"] as const;
 type FiltroOrigen = (typeof FILTROS_ORIGEN)[number];
-
-/** Días transcurridos entre `fechaISO` y hoy, anclado a medianoche en Chile
- * (mismo criterio que planStatus) — para los filtros de "conducta de compra"
- * (inactividad, antigüedad), que deben dar el mismo resultado sin importar la
- * hora del día en que se filtre. */
-function diasDesde(fechaISO: string): number {
-  const hoy = ahoraEnSantiago();
-  hoy.setHours(0, 0, 0, 0);
-  const fecha = new Date(fechaISO);
-  fecha.setHours(0, 0, 0, 0);
-  return Math.round((hoy.getTime() - fecha.getTime()) / 86400000);
-}
 
 export default function WebSettingsMensajesUnicosTab() {
   const { data, patchUi } = useApp();
@@ -44,23 +34,10 @@ export default function WebSettingsMensajesUnicosTab() {
 
   const plantilla = data.plantillasWhatsapp.find((p) => p.id === plantillaId);
 
-  const candidatos = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
-    return data.clientes.filter((c) => {
-      if (filtroEstado !== "todos" && planStatus(c).label !== filtroEstado) return false;
-      if (filtroOrigen !== "todos" && (c.origen || "LOCAL") !== filtroOrigen) return false;
-      if (visitasMin && (c.visitas || 0) < Number(visitasMin)) return false;
-      if (visitasMax && (c.visitas || 0) > Number(visitasMax)) return false;
-      // Sin ultimaVisita (nunca ha venido) cuenta como "siempre inactivo" —
-      // cualquier mínimo de días exigido lo deja adentro.
-      if (inactivoDiasMin && c.ultimaVisita && diasDesde(c.ultimaVisita) < Number(inactivoDiasMin)) return false;
-      if (clienteDesdeDiasMin) {
-        if (!c.fechaContratacion || diasDesde(c.fechaContratacion) < Number(clienteDesdeDiasMin)) return false;
-      }
-      if (q && !c.nombre.toLowerCase().includes(q) && !c.patente.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [data.clientes, filtroEstado, filtroOrigen, visitasMin, visitasMax, inactivoDiasMin, clienteDesdeDiasMin, busqueda]);
+  const candidatos = useMemo(
+    () => filtrarClientesMensajeMasivo(data.clientes, { filtroEstado, filtroOrigen, visitasMin, visitasMax, inactivoDiasMin, clienteDesdeDiasMin, busqueda }),
+    [data.clientes, filtroEstado, filtroOrigen, visitasMin, visitasMax, inactivoDiasMin, clienteDesdeDiasMin, busqueda]
+  );
 
   const seleccionables = candidatos.filter((c) => c.telefono);
   const sinTelefono = candidatos.length - seleccionables.length;
@@ -222,45 +199,7 @@ export default function WebSettingsMensajesUnicosTab() {
           </button>
         </div>
 
-        <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8, padding: 8, marginBottom: 14 }}>
-          {candidatos.length === 0 && (
-            <div className="hint" style={{ textAlign: "left", color: "var(--gray)" }}>
-              Ningún cliente coincide con el filtro elegido.
-            </div>
-          )}
-          {candidatos.map((c) => {
-            const sinTel = !c.telefono;
-            return (
-              <label
-                key={c.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontWeight: 400,
-                  padding: "4px 2px",
-                  opacity: sinTel ? 0.5 : 1,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  disabled={sinTel}
-                  checked={!sinTel && !excluidos.has(c.id)}
-                  onChange={() => toggleCliente(c.id)}
-                />
-                <span style={{ flex: 1 }}>
-                  {c.nombre} · {c.patente} {c.plan ? `· ${c.plan}` : ""}
-                  {" · "}
-                  {c.visitas || 0} pasada{c.visitas === 1 ? "" : "s"}
-                  {c.ultimaVisita ? ` · última visita ${fmtFecha(c.ultimaVisita)}` : " · nunca ha venido"}
-                </span>
-                <span className="hint" style={{ margin: 0, fontSize: 12, color: "var(--gray)" }}>
-                  {sinTel ? "Sin teléfono" : planStatus(c).label}
-                </span>
-              </label>
-            );
-          })}
-        </div>
+        <ClientesSeleccionablesList candidatos={candidatos} excluidos={excluidos} onToggle={toggleCliente} />
 
         <div className="field" style={{ marginBottom: 10 }}>
           <label>Plantilla de WhatsApp a enviar</label>
