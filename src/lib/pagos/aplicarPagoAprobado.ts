@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
-import { PLANES, movimientoContableDesdeVenta, resolverPatentePendiente, uid } from "@/lib/helpers";
+import { PLANES, movimientoContableDesdeVenta, resolverPatentePendiente, uid, vencimientoAnclado } from "@/lib/helpers";
 import { evaluarReglasPorCambioPatente, evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Cliente, Venta } from "@/types";
 
@@ -65,21 +65,30 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
     }
   } else if (existente) {
     const vencActual = existente.vencimiento ? new Date(existente.vencimiento) : null;
-    const base = vencActual && vencActual > new Date() ? vencActual.toISOString() : new Date().toISOString();
+    // Si el plan sigue vigente, se apila un ciclo más desde ahí. Si ya venció
+    // (ej. el cron de Oneclick corrió atrasado, o Transbank aprobó un reintento
+    // varios días después), el nuevo vencimiento se ancla a fechaContratacion
+    // (vencimientoAnclado) en vez de reiniciar el ciclo desde "ahora" — la
+    // vigencia de un plan Web es siempre la fecha de contratación, nunca la
+    // del pago, aunque este llegue tarde. Mismo criterio que usePlanActions::
+    // renovarWeb (renovación manual de un cliente Web con cobro automático
+    // fallido).
+    const nuevoVencimiento =
+      vencActual && vencActual > new Date() ? addDaysISO(vencActual.toISOString(), 30) : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
     clienteId = existente.id;
     const anterior = clienteFromRow(existente);
     // Resuelve un cambio de patente pendiente (ver clientes.patente_pendiente,
     // solicitado desde el módulo Clientes) — este es el único sitio de
     // renovación que NO pasa por dataAccess/clientes.ts::upsertClientes (ver
     // mismo tratamiento ahí), así que hay que replicar la resolución acá.
-    const { fila, patenteAnterior } = resolverPatentePendiente(anterior, { ...anterior, vencimiento: addDaysISO(base, 30) });
+    const { fila, patenteAnterior } = resolverPatentePendiente(anterior, { ...anterior, vencimiento: nuevoVencimiento });
     await db
       .update(clientes)
       .set({
         patente: fila.patente ?? anterior.patente,
         patentePendiente: fila.patentePendiente || null,
         patentePendienteDesde: fila.patentePendienteDesde || null,
-        vencimiento: addDaysISO(base, 30),
+        vencimiento: nuevoVencimiento,
         plan: existente.plan || PLANES[0],
         origen: "WEB",
       })
