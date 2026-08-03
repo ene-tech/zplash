@@ -42,6 +42,7 @@ export function ventaToRow(v: Venta): typeof ventas.$inferInsert {
     email: v.email || null,
     viaCupon: v.viaCupon || false,
     cuponCodigo: v.cuponCodigo || null,
+    facturaEmitida: v.facturaEmitida || false,
   };
 }
 
@@ -74,6 +75,7 @@ export function ventaFromRow(r: VentaRow): Venta {
     email: r.email || undefined,
     viaCupon: r.viaCupon || undefined,
     cuponCodigo: r.cuponCodigo || undefined,
+    facturaEmitida: r.facturaEmitida || undefined,
   };
 }
 

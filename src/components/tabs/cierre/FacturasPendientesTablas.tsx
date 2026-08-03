@@ -3,13 +3,9 @@
 import { fmtCLP } from "@/lib/helpers";
 import type { useCierreData } from "./useCierreData";
 
-type Props = Pick<ReturnType<typeof useCierreData>, "facturaPendientesPeriodo" | "facturasEmpresaPeriodo">;
+type Props = Pick<ReturnType<typeof useCierreData>, "facturaPendientesPeriodo" | "facturasEmpresaPeriodo" | "marcarEmitida">;
 
-// "Clientes esperando documento tributario" (facturas por emitir a
-// clientes existentes) y "Facturas pendientes — Venta Empresa" (lotes de
-// cupón vendidos con Factura): dos listas de pendientes de facturación,
-// ninguna se muestra si no hay filas.
-export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmpresaPeriodo }: Props) {
+export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmpresaPeriodo, marcarEmitida }: Props) {
   return (
     <>
       {facturaPendientesPeriodo.length > 0 && (
@@ -18,21 +14,35 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
           <table style={{ marginBottom: 24 }}>
             <thead>
               <tr>
-                <th>Patente</th>
-                <th>Cliente</th>
                 <th>Razón Social</th>
                 <th>RUT</th>
-                <th>Monto período</th>
+                <th>Detalle</th>
+                <th>Monto total</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {facturaPendientesPeriodo.map(({ cliente: c, monto }) => (
-                <tr key={c.id}>
-                  <td className="plate-tag">{c.patente}</td>
-                  <td>{c.nombre}</td>
-                  <td>{c.razonSocial || "-"}</td>
-                  <td>{c.rut || "-"}</td>
-                  <td>{fmtCLP(monto)}</td>
+              {facturaPendientesPeriodo.map((grupo) => (
+                <tr key={grupo.rut || grupo.razonSocial}>
+                  <td>{grupo.razonSocial || "-"}</td>
+                  <td>{grupo.rut || "-"}</td>
+                  <td>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {grupo.clientes.map(({ cliente: c, monto }) => (
+                        <span key={c.id} style={{ fontSize: 13 }}>
+                          <span className="plate-tag" style={{ marginRight: 6 }}>{c.patente}</span>
+                          {c.nombre && <span style={{ marginRight: 6 }}>{c.nombre}</span>}
+                          {fmtCLP(monto)}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td style={{ fontWeight: 600 }}>{fmtCLP(grupo.montoTotal)}</td>
+                  <td>
+                    <button className="btn ghost" onClick={() => marcarEmitida(grupo.ventaIdsTotal)}>
+                      Factura emitida
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -52,6 +62,7 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                 <th>Dirección</th>
                 <th>Giro</th>
                 <th>Monto</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -63,6 +74,11 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                   <td>{v.direccion || "-"}</td>
                   <td>{v.giro || "-"}</td>
                   <td>{fmtCLP(v.precio)}</td>
+                  <td>
+                    <button className="btn ghost" onClick={() => marcarEmitida([v.id])}>
+                      Factura emitida
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

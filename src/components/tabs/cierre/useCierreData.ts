@@ -62,7 +62,7 @@ export function desglosePagoContables(items: MovimientoContable[]) {
 // pendientes, servicios adicionales e ingresos — todo lo que las tablas de
 // CierreTab necesitan, ya filtrado/agrupado.
 export function useCierreData() {
-  const { data, ui, patchUi } = useApp();
+  const { data, ui, patchUi, commit } = useApp();
   const desde = ui.cierreDesde || todayYMD();
   const hasta = ui.cierreHasta || todayYMD();
   const { ingresos, clientes, ventas, movimientosContables } = data;
@@ -204,17 +204,42 @@ export function useCierreData() {
   const totalCantidadMetodosPago = metodosPago.reduce((s, m) => s + m.cantidad, 0);
   const totalMontoMetodosPago = metodosPago.reduce((s, m) => s + m.monto, 0);
 
-  const facturaPendientesPeriodo = clientes
-    .filter((c) => c.tipoDocumento === "Factura")
-    .map((c) => {
-      const ventPeriodo = ventas.filter((v) => v.clienteId === c.id && inRange(v.fecha, desde, hasta));
-      return { cliente: c, monto: ventPeriodo.reduce((s, v) => s + (v.precio || 0), 0), cantidad: ventPeriodo.length };
-    })
-    .filter((x) => x.cantidad > 0);
+  const facturaPendientesPeriodo = (() => {
+    const items = clientes
+      .filter((c) => c.tipoDocumento === "Factura")
+      .flatMap((c) => {
+        const ventPeriodo = ventas.filter((v) => v.clienteId === c.id && v.tipo !== "Cupón Venta Empresa" && inRange(v.fecha, desde, hasta));
+        const monto = ventPeriodo.reduce((s, v) => s + (v.precio || 0), 0);
+        if (ventPeriodo.length === 0 || monto === 0) return [];
+        return [{ cliente: c, monto, ventaIds: ventPeriodo.map((v) => v.id), allEmitida: ventPeriodo.every((v) => v.facturaEmitida) }];
+      });
+
+    const groups = new Map<string, typeof items>();
+    for (const item of items) {
+      const key = item.cliente.rut || item.cliente.id;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    }
+
+    return Array.from(groups.values())
+      .map((group) => ({
+        rut: group[0].cliente.rut || "",
+        razonSocial: group[0].cliente.razonSocial || group[0].cliente.nombre,
+        clientes: group,
+        montoTotal: group.reduce((s, x) => s + x.monto, 0),
+        ventaIdsTotal: group.flatMap((x) => x.ventaIds),
+      }))
+      .filter((g) => !g.clientes.every((x) => x.allEmitida));
+  })();
 
   const facturasEmpresaPeriodo = ventasPeriodo.filter(
-    (v) => v.tipo === "Cupón Venta Empresa" && v.tipoDocumento === "Factura"
+    (v) => v.tipo === "Cupón Venta Empresa" && v.tipoDocumento === "Factura" && !v.facturaEmitida
   );
+
+  function marcarEmitida(ventaIds: string[]) {
+    const updated = ventas.map((v) => (ventaIds.includes(v.id) ? { ...v, facturaEmitida: true } : v));
+    commit({ ventas: updated });
+  }
 
   const facturaSearch = (ui.facturaSearch || "").toLowerCase();
   const facturaFiltrados = clientes
@@ -255,5 +280,6 @@ export function useCierreData() {
     facturasEmpresaPeriodo,
     serviciosAdicionalesItems,
     facturaFiltrados,
+    marcarEmitida,
   };
 }

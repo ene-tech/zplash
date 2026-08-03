@@ -37,6 +37,7 @@ export const ventas = pgTable(
     email: text("email"),
     viaCupon: boolean("via_cupon").notNull().default(false),
     cuponCodigo: text("cupon_codigo").references(() => cupones.codigo, { onDelete: "set null" }),
+    facturaEmitida: boolean("factura_emitida").notNull().default(false),
   },
   (t) => [index("ventas_cliente_id_idx").on(t.clienteId), index("ventas_fecha_idx").on(t.fecha)]
 );
