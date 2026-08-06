@@ -6,6 +6,8 @@ export function StatsResumenGlobal({
   ingresosHistoricos,
   porVencer,
   vencidos,
+  vencidosWeb,
+  vencidosLocal,
   sinPlan,
   vigentes,
   vigentesWeb,
@@ -16,6 +18,8 @@ export function StatsResumenGlobal({
   ingresosHistoricos: number;
   porVencer: number;
   vencidos: number;
+  vencidosWeb: number;
+  vencidosLocal: number;
   sinPlan: number;
   vigentes: number;
   vigentesWeb: number;
@@ -42,6 +46,14 @@ export function StatsResumenGlobal({
       <div className="stat-card bad">
         <div className="num">{vencidos}</div>
         <div className="lbl">Planes vencidos</div>
+      </div>
+      <div className="stat-card bad">
+        <div className="num">{vencidosWeb}</div>
+        <div className="lbl">Vencidos · Web</div>
+      </div>
+      <div className="stat-card bad">
+        <div className="num">{vencidosLocal}</div>
+        <div className="lbl">Vencidos · Local</div>
       </div>
       <div className="stat-card bad">
         <div className="num">{sinPlan}</div>
