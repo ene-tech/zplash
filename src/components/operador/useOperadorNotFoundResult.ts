@@ -129,7 +129,18 @@ export function useOperadorNotFoundResult(
         return;
       }
       clearPlate();
-      patchUi({ operResult: null });
+      // Vender/renovar un plan es solo eso, una venta (ver
+      // finalizarClienteRapido): no da ingreso al túnel de una. En vez de un
+      // segundo botón para eso, el cliente recién creado queda mostrado como
+      // "encontrado" para que el operador decida ahí mismo, como paso
+      // siguiente y opcional, si también le da ingreso ahora (mismo botón
+      // "Registrar ingreso" del resto del módulo) o lo deja para después.
+      const clienteCreado = patch.clientes?.find((x) => x.id === preparado.nuevo.id);
+      if (tipoLavado === "plan" && clienteCreado) {
+        patchUi({ operResult: { found: true, cliente: clienteCreado } });
+      } else {
+        patchUi({ operResult: null });
+      }
     });
   };
 

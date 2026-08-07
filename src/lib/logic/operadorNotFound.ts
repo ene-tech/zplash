@@ -101,9 +101,13 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
 }
 
 /**
- * Segunda mitad: una vez confirmado el pago, deja la Venta y el Ingreso (vía
- * registrarIngreso, mismo helper que usa el resto del módulo Operador) y
- * marca el cupón como usado si se aplicó uno.
+ * Segunda mitad: una vez confirmado el pago, deja la Venta y marca el cupón
+ * como usado si se aplicó uno. El Ingreso (vía registrarIngreso, mismo helper
+ * que usa el resto del módulo Operador) solo se registra si la venta es un
+ * Lavado único: eso sí implica que el vehículo pasa por el túnel ahora mismo.
+ * Un plan nuevo es solo una venta — igual que contratarPlan() en el flujo de
+ * cliente encontrado (ver usePlanActions) — no corresponde marcarle una
+ * visita ni un paso por el túnel que todavía no ocurrió.
  */
 export function finalizarClienteRapido(
   data: AppData,
@@ -128,12 +132,16 @@ export function finalizarClienteRapido(
     viaCupon: !!cuponAplicado,
     cuponCodigo: cuponAplicado?.codigo,
   };
-  const tempData = { ...data, clientes: [...data.clientes, nuevo], ventas: [venta, ...data.ventas] };
-  const ingresoPatch = registrarIngreso(tempData, nuevo, perfilNombre);
+  const clientesConNuevo = [...data.clientes, nuevo];
+  const ventasConNueva = [venta, ...data.ventas];
+  const esPasoFisico = tipoVenta === "Lavado único";
+  const ingresoPatch = esPasoFisico
+    ? registrarIngreso({ ...data, clientes: clientesConNuevo, ventas: ventasConNueva }, nuevo, perfilNombre)
+    : {};
   return {
-    clientes: ingresoPatch.clientes,
-    ventas: tempData.ventas,
-    ingresos: ingresoPatch.ingresos,
+    clientes: ingresoPatch.clientes ?? clientesConNuevo,
+    ventas: ventasConNueva,
+    ...(ingresoPatch.ingresos ? { ingresos: ingresoPatch.ingresos } : {}),
     ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
     ...(cuponAplicado
       ? {

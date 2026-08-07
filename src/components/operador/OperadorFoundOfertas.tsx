@@ -56,8 +56,12 @@ export default function OperadorFoundOfertas(props: Props) {
           <div className="offer-head">
             <span className="badge">Oferta</span>
             <h4>
-              Plan por vencer en{" "}
-              {props.st.diasRestantes! <= 0 ? "hoy" : props.st.diasRestantes + " día" + (props.st.diasRestantes === 1 ? "" : "s")}
+              {props.st.diasRestantes === undefined
+                ? "Renovación anticipada disponible"
+                : "Plan por vencer en " +
+                  (props.st.diasRestantes <= 0
+                    ? "hoy"
+                    : props.st.diasRestantes + " día" + (props.st.diasRestantes === 1 ? "" : "s"))}
             </h4>
           </div>
           <div className="msg">

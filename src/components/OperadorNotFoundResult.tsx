@@ -97,7 +97,7 @@ export default function OperadorNotFoundResult({
         </>
       )}
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 14 }}>
-        O registra un cliente rápido para dejarlo ingresado ahora mismo. Los campos con * son obligatorios.
+        O registra un cliente rápido. Los campos con * son obligatorios.
       </div>
       <div className="quick-form">
         <div>
@@ -146,7 +146,7 @@ export default function OperadorNotFoundResult({
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
         <button className="btn" style={{ marginTop: 0, flex: "2 1 200px" }} onClick={r.quickAdd}>
-          Registrar y dar ingreso
+          Registrar cliente
         </button>
         <button className="btn ghost" style={{ marginTop: 0, flex: "1 1 120px" }} onClick={() => patchUi({ operResult: null })}>
           Cancelar

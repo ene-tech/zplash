@@ -57,7 +57,12 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const st = planStatus(c);
   const pNormal = precioNormal(data.precios, c.plan || "");
   const pPromo = precioRenovacionLocal(data.config, data.precios, c.plan || "", c.visitas || 0);
-  const showOffer = st.cls === "warn" && pNormal > 0 && c.origen !== "WEB";
+  // El cliente puede renovar cuando quiera, no solo cuando el plan está por
+  // vencer: renovarPlan ya ancla la nueva vigencia al vencimiento actual si
+  // todavía no pasó (ver lib/logic/ingresos.ts), así que renovar temprano no
+  // le hace perder días. Solo se excluye "bad" (vencido/sin plan), que tiene
+  // su propia oferta de reactivación (showReactivacion/esWebVencido).
+  const showOffer = st.cls !== "bad" && pNormal > 0 && c.origen !== "WEB";
   const ahorro = pNormal - pPromo;
   const planVigente = st.cls !== "bad";
   // "Administración" y "Gerencia" pueden forzar el ingreso aunque el
