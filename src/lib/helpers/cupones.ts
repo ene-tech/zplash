@@ -31,8 +31,10 @@ export function resolverDescuento(
   return { ok: true, cupon };
 }
 
-/** Monto a descontar del precio base: si el cupón es de porcentaje, se calcula sobre precioBase; si no, es el monto fijo. */
-export function montoDescuento(cupon: Cupon, precioBase: number): number {
+/** Monto a descontar del precio base: si el cupón es de porcentaje, se calcula sobre precioBase; si no, es el monto fijo.
+ * Recibe solo los dos campos que usa (no el Cupon completo) para que también sirva sobre un cupón que aún no
+ * existe en BD — ver montoDescuento/montoAPagar en construirVariables (@/lib/whatsapp/reglas/motor). */
+export function montoDescuento(cupon: Pick<Cupon, "esPorcentaje" | "valor">, precioBase: number): number {
   return cupon.esPorcentaje ? Math.round((precioBase * cupon.valor) / 100) : cupon.valor;
 }
 

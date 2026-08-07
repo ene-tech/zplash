@@ -16,7 +16,7 @@ const TABS = [
   { id: "precios", label: "Precios", icon: CircleDollarSign },
   { id: "servicios", label: "Servicios y Banners", icon: Images },
   { id: "mail", label: "Mail Templates", icon: Mail },
-  { id: "whatsapp", label: "WhatsApp Webhooks", icon: MessageCircle },
+  { id: "whatsapp", label: "WhatsApp Plantillas", icon: MessageCircle },
   { id: "whatsapp_bot", label: "Menú Bot WhatsApp", icon: Bot },
   { id: "whatsapp_reglas", label: "Reglas WhatsApp", icon: Zap },
   { id: "whatsapp_historial", label: "Historial WhatsApp", icon: History },

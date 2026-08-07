@@ -25,10 +25,19 @@ export async function buscarCliente(clienteId: string): Promise<Cliente | null> 
 // Exportada para que enviarMensajesMasivosWhatsapp (@/lib/whatsapp/masivo,
 // Web Settings → Mensajes Únicos) arme las mismas variables que el motor de
 // reglas a partir de un Cliente, sin duplicar esta lógica.
+// `montoOferta` queda por compatibilidad con plantillas ya escritas antes de
+// que existieran `montoDescuento`/`montoAPagar` — con accion="cupon_descuento"
+// las tres reciben el mismo cuponValor, pero montoOferta NO se ajusta por
+// precioBase cuando el cupón es de porcentaje (a diferencia de
+// montoDescuento/montoAPagar), así que las plantillas nuevas deberían preferir
+// estas dos: sin ambigüedad sobre si el número que ve el cliente es lo que se
+// descuenta o lo que queda por pagar.
 export function construirVariables(opts: {
   cliente: Cliente;
   monto?: number;
   montoOferta?: number;
+  montoDescuento?: number;
+  montoAPagar?: number;
   diasValidez?: number;
   patenteAnterior?: string;
 }): Record<string, string> {
@@ -39,6 +48,8 @@ export function construirVariables(opts: {
     monto: opts.monto !== undefined ? fmtCLP(opts.monto) : "",
     fechaVencimiento: opts.cliente.vencimiento ? fmtFecha(opts.cliente.vencimiento) : "",
     montoOferta: opts.montoOferta !== undefined ? fmtCLP(opts.montoOferta) : "",
+    montoDescuento: opts.montoDescuento !== undefined ? fmtCLP(opts.montoDescuento) : "",
+    montoAPagar: opts.montoAPagar !== undefined ? fmtCLP(opts.montoAPagar) : "",
     diasValidez: opts.diasValidez !== undefined ? String(opts.diasValidez) : "",
     patenteAnterior: opts.patenteAnterior || "",
   };
@@ -60,7 +71,7 @@ export async function enviarSegunPlantilla(
   enviadoPor = "regla-whatsapp"
 ) {
   if (!plantilla.metaNombre) {
-    console.error(`Plantilla WhatsApp "${plantilla.nombre}" no tiene metaNombre configurado (Web Settings → WhatsApp Webhooks); no se puede enviar`);
+    console.error(`Plantilla WhatsApp "${plantilla.nombre}" no tiene metaNombre configurado (Web Settings → WhatsApp Plantillas); no se puede enviar`);
     return null;
   }
   // metaVariables se guarda en minúsculas (ver auto-rellenado en
@@ -72,9 +83,54 @@ export async function enviarSegunPlantilla(
   return enviarMensajePlantilla(telefono, plantilla.metaNombre, plantilla.metaIdioma || "es", parametros, enviadoPor);
 }
 
-async function generarCodigoCuponUnico(): Promise<string> {
+// Batch: una sola consulta de códigos existentes para generar `cantidad`
+// códigos únicos de una vez (en vez de una consulta completa a la tabla
+// cupones por cada código) — usado tanto por ejecutarAccionRegla (cantidad=1)
+// como por enviarMensajesMasivosWhatsapp (@/lib/whatsapp/masivo), que genera
+// un cupón por cliente en un solo envío masivo.
+export async function generarCodigosCuponUnicos(cantidad: number): Promise<string[]> {
+  if (!cantidad) return [];
   const existentes = await getDb().select({ codigo: cuponesTabla.codigo }).from(cuponesTabla);
-  return generarCodigoCupon(new Set(existentes.map((r) => r.codigo)));
+  const usados = new Set(existentes.map((r) => r.codigo));
+  const codigos: string[] = [];
+  for (let i = 0; i < cantidad; i++) {
+    const codigo = generarCodigoCupon(usados);
+    usados.add(codigo);
+    codigos.push(codigo);
+  }
+  return codigos;
+}
+
+// Arma un Cupon "descuento" atado a una patente (reconocible sin código al
+// volver, ver OperadorFoundResult) — misma forma que arma ejecutarAccionRegla
+// para las ReglaWhatsapp, extraída para que enviarMensajesMasivosWhatsapp
+// (@/lib/whatsapp/masivo, Web Settings → Mensajes Únicos) pueda generar un
+// cupón real por cliente en un envío masivo sin duplicar la forma del objeto.
+export function crearCuponDescuento(opts: {
+  codigo: string;
+  patente: string;
+  valor: number;
+  esPorcentaje: boolean;
+  validezDias: number;
+  nombreLote: string;
+  creadoPor: string;
+}): Cupon {
+  const ahora = new Date();
+  return {
+    id: uid(),
+    codigo: opts.codigo,
+    nombreLote: opts.nombreLote,
+    valor: opts.valor,
+    numeroLote: 1,
+    totalLote: 1,
+    fechaCaducidad: new Date(ahora.getTime() + opts.validezDias * MS_POR_DIA).toISOString(),
+    usado: false,
+    creadoEn: ahora.toISOString(),
+    creadoPor: opts.creadoPor,
+    tipo: "descuento",
+    patenteAsignada: opts.patente,
+    esPorcentaje: opts.esPorcentaje,
+  };
 }
 
 // Ejecuta la acción de una regla ya disparada (fila en disparos_regla_whatsapp
@@ -110,22 +166,16 @@ export async function ejecutarAccionRegla(
   let diasValidez: number | undefined;
   if (regla.accion === "cupon_descuento") {
     diasValidez = regla.cuponValidezDias ?? 7;
-    const ahora = new Date();
-    const nuevo: Cupon = {
-      id: uid(),
-      codigo: await generarCodigoCuponUnico(),
-      nombreLote: `WhatsApp - ${regla.nombre}`,
+    const [codigo] = await generarCodigosCuponUnicos(1);
+    const nuevo = crearCuponDescuento({
+      codigo,
+      patente: cliente.patente,
       valor: regla.cuponValor || 0,
-      numeroLote: 1,
-      totalLote: 1,
-      fechaCaducidad: new Date(ahora.getTime() + diasValidez * MS_POR_DIA).toISOString(),
-      usado: false,
-      creadoEn: ahora.toISOString(),
-      creadoPor: `regla-whatsapp:${regla.id}`,
-      tipo: "descuento",
-      patenteAsignada: cliente.patente,
       esPorcentaje: regla.cuponEsPorcentaje || false,
-    };
+      validezDias: diasValidez,
+      nombreLote: `WhatsApp - ${regla.nombre}`,
+      creadoPor: `regla-whatsapp:${regla.id}`,
+    });
     const ok = await upsertCupones([nuevo]);
     if (ok) {
       cuponId = nuevo.id;

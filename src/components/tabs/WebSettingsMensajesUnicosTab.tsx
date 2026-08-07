@@ -3,17 +3,13 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { enviarMensajesMasivosWhatsapp } from "@/lib/serverActions";
-import { aplicarVariables, fmtFecha } from "@/lib/helpers";
+import { aplicarVariables, fmtFecha, montoDescuento } from "@/lib/helpers";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
+import { AccionEnvioMasivoFields } from "./mensajesUnicos/AccionEnvioMasivoFields";
 import { ClientesSeleccionablesList } from "./mensajesUnicos/ClientesSeleccionablesList";
+import { FiltrosEnvioMasivo, type FiltroEstado, type FiltroOrigen } from "./mensajesUnicos/FiltrosEnvioMasivo";
 import { filtrarClientesMensajeMasivo } from "./mensajesUnicos/filtrarClientesMensajeMasivo";
-import type { ResultadoEnvioMasivoWhatsapp } from "@/types";
-
-const FILTROS_ESTADO = ["todos", "Vigente", "Por vencer", "Vencido", "Sin plan"] as const;
-type FiltroEstado = (typeof FILTROS_ESTADO)[number];
-
-const FILTROS_ORIGEN = ["todos", "WEB", "LOCAL"] as const;
-type FiltroOrigen = (typeof FILTROS_ORIGEN)[number];
+import type { AccionReglaWhatsapp, ResultadoEnvioMasivoWhatsapp } from "@/types";
 
 export default function WebSettingsMensajesUnicosTab() {
   const { data, patchUi } = useApp();
@@ -26,6 +22,11 @@ export default function WebSettingsMensajesUnicosTab() {
   const [busqueda, setBusqueda] = useState("");
   const [excluidos, setExcluidos] = useState<Set<string>>(new Set());
   const [plantillaId, setPlantillaId] = useState("");
+  const [accion, setAccion] = useState<AccionReglaWhatsapp>("mensaje_simple");
+  const [cuponEsPorcentaje, setCuponEsPorcentaje] = useState(false);
+  const [cuponValor, setCuponValor] = useState("");
+  const [cuponValidezDias, setCuponValidezDias] = useState("7");
+  const [precioBase, setPrecioBase] = useState("");
   const [montoOferta, setMontoOferta] = useState("");
   const [diasValidez, setDiasValidez] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -51,6 +52,25 @@ export default function WebSettingsMensajesUnicosTab() {
   const usaMontoOferta = metaVariablesMin.includes("montooferta");
   const usaDiasValidez = metaVariablesMin.includes("diasvalidez");
 
+  // Con accion="cupon_descuento" montoOferta/diasValidez del mensaje se
+  // derivan del cupón (mismo criterio que ejecutarAccionRegla para las
+  // ReglaWhatsapp), no de los campos de texto libre de más abajo.
+  const montoOfertaEfectivo = accion === "cupon_descuento" ? cuponValor : montoOferta;
+  const diasValidezEfectivo = accion === "cupon_descuento" ? cuponValidezDias : diasValidez;
+
+  // montoDescuento/montoAPagar del preview: mismo cálculo que hace el envío
+  // real en enviarMensajesMasivosWhatsapp (@/lib/whatsapp/masivo), solo si
+  // hay un precio base indicado — ver hint en AccionEnvioMasivoFields.
+  const precioBaseNum = accion === "cupon_descuento" && precioBase ? Number(precioBase) : undefined;
+  const montoDescuentoEfectivo =
+    precioBaseNum !== undefined && cuponValor
+      ? montoDescuento({ esPorcentaje: cuponEsPorcentaje, valor: Number(cuponValor) }, precioBaseNum)
+      : undefined;
+  const montoAPagarEfectivo =
+    precioBaseNum !== undefined && montoDescuentoEfectivo !== undefined
+      ? Math.max(0, precioBaseNum - montoDescuentoEfectivo)
+      : undefined;
+
   const primerElegido = seleccionados[0];
   const preview = plantilla
     ? aplicarVariables(plantilla.mensaje, {
@@ -58,8 +78,10 @@ export default function WebSettingsMensajesUnicosTab() {
         patente: primerElegido?.patente || "(patente)",
         plan: primerElegido?.plan || "",
         fechaVencimiento: primerElegido?.vencimiento ? fmtFecha(primerElegido.vencimiento) : "",
-        montoOferta,
-        diasValidez,
+        montoOferta: montoOfertaEfectivo,
+        montoDescuento: montoDescuentoEfectivo !== undefined ? String(montoDescuentoEfectivo) : "",
+        montoAPagar: montoAPagarEfectivo !== undefined ? String(montoAPagarEfectivo) : "",
+        diasValidez: diasValidezEfectivo,
         monto: "",
       })
     : "";
@@ -79,8 +101,13 @@ export default function WebSettingsMensajesUnicosTab() {
     const r = await enviarMensajesMasivosWhatsapp({
       plantillaId,
       clienteIds: seleccionados.map((c) => c.id),
-      montoOferta: usaMontoOferta && montoOferta ? Number(montoOferta) : undefined,
-      diasValidez: usaDiasValidez && diasValidez ? Number(diasValidez) : undefined,
+      accion,
+      cuponEsPorcentaje: accion === "cupon_descuento" ? cuponEsPorcentaje : undefined,
+      cuponValor: accion === "cupon_descuento" ? Number(cuponValor || 0) : undefined,
+      cuponValidezDias: accion === "cupon_descuento" ? Number(cuponValidezDias || 7) : undefined,
+      precioBase: precioBaseNum,
+      montoOferta: accion === "mensaje_simple" && usaMontoOferta && montoOferta ? Number(montoOferta) : undefined,
+      diasValidez: accion === "mensaje_simple" && usaDiasValidez && diasValidez ? Number(diasValidez) : undefined,
     });
     setEnviando(false);
     setResultado(r);
@@ -95,11 +122,19 @@ export default function WebSettingsMensajesUnicosTab() {
       setErr("No hay clientes seleccionados");
       return;
     }
+    if (accion === "cupon_descuento" && (!cuponValor || Number(cuponValor) <= 0)) {
+      setErr("Ingresa el valor del descuento");
+      return;
+    }
     setErr(null);
+    const avisoCupon =
+      accion === "cupon_descuento"
+        ? ` Se generará un cupón de descuento por cliente, atado a su patente.`
+        : "";
     patchUi({
       modal: {
         type: "confirm",
-        mensaje: `Vas a enviar "${plantilla.nombre}" a ${seleccionados.length} cliente(s) por WhatsApp. Esta acción no se puede deshacer. ¿Confirmar?`,
+        mensaje: `Vas a enviar "${plantilla.nombre}" a ${seleccionados.length} cliente(s) por WhatsApp.${avisoCupon} Esta acción no se puede deshacer. ¿Confirmar?`,
         confirmLabel: "Enviar",
         danger: true,
         onConfirm: enviar,
@@ -115,70 +150,26 @@ export default function WebSettingsMensajesUnicosTab() {
           Envía un mensaje puntual por WhatsApp a un grupo de clientes filtrado en el momento — por ejemplo, avisar un
           cierre por mantención a todos los clientes con plan, u ofrecer un precio especial a los que tienen el plan
           vencido y no lo han renovado. Solo se puede enviar usando una plantilla con su template ya{" "}
-          <strong>Aprobado en Meta</strong> (pestaña &quot;WhatsApp Webhooks&quot;): la mayoría de estos clientes no te
+          <strong>Aprobado en Meta</strong> (pestaña &quot;WhatsApp Plantillas&quot;): la mayoría de estos clientes no te
           han escrito en las últimas 24 horas, así que un mensaje de texto libre sería rechazado por WhatsApp.
         </div>
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-          <div className="field" style={{ flex: 1, minWidth: 180, margin: 0 }}>
-            <label>Estado del plan</label>
-            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value as FiltroEstado)}>
-              {FILTROS_ESTADO.map((f) => (
-                <option key={f} value={f}>
-                  {f === "todos" ? "Todos" : f}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field" style={{ flex: 1, minWidth: 140, margin: 0 }}>
-            <label>Origen</label>
-            <select value={filtroOrigen} onChange={(e) => setFiltroOrigen(e.target.value as FiltroOrigen)}>
-              {FILTROS_ORIGEN.map((o) => (
-                <option key={o} value={o}>
-                  {o === "todos" ? "Todos" : o === "WEB" ? "Web" : "Local"}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field" style={{ flex: 1, minWidth: 180, margin: 0 }}>
-            <label>Buscar por nombre o patente</label>
-            <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Ej: Juan o AB1234" />
-          </div>
-        </div>
-
-        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5, margin: "0 0 6px" }}>
-          Filtros por conducta de compra (para segmentar por comportamiento, no solo por estado del plan):
-        </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-          <div className="field" style={{ flex: 1, minWidth: 130, margin: 0 }}>
-            <label>Pasadas totales, mín.</label>
-            <input type="number" min={0} value={visitasMin} onChange={(e) => setVisitasMin(e.target.value)} placeholder="Ej: 5" />
-          </div>
-          <div className="field" style={{ flex: 1, minWidth: 130, margin: 0 }}>
-            <label>Pasadas totales, máx.</label>
-            <input type="number" min={0} value={visitasMax} onChange={(e) => setVisitasMax(e.target.value)} placeholder="Ej: 2" />
-          </div>
-          <div className="field" style={{ flex: 1, minWidth: 170, margin: 0 }}>
-            <label>Sin venir hace al menos (días)</label>
-            <input
-              type="number"
-              min={0}
-              value={inactivoDiasMin}
-              onChange={(e) => setInactivoDiasMin(e.target.value)}
-              placeholder="Ej: 30"
-            />
-          </div>
-          <div className="field" style={{ flex: 1, minWidth: 170, margin: 0 }}>
-            <label>Cliente hace al menos (días)</label>
-            <input
-              type="number"
-              min={0}
-              value={clienteDesdeDiasMin}
-              onChange={(e) => setClienteDesdeDiasMin(e.target.value)}
-              placeholder="Ej: 90"
-            />
-          </div>
-        </div>
+        <FiltrosEnvioMasivo
+          filtroEstado={filtroEstado}
+          setFiltroEstado={setFiltroEstado}
+          filtroOrigen={filtroOrigen}
+          setFiltroOrigen={setFiltroOrigen}
+          busqueda={busqueda}
+          setBusqueda={setBusqueda}
+          visitasMin={visitasMin}
+          setVisitasMin={setVisitasMin}
+          visitasMax={visitasMax}
+          setVisitasMax={setVisitasMax}
+          inactivoDiasMin={inactivoDiasMin}
+          setInactivoDiasMin={setInactivoDiasMin}
+          clienteDesdeDiasMin={clienteDesdeDiasMin}
+          setClienteDesdeDiasMin={setClienteDesdeDiasMin}
+        />
 
         <div className="hint" style={{ textAlign: "left", fontSize: 13, marginBottom: 8 }}>
           {candidatos.length} cliente(s) coinciden con el filtro
@@ -226,22 +217,24 @@ export default function WebSettingsMensajesUnicosTab() {
           </div>
         )}
 
-        {(usaMontoOferta || usaDiasValidez) && (
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-            {usaMontoOferta && (
-              <div className="field" style={{ flex: 1, minWidth: 160, margin: 0 }}>
-                <label>Monto de la oferta ({"{{montoOferta}}"})</label>
-                <input type="number" min={0} value={montoOferta} onChange={(e) => setMontoOferta(e.target.value)} placeholder="Ej: 4990" />
-              </div>
-            )}
-            {usaDiasValidez && (
-              <div className="field" style={{ flex: 1, minWidth: 160, margin: 0 }}>
-                <label>Días de validez ({"{{diasValidez}}"})</label>
-                <input type="number" min={1} value={diasValidez} onChange={(e) => setDiasValidez(e.target.value)} placeholder="Ej: 7" />
-              </div>
-            )}
-          </div>
-        )}
+        <AccionEnvioMasivoFields
+          accion={accion}
+          setAccion={setAccion}
+          cuponEsPorcentaje={cuponEsPorcentaje}
+          setCuponEsPorcentaje={setCuponEsPorcentaje}
+          cuponValor={cuponValor}
+          setCuponValor={setCuponValor}
+          cuponValidezDias={cuponValidezDias}
+          setCuponValidezDias={setCuponValidezDias}
+          precioBase={precioBase}
+          setPrecioBase={setPrecioBase}
+          usaMontoOferta={usaMontoOferta}
+          usaDiasValidez={usaDiasValidez}
+          montoOferta={montoOferta}
+          setMontoOferta={setMontoOferta}
+          diasValidez={diasValidez}
+          setDiasValidez={setDiasValidez}
+        />
 
         {plantilla && (
           <div className="field" style={{ marginBottom: 10 }}>

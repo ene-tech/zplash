@@ -162,7 +162,7 @@ export default function ReglasWhatsappTab() {
         <h3>Nueva regla WhatsApp</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
           Define cuándo el sistema le escribe a un cliente por WhatsApp: al registrarse una venta que coincida, o unos
-          días antes de que venza su plan. Las plantillas se administran en la pestaña &quot;WhatsApp Webhooks&quot;.
+          días antes de que venza su plan. Las plantillas se administran en la pestaña &quot;WhatsApp Plantillas&quot;.
         </div>
 
         <div className="field" style={{ marginBottom: 10 }}>

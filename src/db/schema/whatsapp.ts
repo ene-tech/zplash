@@ -56,7 +56,7 @@ export const mensajesWhatsapp = pgTable(
 );
 
 // Catálogo de plantillas de mensaje WhatsApp administrado desde Web Settings
-// → WhatsApp Webhooks: mismo patrón/propósito que `plantillas_correo` (ver
+// → WhatsApp Plantillas: mismo patrón/propósito que `plantillas_correo` (ver
 // @/db/schema/mail), una fila por situación del proceso de venta/suscripción
 // o para ofertas y servicios. NO son plantillas pre-aprobadas de Meta —
 // enviarMensajePlantilla (@/lib/whatsapp/enviar) sigue referenciando esas por
@@ -86,7 +86,7 @@ export const plantillasWhatsapp = pgTable("plantillas_whatsapp", {
   // expone el listado de templates del WABA, ver comentario en
   // ReglasWhatsappTab) de que `metaNombre` corresponde a un template
   // realmente aprobado en Meta Business Manager, no solo guardado acá.
-  // Editable desde Web Settings → WhatsApp Webhooks.
+  // Editable desde Web Settings → WhatsApp Plantillas.
   metaAprobado: boolean("meta_aprobado").notNull().default(false),
 });
 

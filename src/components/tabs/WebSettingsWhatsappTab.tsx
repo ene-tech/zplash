@@ -49,8 +49,8 @@ export default function WebSettingsWhatsappTab() {
           Una plantilla por cada situación del proceso de venta o suscripción (confirmación de compra, pago rechazado,
           vencimiento próximo, etc.) o para comunicación de ofertas y servicios. No son plantillas pre-aprobadas de
           Meta (esas se gestionan aparte en Meta Business Manager) — este es el borrador de contenido para cuando se
-          conecte el envío automático. Variables disponibles: <code>{"{{nombre}}"}</code>, <code>{"{{patente}}"}</code>,{" "}
-          <code>{"{{plan}}"}</code>, <code>{"{{monto}}"}</code> y <code>{"{{fechaVencimiento}}"}</code>.
+          conecte el envío automático. Las variables disponibles aparecen como botones sobre el mensaje de cada
+          plantilla, más abajo.
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <div className="field" style={{ flex: 1, minWidth: 200 }}>

@@ -7,7 +7,17 @@ import { EmojiBar, VariableBar, insertarEnCursor } from "@/components/ui/mensaje
 import type { PlantillaWhatsapp } from "@/types";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
 
-const VARIABLES_DISPONIBLES = ["nombre", "patente", "plan", "monto", "fechaVencimiento", "montoOferta", "diasValidez"];
+const VARIABLES_DISPONIBLES = [
+  "nombre",
+  "patente",
+  "plan",
+  "monto",
+  "fechaVencimiento",
+  "montoOferta",
+  "montoDescuento",
+  "montoAPagar",
+  "diasValidez",
+];
 
 function BotonCopiar({ texto, deshabilitado }: { texto: string; deshabilitado?: boolean }) {
   const [copiado, setCopiado] = useState(false);
@@ -117,6 +127,12 @@ export function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaW
           variables={VARIABLES_DISPONIBLES}
           onSeleccionar={(placeholder) => insertarEnCursor(mensajeRef.current, mensaje, placeholder, setMensaje)}
         />
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 11.5, margin: "2px 0 6px" }}>
+          <code>{"{{montoDescuento}}"}</code> es lo que se descuenta; <code>{"{{montoAPagar}}"}</code> es el precio final
+          que queda por pagar — no son lo mismo, elige el que corresponda al texto (ej. &quot;con $2.000 de descuento&quot;
+          vs &quot;te queda en $7.990&quot;). Ambas se llenan solo si la acción de la regla/envío es &quot;Generar
+          descuento&quot; con un precio base indicado.
+        </div>
         <textarea
           ref={mensajeRef}
           rows={4}

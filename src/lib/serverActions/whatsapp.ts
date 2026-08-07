@@ -3,7 +3,7 @@
 import * as dataAccess from "@/lib/dataAccess";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import { enviarMensajesMasivosWhatsapp as enviarMensajesMasivosWhatsappImpl } from "@/lib/whatsapp/masivo";
-import type { HistorialReglaWhatsapp, PlantillaWhatsapp, ReglaWhatsapp, ResultadoEnvioMasivoWhatsapp } from "@/types";
+import type { AccionReglaWhatsapp, HistorialReglaWhatsapp, PlantillaWhatsapp, ReglaWhatsapp, ResultadoEnvioMasivoWhatsapp } from "@/types";
 
 export async function upsertPlantillasWhatsapp(rows: PlantillaWhatsapp[]): Promise<boolean> {
   if (!(await tieneModulo("web_settings"))) return false;
@@ -38,6 +38,11 @@ export async function contarMensajesWhatsappGenerados(desdeISO: string, hastaISO
 export async function enviarMensajesMasivosWhatsapp(opts: {
   plantillaId: string;
   clienteIds: string[];
+  accion?: AccionReglaWhatsapp;
+  cuponEsPorcentaje?: boolean;
+  cuponValor?: number;
+  cuponValidezDias?: number;
+  precioBase?: number;
   montoOferta?: number;
   diasValidez?: number;
 }): Promise<ResultadoEnvioMasivoWhatsapp> {

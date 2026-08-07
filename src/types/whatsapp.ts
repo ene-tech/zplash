@@ -108,7 +108,7 @@ export interface TextosBotWhatsapp {
 // Plantilla de contenido (no una plantilla pre-aprobada de Meta, ver
 // comentario en @/db/schema/whatsapp) para una situación del proceso de
 // venta/suscripción o de ofertas y servicios — editable desde Web Settings →
-// WhatsApp Webhooks, mismo patrón que PlantillaCorreo.
+// WhatsApp Plantillas, mismo patrón que PlantillaCorreo.
 export interface PlantillaWhatsapp {
   id: string;
   nombre: string;
@@ -123,9 +123,13 @@ export interface PlantillaWhatsapp {
   metaIdioma?: string;
   // Orden de variables que calza con los {{1}},{{2}}... posicionales del
   // template aprobado. Subconjunto de: nombre, patente, plan, monto,
-  // fechaVencimiento, montoOferta, diasValidez, patenteAnterior (patente y
-  // patenteAnterior solo difieren en tipoEvento="cambio_patente", ver
-  // construirVariables en @/lib/whatsapp/reglas).
+  // fechaVencimiento, montoOferta, montoDescuento, montoAPagar, diasValidez,
+  // patenteAnterior (patente y patenteAnterior solo difieren en
+  // tipoEvento="cambio_patente", ver construirVariables en
+  // @/lib/whatsapp/reglas). montoDescuento/montoAPagar solo se llenan si el
+  // envío indica un precio base (ver enviarMensajesMasivosWhatsapp en
+  // @/lib/whatsapp/masivo) — sin eso, montoOferta sigue siendo la única
+  // variable disponible para mostrar el valor del cupón.
   metaVariables?: string[];
   // Marca manual de que metaNombre corresponde a un template realmente
   // aprobado en Meta (ver comentario en @/db/schema/whatsapp).
