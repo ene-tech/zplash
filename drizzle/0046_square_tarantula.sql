@@ -1,0 +1,1 @@
+ALTER TABLE "clientes" ADD COLUMN "suscripcion_cancelada_en" timestamp with time zone;

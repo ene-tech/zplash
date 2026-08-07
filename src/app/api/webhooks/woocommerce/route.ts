@@ -1,51 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
-import { eq, ilike } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { movimientoToRow } from "@/lib/dataAccess";
-import { PLANES, formatTelefono, movimientoContableDesdeVenta, normPlate } from "@/lib/helpers";
+import { PLANES, formatTelefono, movimientoContableDesdeVenta, vencimientoAnclado } from "@/lib/helpers";
+import { addDaysISO, buscarClienteExistente, extraerPatente, verificarFirma } from "./shared";
 
 export const runtime = "nodejs";
+// Reexportado para no romper route.test.ts, que prueba la firma HMAC contra este módulo.
+export { verificarFirma };
 
 const ESTADOS_VALIDOS = new Set(["processing", "completed"]);
-
-export function verificarFirma(rawBody: string, firma: string | null, secreto: string): boolean {
-  if (!firma) return false;
-  const esperada = crypto.createHmac("sha256", secreto).update(rawBody, "utf8").digest("base64");
-  const a = Buffer.from(esperada);
-  const b = Buffer.from(firma);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
-
-// Los formularios de checkout que agregan un campo "Patente" lo guardan como
-// meta_data suelto o como una clave extra dentro de billing; buscamos por
-// nombre de clave en vez de asumir una ubicación fija.
-function extraerPatente(order: Record<string, unknown>): string {
-  const candidatos: string[] = [];
-  const billing = order.billing as Record<string, unknown> | undefined;
-  if (billing) {
-    for (const [k, v] of Object.entries(billing)) {
-      if (typeof v === "string" && /patente/i.test(k)) candidatos.push(v);
-    }
-  }
-  const metaData = order.meta_data as Array<{ key?: string; value?: unknown }> | undefined;
-  if (Array.isArray(metaData)) {
-    for (const m of metaData) {
-      if (m && typeof m.key === "string" && /patente/i.test(m.key) && typeof m.value === "string") {
-        candidatos.push(m.value);
-      }
-    }
-  }
-  return normPlate(candidatos.find((c) => c && c.trim()) || "");
-}
-
-function addDaysISO(iso: string, dias: number): string {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + dias);
-  return d.toISOString();
-}
 
 export async function POST(request: NextRequest) {
   const secreto = process.env.WOOCOMMERCE_WEBHOOK_SECRET;
@@ -115,24 +80,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, already_processed: true });
     }
 
-    if (patente) {
-      [existente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
-    }
-    if (!existente && email) {
-      [existente] = await db.select().from(clientes).where(ilike(clientes.email, email)).limit(1);
-    }
+    existente = await buscarClienteExistente(patente, email);
   } catch (error) {
     console.error("Error consultando datos desde webhook WooCommerce", error);
     return NextResponse.json({ error: "Error de servidor" }, { status: 500 });
   }
 
   let clienteId: string;
+  // Si el webhook de suscripción (ver ./suscripcion/route.ts) marcó que la
+  // suscripción anterior de este cliente se canceló/venció, este pedido no es
+  // una renovación del ciclo viejo — es una recontratación. Se reinicia
+  // fechaContratacion/vencimiento igual que un cliente nuevo, en vez de
+  // apilar sobre (o anclar a) el ciclo que el cliente ya había cancelado.
+  const recontratacion = !!(existente && existente.suscripcionCanceladaEn);
 
   if (existente) {
-    const vencActual = existente.vencimiento ? new Date(existente.vencimiento) : null;
-    const base = vencActual && vencActual > new Date() ? vencActual.toISOString() : new Date().toISOString();
-    const nuevoVencimiento = addDaysISO(base, 30);
     clienteId = existente.id;
+    let nuevoVencimiento: string;
+    if (recontratacion) {
+      nuevoVencimiento = addDaysISO(fechaOrden, 30);
+    } else {
+      const vencActual = existente.vencimiento ? new Date(existente.vencimiento) : null;
+      // Si el plan sigue vigente, se apila un ciclo más desde ahí. Si ya
+      // venció (mismo criterio que aplicarPagoAprobado y renovarWeb, ver
+      // accb3d9), el nuevo vencimiento se ancla a fechaContratacion en vez de
+      // reiniciar el ciclo desde "ahora" — la vigencia de un plan Web es
+      // siempre la fecha de contratación, nunca la del pago.
+      nuevoVencimiento =
+        vencActual && vencActual > new Date() ? addDaysISO(vencActual.toISOString(), 30) : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
+    }
     try {
       await db
         .update(clientes)
@@ -141,7 +117,10 @@ export async function POST(request: NextRequest) {
           telefono: telefono || existente.telefono,
           email: email || existente.email,
           vencimiento: nuevoVencimiento,
-          plan: existente.plan || PLANES[0],
+          plan: recontratacion ? PLANES[0] : existente.plan || PLANES[0],
+          // Recontratación: reinicia el ciclo igual que un cliente nuevo, y
+          // limpia la marca de cancelación que puso el webhook de suscripción.
+          ...(recontratacion ? { fechaContratacion: fechaOrden, suscripcionCanceladaEn: null } : {}),
           origen: "WEB",
         })
         .where(eq(clientes.id, clienteId));
@@ -173,7 +152,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const tipoVenta = existente ? "Renovación (Web)" : "Plan nuevo (Web)";
+  const tipoVenta = existente && !recontratacion ? "Renovación (Web)" : "Plan nuevo (Web)";
   const ventaData = {
     clienteId,
     patente: patente || "",

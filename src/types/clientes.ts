@@ -24,6 +24,11 @@ export interface Cliente extends DatosFacturacion {
   patentePendiente?: string | null;
   patentePendienteDesde?: string | null;
   fechaContratacion?: string | null;
+  // Seteado por el webhook de suscripción de WooCommerce cuando la
+  // suscripción del cliente se cancela/vence; lo limpia el webhook de
+  // pedidos al recontratar. Uso interno de esos dos endpoints — no hay UI que
+  // lo lea o lo edite (ver /api/webhooks/woocommerce/{route,suscripcion}.ts).
+  suscripcionCanceladaEn?: string | null;
   origen?: "WEB" | "LOCAL";
   visitas?: number;
   ultimaVisita?: string;

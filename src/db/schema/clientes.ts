@@ -23,6 +23,17 @@ export const clientes = pgTable("clientes", {
   patentePendiente: text("patente_pendiente"),
   patentePendienteDesde: timestamptz("patente_pendiente_desde"),
   fechaContratacion: timestamptz("fecha_contratacion"),
+  // Seteado por el webhook de suscripción de WooCommerce (ver
+  // /api/webhooks/woocommerce/suscripcion) cuando WooCommerce Subscriptions
+  // avisa que la suscripción de este cliente pasó a "cancelled"/"expired".
+  // El webhook de pedidos (/api/webhooks/woocommerce) lo consulta: si hay un
+  // pedido nuevo para este cliente y esta marca está seteada, ese pedido es
+  // una recontratación (fechaContratacion y vencimiento se reinician), no una
+  // renovación más del ciclo anterior — y la marca se limpia. Sin esto, un
+  // cliente que cancela y vuelve a contratar quedaba indistinguible de uno
+  // que nunca canceló, y el vencimiento seguía apilándose sobre el ciclo
+  // viejo.
+  suscripcionCanceladaEn: timestamptz("suscripcion_cancelada_en"),
   origen: text("origen").notNull().default("LOCAL"),
   visitas: integer("visitas").notNull().default(0),
   ultimaVisita: timestamptz("ultima_visita"),
