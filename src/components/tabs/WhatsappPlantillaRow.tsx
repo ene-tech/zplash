@@ -13,6 +13,7 @@ const VARIABLES_DISPONIBLES = [
   "plan",
   "monto",
   "fechaVencimiento",
+  "fechaVencimientoOferta",
   "montoOferta",
   "montoDescuento",
   "montoAPagar",

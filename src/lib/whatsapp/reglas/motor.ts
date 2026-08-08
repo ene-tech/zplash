@@ -32,6 +32,13 @@ export async function buscarCliente(clienteId: string): Promise<Cliente | null> 
 // montoDescuento/montoAPagar), así que las plantillas nuevas deberían preferir
 // estas dos: sin ambigüedad sobre si el número que ve el cliente es lo que se
 // descuenta o lo que queda por pagar.
+// `fechaVencimiento` es SIEMPRE el vencimiento del plan del cliente (o vacío
+// si no tiene uno) — no confundir con `fechaVencimientoOferta`, la fecha
+// hasta la que vale el descuento/oferta del mensaje mismo (hoy + diasValidez).
+// Son conceptos distintos: un cliente sin plan (ej. "clientes sin plan") no
+// tiene fechaVencimiento pero sí puede tener una oferta con fecha límite
+// propia — usar fechaVencimiento ahí manda un parámetro vacío y la Graph API
+// rechaza el envío completo (error 131008/131009).
 export function construirVariables(opts: {
   cliente: Cliente;
   monto?: number;
@@ -47,6 +54,7 @@ export function construirVariables(opts: {
     plan: opts.cliente.plan || "",
     monto: opts.monto !== undefined ? fmtCLP(opts.monto) : "",
     fechaVencimiento: opts.cliente.vencimiento ? fmtFecha(opts.cliente.vencimiento) : "",
+    fechaVencimientoOferta: opts.diasValidez !== undefined ? fmtFecha(new Date(Date.now() + opts.diasValidez * MS_POR_DIA).toISOString()) : "",
     montoOferta: opts.montoOferta !== undefined ? fmtCLP(opts.montoOferta) : "",
     montoDescuento: opts.montoDescuento !== undefined ? fmtCLP(opts.montoDescuento) : "",
     montoAPagar: opts.montoAPagar !== undefined ? fmtCLP(opts.montoAPagar) : "",

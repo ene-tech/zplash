@@ -123,13 +123,16 @@ export interface PlantillaWhatsapp {
   metaIdioma?: string;
   // Orden de variables que calza con los {{1}},{{2}}... posicionales del
   // template aprobado. Subconjunto de: nombre, patente, plan, monto,
-  // fechaVencimiento, montoOferta, montoDescuento, montoAPagar, diasValidez,
-  // patenteAnterior (patente y patenteAnterior solo difieren en
-  // tipoEvento="cambio_patente", ver construirVariables en
+  // fechaVencimiento, fechaVencimientoOferta, montoOferta, montoDescuento,
+  // montoAPagar, diasValidez, patenteAnterior (patente y patenteAnterior solo
+  // difieren en tipoEvento="cambio_patente", ver construirVariables en
   // @/lib/whatsapp/reglas). montoDescuento/montoAPagar solo se llenan si el
   // envío indica un precio base (ver enviarMensajesMasivosWhatsapp en
   // @/lib/whatsapp/masivo) — sin eso, montoOferta sigue siendo la única
-  // variable disponible para mostrar el valor del cupón.
+  // variable disponible para mostrar el valor del cupón. fechaVencimiento es
+  // el vencimiento del PLAN del cliente (vacío si no tiene uno, ej. clientes
+  // sin plan) — fechaVencimientoOferta es hoy + diasValidez, la fecha límite
+  // de la oferta del mensaje en sí, no depende de que el cliente tenga plan.
   metaVariables?: string[];
   // Marca manual de que metaNombre corresponde a un template realmente
   // aprobado en Meta (ver comentario en @/db/schema/whatsapp).

@@ -11,6 +11,15 @@ import { FiltrosEnvioMasivo, type FiltroEstado, type FiltroOrigen } from "./mens
 import { filtrarClientesMensajeMasivo } from "./mensajesUnicos/filtrarClientesMensajeMasivo";
 import type { AccionReglaWhatsapp, ResultadoEnvioMasivoWhatsapp } from "@/types";
 
+// Fuera del componente porque Date.now() es impuro (regla react-hooks/purity
+// del React Compiler no lo permite dentro del cuerpo del render) — mismo
+// patrón que fueraDeVentana24h en MensajesView.tsx. Solo se usa para el
+// preview del mensaje, no para el envío real (ver construirVariables en
+// @/lib/whatsapp/reglas, que hace el mismo cálculo server-side).
+function fechaOfertaDesdeHoy(dias: number): string {
+  return fmtFecha(new Date(Date.now() + dias * 86_400_000).toISOString());
+}
+
 export default function WebSettingsMensajesUnicosTab() {
   const { data, patchUi } = useApp();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
@@ -50,7 +59,12 @@ export default function WebSettingsMensajesUnicosTab() {
   // mano y quedar desalineado del mensaje (ver hint en WebSettingsWhatsappTab).
   const metaVariablesMin = plantilla?.metaVariables?.map((v) => v.toLowerCase()) || [];
   const usaMontoOferta = metaVariablesMin.includes("montooferta");
-  const usaDiasValidez = metaVariablesMin.includes("diasvalidez");
+  // fechaVencimientoOferta (hoy + diasValidez, ver construirVariables en
+  // @/lib/whatsapp/reglas) también depende de que el admin ingrese los días de
+  // validez, aunque el mensaje no muestre el número de días como tal — mismo
+  // input de más abajo, dos variables calculadas a partir de él.
+  const usaFechaVencimientoOferta = metaVariablesMin.includes("fechavencimientooferta");
+  const usaDiasValidez = metaVariablesMin.includes("diasvalidez") || usaFechaVencimientoOferta;
 
   // Con accion="cupon_descuento" montoOferta/diasValidez del mensaje se
   // derivan del cupón (mismo criterio que ejecutarAccionRegla para las
@@ -78,6 +92,8 @@ export default function WebSettingsMensajesUnicosTab() {
         patente: primerElegido?.patente || "(patente)",
         plan: primerElegido?.plan || "",
         fechaVencimiento: primerElegido?.vencimiento ? fmtFecha(primerElegido.vencimiento) : "",
+        fechaVencimientoOferta:
+          diasValidezEfectivo && !isNaN(Number(diasValidezEfectivo)) ? fechaOfertaDesdeHoy(Number(diasValidezEfectivo)) : "",
         montoOferta: montoOfertaEfectivo,
         montoDescuento: montoDescuentoEfectivo !== undefined ? String(montoDescuentoEfectivo) : "",
         montoAPagar: montoAPagarEfectivo !== undefined ? String(montoAPagarEfectivo) : "",
