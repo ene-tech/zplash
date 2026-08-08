@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { movimientoToRow } from "@/lib/dataAccess";
 import { PLANES, formatTelefono, movimientoContableDesdeVenta, vencimientoAnclado } from "@/lib/helpers";
-import { addDaysISO, buscarClienteExistente, extraerPatente, verificarFirma } from "./shared";
+import { addDaysISO, buscarClienteExistente, extraerPatente, huboRenovacionWebReciente, verificarFirma } from "./shared";
 
 export const runtime = "nodejs";
 // Reexportado para no romper route.test.ts, que prueba la firma HMAC contra este módulo.
@@ -93,6 +93,10 @@ export async function POST(request: NextRequest) {
   // fechaContratacion/vencimiento igual que un cliente nuevo, en vez de
   // apilar sobre (o anclar a) el ciclo que el cliente ya había cancelado.
   const recontratacion = !!(existente && existente.suscripcionCanceladaEn);
+  // Duplicado sospechoso: ver huboRenovacionWebReciente en ./shared — no
+  // apila otro ciclo de 30 días a ciegas, deja el vencimiento como estaba y
+  // marca la venta para que un operador la revise (ver más abajo, creadoPor).
+  let duplicadoSospechoso = false;
 
   if (existente) {
     clienteId = existente.id;
@@ -100,14 +104,20 @@ export async function POST(request: NextRequest) {
     if (recontratacion) {
       nuevoVencimiento = addDaysISO(fechaOrden, 30);
     } else {
-      const vencActual = existente.vencimiento ? new Date(existente.vencimiento) : null;
-      // Si el plan sigue vigente, se apila un ciclo más desde ahí. Si ya
-      // venció (mismo criterio que aplicarPagoAprobado y renovarWeb, ver
-      // accb3d9), el nuevo vencimiento se ancla a fechaContratacion en vez de
-      // reiniciar el ciclo desde "ahora" — la vigencia de un plan Web es
-      // siempre la fecha de contratación, nunca la del pago.
-      nuevoVencimiento =
-        vencActual && vencActual > new Date() ? addDaysISO(vencActual.toISOString(), 30) : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
+      duplicadoSospechoso = await huboRenovacionWebReciente(existente.id, fechaOrden);
+      if (duplicadoSospechoso) {
+        console.warn(`Pedido WooCommerce #${orderId}: renovación reciente ya registrada para el cliente ${existente.id}, no se extiende el vencimiento (revisar manualmente)`);
+        nuevoVencimiento = existente.vencimiento || addDaysISO(fechaOrden, 30);
+      } else {
+        const vencActual = existente.vencimiento ? new Date(existente.vencimiento) : null;
+        // Si el plan sigue vigente, se apila un ciclo más desde ahí. Si ya
+        // venció (mismo criterio que aplicarPagoAprobado y renovarWeb, ver
+        // accb3d9), el nuevo vencimiento se ancla a fechaContratacion en vez
+        // de reiniciar el ciclo desde "ahora" — la vigencia de un plan Web es
+        // siempre la fecha de contratación, nunca la del pago.
+        nuevoVencimiento =
+          vencActual && vencActual > new Date() ? addDaysISO(vencActual.toISOString(), 30) : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
+      }
     }
     try {
       await db
@@ -161,7 +171,7 @@ export async function POST(request: NextRequest) {
     precio: monto,
     tipo: tipoVenta,
     fecha: fechaOrden,
-    creadoPor: "Automático (Web)",
+    creadoPor: duplicadoSospechoso ? "Automático (Web) — posible duplicado, revisar vencimiento" : "Automático (Web)",
     metodoPago: "tarjeta",
     esServicioAdicional: false,
   };
