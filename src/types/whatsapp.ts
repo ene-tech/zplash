@@ -219,4 +219,9 @@ export interface ResultadoEnvioMasivoWhatsapp {
   enviados: number;
   fallidos: number;
   sinTelefono: number;
+  // true si accion="cupon_descuento" y el lote de cupones no se pudo guardar
+  // (ver enviarMensajesMasivosWhatsapp en @/lib/whatsapp/masivo) — en ese caso
+  // no se envió ningún mensaje del lote, a diferencia de `fallidos` normal
+  // (que sí intentó el envío contra la Graph API).
+  cuponError?: boolean;
 }

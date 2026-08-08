@@ -35,6 +35,12 @@ export async function contarMensajesWhatsappGenerados(desdeISO: string, hastaISO
   return dataAccess.contarMensajesWhatsappGenerados(desdeISO, hastaISO);
 }
 
+// Ver comentario en dataAccess/whatsapp/conversaciones.ts::clienteIdsConMensajePlantilla.
+export async function clienteIdsConMensajePlantilla(metaNombre: string, desdeISO: string): Promise<string[]> {
+  if (!(await tieneModulo("web_settings"))) return [];
+  return dataAccess.clienteIdsConMensajePlantilla(metaNombre, desdeISO);
+}
+
 export async function enviarMensajesMasivosWhatsapp(opts: {
   plantillaId: string;
   clienteIds: string[];

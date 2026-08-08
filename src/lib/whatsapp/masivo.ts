@@ -70,6 +70,10 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
     const codigos = await generarCodigosCuponUnicos(conTelefono.length);
     const nuevosCupones = conTelefono.map((cliente, i) =>
       crearCuponDescuento({
+        // Id explícito con el índice del loop — ver comentario en
+        // crearCuponDescuento (@/lib/whatsapp/reglas/motor.ts) sobre por qué
+        // uid() solo no basta para un lote de cientos generado en el mismo tick.
+        id: `c${Date.now()}${i}${Math.floor(Math.random() * 1000)}`,
         codigo: codigos[i],
         patente: cliente.patente,
         valor: opts.cuponValor || 0,
@@ -79,7 +83,18 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
         creadoPor: enviadoPor,
       })
     );
-    await upsertCupones(nuevosCupones);
+    const cuponesGuardados = await upsertCupones(nuevosCupones);
+    // Si upsertCupones falla (ver "Error guardando cupones" en dataAccess),
+    // no hay que enviar igual: el mensaje de esta plantilla promete un
+    // "descuento automático" atado a la patente (ver comentario del módulo)
+    // y sin el cupón real guardado esa promesa queda rota para todo el lote —
+    // visto en producción: 0 cupones guardados por una colisión de id, pero
+    // igual se mandaron ~250 WhatsApp antes de que la función se cortara por
+    // timeout. Mejor no mandar nada de este lote que mandar de más.
+    if (!cuponesGuardados) {
+      console.error(`Envío masivo WhatsApp: no se pudieron guardar los ${nuevosCupones.length} cupones del lote, no se envía ningún mensaje`);
+      return { total: clientesEncontrados.length, enviados: 0, fallidos: clientesEncontrados.length, sinTelefono: 0, cuponError: true };
+    }
     nuevosCupones.forEach((c, i) => cuponPorClienteId.set(conTelefono[i].id, c));
   }
 

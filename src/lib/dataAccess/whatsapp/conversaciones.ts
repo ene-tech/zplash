@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, conversacionesWhatsapp, mensajesWhatsapp } from "@/db/schema";
 import { uid } from "@/lib/helpers";
@@ -144,6 +144,24 @@ export async function listarMensajes(conversacionId: string, limite = 100): Prom
 
 export async function marcarConversacionLeida(conversacionId: string): Promise<void> {
   await getDb().update(conversacionesWhatsapp).set({ noLeidos: 0 }).where(eq(conversacionesWhatsapp.id, conversacionId));
+}
+
+// Ids de Cliente que ya recibieron esta plantilla (por metaNombre, no por
+// plantillaWhatsappId — un envío masivo queda registrado en mensajes_whatsapp
+// como texto "[Plantilla: <metaNombre>]", ver enviarMensajePlantilla en
+// @/lib/whatsapp/enviar, no hay tabla propia de "campaña") desde `desdeISO`.
+// Usado por WebSettingsMensajesUnicosTab para excluir automáticamente a
+// quien ya recibió el envío en curso al reabrir la pantalla — un envío
+// masivo grande se manda ahora en varios lotes (ver CLIENTES_POR_LOTE) y si
+// el admin tiene que reintentar tras un corte a mitad de camino, no hay que
+// volver a mandarle a quien ya le llegó.
+export async function clienteIdsConMensajePlantilla(metaNombre: string, desdeISO: string): Promise<string[]> {
+  const rows = await getDb()
+    .selectDistinct({ clienteId: conversacionesWhatsapp.clienteId })
+    .from(mensajesWhatsapp)
+    .innerJoin(conversacionesWhatsapp, eq(conversacionesWhatsapp.id, mensajesWhatsapp.conversacionId))
+    .where(and(eq(mensajesWhatsapp.texto, `[Plantilla: ${metaNombre}]`), gt(mensajesWhatsapp.creadoEn, desdeISO), isNotNull(conversacionesWhatsapp.clienteId)));
+  return rows.map((r) => r.clienteId!);
 }
 
 // Ventana de 24h de Meta: fuera de ella solo se puede responder con una

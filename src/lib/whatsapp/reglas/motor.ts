@@ -122,10 +122,20 @@ export function crearCuponDescuento(opts: {
   validezDias: number;
   nombreLote: string;
   creadoPor: string;
+  // Solo lo pasa enviarMensajesMasivosWhatsapp (@/lib/whatsapp/masivo), que
+  // genera muchos cupones de una vez en un mismo tick de JS: uid() por sí solo
+  // ("c" + Date.now() + random 0-999) puede repetirse dentro del mismo
+  // milisegundo a este volumen (visto en producción con ~700 cupones de un
+  // envío masivo — colisión real, no teórica), y upsertCupones inserta todo el
+  // lote en un solo INSERT ... ON CONFLICT DO UPDATE, que Postgres rechaza
+  // entero ("cannot affect row a second time") ante el primer id repetido, sin
+  // guardar NINGÚN cupón del lote. Con `id` explícito (índice del loop
+  // incluido) cada llamada dentro del mismo lote queda garantizada única.
+  id?: string;
 }): Cupon {
   const ahora = new Date();
   return {
-    id: uid(),
+    id: opts.id || uid(),
     codigo: opts.codigo,
     nombreLote: opts.nombreLote,
     valor: opts.valor,
