@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getClientesByIds, obtenerPlantillaWhatsapp, upsertCupones } from "@/lib/dataAccess";
-import { montoDescuento } from "@/lib/helpers";
+import { isValidTelefono, montoDescuento } from "@/lib/helpers";
 import type { AccionReglaWhatsapp, Cupon, ResultadoEnvioMasivoWhatsapp } from "@/types";
 import { construirVariables, crearCuponDescuento, enviarSegunPlantilla, generarCodigosCuponUnicos } from "./reglas";
 
@@ -56,7 +56,13 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
   // enviar, no uno a uno dentro del loop de envío: evita una consulta a la
   // tabla cupones por cliente y deja los cupones creados aunque algún envío
   // individual falle después.
-  const conTelefono = clientesEncontrados.filter((c) => c.telefono);
+  // isValidTelefono descarta el placeholder "+569" que queda guardado tal
+  // cual cuando un operador guarda sin completar los 8 dígitos (ver
+  // OperadorFoundResult/ClientModal) — es un string truthy que superaba este
+  // filtro sin más, la Graph API lo rechazaba uno por uno con "(#131009)
+  // Parameter value is not valid" y esos clientes quedaban contados como
+  // "fallido" en vez de "sinTelefono".
+  const conTelefono = clientesEncontrados.filter((c) => c.telefono && isValidTelefono(c.telefono));
   const generaCupon = opts.accion === "cupon_descuento" && !!opts.cuponValor;
   const cuponPorClienteId = new Map<string, Cupon>();
   if (generaCupon) {
@@ -78,7 +84,7 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
   }
 
   for (const cliente of clientesEncontrados) {
-    if (!cliente.telefono) {
+    if (!cliente.telefono || !isValidTelefono(cliente.telefono)) {
       resultado.sinTelefono++;
       continue;
     }
