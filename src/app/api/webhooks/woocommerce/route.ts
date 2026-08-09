@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { movimientoToRow } from "@/lib/dataAccess";
-import { PLANES, formatTelefono, movimientoContableDesdeVenta, vencimientoAnclado } from "@/lib/helpers";
+import { PLANES, formatTelefono, movimientoContableDesdeVenta, sigueVigenteHoy, vencimientoAnclado } from "@/lib/helpers";
 import { addDaysISO, buscarClienteExistente, extraerPatente, huboRenovacionWebReciente, verificarFirma } from "./shared";
 
 export const runtime = "nodejs";
@@ -109,14 +109,19 @@ export async function POST(request: NextRequest) {
         console.warn(`Pedido WooCommerce #${orderId}: renovación reciente ya registrada para el cliente ${existente.id}, no se extiende el vencimiento (revisar manualmente)`);
         nuevoVencimiento = existente.vencimiento || addDaysISO(fechaOrden, 30);
       } else {
-        const vencActual = existente.vencimiento ? new Date(existente.vencimiento) : null;
         // Si el plan sigue vigente, se apila un ciclo más desde ahí. Si ya
         // venció (mismo criterio que aplicarPagoAprobado y renovarWeb, ver
         // accb3d9), el nuevo vencimiento se ancla a fechaContratacion en vez
         // de reiniciar el ciclo desde "ahora" — la vigencia de un plan Web es
         // siempre la fecha de contratación, nunca la del pago.
-        nuevoVencimiento =
-          vencActual && vencActual > new Date() ? addDaysISO(vencActual.toISOString(), 30) : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
+        // sigueVigenteHoy (día-granular, no hora exacta) y no
+        // `vencActual > new Date()`: WooCommerce suele mandar el webhook de
+        // renovación de noche en Chile, y una comparación por hora exacta
+        // marcaba como "ya vencido" un plan que técnicamente vencía más
+        // tarde ese mismo día — ver sigueVigenteHoy para el caso real.
+        nuevoVencimiento = sigueVigenteHoy(existente.vencimiento)
+          ? addDaysISO(existente.vencimiento!, 30)
+          : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
       }
     }
     try {

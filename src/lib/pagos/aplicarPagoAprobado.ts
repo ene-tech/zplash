@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
-import { PLANES, movimientoContableDesdeVenta, resolverPatentePendiente, uid, vencimientoAnclado } from "@/lib/helpers";
+import { PLANES, movimientoContableDesdeVenta, resolverPatentePendiente, sigueVigenteHoy, uid, vencimientoAnclado } from "@/lib/helpers";
 import { evaluarReglasPorCambioPatente, evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Cliente, Venta } from "@/types";
 
@@ -64,7 +64,6 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
       });
     }
   } else if (existente) {
-    const vencActual = existente.vencimiento ? new Date(existente.vencimiento) : null;
     // Si el plan sigue vigente, se apila un ciclo más desde ahí. Si ya venció
     // (ej. el cron de Oneclick corrió atrasado, o Transbank aprobó un reintento
     // varios días después), el nuevo vencimiento se ancla a fechaContratacion
@@ -73,8 +72,11 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
     // del pago, aunque este llegue tarde. Mismo criterio que usePlanActions::
     // renovarWeb (renovación manual de un cliente Web con cobro automático
     // fallido).
-    const nuevoVencimiento =
-      vencActual && vencActual > new Date() ? addDaysISO(vencActual.toISOString(), 30) : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
+    // sigueVigenteHoy (día-granular) en vez de comparar por hora exacta — ver
+    // el comentario en esa función para el bug real que causó en producción.
+    const nuevoVencimiento = sigueVigenteHoy(existente.vencimiento)
+      ? addDaysISO(existente.vencimiento!, 30)
+      : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
     clienteId = existente.id;
     const anterior = clienteFromRow(existente);
     // Resuelve un cambio de patente pendiente (ver clientes.patente_pendiente,

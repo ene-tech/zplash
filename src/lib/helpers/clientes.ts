@@ -153,6 +153,29 @@ export function vencimientoPorDefectoISO(desde: Date = new Date()): string {
 }
 
 /**
+ * true si `vencimiento` sigue vigente HOY (fecha de calendario en Chile, no
+ * la hora exacta) — mismo criterio día-granular que planStatus. Evita tratar
+ * como "vencido" un plan cuya hora de vencimiento (guardada tal cual quedó
+ * en su último cálculo, casi siempre bien entrada la madrugada) ya pasó pero
+ * cuya fecha sigue siendo hoy en Chile.
+ *
+ * Visto en producción (ago-2026, caso CBLH20 y otros): WooCommerce procesaba
+ * la renovación de un cliente de noche en Chile — todavía "hoy" en el
+ * calendario — pero el webhook comparaba contra `new Date()` (hora exacta),
+ * que ya marcaba ese vencimiento como pasado. Eso lo mandaba a
+ * vencimientoAnclado() en vez de sumarle 30 días desde donde estaba, y como
+ * vencimientoAnclado() también usa el mismo "hoy" día-granular, el resultado
+ * caía en esa misma fecha (ya pasada en hora exacta): el cliente pagaba y
+ * quedaba igual de "Vencido" en el sistema.
+ */
+export function sigueVigenteHoy(vencimiento: string | null | undefined): boolean {
+  if (!vencimiento) return false;
+  const hoy = ahoraEnSantiago();
+  hoy.setHours(0, 0, 0, 0);
+  return new Date(vencimiento) >= hoy;
+}
+
+/**
  * Próximo vencimiento manteniendo el ciclo mensual anclado a la fecha de
  * contratación original (avanza de 30 en 30 días desde ahí), en vez de
  * reiniciar el ciclo desde la fecha en que el operador renueva manualmente
@@ -166,6 +189,15 @@ export function vencimientoAnclado(fechaContratacion: string | null | undefined)
   let base = fechaContratacion ? new Date(fechaContratacion) : new Date(hoy);
   if (isNaN(base.getTime())) base = new Date(hoy);
   while (base <= hoy) {
+    base.setDate(base.getDate() + 30);
+  }
+  // Red de seguridad: `hoy` es día-granular (mismo criterio que planStatus),
+  // así que `base` puede caer "hoy" con una hora ya pasada en el momento
+  // exacto en que corre esta función (ver sigueVigenteHoy). El vencimiento
+  // que se guarda nunca debería nacer ya vencido — si eso pasa, suma un
+  // ciclo más.
+  const ahora = new Date();
+  while (base <= ahora) {
     base.setDate(base.getDate() + 30);
   }
   return base.toISOString();
