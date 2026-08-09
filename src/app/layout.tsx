@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 
 export const metadata: Metadata = {
-  title: "ZPlash · Control de Acceso",
-  description: "Sistema de control de acceso y planes de ZPlash",
+  title: "ZPlash · Lavado de autos",
+  description: "Lavado de autos sin rallas, planes mensuales ilimitados y servicios de detailing en ZPlash.",
   appleWebApp: {
     title: "ZPlash",
     statusBarStyle: "black-translucent",
