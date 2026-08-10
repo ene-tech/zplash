@@ -39,7 +39,7 @@ const SECCIONES: { id: string; label: string; icon: LucideIcon; Componente: Reac
   { id: "bloqueo", label: "Bloqueo de reingreso", icon: Lock, Componente: BloqueoSection },
   { id: "aspirado", label: "Zona aspirado", icon: Wind, Componente: AspiradoSection },
   { id: "upgrade", label: "Upgrade a plan", icon: ArrowUpCircle, Componente: UpgradeSection },
-  { id: "web", label: "Pagos web", icon: Globe, Componente: PagosWebSection },
+  { id: "web", label: "Precios de Lavados en Pagina Web", icon: Globe, Componente: PagosWebSection },
   { id: "servicios", label: "Servicios adicionales", icon: ListPlus, Componente: ServiciosSection },
   { id: "correo", label: "Firma de correo", icon: Mail, Componente: CorreoFirmaSection },
 ];

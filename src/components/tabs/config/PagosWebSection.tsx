@@ -30,7 +30,7 @@ export default function PagosWebSection() {
 
   return (
     <ConfigSection
-      title="Pagos web (/pagar)"
+      title="Precios de Lavados en Pagina Web"
       icon={Globe}
       description="Precios del canal web, separados de los que cobra el módulo Operador en el local — permite tener una promoción online distinta a la presencial sin que una afecte a la otra."
     >
