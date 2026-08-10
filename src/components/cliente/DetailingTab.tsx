@@ -7,7 +7,7 @@ export default function DetailingTab({ precios }: { precios: PreciosPublicos | n
 
   return (
     <div>
-      <h2 style={{ marginBottom: 12 }}>SERVICIOS DE LIMPIEZA PROFESIONAL Y DETAILING AUTOMOTRIZ</h2>
+      <h2 className="section-title">SERVICIOS DE LIMPIEZA PROFESIONAL Y DETAILING AUTOMOTRIZ</h2>
       {!precios ? (
         <div className="empty">Cargando servicios...</div>
       ) : (

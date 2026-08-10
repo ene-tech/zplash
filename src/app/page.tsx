@@ -14,12 +14,6 @@ import { getPreciosPublicos } from "@/lib/preciosPublicos";
 // deben coincidir siempre con lo que /api/pagos/webpay/crear cobra.
 export const dynamic = "force-dynamic";
 
-const COMPROMISOS = [
-  { emoji: "🌱", titulo: "Más Verde", texto: "Reciclamos el agua del lavado y reducimos el consumo por vehículo." },
-  { emoji: "✨", titulo: "Más Limpio", texto: "Enjuague con agua desmineralizada: sin manchas de cal, sin rayas." },
-  { emoji: "⚡", titulo: "Más Rápido", texto: "Túnel de lavado sin reserva de hora, entra y sal en minutos." },
-];
-
 export default async function LandingPage() {
   const precios = await getPreciosPublicos();
 
@@ -56,17 +50,6 @@ export default async function LandingPage() {
 
         <div style={{ margin: "26px 0" }}>
           <DetailingTab precios={precios} />
-        </div>
-
-        <div className="card-grid" style={{ margin: "26px 0" }}>
-          {COMPROMISOS.map((c) => (
-            <div className="card" key={c.titulo}>
-              <h3>
-                {c.emoji} {c.titulo}
-              </h3>
-              <p style={{ color: "var(--gray)", fontSize: 14 }}>{c.texto}</p>
-            </div>
-          ))}
         </div>
 
         <h2 style={{ marginBottom: 12 }}>Venta a Empresa</h2>
