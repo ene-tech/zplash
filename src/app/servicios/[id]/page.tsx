@@ -5,7 +5,7 @@ import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import ProductoBanner from "@/components/cliente/ProductoBanner";
 
 const WHATSAPP_URL = (nombre: string) =>
-  "https://wa.me/56939059611?text=" + encodeURIComponent(`Hola, quiero agendar el servicio "${nombre}" para mi auto`);
+  "https://wa.me/56957969446?text=" + encodeURIComponent(`Hola, quiero agendar el servicio "${nombre}" para mi auto`);
 
 export default async function ServicioLandingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
