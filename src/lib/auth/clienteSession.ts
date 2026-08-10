@@ -2,24 +2,25 @@ import "server-only";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 
-// Sesión del Portal Cliente (src/app/cliente), autenticada por código de
-// WhatsApp (ver src/app/api/cliente/otp) en vez de contraseña. Mismo esquema
-// de cookie HMAC firmada que @/lib/session (payload + firma en el mismo
-// valor, sin tabla de sesiones), pero con su propio nombre de cookie —
-// "zplash_sesion_cliente" ya estaba tomado como key de localStorage por la
-// sesión falsa anterior (ver git history de @/lib/sesionCliente) y no
-// conviene reusarlo para evitar confusión entre ambos mecanismos.
+// Sesión del Portal Cliente (src/app/cliente), autenticada por código de un
+// solo uso enviado por correo (ver src/app/api/cliente/otp) en vez de
+// contraseña. Mismo esquema de cookie HMAC firmada que @/lib/session
+// (payload + firma en el mismo valor, sin tabla de sesiones), pero con su
+// propio nombre de cookie — "zplash_sesion_cliente" ya estaba tomado como
+// key de localStorage por la sesión falsa anterior (ver git history de
+// @/lib/sesionCliente) y no conviene reusarlo para evitar confusión entre
+// ambos mecanismos.
 //
-// `clienteIds` puede tener más de un id: como clientes.telefono no es único,
+// `clienteIds` puede tener más de un id: como clientes.email no es único,
 // verificar el código resuelve TODAS las filas de `clientes` que comparten
-// ese teléfono (ver otp/verificar/route.ts), para reproducir "mis vehículos"
+// ese correo (ver otp/verificar/route.ts), para reproducir "mis vehículos"
 // sin necesitar una tabla de "persona" separada.
 const COOKIE_NAME = "zplash_cliente_sesion";
 const DURACION_MS = 30 * 24 * 60 * 60 * 1000; // 30 días: a diferencia del panel de operadores, acá no hay urgencia de forzar reingreso frecuente
 
 interface SesionClientePayload {
   clienteIds: string[];
-  telefono: string;
+  email: string;
   exp: number;
 }
 
@@ -39,8 +40,8 @@ function firmaValida(payload: string, firma: string): boolean {
   return esperada.length === recibida.length && crypto.timingSafeEqual(esperada, recibida);
 }
 
-export async function crearSesionCliente(clienteIds: string[], telefono: string): Promise<void> {
-  const payload: SesionClientePayload = { clienteIds, telefono, exp: Date.now() + DURACION_MS };
+export async function crearSesionCliente(clienteIds: string[], email: string): Promise<void> {
+  const payload: SesionClientePayload = { clienteIds, email, exp: Date.now() + DURACION_MS };
   const json = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, `${json}.${firmar(json)}`, {

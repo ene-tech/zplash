@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { otpsCliente } from "@/db/schema";
-import { buscarClientePorPatente, buscarClientesPorTelefono } from "@/lib/dataAccess/clientes";
-import { enviarMensajePlantilla } from "@/lib/whatsapp/enviar";
+import { buscarClientePorPatente, buscarClientesPorEmail } from "@/lib/dataAccess/clientes";
+import { enviarCodigoOtpCliente } from "@/lib/buzon/otp";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { origenValido } from "@/lib/csrf";
-import { normPlate, isValidPatente, formatTelefono, isValidTelefono, uid } from "@/lib/helpers";
+import { normPlate, isValidPatente, isValidEmail, uid } from "@/lib/helpers";
 import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
@@ -13,11 +13,10 @@ export const runtime = "nodejs";
 const LIMITE_IP = 8;
 const VENTANA_IP_MS = 5 * 60 * 1000;
 
-// Límite por teléfono objetivo, más estricto que el de perfiles: cada
-// intento manda un mensaje de plantilla pago, así que además de frenar
-// abuso acá se acota el costo directo.
-const LIMITE_TELEFONO = 5;
-const VENTANA_TELEFONO_MS = 10 * 60 * 1000;
+// Límite por correo objetivo, más estricto que el de perfiles, para acotar
+// abuso (spam de códigos a un mismo destinatario).
+const LIMITE_EMAIL = 5;
+const VENTANA_EMAIL_MS = 10 * 60 * 1000;
 
 const DURACION_CODIGO_MS = 5 * 60 * 1000;
 
@@ -33,7 +32,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 
-  let body: { patente?: unknown; telefono?: unknown };
+  let body: { patente?: unknown; email?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -41,12 +40,12 @@ export async function POST(request: NextRequest) {
   }
 
   const patente = typeof body.patente === "string" ? body.patente.trim() : "";
-  const telefonoIngresado = typeof body.telefono === "string" ? body.telefono.trim() : "";
-  if (!patente && !telefonoIngresado) {
-    return NextResponse.json({ ok: false, error: "Ingresa tu patente o tu teléfono" }, { status: 400 });
+  const emailIngresado = typeof body.email === "string" ? body.email.trim() : "";
+  if (!patente && !emailIngresado) {
+    return NextResponse.json({ ok: false, error: "Ingresa tu patente o tu correo" }, { status: 400 });
   }
 
-  let telefono: string;
+  let email: string;
   try {
     if (patente) {
       if (!isValidPatente(patente)) {
@@ -56,31 +55,31 @@ export async function POST(request: NextRequest) {
       if (!cliente) {
         return NextResponse.json({ ok: false, error: "No encontramos esa patente" }, { status: 404 });
       }
-      if (!cliente.telefono) {
+      if (!cliente.email) {
         return NextResponse.json(
-          { ok: false, error: "Este vehículo no tiene un teléfono registrado. Escríbenos por WhatsApp para vincularlo." },
+          { ok: false, error: "Este vehículo no tiene un correo registrado. Escríbenos por WhatsApp para vincularlo." },
           { status: 400 }
         );
       }
-      telefono = cliente.telefono;
+      email = cliente.email.trim().toLowerCase();
     } else {
-      const normalizado = formatTelefono(telefonoIngresado);
-      if (!isValidTelefono(normalizado) || !normalizado) {
-        return NextResponse.json({ ok: false, error: "Teléfono inválido. Usa formato +56912345678." }, { status: 400 });
+      const normalizado = emailIngresado.trim().toLowerCase();
+      if (!isValidEmail(normalizado)) {
+        return NextResponse.json({ ok: false, error: "Correo inválido" }, { status: 400 });
       }
-      const clientesEncontrados = await buscarClientesPorTelefono(normalizado);
+      const clientesEncontrados = await buscarClientesPorEmail(normalizado);
       if (!clientesEncontrados.length) {
-        return NextResponse.json({ ok: false, error: "No encontramos ese teléfono" }, { status: 404 });
+        return NextResponse.json({ ok: false, error: "No encontramos ese correo" }, { status: 404 });
       }
-      telefono = normalizado;
+      email = normalizado;
     }
   } catch (error) {
     console.error("Error buscando cliente para OTP", error);
     return NextResponse.json({ ok: false, error: "Error de servidor" }, { status: 500 });
   }
 
-  if (rateLimited(`cliente-otp-objetivo:${telefono}`, LIMITE_TELEFONO, VENTANA_TELEFONO_MS)) {
-    return NextResponse.json({ ok: false, error: "Demasiados códigos solicitados para este teléfono, espera unos minutos" }, { status: 429 });
+  if (rateLimited(`cliente-otp-objetivo:${email}`, LIMITE_EMAIL, VENTANA_EMAIL_MS)) {
+    return NextResponse.json({ ok: false, error: "Demasiados códigos solicitados para este correo, espera unos minutos" }, { status: 429 });
   }
 
   const codigo = generarCodigo();
@@ -89,7 +88,7 @@ export async function POST(request: NextRequest) {
   try {
     await getDb().insert(otpsCliente).values({
       id: uid(),
-      telefono,
+      email,
       codigoHash,
       expiraEn: new Date(Date.now() + DURACION_CODIGO_MS).toISOString(),
     });
@@ -98,17 +97,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Error de servidor" }, { status: 500 });
   }
 
-  const nombrePlantilla = process.env.WHATSAPP_OTP_TEMPLATE_NOMBRE;
-  if (!nombrePlantilla) {
-    console.error("Falta WHATSAPP_OTP_TEMPLATE_NOMBRE en las variables de entorno");
-    return NextResponse.json({ ok: false, error: "Envío de códigos aún no configurado" }, { status: 500 });
+  const envio = await enviarCodigoOtpCliente(email, codigo);
+  if (!envio.ok) {
+    return NextResponse.json({ ok: false, error: "No pudimos enviar el código por correo, intenta de nuevo" }, { status: 502 });
   }
 
-  const idioma = process.env.WHATSAPP_OTP_TEMPLATE_IDIOMA || "es";
-  const mensaje = await enviarMensajePlantilla(telefono, nombrePlantilla, idioma, [codigo], undefined, codigo);
-  if (mensaje.estado === "fallido") {
-    return NextResponse.json({ ok: false, error: "No pudimos enviar el código por WhatsApp, intenta de nuevo" }, { status: 502 });
-  }
-
-  return NextResponse.json({ ok: true, telefono });
+  return NextResponse.json({ ok: true, email });
 }

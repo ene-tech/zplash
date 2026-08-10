@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 
-// Login del Portal Cliente: código de un solo uso por WhatsApp (ver
+// Login del Portal Cliente: código de un solo uso por correo (ver
 // @/app/api/cliente/otp), en vez de la cuenta de Google que mostraba antes
-// esta pantalla (nunca llegó a conectarse de verdad). Dos pasos: pedir el
-// código (por patente o teléfono) y verificarlo.
+// esta pantalla (nunca llegó a conectarse de verdad) o del WhatsApp que se
+// usó después (plantilla paga). Dos pasos: pedir el código (por patente o
+// correo) y verificarlo.
 export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
   const [paso, setPaso] = useState<"pedir" | "verificar">("pedir");
-  const [modo, setModo] = useState<"patente" | "telefono">("patente");
+  const [modo, setModo] = useState<"patente" | "email">("patente");
   const [valor, setValor] = useState("");
-  const [telefonoDestino, setTelefonoDestino] = useState("");
+  const [emailDestino, setEmailDestino] = useState("");
   const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
@@ -23,14 +24,14 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
       const res = await fetch("/api/cliente/otp/solicitar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(modo === "patente" ? { patente: valor.trim() } : { telefono: valor.trim() }),
+        body: JSON.stringify(modo === "patente" ? { patente: valor.trim() } : { email: valor.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "No se pudo enviar el código");
         return;
       }
-      setTelefonoDestino(data.telefono);
+      setEmailDestino(data.email);
       setPaso("verificar");
     } catch {
       setError("Sin conexión. Intenta de nuevo.");
@@ -50,7 +51,7 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
       const res = await fetch("/api/cliente/otp/verificar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ telefono: telefonoDestino, codigo }),
+        body: JSON.stringify({ email: emailDestino, codigo }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -70,7 +71,7 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="card" style={{ maxWidth: 420, margin: "0 auto", textAlign: "center" }}>
         <h3>Ingresa el código</h3>
         <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
-          Te enviamos un código de 6 dígitos por WhatsApp a <strong>{telefonoDestino}</strong>. Vence en 5 minutos.
+          Te enviamos un código de 6 dígitos por correo a <strong>{emailDestino}</strong>. Vence en 5 minutos.
         </p>
         <div className="field" style={{ marginBottom: 12 }}>
           <input
@@ -108,7 +109,7 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
     <div className="card" style={{ maxWidth: 420, margin: "0 auto", textAlign: "center" }}>
       <h3>Mi Cuenta</h3>
       <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
-        Ingresa con tu patente o tu teléfono y te mandamos un código por WhatsApp para verificar que eres tú.
+        Ingresa con tu patente o tu correo y te mandamos un código por correo para verificar que eres tú.
       </p>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, justifyContent: "center" }}>
         <button
@@ -125,29 +126,29 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
         </button>
         <button
           type="button"
-          className={modo === "telefono" ? "btn" : "btn ghost"}
+          className={modo === "email" ? "btn" : "btn ghost"}
           style={{ marginTop: 0, padding: "6px 14px", fontSize: 12.5 }}
           onClick={() => {
-            setModo("telefono");
+            setModo("email");
             setValor("");
             setError("");
           }}
         >
-          Por teléfono
+          Por correo
         </button>
       </div>
       <div className="field" style={{ marginBottom: 12 }}>
         <input
           value={valor}
           onChange={(e) => setValor(modo === "patente" ? e.target.value.toUpperCase() : e.target.value)}
-          placeholder={modo === "patente" ? "AB1234" : "+56912345678"}
+          placeholder={modo === "patente" ? "AB1234" : "correo@ejemplo.com"}
           style={modo === "patente" ? { textTransform: "uppercase" } : undefined}
           onKeyDown={(e) => e.key === "Enter" && pedirCodigo()}
         />
       </div>
       {error && <div className="err">{error}</div>}
       <button type="button" className="btn" onClick={pedirCodigo} disabled={enviando}>
-        {enviando ? "Enviando..." : "Enviarme un código por WhatsApp"}
+        {enviando ? "Enviando..." : "Enviarme un código por correo"}
       </button>
     </div>
   );
