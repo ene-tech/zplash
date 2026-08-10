@@ -5,7 +5,7 @@ import { precios, servicios } from "@/db/schema";
 import {
   PACKS_EMPRESA,
   PLANES,
-  precioLavadoUnico,
+  precioLavadoUnicoWeb,
   precioNormal,
   precioPackEmpresa,
   precioPlanOneclick,
@@ -31,7 +31,7 @@ export async function getPreciosPublicos(): Promise<PreciosPublicos> {
   return {
     plan: { nombre: PLANES[0], precio: precioNormal(preciosMap, PLANES[0]) },
     planOneclick: { nombre: PLANES[0], precio: precioPlanOneclick(preciosMap) },
-    lavadoUnico: { nombre: "Lavado único", precio: precioLavadoUnico(preciosMap) },
+    lavadoUnico: { nombre: "Lavado único", precio: precioLavadoUnicoWeb(preciosMap) },
     zonaAspirado: { nombre: "Uso Zona Aspirado Autoservicio", precio: precioZonaAspirado(preciosMap) },
     servicios: catalogo.map((s) => ({
       id: s.id,

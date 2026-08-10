@@ -6,7 +6,7 @@ import {
   PLANES,
   isValidPatente,
   normPlate,
-  precioLavadoUnico,
+  precioLavadoUnicoWeb,
   precioNormal,
   precioServicio,
   precioZonaAspirado,
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         }
         items.push({ tipo, servicioId: servicio.id, nombre: servicio.nombre, monto: precioServicio(preciosMap, servicio.id) });
       } else if (tipo === "lavado_unico") {
-        items.push({ tipo, servicioId: null, nombre: "Lavado único", monto: precioLavadoUnico(preciosMap) });
+        items.push({ tipo, servicioId: null, nombre: "Lavado único", monto: precioLavadoUnicoWeb(preciosMap) });
       } else if (tipo === "aspirado") {
         items.push({
           tipo,

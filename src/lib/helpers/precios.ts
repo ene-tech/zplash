@@ -14,12 +14,24 @@ export const PRECIOS_DEFAULT: Precios = {
 /** Precio de un lavado único para clientes sin plan vigente (vencido o sin plan). */
 export const PRECIO_LAVADO_UNICO = 9990;
 
-/** Clave usada dentro de Precios para guardar el valor editable del lavado único. */
+/** Clave usada dentro de Precios para guardar el valor editable del lavado
+ * único PRESENCIAL (módulo Operador, ficha de cliente, ingreso sin registro)
+ * — ver LAVADO_UNICO_WEB_KEY para el mismo servicio comprado por /pagar,
+ * que es un canal de venta aparte con su propio precio editable. */
 export const LAVADO_UNICO_KEY = "Lavado único";
+
+/** Clave usada dentro de Precios para guardar el valor editable del lavado
+ * único comprado desde /pagar — separado de LAVADO_UNICO_KEY a propósito
+ * (ver PagosWebSection) para poder tener una promoción web distinta a la
+ * presencial sin que una afecte a la otra. */
+export const LAVADO_UNICO_WEB_KEY = "Lavado único (Web)";
 
 /** `Venta.tipo` con el que queda un "Lavado único" comprado por adelantado
  * desde /pagar (ver retorno/route.ts, que arma el tipo como `${nombre} (Web)`
- * y nombre siempre es LAVADO_UNICO_KEY para este ítem del carrito). */
+ * y nombre siempre es "Lavado único" para este ítem del carrito) — mismo
+ * string que LAVADO_UNICO_WEB_KEY por coincidencia de nomenclatura, pero es
+ * un concepto distinto: esto identifica una Venta ya hecha, no una clave de
+ * Precios. */
 export const LAVADO_UNICO_WEB_TIPO = `${LAVADO_UNICO_KEY} (Web)`;
 
 /**
@@ -213,9 +225,16 @@ export function precioReactivacionVencido(
   return match?.precio;
 }
 
-/** Precio vigente del lavado único, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */
+/** Precio vigente del lavado único PRESENCIAL, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */
 export function precioLavadoUnico(precios: Precios): number {
   return (precios[LAVADO_UNICO_KEY] && precios[LAVADO_UNICO_KEY].normal) || PRECIO_LAVADO_UNICO;
+}
+
+/** Precio vigente del lavado único comprado desde /pagar (canal Web), editable
+ * aparte del presencial; si no se ha guardado uno, usa el mismo valor por
+ * defecto que el presencial. */
+export function precioLavadoUnicoWeb(precios: Precios): number {
+  return (precios[LAVADO_UNICO_WEB_KEY] && precios[LAVADO_UNICO_WEB_KEY].normal) || PRECIO_LAVADO_UNICO;
 }
 
 /** Precio vigente de un servicio del catálogo, editable por el administrador desde Configuración; si no se ha guardado uno, es 0. */
