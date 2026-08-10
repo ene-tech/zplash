@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 
@@ -16,7 +17,9 @@ export default async function DetailingLandingPage() {
     <div id="app">
       <div className="cliente-header">
         <div className="title">
-          <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          <Link href="/" aria-label="Ir al inicio">
+            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          </Link>
           <span className="mode">Portal Cliente</span>
         </div>
         <a href="/cliente" className="btn ghost" style={{ marginTop: 0, textDecoration: "none" }}>

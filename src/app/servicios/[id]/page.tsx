@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { fmtCLP } from "@/lib/helpers";
 import { obtenerContenidoServicio } from "@/lib/servicioContenido";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
@@ -17,7 +18,9 @@ export default async function ServicioLandingPage({ params }: { params: Promise<
     <div id="app">
       <div className="cliente-header">
         <div className="title">
-          <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          <Link href="/" aria-label="Ir al inicio">
+            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          </Link>
           <span className="mode">{servicio?.nombre ?? "Servicio"}</span>
         </div>
         <a href="/pagar" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>

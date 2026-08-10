@@ -1,16 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import TiposLavadoTab from "@/components/cliente/TiposLavadoTab";
+import DetailingTab from "@/components/cliente/DetailingTab";
 import VentaEmpresaInfoTab from "@/components/cliente/VentaEmpresaInfoTab";
 import FaqTab from "@/components/cliente/FaqTab";
 import UbicacionTab from "@/components/cliente/UbicacionTab";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 
-// Home pública (reemplazo del home de WordPress): mismos datos y componentes
-// que /cliente, en un layout de scroll en vez de tabs, pensado para visitas
-// que todavía no tienen cuenta. Precios en vivo por la misma razón que en
-// /cliente: deben coincidir siempre con lo que /api/pagos/webpay/crear cobra.
+// Única puerta pública del sitio (reemplazo del home de WordPress): todo el
+// contenido de venta en un layout de scroll. /cliente ya no duplica esto —
+// quedó reducida a la cuenta del cliente logueado. Precios en vivo porque
+// deben coincidir siempre con lo que /api/pagos/webpay/crear cobra.
 export const dynamic = "force-dynamic";
 
 const COMPROMISOS = [
@@ -26,7 +27,9 @@ export default async function LandingPage() {
     <div id="app">
       <div className="cliente-header">
         <div className="title">
-          <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          <Link href="/" aria-label="Ir al inicio">
+            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          </Link>
           <span className="mode">ZPlash</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -50,6 +53,10 @@ export default async function LandingPage() {
 
       <div className="content">
         <TiposLavadoTab precios={precios} />
+
+        <div style={{ margin: "26px 0" }}>
+          <DetailingTab precios={precios} />
+        </div>
 
         <div className="card-grid" style={{ margin: "26px 0" }}>
           {COMPROMISOS.map((c) => (

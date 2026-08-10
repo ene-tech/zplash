@@ -1,28 +1,23 @@
 import Image from "next/image";
-import UbicacionTab from "@/components/cliente/UbicacionTab";
-import TiposLavadoTab from "@/components/cliente/TiposLavadoTab";
-import DetailingTab from "@/components/cliente/DetailingTab";
-import VentaEmpresaInfoTab from "@/components/cliente/VentaEmpresaInfoTab";
-import FaqTab from "@/components/cliente/FaqTab";
+import Link from "next/link";
 import MiCuentaTab from "@/components/cliente/MiCuentaTab";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
-import ClienteTabs from "@/components/cliente/ClienteTabs";
-import { getPreciosPublicos } from "@/lib/preciosPublicos";
 
-// Los precios se leen de la base en cada request (no estáticos en build):
-// deben reflejar siempre lo que /api/pagos/webpay/crear va a cobrar de
-// verdad, igual que el resto de las páginas que usan getPreciosPublicos().
-export const dynamic = "force-dynamic";
-
-export default async function ClientePage() {
-  const precios = await getPreciosPublicos();
-
+// Antes esta página era una segunda "home" pública con pestañas (Ubicación,
+// Lavados, Detailing, Empresa, FAQ) que duplicaba el contenido de / y había
+// que mantener dos veces. Esas secciones ya viven solo en / (y Detailing se
+// sumó ahí); /cliente quedó reducida a lo único que de verdad requiere una
+// sesión: la cuenta del cliente. Ya no hay datos vivos que traer server-side
+// (MiCuentaTab pide todo por su cuenta), así que no necesita force-dynamic.
+export default function ClientePage() {
   return (
     <div id="app">
       <div className="cliente-header">
         <div className="title">
-          <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
-          <span className="mode">Portal Cliente</span>
+          <Link href="/" aria-label="Ir al inicio">
+            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          </Link>
+          <span className="mode">Mi Cuenta</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <CarritoBadge />
@@ -33,21 +28,15 @@ export default async function ClientePage() {
       </div>
 
       <div className="cliente-hero">
-        <h1>Bienvenido a ZPlash</h1>
-        <p>Toda la información de nuestro lavado de autos, y tu cuenta para revisar tus compras y vehículos.</p>
+        <h1>Mi Cuenta</h1>
+        <p>Revisa tus vehículos, tu plan, tus tarjetas registradas y tu historial de compras.</p>
       </div>
 
       <div className="content">
-        <ClienteTabs
-          panels={{
-            ubicacion: <UbicacionTab />,
-            lavados: <TiposLavadoTab precios={precios} />,
-            detailing: <DetailingTab precios={precios} />,
-            empresa: <VentaEmpresaInfoTab precios={precios} />,
-            faq: <FaqTab />,
-            cuenta: <MiCuentaTab />,
-          }}
-        />
+        <Link href="/" className="landing-back">
+          ← Volver al inicio
+        </Link>
+        <MiCuentaTab />
       </div>
     </div>
   );

@@ -40,7 +40,9 @@ export default async function PlanMensualPage() {
     <div id="app">
       <div className="cliente-header">
         <div className="title">
-          <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          <Link href="/" aria-label="Ir al inicio">
+            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          </Link>
           <span className="mode">Plan Mensual Ilimitado</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

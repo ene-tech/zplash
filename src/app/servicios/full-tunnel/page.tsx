@@ -41,7 +41,9 @@ export default async function FullTunnelPage() {
     <div id="app">
       <div className="cliente-header">
         <div className="title">
-          <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          <Link href="/" aria-label="Ir al inicio">
+            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+          </Link>
           <span className="mode">Lavado Full Tunnel</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
