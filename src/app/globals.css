@@ -84,6 +84,7 @@ body {
      /servicios, /cliente, /carrito, /pagar). El panel interno (#app.admin-app,
      ver más abajo) lo pisa con un fondo plano: es una herramienta operativa
      de uso prolongado y el degradé de marca solo aporta ruido ahí. */
+  position: relative;
   background-color: var(--black);
   background-image: radial-gradient(120% 70% at 50% 100%, rgba(255, 199, 44, 0.38), rgba(255, 199, 44, 0) 65%),
     linear-gradient(180deg, #14110f 0%, var(--black) 35%, #35291a 75%, #4a3820 100%);
@@ -91,6 +92,26 @@ body {
   color: var(--white);
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   min-height: 100vh;
+}
+/* Textura halftone (puntos dorados) sobre el fondo público: dos grillas de
+   puntos superpuestas para dar profundidad, enmascaradas con un óvalo
+   transparente al centro para que se concentren en los bordes/esquinas y se
+   apaguen detrás del contenido, igual que la referencia de diseño. Va en un
+   pseudo-elemento y no directo en background-image de body para poder
+   enmascararla sin afectar el degradé de fondo. #app.admin-app la tapa con
+   su propio fondo opaco, así que no llega al panel interno. */
+body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(255, 199, 44, 0.55) 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(255, 199, 44, 0.28) 1px, transparent 1.6px);
+  background-size: 16px 16px, 9px 9px;
+  background-position: 0 0, 4.5px 4.5px;
+  -webkit-mask-image: radial-gradient(ellipse 62% 55% at 50% 46%, transparent 0%, transparent 42%, black 85%);
+  mask-image: radial-gradient(ellipse 62% 55% at 50% 46%, transparent 0%, transparent 42%, black 85%);
 }
 h1,
 h2,
@@ -103,6 +124,8 @@ h4,
   text-transform: uppercase;
 }
 #app {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -243,9 +266,11 @@ h4,
   cursor: pointer;
   text-align: left;
   transition: 0.15s;
+  box-shadow: var(--shadow-elevated);
 }
 .service-btn:hover {
   border-color: var(--gold);
+  transform: translateY(-2px);
 }
 .service-btn.selected {
   border-color: var(--gold);
@@ -281,9 +306,11 @@ h4,
   cursor: pointer;
   text-align: center;
   transition: 0.15s;
+  box-shadow: var(--shadow-elevated);
 }
 .estado-pago-btn:hover {
   border-color: var(--white);
+  transform: translateY(-1px);
 }
 .estado-pago-btn.ok.selected {
   border-color: var(--green);
@@ -468,13 +495,13 @@ h4,
   background: transparent;
   border: 1px solid var(--gold);
   color: var(--gold);
-  box-shadow: none;
+  box-shadow: var(--shadow-elevated);
 }
 .btn.ghost {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--white);
-  box-shadow: none;
+  box-shadow: var(--shadow-elevated);
 }
 .btn.danger {
   background: var(--red);
@@ -1277,9 +1304,12 @@ tr:hover td {
   font-size: 14.5px;
   cursor: pointer;
   margin-top: 4px;
+  box-shadow: var(--shadow-elevated);
+  transition: 0.15s;
 }
 .google-btn:hover {
   filter: brightness(0.97);
+  transform: translateY(-1px);
 }
 .demo-badge {
   font-size: 10.5px;
