@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { fmtCLP } from "@/lib/helpers";
+import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
 import type { PreciosPublicos } from "./types";
 
 export default function DetailingTab({ precios }: { precios: PreciosPublicos | null }) {
-  const categorias = Array.from(new Set((precios?.servicios ?? []).map((s) => s.categoria || "Otros")));
+  // La tabla `servicios` no tiene orden propio (getPreciosPublicos la lee sin
+  // ORDER BY), así que el orden de categorías queda a merced de cómo haya
+  // quedado la fila en la base. Lavado Completo Detailing va siempre primero
+  // porque es el servicio principal de esta sección; el resto conserva el
+  // orden en que aparece.
+  const categorias = Array.from(new Set((precios?.servicios ?? []).map((s) => s.categoria || "Otros"))).sort((a, b) =>
+    a === CATEGORIA_DETAILING ? -1 : b === CATEGORIA_DETAILING ? 1 : 0
+  );
 
   return (
     <div>
