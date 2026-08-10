@@ -60,7 +60,7 @@ export default async function FullTunnelPage() {
         </a>
 
         <div className="card" style={{ marginBottom: 18 }}>
-          <ProductoBanner imagen="/servicios-precios.jpg" alt="Lavado Full Tunnel" />
+          <ProductoBanner imagen="/fondo-producto.jpg" alt="Lavado Full Tunnel" />
           <h3>🚿 Lavado Full Tunnel</h3>
           <div className="price-row" style={{ marginBottom: 14 }}>
             <span className="new">{fmtCLP(precios.lavadoUnico.precio)}</span>

@@ -55,7 +55,7 @@ export default async function ZonaAspiradoPage() {
         </a>
 
         <div className="card" style={{ marginBottom: 18 }}>
-          <ProductoBanner imagen="/servicios-precios.jpg" alt="Uso Zona Aspirado Autoservicio" />
+          <ProductoBanner imagen="/fondo-producto.jpg" alt="Uso Zona Aspirado Autoservicio" />
           <h3>🧹 Uso Zona Aspirado Autoservicio</h3>
           <div className="price-row" style={{ marginBottom: 14 }}>
             <span className="new">{fmtCLP(precios.zonaAspirado.precio)}</span>

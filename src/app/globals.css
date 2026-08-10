@@ -80,7 +80,14 @@ body {
   height: 100%;
 }
 body {
-  background: var(--bg);
+  /* Fondo difuminado negro → amarillo para el sitio público (landing,
+     /servicios, /cliente, /carrito, /pagar). El panel interno (#app.admin-app,
+     ver más abajo) lo pisa con un fondo plano: es una herramienta operativa
+     de uso prolongado y el degradé de marca solo aporta ruido ahí. */
+  background-color: var(--black);
+  background-image: radial-gradient(120% 70% at 50% 100%, rgba(255, 199, 44, 0.38), rgba(255, 199, 44, 0) 65%),
+    linear-gradient(180deg, #14110f 0%, var(--black) 35%, #35291a 75%, #4a3820 100%);
+  background-repeat: no-repeat;
   color: var(--white);
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   min-height: 100vh;
@@ -99,6 +106,12 @@ h4,
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+/* Panel interno (staff): fondo plano, sin el degradé del sitio público —
+   pantallas densas de datos de uso prolongado, el amarillo de marca ahí
+   solo resta legibilidad. */
+#app.admin-app {
+  background: var(--bg);
 }
 
 /* ---------- LOGIN ---------- */
@@ -1158,6 +1171,26 @@ tr:hover td {
   position: absolute;
   inset: 0;
 }
+.section-title {
+  font-size: 26px;
+  line-height: 1.3;
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 28px;
+  padding-bottom: 16px;
+  position: relative;
+}
+.section-title::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--gold);
+}
 .landing-banner .overlay {
   position: relative;
   height: 100%;
@@ -1165,26 +1198,31 @@ tr:hover td {
   flex-direction: column;
   justify-content: flex-end;
   padding: 20px;
-  background: linear-gradient(180deg, rgba(45, 41, 38, 0) 35%, rgba(45, 41, 38, 0.92) 100%);
+  /* Antes era un scrim oscuro para que el texto blanco resaltara sobre la
+     foto; con el fondo amarillo de gotas el contraste lo da el texto negro
+     directo, así que solo queda un degradé claro sutil para separar el
+     bloque de texto del resto de la imagen. */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 40%, rgba(255, 199, 44, 0.55) 100%);
 }
 .landing-banner h3 {
-  color: var(--white);
+  color: var(--black);
   font-size: 21px;
   margin-bottom: 4px;
 }
 .landing-banner p {
-  color: var(--silver);
+  color: var(--black);
+  opacity: 0.75;
   font-size: 13px;
 }
 .landing-banner .price {
-  color: var(--gold);
+  color: var(--black);
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-weight: 700;
   font-size: 16px;
   margin-top: 4px;
 }
 .landing-banner .ver-mas {
-  color: var(--gold);
+  color: var(--black);
   font-size: 12.5px;
   font-weight: 700;
   margin-top: 8px;

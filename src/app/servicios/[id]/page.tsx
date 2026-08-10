@@ -40,7 +40,7 @@ export default async function ServicioLandingPage({ params }: { params: Promise<
         ) : (
           <>
             <div className="card" style={{ marginBottom: 18 }}>
-              <ProductoBanner imagen="/servicios-precios.jpg" alt={servicio.nombre} videoUrl={contenido.videoUrl} />
+              <ProductoBanner imagen="/fondo-producto.jpg" alt={servicio.nombre} videoUrl={contenido.videoUrl} />
               <h3>{servicio.nombre}</h3>
               <div className="price-row" style={{ marginBottom: 0 }}>
                 <span className="new">{fmtCLP(servicio.precio)}</span>

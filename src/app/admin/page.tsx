@@ -58,7 +58,7 @@ function ZplashApp() {
 
 export default function Home() {
   return (
-    <div id="app">
+    <div id="app" className="admin-app">
       <AppProvider>
         <ZplashApp />
       </AppProvider>

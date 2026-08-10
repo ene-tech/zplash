@@ -60,7 +60,7 @@ export default async function PlanMensualPage() {
 
         <div className="card-grid">
           <div className="card" style={{ gridColumn: "1 / -1" }}>
-            <ProductoBanner imagen="/plan-mensual.jpg" alt="Plan Full Túnel Ilimitado" />
+            <ProductoBanner imagen="/fondo-producto.jpg" alt="Plan Full Túnel Ilimitado" />
             <h3>🚗 Plan Full Túnel Ilimitado</h3>
           </div>
 

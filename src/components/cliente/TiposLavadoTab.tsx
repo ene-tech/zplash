@@ -9,7 +9,7 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
       <h2 style={{ marginBottom: 12 }}>LAVADOS EXTERIOR TUNEL + USO ILIMITADO ESTACIONES DE ASPIRADO</h2>
       <div className="landing-banners" style={{ marginBottom: 22 }}>
         <Link href="/servicios/full-tunnel" className="landing-banner">
-          <Image src="/servicios-precios.jpg" alt="Lavado Full Tunnel" fill unoptimized />
+          <Image src="/fondo-producto.jpg" alt="Lavado Full Tunnel" fill unoptimized />
           <div className="overlay">
             <h3>🚿 Lavado Full Tunnel</h3>
             <p>Un pase completo por nuestro túnel, sin reserva de hora.</p>
@@ -18,7 +18,7 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
           </div>
         </Link>
         <Link href="/servicios/plan-mensual" className="landing-banner">
-          <Image src="/plan-mensual.jpg" alt="Plan Mensual Ilimitado" fill unoptimized />
+          <Image src="/fondo-producto.jpg" alt="Plan Mensual Ilimitado" fill unoptimized />
           <div className="overlay">
             <h3>🚗 Plan Mensual Ilimitado</h3>
             <p>Lavados ilimitados por el túnel durante todo el mes.</p>
@@ -27,7 +27,7 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
           </div>
         </Link>
         <Link href="/servicios/zona-aspirado" className="landing-banner">
-          <Image src="/servicios-precios.jpg" alt="Uso Zona Aspirado Autoservicio" fill unoptimized />
+          <Image src="/fondo-producto.jpg" alt="Uso Zona Aspirado Autoservicio" fill unoptimized />
           <div className="overlay">
             <h3>🧹 Uso Zona Aspirado Autoservicio</h3>
             <p>Estación de aspirado autoservicio, sin límite de tiempo por uso.</p>
