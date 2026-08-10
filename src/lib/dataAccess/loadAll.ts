@@ -43,6 +43,7 @@ import {
   PLANTILLAS_CORREO_DEFAULT,
   PLANTILLAS_WHATSAPP_DEFAULT,
   PRECIOS_DEFAULT,
+  recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
 import type { AppData } from "@/types";
@@ -76,16 +77,37 @@ export async function waitForStorage(): Promise<boolean> {
   }
 }
 
-export async function loadAll(): Promise<AppData> {
+/** Todo AppData menos las tres tablas de `AppDataHistorial` (ver más abajo). */
+export type AppDataCore = Omit<AppData, "ventas" | "ingresos" | "movimientosContables">;
+
+/**
+ * `ventas`, `ingresos` y `movimientosContables`: las únicas tablas de
+ * AppData que crecen para siempre (una fila más por cada lavado/pago que
+ * pasa, todos los días) y ya pesan varios MB en producción — separadas del
+ * resto para que AppContext pueda pintar la primera pantalla sin esperarlas.
+ * Ver loadCore/loadHistorial y el diagnóstico de performance 2026-08-10.
+ */
+export type AppDataHistorial = Pick<AppData, "ventas" | "ingresos" | "movimientosContables">;
+
+/**
+ * Todo lo que una pantalla necesita para pintar, salvo el historial pesado
+ * (ver AppDataHistorial): clientes, catálogos, config, inventario, agenda,
+ * etc. Es la oleada "rápida" — hoy ronda ~800kB contra los ~4-5MB de traer
+ * todo junto (ver loadAll más abajo, que sigue existiendo por si algún
+ * caller server-to-server futuro necesita todo de una vez).
+ *
+ * `clientes` sale acá con visitas/ultimaVisita "tal cual están en la
+ * columna", sin corregir contra `ingresos` (que todavía no se cargó) — ver
+ * recalcularVisitasClientes en @/lib/helpers/clientes, que AppContext vuelve
+ * a aplicar apenas loadHistorial() resuelve.
+ */
+export async function loadCore(): Promise<AppDataCore> {
   const db = getDb();
   const [
     clientesRows,
-    ingresosRows,
-    ventasRows,
     perfilesRows,
     preciosRows,
     cuponesRows,
-    movimientosRows,
     categoriasGastoRows,
     categoriasIngresoRows,
     categoriasProductoRows,
@@ -112,12 +134,9 @@ export async function loadAll(): Promise<AppData> {
     reglasWhatsappRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
-    safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
-    safe(db.select().from(ventas).orderBy(desc(ventas.fecha))),
     safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos, icono: perfiles.icono }).from(perfiles)),
     safe(db.select().from(precios)),
     safe(db.select().from(cupones).orderBy(desc(cupones.creadoEn))),
-    safe(db.select().from(movimientosContables).orderBy(desc(movimientosContables.fecha))),
     safe(db.select().from(categoriasGasto).orderBy(asc(categoriasGasto.nombre))),
     safe(db.select().from(categoriasIngreso).orderBy(asc(categoriasIngreso.nombre))),
     safe(db.select().from(categoriasProducto).orderBy(asc(categoriasProducto.nombre))),
@@ -166,40 +185,14 @@ export async function loadAll(): Promise<AppData> {
     servicioIdsPorCita.set(cs.citaId, lista);
   }
 
-  // clientes.visitas/ultima_visita se escriben con un upsertClientes()
-  // separado del insertIngresos() que crea la fila de Historial de Ingresos
-  // que las originó (ver registrarIngreso en @/lib/logic y commit() en
-  // AppContext) — dos escrituras independientes, no una transacción. Si una
-  // llega a la base y la otra no (conexión intermitente, por ejemplo), el
-  // contador queda desincronizado del historial real y no hay forma de que
-  // se autocorrija. Para que esto no pueda pasar, acá se recalculan ambos
-  // campos a partir de `ingresos` (la fuente de verdad) en cada carga, en
-  // vez de confiar en el valor guardado en la columna.
-  const visitasPorCliente = new Map<string, { visitas: number; ultimaVisita: string }>();
-  for (const r of ingresosRows) {
-    if (!r.clienteId) continue;
-    const actual = visitasPorCliente.get(r.clienteId);
-    visitasPorCliente.set(r.clienteId, {
-      visitas: (actual?.visitas ?? 0) + 1,
-      ultimaVisita: actual && new Date(actual.ultimaVisita) > new Date(r.fecha) ? actual.ultimaVisita : r.fecha,
-    });
-  }
-
   return {
-    clientes: clientesRows.map((r) => {
-      const c = clienteFromRow(r);
-      const real = visitasPorCliente.get(r.id);
-      return { ...c, visitas: real?.visitas ?? 0, ultimaVisita: real?.ultimaVisita ?? c.ultimaVisita };
-    }),
-    ingresos: ingresosRows.map(ingresoFromRow),
-    ventas: ventasRows.map(ventaFromRow),
+    clientes: clientesRows.map(clienteFromRow),
     perfiles: perfilesData,
     precios: preciosData,
     categoriasGasto: categoriasGastoData,
     categoriasIngreso: categoriasIngresoData,
     categoriasProducto: categoriasProductoRows.map(categoriaProductoFromRow),
     cupones: cuponesRows.map(cuponFromRow),
-    movimientosContables: movimientosRows.map(movimientoFromRow),
     empresas: empresasRows.map(empresaFromRow),
     servicios: serviciosData,
     horariosAgenda: horariosAgendaRows.map(horarioAgendaFromRow),
@@ -220,5 +213,36 @@ export async function loadAll(): Promise<AppData> {
     plantillasCorreo: plantillasCorreoData,
     plantillasWhatsapp: plantillasWhatsappData,
     reglasWhatsapp: reglasWhatsappRows.map(reglaWhatsappFromRow),
+  };
+}
+
+/** La oleada "pesada" — ver AppDataHistorial. Se dispara en paralelo con loadCore(), no después. */
+export async function loadHistorial(): Promise<AppDataHistorial> {
+  const db = getDb();
+  const [ingresosRows, ventasRows, movimientosRows] = await Promise.all([
+    safe(db.select().from(ingresos).orderBy(desc(ingresos.fecha))),
+    safe(db.select().from(ventas).orderBy(desc(ventas.fecha))),
+    safe(db.select().from(movimientosContables).orderBy(desc(movimientosContables.fecha))),
+  ]);
+
+  return {
+    ingresos: ingresosRows.map(ingresoFromRow),
+    ventas: ventasRows.map(ventaFromRow),
+    movimientosContables: movimientosRows.map(movimientoFromRow),
+  };
+}
+
+/**
+ * Todo AppData de una sola vez, con `clientes.visitas/ultimaVisita` ya
+ * corregidos (ver recalcularVisitasClientes). AppContext ya no la usa (carga
+ * loadCore()/loadHistorial() por separado, ver ese archivo) — queda para
+ * algún caller server-to-server que sí necesite el snapshot completo de una.
+ */
+export async function loadAll(): Promise<AppData> {
+  const [core, historial] = await Promise.all([loadCore(), loadHistorial()]);
+  return {
+    ...core,
+    ...historial,
+    clientes: recalcularVisitasClientes(core.clientes, historial.ingresos),
   };
 }

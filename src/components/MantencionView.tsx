@@ -14,7 +14,7 @@ const TABS = [
 ] as const;
 
 export default function MantencionView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout, loadingHistorial } = useApp();
   const tabActual = TABS.find((t) => t.id === ui.mantencionTab) || TABS[0];
 
   return (
@@ -40,9 +40,19 @@ export default function MantencionView() {
             ))}
           </div>
           <div className="sidebar-content">
-            {tabActual.id === "maquinas" && <MaquinariasTab />}
-            {tabActual.id === "alertas" && <AlertasMantencionTab />}
-            {tabActual.id === "registros" && <RegistrosMantencionTab />}
+            {/* Las tres pestañas calculan "vehículos desde la última mantención"
+                cruzando contra `data.ingresos` (mantencionStatus /
+                vehiculosDesdeUltimaMantencion) — llega en la oleada "historial"
+                (ver AppContext). Ver diagnóstico de performance 2026-08-10. */}
+            {loadingHistorial ? (
+              <div className="empty">Cargando historial de ingresos…</div>
+            ) : (
+              <>
+                {tabActual.id === "maquinas" && <MaquinariasTab />}
+                {tabActual.id === "alertas" && <AlertasMantencionTab />}
+                {tabActual.id === "registros" && <RegistrosMantencionTab />}
+              </>
+            )}
           </div>
         </div>
       </div>

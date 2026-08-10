@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import type { Cliente } from "@/types";
 import { ClientesMobileList } from "./clientes/ClientesMobileList";
@@ -10,8 +11,16 @@ export default function ClientesTab() {
   const { data, ui, patchUi, commit } = useApp();
   const filtroEstado = ui.clientesFiltroEstado || "todos";
   const orden = ui.clientesOrden || "estado";
+  const search = ui.search || "";
 
-  const filtered = filtrarYOrdenarClientes(data.clientes, { search: ui.search || "", filtroEstado, orden });
+  // Sin memo, esto recorría y ordenaba los 2000+ clientes desde cero en cada
+  // tecla del buscador (y en cualquier otro render de este tab por una razón
+  // ajena a la búsqueda) — con miles de filas es el costo dominante de cada
+  // tecla tipeada.
+  const filtered = useMemo(
+    () => filtrarYOrdenarClientes(data.clientes, { search, filtroEstado, orden }),
+    [data.clientes, search, filtroEstado, orden]
+  );
 
   const sortHeader = (campo: "vencimiento" | "visitas") => {
     const asc = `${campo}_asc`;
@@ -25,20 +34,26 @@ export default function ClientesTab() {
     return "";
   };
 
-  const abrirInfo = (c: Cliente) => patchUi({ modal: { type: "clienteInfo", data: c } });
-  const abrirEditar = (c: Cliente) => patchUi({ modal: { type: "client", data: c } });
+  // useCallback acá no es cosmético: son props de ClienteRow (memoizado, ver
+  // ./clientes/ClienteRow) — si llegaran con una referencia nueva en cada
+  // render (como antes), el memo de cada fila sería un no-op.
+  const abrirInfo = useCallback((c: Cliente) => patchUi({ modal: { type: "clienteInfo", data: c } }), [patchUi]);
+  const abrirEditar = useCallback((c: Cliente) => patchUi({ modal: { type: "client", data: c } }), [patchUi]);
 
-  const eliminar = (c: Cliente) => {
-    patchUi({
-      modal: {
-        type: "confirm",
-        mensaje: `¿Eliminar a ${c.nombre} (${c.patente})? Esta acción no se puede deshacer.`,
-        onConfirm: () => {
-          commit({ clientes: data.clientes.filter((x) => x.id !== c.id) });
+  const eliminar = useCallback(
+    (c: Cliente) => {
+      patchUi({
+        modal: {
+          type: "confirm",
+          mensaje: `¿Eliminar a ${c.nombre} (${c.patente})? Esta acción no se puede deshacer.`,
+          onConfirm: () => {
+            commit({ clientes: data.clientes.filter((x) => x.id !== c.id) });
+          },
         },
-      },
-    });
-  };
+      });
+    },
+    [data.clientes, patchUi, commit]
+  );
 
   return (
     <div>

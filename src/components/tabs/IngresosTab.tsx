@@ -1,45 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { eliminarIngreso } from "@/lib/logic";
 import { fmtCLP, fmtFecha, fmtHora, inRange, normPlate, puedeBorrarIngreso, tipoIngreso, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
 import type { Ingreso } from "@/types";
+import { IngresoRow } from "./ingresos/IngresoRow";
 
 export default function IngresosTab() {
-  const { data, ui, patchUi, commit } = useApp();
+  const { data, ui, patchUi, commit, loadingHistorial } = useApp();
   const desde = ui.ingresosDesde;
   const hasta = ui.ingresosHasta;
+  const search = ui.search || "";
   const puedeBorrar = puedeBorrarIngreso(ui.perfilActual?.nombre);
   const [err, setErr] = useState("");
 
-  const borrarIngreso = (ingreso: Ingreso) => {
-    const ventaPareja = ventaLavadoUnicoDeIngreso(data.ventas, ingreso);
-    const avisoVenta = ventaPareja
-      ? ` También se elimina la venta de Lavado único por ${fmtCLP(ventaPareja.precio)} cobrada junto con este ingreso, para que el cliente no siga apareciendo elegible para la promoción de upgrade a plan.`
-      : "";
-    patchUi({
-      modal: {
-        type: "confirm",
-        mensaje: `¿Eliminar el ingreso de ${ingreso.nombre} (${ingreso.patente}) del ${fmtFecha(ingreso.fecha)} ${fmtHora(ingreso.fecha)}? Esto también resta la visita que sumó al cliente.${avisoVenta} No se puede deshacer.`,
-        confirmLabel: "Eliminar",
-        danger: true,
-        onConfirm: async () => {
-          const ok = await commit(eliminarIngreso(data, ingreso));
-          setErr(ok ? "" : "No se pudo eliminar el ingreso (sin conexión). Intenta de nuevo.");
+  const borrarIngreso = useCallback(
+    (ingreso: Ingreso) => {
+      const ventaPareja = ventaLavadoUnicoDeIngreso(data.ventas, ingreso);
+      const avisoVenta = ventaPareja
+        ? ` También se elimina la venta de Lavado único por ${fmtCLP(ventaPareja.precio)} cobrada junto con este ingreso, para que el cliente no siga apareciendo elegible para la promoción de upgrade a plan.`
+        : "";
+      patchUi({
+        modal: {
+          type: "confirm",
+          mensaje: `¿Eliminar el ingreso de ${ingreso.nombre} (${ingreso.patente}) del ${fmtFecha(ingreso.fecha)} ${fmtHora(ingreso.fecha)}? Esto también resta la visita que sumó al cliente.${avisoVenta} No se puede deshacer.`,
+          confirmLabel: "Eliminar",
+          danger: true,
+          onConfirm: async () => {
+            const ok = await commit(eliminarIngreso(data, ingreso));
+            setErr(ok ? "" : "No se pudo eliminar el ingreso (sin conexión). Intenta de nuevo.");
+          },
         },
-      },
-    });
-  };
+      });
+    },
+    [data, patchUi, commit]
+  );
 
-  const filtered = data.ingresos
-    .filter((i) => !desde || !hasta || inRange(i.fecha, desde, hasta))
-    .filter(
-      (i) =>
-        !ui.search ||
-        i.nombre.toLowerCase().includes(ui.search.toLowerCase()) ||
-        normPlate(i.patente).includes(normPlate(ui.search))
-    );
+  // Sin memo, este filtro corría sobre las 4000+ filas de `data.ingresos` en
+  // cada tecla del buscador (mismo problema que ClientesTab, ver
+  // ./clientes/ClienteRow) — acá además se combina con IngresoRow memoizado
+  // para que las filas que siguen calzando con el filtro no se vuelvan a
+  // renderizar.
+  const filtered = useMemo(
+    () =>
+      data.ingresos
+        .filter((i) => !desde || !hasta || inRange(i.fecha, desde, hasta))
+        .filter((i) => !search || i.nombre.toLowerCase().includes(search.toLowerCase()) || normPlate(i.patente).includes(normPlate(search))),
+    [data.ingresos, desde, hasta, search]
+  );
 
   const exportarExcel = () => {
     import("xlsx").then((XLSX) => {
@@ -90,6 +99,13 @@ export default function IngresosTab() {
       XLSX.writeFile(wb, "historial-de-ingresos.xlsx");
     });
   };
+
+  // data.ingresos llega en la oleada "historial" (ver AppContext) — se
+  // gatea acá en vez de dejar la tabla vacía un instante. Ver diagnóstico de
+  // performance 2026-08-10.
+  if (loadingHistorial) {
+    return <div className="empty">Cargando historial de ingresos…</div>;
+  }
 
   return (
     <div>
@@ -153,28 +169,7 @@ export default function IngresosTab() {
               </td>
             </tr>
           ) : (
-            filtered.map((i) => {
-              const tipo = tipoIngreso(i);
-              return (
-                <tr key={i.id}>
-                  <td>{fmtFecha(i.fecha)}</td>
-                  <td>{fmtHora(i.fecha)}</td>
-                  <td className="plate-tag">{i.patente}</td>
-                  <td>{i.nombre}</td>
-                  <td>{i.creadoPor || "-"}</td>
-                  <td>
-                    <span className={`status-pill ${tipo.cls}`}>{tipo.label}</span>
-                  </td>
-                  {puedeBorrar && (
-                    <td>
-                      <button className="icon-btn" onClick={() => borrarIngreso(i)}>
-                        Eliminar
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              );
-            })
+            filtered.map((i) => <IngresoRow key={i.id} ingreso={i} puedeBorrar={puedeBorrar} onBorrar={borrarIngreso} />)
           )}
         </tbody>
       </table>

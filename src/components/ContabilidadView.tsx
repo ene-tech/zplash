@@ -23,7 +23,7 @@ const TABS = [
 ] as const;
 
 export default function ContabilidadView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout, loadingHistorial } = useApp();
   const tabActual = TABS.find((t) => t.id === ui.contabilidadTab) || TABS[0];
 
   return (
@@ -49,7 +49,16 @@ export default function ContabilidadView() {
             ))}
           </div>
           <div className="sidebar-content">
-            {tabActual.id === "config" ? (
+            {/* Todas las pestañas salvo "config" leen `data.movimientosContables`
+                (saldos, EERR, cuentas por cobrar/pagar, conciliación) — llega en
+                la oleada "historial" (ver AppContext). Se gatea el panel entero
+                en vez de cada pestaña por separado porque es más fácil de
+                mantener correcto y Contabilidad no es una vista de uso
+                instantáneo como Clientes u Operador. Ver diagnóstico de
+                performance 2026-08-10. */}
+            {loadingHistorial && tabActual.id !== "config" ? (
+              <div className="empty">Cargando historial contable…</div>
+            ) : tabActual.id === "config" ? (
               <ContabilidadConfigTab />
             ) : tabActual.id === "eerr" ? (
               <EERRTab />

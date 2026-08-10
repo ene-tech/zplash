@@ -1,4 +1,4 @@
-import type { Cliente, ClientePatch, PlanStatus } from "@/types";
+import type { Cliente, ClientePatch, Ingreso, PlanStatus } from "@/types";
 import { ahoraEnSantiago } from "./fechas";
 import { normPlate } from "./validadores";
 
@@ -228,4 +228,38 @@ export function inicioPeriodoPlan(fechaContratacion: string | null | undefined, 
     siguiente.setDate(siguiente.getDate() + 30);
   }
   return base;
+}
+
+/**
+ * clientes.visitas/ultima_visita se escriben con un upsertClientes() separado
+ * del insertIngresos() que crea la fila de Historial de Ingresos que las
+ * originó (ver registrarIngreso en @/lib/logic y commit() en AppContext) —
+ * dos escrituras independientes, no una transacción. Si una llega a la base
+ * y la otra no (conexión intermitente, por ejemplo), el contador queda
+ * desincronizado del historial real y no hay forma de que se autocorrija.
+ * Para que esto no pueda pasar, se recalculan ambos campos a partir de
+ * `ingresos` (la fuente de verdad) en vez de confiar en el valor guardado en
+ * la columna.
+ *
+ * Extraído de dataAccess/loadAll.ts para poder correrlo también en el
+ * cliente: `ingresos` llega en una carga separada y más lenta que `clientes`
+ * (ver loadCore/loadHistorial y AppContext) — hasta que esa carga termina,
+ * `data.clientes` trae visitas/ultimaVisita "tal cual están en la tabla"
+ * (potencialmente desincronizadas, el mismo caso que esto corrige) y este
+ * helper se vuelve a aplicar apenas `ingresos` está disponible.
+ */
+export function recalcularVisitasClientes(clientes: Cliente[], ingresos: Ingreso[]): Cliente[] {
+  const visitasPorCliente = new Map<string, { visitas: number; ultimaVisita: string }>();
+  for (const r of ingresos) {
+    if (!r.clienteId) continue;
+    const actual = visitasPorCliente.get(r.clienteId);
+    visitasPorCliente.set(r.clienteId, {
+      visitas: (actual?.visitas ?? 0) + 1,
+      ultimaVisita: actual && new Date(actual.ultimaVisita) > new Date(r.fecha) ? actual.ultimaVisita : r.fecha,
+    });
+  }
+  return clientes.map((c) => {
+    const real = visitasPorCliente.get(c.id);
+    return { ...c, visitas: real?.visitas ?? 0, ultimaVisita: real?.ultimaVisita ?? c.ultimaVisita };
+  });
 }

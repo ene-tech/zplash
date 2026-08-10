@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { fmtCLP } from "@/lib/helpers";
 import type { MovimientoContable, Venta } from "@/types";
-import { desglosePagoContables, desglosePagoVentas, type useCierreData } from "./useCierreData";
+import { desglosePagoContables, desglosePagoVentas, desglosePorTipoVenta } from "./desgloses";
+import type { useCierreData } from "./useCierreData";
 import { FilaVentaExpandible } from "./FilaVentaExpandible";
 
 type Props = Pick<
@@ -41,10 +42,13 @@ export function DetalleVentaYMetodosPago(p: Props) {
               monto={f.monto}
               expandida={filaExpandida === f.tipo}
               onToggle={() => setFilaExpandida(filaExpandida === f.tipo ? null : f.tipo)}
+              columnaDesglose={f.tipo === "venta-nueva-web" ? "Tipo de venta" : "Medio de pago"}
               desglose={
                 f.tipo === "ingreso-modulo-contabilidad"
                   ? desglosePagoContables(f.items as MovimientoContable[])
-                  : desglosePagoVentas(f.items as Venta[])
+                  : f.tipo === "venta-nueva-web"
+                    ? desglosePorTipoVenta(f.items as Venta[])
+                    : desglosePagoVentas(f.items as Venta[])
               }
             />
           ))}

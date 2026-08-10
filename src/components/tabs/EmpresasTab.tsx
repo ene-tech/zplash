@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { empresasFaltantesDesdeClientes } from "@/lib/logic";
 import { fmtTelefono } from "@/lib/helpers";
@@ -24,9 +25,10 @@ export default function EmpresasTab() {
   const { data, ui, patchUi, commit } = useApp();
 
   const q = (ui.search || "").trim();
-  const filtered = data.empresas
-    .filter((e) => coincide(e, q))
-    .sort((a, b) => a.razonSocial.localeCompare(b.razonSocial));
+  const filtered = useMemo(
+    () => data.empresas.filter((e) => coincide(e, q)).sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)),
+    [data.empresas, q]
+  );
 
   const eliminar = (e: Empresa) => {
     patchUi({

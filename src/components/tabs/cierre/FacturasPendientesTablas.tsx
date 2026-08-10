@@ -52,11 +52,12 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
 
       {facturasEmpresaPeriodo.length > 0 && (
         <>
-          <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Facturas pendientes — Venta Empresa</h3>
+          <h3 style={{ fontSize: 16, color: "var(--gold)", marginBottom: 10 }}>Facturas pendientes — Compras web</h3>
           <table style={{ marginBottom: 24 }}>
             <thead>
               <tr>
-                <th>Lote</th>
+                <th>Detalle</th>
+                <th>Patente</th>
                 <th>Razón Social</th>
                 <th>RUT</th>
                 <th>Dirección</th>
@@ -68,7 +69,11 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
             <tbody>
               {facturasEmpresaPeriodo.map((v) => (
                 <tr key={v.id}>
-                  <td>{v.nombre}</td>
+                  <td>
+                    {v.tipo}
+                    {v.tipo !== v.nombre && <div style={{ fontSize: 12, color: "var(--gray)" }}>{v.nombre}</div>}
+                  </td>
+                  <td>{v.patente ? <span className="plate-tag">{v.patente}</span> : "-"}</td>
                   <td>{v.razonSocial || "-"}</td>
                   <td>{v.rut || "-"}</td>
                   <td>{v.direccion || "-"}</td>

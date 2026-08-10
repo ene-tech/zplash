@@ -23,7 +23,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
-  const { data: appData, patchUi } = useApp();
+  const { data: appData, patchUi, loadingHistorial } = useApp();
   const inicioPeriodo = inicioPeriodoPlan(c.fechaContratacion);
   const finPeriodo = new Date(inicioPeriodo);
   finPeriodo.setDate(finPeriodo.getDate() + 29);
@@ -130,7 +130,11 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           <div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground">Visitas último período</div>
             <div className="font-medium">
-              {visitasPeriodo} ({fmtFecha(inicioPeriodo.toISOString())} - {fmtFecha(finPeriodo.toISOString())})
+              {/* visitasPeriodo/visitasPlan salen de appData.ingresos, que
+                  llega en la oleada "historial" (ver AppContext) — mientras
+                  no esté, mostrarían 0 (parece "nunca viene") en vez de la
+                  cifra real. Ver diagnóstico de performance 2026-08-10. */}
+              {loadingHistorial ? "…" : visitasPeriodo} ({fmtFecha(inicioPeriodo.toISOString())} - {fmtFecha(finPeriodo.toISOString())})
             </div>
           </div>
           <div>
@@ -141,7 +145,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             <div className="text-xs uppercase tracking-wide text-muted-foreground">
               {tienePlan ? "Visitas desde que contrató el plan" : "Visitas últimos 30 días"}
             </div>
-            <div className="font-medium">{visitasPlan}</div>
+            <div className="font-medium">{loadingHistorial ? "…" : visitasPlan}</div>
           </div>
         </div>
 

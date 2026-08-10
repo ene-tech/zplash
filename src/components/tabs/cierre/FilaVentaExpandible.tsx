@@ -10,6 +10,7 @@ export function FilaVentaExpandible({
   expandida,
   onToggle,
   desglose,
+  columnaDesglose = "Medio de pago",
 }: {
   rowKey: string;
   label: string;
@@ -18,6 +19,11 @@ export function FilaVentaExpandible({
   expandida: boolean;
   onToggle: () => void;
   desglose: { metodo: string; cantidad: number; monto: number }[];
+  // Título de la primera columna del detalle: "Medio de pago" en casi todas
+  // las filas, pero "Tipo de venta" en "Venta nueva web" (ver
+  // desglosePorTipoVenta en useCierreData.ts) porque ahí lo que se agrupa no
+  // es el medio de pago (siempre tarjeta) sino qué se vendió.
+  columnaDesglose?: string;
 }) {
   return (
     <>
@@ -35,7 +41,7 @@ export function FilaVentaExpandible({
               <table style={{ margin: 0 }}>
                 <thead>
                   <tr>
-                    <th>Medio de pago</th>
+                    <th>{columnaDesglose}</th>
                     <th>Cantidad</th>
                     <th>Monto</th>
                   </tr>

@@ -25,8 +25,13 @@ function subscribe(callback: () => void) {
   };
 }
 
+// Referencia estable: si devolviéramos un array literal nuevo en cada
+// llamada, useSyncExternalStore lo vería como "cambió" en cada render
+// (compara por Object.is) y entraría en loop infinito de re-render.
+const CARRITO_VACIO: ItemCarrito[] = [];
+
 function getServerSnapshot(): ItemCarrito[] {
-  return [];
+  return CARRITO_VACIO;
 }
 
 export function useCarrito() {

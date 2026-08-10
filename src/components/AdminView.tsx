@@ -1,17 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
-import ClientesTab from "@/components/tabs/ClientesTab";
-import SuscripcionesTab from "@/components/tabs/SuscripcionesTab";
-import IngresosTab from "@/components/tabs/IngresosTab";
-import CierreTab from "@/components/tabs/CierreTab";
-import PerfilesTab from "@/components/tabs/PerfilesTab";
-import StatsTab from "@/components/tabs/StatsTab";
-import ConfigTab from "@/components/tabs/ConfigTab";
-import VentaEmpresaTab from "@/components/tabs/VentaEmpresaTab";
-import EmpresasTab from "@/components/tabs/EmpresasTab";
-import AgendaTab from "@/components/tabs/AgendaTab";
 import type { Modulo } from "@/types";
 import {
   CircleDollarSign,
@@ -26,6 +17,21 @@ import {
   UserCog,
   type LucideIcon,
 } from "lucide-react";
+
+// Cada pestaña se carga solo cuando el usuario navega a ella — mismo patrón
+// que ya usa admin/page.tsx para las vistas de nivel superior. Sin esto,
+// abrir "Cierre de Caja" también bajaba el código de las otras 9 pestañas,
+// IngresosTab incluido (que carga `xlsx` para el botón de exportar).
+const ClientesTab = dynamic(() => import("@/components/tabs/ClientesTab"));
+const SuscripcionesTab = dynamic(() => import("@/components/tabs/SuscripcionesTab"));
+const IngresosTab = dynamic(() => import("@/components/tabs/IngresosTab"));
+const CierreTab = dynamic(() => import("@/components/tabs/CierreTab"));
+const PerfilesTab = dynamic(() => import("@/components/tabs/PerfilesTab"));
+const StatsTab = dynamic(() => import("@/components/tabs/StatsTab"));
+const ConfigTab = dynamic(() => import("@/components/tabs/ConfigTab"));
+const VentaEmpresaTab = dynamic(() => import("@/components/tabs/VentaEmpresaTab"));
+const EmpresasTab = dynamic(() => import("@/components/tabs/EmpresasTab"));
+const AgendaTab = dynamic(() => import("@/components/tabs/AgendaTab"));
 
 const TABS: { id: Modulo; label: string; icon: LucideIcon }[] = [
   { id: "cierre", label: "Cierre de Caja", icon: CircleDollarSign },

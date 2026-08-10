@@ -6,7 +6,7 @@ import ServiciosAdicionalesForm from "@/components/ServiciosAdicionalesForm";
 import ServiciosAdicionalesLog from "@/components/ServiciosAdicionalesLog";
 
 export default function ServiciosAdicionalesView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout, loadingHistorial } = useApp();
 
   return (
     <>
@@ -17,7 +17,11 @@ export default function ServiciosAdicionalesView() {
       />
       <div className="content">
         <ServiciosAdicionalesForm />
-        <ServiciosAdicionalesLog />
+        {/* El log lista ventas de tipo servicio adicional (`data.ventas`),
+            que llega en la oleada "historial" — ver AppContext y el
+            diagnóstico de performance 2026-08-10. El formulario de arriba no
+            depende de eso, así que se deja siempre visible. */}
+        {loadingHistorial ? <div className="empty">Cargando historial de servicios…</div> : <ServiciosAdicionalesLog />}
       </div>
     </>
   );

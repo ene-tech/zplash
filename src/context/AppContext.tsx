@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { AppData, AuditoriaEntrada, UIState } from "@/types";
 import {
   CATEGORIAS_GASTO_DEFAULT,
@@ -10,9 +10,10 @@ import {
   PLANTILLAS_CORREO_DEFAULT,
   PLANTILLAS_WHATSAPP_DEFAULT,
   PRECIOS_DEFAULT,
+  recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
-import { insertAuditoria, loadAll, waitForStorage } from "@/lib/serverActions";
+import { insertAuditoria, loadCore, loadHistorial, waitForStorage } from "@/lib/serverActions";
 import {
   commitAlertasMantencion,
   commitBloqueosAgenda,
@@ -114,6 +115,12 @@ interface AppContextValue {
   storageReady: boolean;
   storageChecked: boolean;
   loading: boolean;
+  // true hasta que llega ventas/ingresos/movimientosContables (la "oleada
+  // pesada", ver loadHistorial en @/lib/dataAccess/loadAll). Las pantallas
+  // que dependen de esas tres tablas deben chequear esto y mostrar su propio
+  // estado de carga en vez de operar con arreglos todavía vacíos — ver
+  // diagnóstico de performance 2026-08-10.
+  loadingHistorial: boolean;
   logout: (extra?: Partial<UIState>) => Promise<void>;
 }
 
@@ -134,6 +141,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [storageReady, setStorageReady] = useState(false);
   const [storageChecked, setStorageChecked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingHistorial, setLoadingHistorial] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,18 +153,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!ready) {
         await new Promise((r) => setTimeout(r, 1500));
       }
-      const loaded = await loadAll();
+
+      // Las dos oleadas se piden en paralelo (loadHistorial() se dispara acá,
+      // antes de esperar loadCore()) — lo único que cambia es que la pantalla
+      // ya no espera a que ambas terminen: `loading` baja apenas llega
+      // loadCore() y loadHistorial() sigue su curso de fondo, parchando
+      // `data` cuando esté lista. Ver diagnóstico de performance 2026-08-10.
+      const historialPromise = loadHistorial();
+
+      const core = await loadCore();
       if (cancelled) return;
-      dataRef.current = loaded;
-      setData(loaded);
+      const conCore = { ...dataRef.current, ...core };
+      dataRef.current = conCore;
+      setData(conCore);
       setLoading(false);
+
+      const historial = await historialPromise;
+      if (cancelled) return;
+      const conHistorial = {
+        ...dataRef.current,
+        ...historial,
+        // clientes ya se pintó con visitas/ultimaVisita "tal cual la
+        // columna" (ver loadCore) — recién acá, con `ingresos` disponible,
+        // se corrige contra el historial real (ver recalcularVisitasClientes).
+        clientes: recalcularVisitasClientes(dataRef.current.clientes, historial.ingresos),
+      };
+      dataRef.current = conHistorial;
+      setData(conHistorial);
+      setLoadingHistorial(false);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  async function commit(patch: Partial<AppData>): Promise<boolean> {
+  const commit = useCallback(async (patch: Partial<AppData>): Promise<boolean> => {
     const previous = dataRef.current;
     patch = derivarMovimientosDesdeVentas(previous, patch);
 
@@ -242,29 +273,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       insertAuditoria(auditoria);
     }
     return ok;
-  }
+    // Deps: lee siempre lo último vía dataRef, solo necesita re-crearse si
+    // cambia el usuario que queda registrado en la auditoría.
+  }, [ui.perfilActual]);
 
-  function patchUi(patch: Partial<UIState>) {
+  const patchUi = useCallback((patch: Partial<UIState>) => {
     setUi((prev) => ({ ...prev, ...patch }));
-  }
+  }, []);
 
   // Limpia la cookie de sesión en el servidor además de resetear el estado
   // local — sin esto, el login seguía "activo" del lado del servidor (ver
   // @/lib/session) aunque la UI ya mostrara la pantalla de login.
-  async function logout(extra: Partial<UIState> = {}) {
-    patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null, ...extra });
-    try {
-      await fetch("/api/perfiles/logout", { method: "POST" });
-    } catch {
-      // Best-effort: si falla, la cookie expira sola a las 12h (ver crearSesion).
-    }
-  }
-
-  return (
-    <AppContext.Provider value={{ data, commit, ui, patchUi, storageReady, storageChecked, loading, logout }}>
-      {children}
-    </AppContext.Provider>
+  const logout = useCallback(
+    async (extra: Partial<UIState> = {}) => {
+      patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null, ...extra });
+      try {
+        await fetch("/api/perfiles/logout", { method: "POST" });
+      } catch {
+        // Best-effort: si falla, la cookie expira sola a las 12h (ver crearSesion).
+      }
+    },
+    [patchUi]
   );
+
+  // Memoizado: sin esto, este objeto es nuevo en cada render del provider y
+  // React re-renderiza TODO componente que llama useApp() cada vez — incluso
+  // los que no leen el pedazo de estado que cambió (p.ej. escribir en un
+  // buscador re-renderizaba tablas de miles de filas que no dependen de
+  // `ui.search`). Ver diagnóstico de performance 2026-08-09.
+  const value = useMemo<AppContextValue>(
+    () => ({ data, commit, ui, patchUi, storageReady, storageChecked, loading, loadingHistorial, logout }),
+    [data, commit, ui, patchUi, storageReady, storageChecked, loading, loadingHistorial, logout]
+  );
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
 export function useApp(): AppContextValue {
