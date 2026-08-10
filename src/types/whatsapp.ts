@@ -158,6 +158,9 @@ export interface ReglaWhatsapp {
   tipoEvento: TipoEventoReglaWhatsapp;
   condicionTipoVenta?: string;
   condicionPlanes?: string[];
+  // Solo aplica a tipoEvento="venta_creada" — ver comentario en
+  // @/db/schema/whatsapp.
+  condicionExcluirConCupon?: boolean;
   condicionDiasAntesVencimiento?: number;
   delayDias: number;
   accion: AccionReglaWhatsapp;

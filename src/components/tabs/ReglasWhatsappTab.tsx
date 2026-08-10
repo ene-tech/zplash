@@ -21,7 +21,8 @@ function resumenCondicion(r: ReglaWhatsapp): string {
     const tipo = r.condicionTipoVenta || "cualquier tipo de venta";
     const planes = r.condicionPlanes?.length ? ` (plan: ${r.condicionPlanes.join(", ")})` : "";
     const delay = r.delayDias ? `, ${r.delayDias} día(s) después` : ", de inmediato";
-    return `Al vender "${tipo}"${planes}${delay}`;
+    const sinCupon = r.condicionExcluirConCupon ? ", salvo que la venta haya usado un cupón" : "";
+    return `Al vender "${tipo}"${planes}${delay}${sinCupon}`;
   }
   if (r.tipoEvento === "cobro_fallido") {
     const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
@@ -51,6 +52,14 @@ function ReglaRow({ regla, puedeBorrar }: { regla: ReglaWhatsapp; puedeBorrar: b
     commit({ reglasWhatsapp: data.reglasWhatsapp.map((r) => (r.id === regla.id ? { ...r, activa: !r.activa } : r)) });
   };
 
+  const toggleExcluirConCupon = () => {
+    commit({
+      reglasWhatsapp: data.reglasWhatsapp.map((r) =>
+        r.id === regla.id ? { ...r, condicionExcluirConCupon: !r.condicionExcluirConCupon } : r
+      ),
+    });
+  };
+
   const borrar = () => {
     commit({ reglasWhatsapp: data.reglasWhatsapp.filter((r) => r.id !== regla.id) });
   };
@@ -75,6 +84,11 @@ function ReglaRow({ regla, puedeBorrar }: { regla: ReglaWhatsapp; puedeBorrar: b
         <button className="icon-btn" onClick={toggleActiva}>
           {regla.activa ? "Desactivar" : "Reactivar"}
         </button>
+        {regla.tipoEvento === "venta_creada" && (
+          <button className="icon-btn" onClick={toggleExcluirConCupon}>
+            {regla.condicionExcluirConCupon ? "Volver a incluir ventas con cupón" : "Excluir ventas con cupón"}
+          </button>
+        )}
         {puedeBorrar && (
           <button className="icon-btn" onClick={borrar}>
             Borrar
@@ -96,6 +110,7 @@ export default function ReglasWhatsappTab() {
   const [planesElegidos, setPlanesElegidos] = useState<string[]>([]);
   const diasAntesRef = useRef<HTMLInputElement>(null);
   const delayDiasRef = useRef<HTMLInputElement>(null);
+  const [excluirConCupon, setExcluirConCupon] = useState(false);
   const [accion, setAccion] = useState<AccionReglaWhatsapp>("cupon_descuento");
   const [cuponEsPorcentaje, setCuponEsPorcentaje] = useState(false);
   const cuponValorRef = useRef<HTMLInputElement>(null);
@@ -129,6 +144,7 @@ export default function ReglasWhatsappTab() {
       tipoEvento,
       condicionTipoVenta: tipoEvento === "venta_creada" ? condicionTipoVentaRef.current?.value.trim() || undefined : undefined,
       condicionPlanes: planesElegidos.length ? planesElegidos : undefined,
+      condicionExcluirConCupon: tipoEvento === "venta_creada" ? excluirConCupon : undefined,
       condicionDiasAntesVencimiento:
         tipoEvento === "plan_proximo_vencer" ? Number(diasAntesRef.current?.value || 0) : undefined,
       delayDias: tipoEvento === "venta_creada" ? Number(delayDiasRef.current?.value || 0) : 0,
@@ -154,6 +170,7 @@ export default function ReglasWhatsappTab() {
     if (cuponValorRef.current) cuponValorRef.current.value = "";
     if (cuponValidezDiasRef.current) cuponValidezDiasRef.current.value = "";
     setPlanesElegidos([]);
+    setExcluirConCupon(false);
   };
 
   return (
@@ -197,6 +214,10 @@ export default function ReglasWhatsappTab() {
               <label>Esperar (días)</label>
               <input ref={delayDiasRef} type="number" min={0} defaultValue={0} />
             </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400, marginTop: 22 }}>
+              <input type="checkbox" checked={excluirConCupon} onChange={(e) => setExcluirConCupon(e.target.checked)} />
+              No enviar si la venta usó un cupón de descuento
+            </label>
           </div>
         )}
 

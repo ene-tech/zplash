@@ -124,6 +124,12 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   condicionTipoVenta: text("condicion_tipo_venta"),
   // Filtro opcional por plan, aplica a ambos tipoEvento. Vacío/null = todos.
   condicionPlanes: jsonb("condicion_planes").$type<string[]>(),
+  // Solo aplica a tipoEvento="venta_creada": si true, no dispara para ventas
+  // con Venta.viaCupon=true (ej. un "Lavado único" pagado con un cupón de
+  // descuento) — evita, por ejemplo, mandar la oferta "contrata tu plan" a
+  // quien ya recibió un descuento en esa misma compra. Default false para no
+  // cambiar el comportamiento de las reglas existentes.
+  condicionExcluirConCupon: boolean("condicion_excluir_con_cupon").notNull().default(false),
   // Solo aplica a tipoEvento="plan_proximo_vencer": cuántos días antes del
   // vencimiento se dispara.
   condicionDiasAntesVencimiento: integer("condicion_dias_antes_vencimiento"),

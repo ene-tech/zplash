@@ -351,6 +351,13 @@
       "when": 1786329174589,
       "tag": "0049_third_the_captain",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1786330058708,
+      "tag": "0050_aspiring_madame_web",
+      "breakpoints": true
     }
   ]
 }

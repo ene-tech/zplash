@@ -1,0 +1,1 @@
+ALTER TABLE "reglas_whatsapp" ADD COLUMN "condicion_excluir_con_cupon" boolean DEFAULT false NOT NULL;

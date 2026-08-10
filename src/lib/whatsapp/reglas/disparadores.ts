@@ -8,6 +8,10 @@ import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
 function coincideVenta(regla: ReglaWhatsapp, venta: Venta): boolean {
   if (regla.condicionTipoVenta && regla.condicionTipoVenta !== venta.tipo) return false;
   if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(venta.plan)) return false;
+  // Ej. no mandar la oferta "contrata tu plan" de un "Lavado único" a quien
+  // ya pagó ese lavado con un cupón de descuento (ver comentario en
+  // @/db/schema/whatsapp).
+  if (regla.condicionExcluirConCupon && venta.viaCupon) return false;
   return true;
 }
 
