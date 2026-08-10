@@ -1356,3 +1356,50 @@ tr:hover td {
     @apply font-sans;
   }
 }
+
+/* Editor de texto enriquecido del compositor de correo (ver EditorCorreo) —
+   estilos del contenido editable de Tiptap/ProseMirror, que no vienen con
+   ninguna clase de Tailwind por defecto. */
+.editor-correo {
+  min-height: 10rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+.editor-correo p {
+  margin: 0.35em 0;
+}
+.editor-correo p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+.editor-correo blockquote {
+  margin: 0.5em 0;
+  padding-left: 0.75em;
+  border-left: 3px solid var(--border);
+  color: var(--muted-foreground);
+}
+.editor-correo table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  width: 100%;
+}
+.editor-correo th,
+.editor-correo td {
+  border: 1px solid var(--border);
+  padding: 0.3em 0.5em;
+  text-align: left;
+}
+.editor-correo th {
+  background: var(--muted);
+  font-weight: 600;
+}
+.editor-correo a {
+  color: var(--primary);
+  text-decoration: underline;
+}

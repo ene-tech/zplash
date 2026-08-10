@@ -77,4 +77,6 @@ export interface ConfigGlobal {
   // en @/lib/whatsapp/contenido).
   imagenPreciosWhatsapp?: string;
   imagenPlanWhatsapp?: string;
+  // Firma HTML del gestor de correo (ver @/types/buzon) — vacía por defecto.
+  firmaCorreo: string;
 }

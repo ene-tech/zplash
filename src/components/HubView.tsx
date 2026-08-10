@@ -72,6 +72,13 @@ export default function HubView() {
             <div className="desc">Conversaciones con clientes por WhatsApp</div>
           </button>
         )}
+        {modulos.includes("correo") && (
+          <button className="role-btn" onClick={() => patchUi({ view: "correo" })}>
+            <div className="icon">📧</div>
+            <div className="label">Correo</div>
+            <div className="desc">Bandeja de entrada de info@zplash.cl</div>
+          </button>
+        )}
       </div>
       <button className="btn ghost" style={{ marginTop: 20 }} onClick={() => logout()}>
         Cerrar sesión

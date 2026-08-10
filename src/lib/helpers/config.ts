@@ -21,6 +21,7 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   textosBotWhatsapp: TEXTOS_BOT_WHATSAPP_DEFAULT,
   imagenPreciosWhatsapp: undefined,
   imagenPlanWhatsapp: undefined,
+  firmaCorreo: "",
 };
 
 /** true si `ahora` cae dentro del horario configurado para registrar ingresos en el

@@ -10,6 +10,7 @@ import {
   KeyRound,
   ListPlus,
   Lock,
+  Mail,
   RefreshCw,
   Tag,
   Wind,
@@ -18,6 +19,7 @@ import {
 import {
   AspiradoSection,
   BloqueoSection,
+  CorreoFirmaSection,
   CuentaSection,
   HorarioSection,
   LavadoSection,
@@ -39,6 +41,7 @@ const SECCIONES: { id: string; label: string; icon: LucideIcon; Componente: Reac
   { id: "upgrade", label: "Upgrade a plan", icon: ArrowUpCircle, Componente: UpgradeSection },
   { id: "web", label: "Pagos web", icon: Globe, Componente: PagosWebSection },
   { id: "servicios", label: "Servicios adicionales", icon: ListPlus, Componente: ServiciosSection },
+  { id: "correo", label: "Firma de correo", icon: Mail, Componente: CorreoFirmaSection },
 ];
 
 export default function ConfigTab() {

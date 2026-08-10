@@ -1,3 +1,4 @@
+import type { CorreoDetalle } from "./buzon";
 import type { Cliente } from "./clientes";
 import type { Empresa } from "./empresas";
 import type { Insumo, Producto, Proveedor } from "./inventario";
@@ -32,10 +33,11 @@ export type ModalState =
   | { type: "traspasoInventario"; productoId?: string }
   | { type: "servicioAdicional"; data: Venta }
   | { type: "maquinariaFicha"; data: Maquinaria }
+  | { type: "correoRedactar"; original?: CorreoDetalle }
   | null;
 
 export interface UIState {
-  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario" | "mantencion" | "mensajes";
+  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario" | "mantencion" | "mensajes" | "correo";
   operResult: OperResult;
   adminTab: string;
   contabilidadTab: string;

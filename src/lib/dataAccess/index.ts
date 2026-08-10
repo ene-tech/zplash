@@ -20,6 +20,7 @@ import "server-only";
 
 export * from "./agenda";
 export * from "./auditoria";
+export * from "./buzon";
 export * from "./clientes";
 export * from "./config";
 export * from "./contabilidad";

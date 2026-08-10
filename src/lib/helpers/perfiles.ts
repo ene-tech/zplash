@@ -28,6 +28,7 @@ export const TODOS_LOS_MODULOS: Modulo[] = [
   "inventario",
   "mantencion",
   "mensajes",
+  "correo",
 ];
 
 export const MODULO_LABELS: Record<Modulo, string> = {
@@ -49,6 +50,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   inventario: "Inventario",
   mantencion: "Libro de Mantención Maquinaria",
   mensajes: "Mensajes WhatsApp",
+  correo: "Correo (info@zplash.cl)",
 };
 
 /** Identidades por defecto para un entorno nuevo sin filas en `perfiles`

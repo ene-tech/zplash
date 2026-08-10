@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/pagos/oneclick/cobrar", "schedule": "0 13 * * *" },
-    { "path": "/api/whatsapp/reglas/evaluar", "schedule": "0 14 * * *" }
+    { "path": "/api/whatsapp/reglas/evaluar", "schedule": "0 14 * * *" },
+    { "path": "/api/correo/filtros/evaluar", "schedule": "*/15 * * * *" }
   ]
 }

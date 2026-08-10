@@ -10,3 +10,4 @@ export { default as AspiradoSection } from "./AspiradoSection";
 export { default as UpgradeSection } from "./UpgradeSection";
 export { default as PagosWebSection } from "./PagosWebSection";
 export { default as ServiciosSection } from "./ServiciosSection";
+export { default as CorreoFirmaSection } from "./CorreoFirmaSection";

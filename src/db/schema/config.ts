@@ -68,4 +68,8 @@ export const config = pgTable("config", {
   // fábrica en vez de uno subido por el admin desde Web Settings.
   imagenPreciosWhatsapp: text("imagen_precios_whatsapp"),
   imagenPlanWhatsapp: text("imagen_plan_whatsapp"),
+  // Firma HTML que CorreoRedactarModal antepone al cuerpo de un correo nuevo
+  // o respuesta (ver @/types/buzon y @/components/modals/CorreoRedactarModal)
+  // — editable en Web Settings, vacío por defecto (no se agrega nada).
+  firmaCorreo: text("firma_correo").notNull().default(""),
 });

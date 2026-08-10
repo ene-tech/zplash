@@ -26,6 +26,7 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     textosBotWhatsapp: c.textosBotWhatsapp as unknown as Record<string, string>,
     imagenPreciosWhatsapp: c.imagenPreciosWhatsapp || null,
     imagenPlanWhatsapp: c.imagenPlanWhatsapp || null,
+    firmaCorreo: c.firmaCorreo,
   };
 }
 
@@ -46,6 +47,7 @@ export function configFromRow(r: ConfigRow): ConfigGlobal {
     textosBotWhatsapp: { ...TEXTOS_BOT_WHATSAPP_DEFAULT, ...(r.textosBotWhatsapp ?? {}) },
     imagenPreciosWhatsapp: r.imagenPreciosWhatsapp || undefined,
     imagenPlanWhatsapp: r.imagenPlanWhatsapp || undefined,
+    firmaCorreo: r.firmaCorreo ?? "",
   };
 }
 
