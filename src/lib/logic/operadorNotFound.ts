@@ -1,6 +1,6 @@
 import { PLANES, formatRut, montoDescuento, precioLavadoUnico, precioNormal, resolverDescuento, uid } from "@/lib/helpers";
 import { registrarIngreso } from "./ingresos";
-import type { AppData, Cliente, Cupon, Empresa, Ingreso, PagoInfo, Venta } from "@/types";
+import type { AppData, Cliente, Cupon, Empresa, PagoInfo, Venta } from "@/types";
 
 export interface DatosClienteRapido {
   patente: string;
@@ -152,58 +152,5 @@ export function finalizarClienteRapido(
           ),
         }
       : {}),
-  };
-}
-
-/**
- * Ingreso "sin registro": no queda de verdad sin registro, se crea una ficha
- * de Cliente identificada como "Invitado" para esa patente (ver comentario en
- * el llamador, useOperadorNotFoundResult), así el próximo ingreso la
- * encuentra por findClient() y queda historial de visitas/frecuencia de ese
- * vehículo aunque nunca haya dado sus datos.
- */
-export function registrarIngresoInvitado(
-  data: AppData,
-  d: { patente: string; precio: number; pago: PagoInfo; perfilNombre: string | undefined }
-): Partial<AppData> {
-  const ahora = new Date().toISOString();
-  const invitado: Cliente = {
-    id: uid(),
-    nombre: "Invitado",
-    patente: d.patente,
-    plan: "",
-    vencimiento: null,
-    origen: "LOCAL",
-    visitas: 1,
-    ultimaVisita: ahora,
-    creadoEn: ahora,
-    creadoPor: d.perfilNombre || "",
-  };
-  const ingreso: Ingreso = {
-    id: "i" + Date.now(),
-    clienteId: invitado.id,
-    patente: d.patente,
-    nombre: invitado.nombre,
-    fecha: ahora,
-    planEstadoAlIngreso: "bad",
-    creadoPor: d.perfilNombre || "",
-  };
-  const venta: Venta = {
-    id: "v" + Date.now(),
-    clienteId: invitado.id,
-    patente: d.patente,
-    nombre: invitado.nombre,
-    plan: "",
-    precio: d.precio,
-    tipo: "Lavado único",
-    fecha: ahora,
-    creadoPor: d.perfilNombre || "",
-    metodoPago: d.pago.metodo,
-    voucher: d.pago.voucher,
-  };
-  return {
-    clientes: [...data.clientes, invitado],
-    ingresos: [ingreso, ...data.ingresos],
-    ventas: [venta, ...data.ventas],
   };
 }

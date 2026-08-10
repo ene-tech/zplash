@@ -2,7 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { finalizarClienteRapido, prepararClienteRapido, registrarIngresoInvitado } from "@/lib/logic";
+import { finalizarClienteRapido, prepararClienteRapido } from "@/lib/logic";
 import { esExentoValidacionRegistroOperador, fmtTelefono, formatRut, isValidRut, montoDescuento, normPlate, precioLavadoUnico, resolverDescuento } from "@/lib/helpers";
 import type { PagoInfo } from "@/types";
 import { validarQuickAddCliente } from "./validarQuickAdd";
@@ -22,8 +22,8 @@ type NotFoundRefs = {
 };
 
 // Lógica del resultado "patente no registrada": registro rápido de cliente
-// nuevo (con o sin plan, con o sin Factura), ingreso como Invitado sin ficha,
-// y la vista previa/aplicación de un código de descuento o cupón.
+// nuevo (con o sin plan, con o sin Factura) y la vista previa/aplicación de
+// un código de descuento o cupón.
 export function useOperadorNotFoundResult(
   plate: string,
   clearPlate: () => void,
@@ -73,16 +73,12 @@ export function useOperadorNotFoundResult(
   const exentoValidacion = esExentoValidacionRegistroOperador(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
 
   // Vista previa del beneficio mientras se tipea el código: solo aplica al
-  // Lavado Full Túnel (ver quickAdd/ingresarSinRegistro), nunca a un plan.
+  // Lavado Full Túnel (ver quickAdd), nunca a un plan.
   const precioBaseLavado = precioLavadoUnico(data.precios);
   const codigoTrim = codigoInput.trim();
   const resultadoDescuento = codigoTrim ? resolverDescuento(codigoTrim, normPlate(plate), data.cupones) : null;
   const cuponPrevio = resultadoDescuento?.ok ? resultadoDescuento.cupon : null;
   const precioConDescuento = cuponPrevio ? Math.max(0, precioBaseLavado - montoDescuento(cuponPrevio, precioBaseLavado)) : null;
-  // Un descuento o cupón queda ligado a la identidad del cliente que lo usa
-  // (auditoría/antifraude): con un código presente no se puede tomar el
-  // atajo de "Invitado" sin datos, hay que completar el registro.
-  const bloqueaInvitado = !!codigoTrim;
 
   const quickAdd = () => {
     const resultado = validarQuickAddCliente({
@@ -144,25 +140,6 @@ export function useOperadorNotFoundResult(
     });
   };
 
-  const ingresarSinRegistro = () => {
-    if (qCuponRef.current?.value.trim()) {
-      setErr("Con un código de descuento o cupón no se puede ingresar como invitado: completa el registro del cliente.");
-      return;
-    }
-    const patente = normPlate(plate);
-    const precio = precioLavadoUnico(data.precios);
-    pedirPago(precio, `Lavado único sin registro (${patente})`, async (pago) => {
-      const patch = registrarIngresoInvitado(data, { patente, precio, pago, perfilNombre: ui.perfilActual?.nombre });
-      const ok = await commit(patch);
-      if (!ok) {
-        setErr(ERROR_GUARDADO);
-        return;
-      }
-      clearPlate();
-      patchUi({ operResult: null });
-    });
-  };
-
   return {
     tipoDoc,
     setTipoDoc,
@@ -173,9 +150,7 @@ export function useOperadorNotFoundResult(
     precioBaseLavado,
     cuponPrevio,
     precioConDescuento,
-    bloqueaInvitado,
     quickAdd,
-    ingresarSinRegistro,
     onTelefonoBlur,
     onRutBlur,
   };

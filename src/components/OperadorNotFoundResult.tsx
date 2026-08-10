@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP, precioLavadoUnico } from "@/lib/helpers";
+import { fmtCLP } from "@/lib/helpers";
 import { useOperadorNotFoundResult } from "@/components/operador/useOperadorNotFoundResult";
 
 export default function OperadorNotFoundResult({
@@ -14,7 +14,7 @@ export default function OperadorNotFoundResult({
   clearPlate: () => void;
   codigoDescuento?: string;
 }) {
-  const { data, patchUi } = useApp();
+  const { patchUi } = useApp();
   const qNombreRef = useRef<HTMLInputElement>(null);
   const qTelefonoRef = useRef<HTMLInputElement>(null);
   const qEmailRef = useRef<HTMLInputElement>(null);
@@ -81,23 +81,8 @@ export default function OperadorNotFoundResult({
           Lavado Full Túnel queda en {fmtCLP(r.precioConDescuento!)} (antes {fmtCLP(r.precioBaseLavado)}).
         </div>
       )}
-      {r.bloqueaInvitado ? (
-        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13 }}>
-          Con un código de descuento o cupón no se puede ingresar como invitado: completa el registro del cliente
-          más abajo.
-        </div>
-      ) : (
-        <>
-          <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13 }}>
-            ¿Solo un lavado, sin ficha de cliente? Cóbralo directo sin registrar nada.
-          </div>
-          <button className="btn ghost" style={{ marginBottom: 4 }} onClick={r.ingresarSinRegistro}>
-            Ingresar sin registro — Lavado único ({fmtCLP(precioLavadoUnico(data.precios))})
-          </button>
-        </>
-      )}
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 14 }}>
-        O registra un cliente rápido. Los campos con * son obligatorios.
+        Registra un cliente rápido. Los campos con * son obligatorios.
       </div>
       <div className="quick-form">
         <div>
@@ -109,7 +94,7 @@ export default function OperadorNotFoundResult({
           <input ref={qTelefonoRef} defaultValue="+569" placeholder="+569 -1111 1111" onBlur={r.onTelefonoBlur} />
         </div>
         <div>
-          <label>Correo electrónico *</label>
+          <label>Correo electrónico</label>
           <input ref={qEmailRef} type="email" placeholder="correo@ejemplo.com" />
         </div>
         <div>

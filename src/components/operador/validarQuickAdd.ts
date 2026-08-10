@@ -26,19 +26,21 @@ export type ResultadoValidacionQuickAdd =
 
 // Valida y normaliza el registro rápido de cliente nuevo desde "patente no
 // registrada" (ver prepararClienteRapido en @/lib/logic), en el mismo orden
-// que antes tenía quickAdd() en useOperadorNotFoundResult. La validación de
-// email para Factura es incondicional (no exime ni siquiera a un perfil
-// exentoValidacion): sin correo válido no hay a quién facturarle.
+// que antes tenía quickAdd() en useOperadorNotFoundResult. Nombre y Teléfono
+// son los únicos campos obligatorios (el email queda opcional salvo para
+// Factura); la validación de email para Factura es incondicional (no exime
+// ni siquiera a un perfil exentoValidacion): sin correo válido no hay a
+// quién facturarle.
 export function validarQuickAddCliente(d: DatosValidacionQuickAdd): ResultadoValidacionQuickAdd {
   const nombre = d.nombreRaw.trim().toUpperCase();
   const telefonoRaw = d.telefonoRaw.trim();
   const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
   const email = d.emailRaw.trim();
-  if (!nombre || (!d.exentoValidacion && (!telefonoRaw || !email))) {
-    return { ok: false, error: "Completa Nombre, Teléfono y Correo electrónico para registrar al cliente" };
+  if (!nombre || (!d.exentoValidacion && !telefonoRaw)) {
+    return { ok: false, error: "Completa Nombre y Teléfono para registrar al cliente" };
   }
   if (!d.exentoValidacion && !isValidTelefono(telefono)) return { ok: false, error: TELEFONO_FORMATO_MSG };
-  if (!d.exentoValidacion && !isValidEmail(email)) return { ok: false, error: "Ingresa un email válido" };
+  if (email && !isValidEmail(email)) return { ok: false, error: "Ingresa un email válido" };
 
   const razonSocial = d.tipoDocumento === "Factura" ? d.razonSocialRaw.trim() : "";
   const rutRaw = d.tipoDocumento === "Factura" ? d.rutRaw.trim() : "";
