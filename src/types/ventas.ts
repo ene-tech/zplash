@@ -49,4 +49,7 @@ export interface Venta extends DatosFacturacion {
   // permite mostrarle esta venta en Mi Cuenta buscando por el correo de la
   // sesión, sin depender de clienteId (que queda null en compras B2B).
   email?: string;
+  // Ver canjeadaEn en db/schema/ventas.ts — momento en que un "Lavado único
+  // (Web)" pagado por adelantado se canjeó físicamente en el túnel.
+  canjeadaEn?: string;
 }

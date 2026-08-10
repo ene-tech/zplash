@@ -25,6 +25,7 @@ interface Compra {
   fecha: string;
   tipo: string;
   monto: number;
+  patente: string;
 }
 
 function CuentaBar({ telefono, onLogout }: { telefono: string; onLogout: () => void }) {
@@ -146,6 +147,7 @@ export default function MiCuentaTab() {
             <tr>
               <th>Fecha</th>
               <th>Detalle</th>
+              <th>Patente</th>
               <th>Monto</th>
             </tr>
           </thead>
@@ -154,6 +156,7 @@ export default function MiCuentaTab() {
               <tr key={i}>
                 <td>{fmtFecha(c.fecha)}</td>
                 <td>{c.tipo}</td>
+                <td>{c.patente || "—"}</td>
                 <td>{fmtCLP(c.monto)}</td>
               </tr>
             ))}

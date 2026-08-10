@@ -8,6 +8,8 @@ type Props = Pick<
   | "c"
   | "citaDetailingPendiente"
   | "registrarDetailing"
+  | "lavadoWebPendiente"
+  | "registrarLavadoWeb"
   | "showOffer"
   | "st"
   | "pNormal"
@@ -48,6 +50,21 @@ export default function OperadorFoundOfertas(props: Props) {
           </div>
           <button className="btn secondary" onClick={props.registrarDetailing}>
             Registrar ingreso — Servicio de Detailing
+          </button>
+        </div>
+      )}
+      {props.lavadoWebPendiente && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Túnel</span>
+            <h4>Lavado pagado online, pendiente de canjear</h4>
+          </div>
+          <div className="msg">
+            {c.nombre} ya pagó un Lavado único ({fmtCLP(props.lavadoWebPendiente.precio)}) desde la web. Regístralo
+            para dejarlo entrar — esto no genera un cobro nuevo, ya se pagó.
+          </div>
+          <button className="btn secondary" onClick={props.registrarLavadoWeb}>
+            Registrar ingreso — Lavado pagado online
           </button>
         </div>
       )}

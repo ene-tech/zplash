@@ -1,6 +1,12 @@
 import type { AppData, Cita, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
 import { esRetrocesoInvalido } from "@/lib/agenda";
-import { GLOSA_SERVICIO_DETAILING, MAX_INGRESOS_TUNEL_DETAILING_POR_CITA, planStatus, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
+import {
+  GLOSA_LAVADO_WEB,
+  GLOSA_SERVICIO_DETAILING,
+  MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
+  planStatus,
+  ventaLavadoUnicoDeIngreso,
+} from "@/lib/helpers";
 
 export function registrarIngreso(
   data: AppData,
@@ -80,6 +86,41 @@ export function registrarIngresoDetailing(
     ingresos: [ingreso, ...data.ingresos],
     clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),
     citas: data.citas.map((ct) => (ct.id === cita.id ? { ...ct, estado: nuevoEstadoCita } : ct)),
+  };
+}
+
+// Registra el paso físico por el túnel de un "Lavado único" ya pagado
+// online desde /pagar (ver ventaLavadoWebPendiente en lib/helpers): a
+// diferencia de registrarIngreso(), esto NO genera una Venta nueva — ya
+// existe, se cobró vía Webpay — solo deja constancia en Historial de
+// Ingresos (glosa GLOSA_LAVADO_WEB) y marca esa venta como canjeada para que
+// no se pueda volver a usar en una segunda pasada.
+export function registrarIngresoLavadoWeb(
+  data: AppData,
+  cliente: Cliente,
+  venta: Venta,
+  operadorActual: string | null | undefined
+): Partial<AppData> {
+  const ahora = new Date().toISOString();
+  const ingreso: Ingreso = {
+    id: "i" + Date.now(),
+    clienteId: cliente.id,
+    patente: cliente.patente,
+    nombre: cliente.nombre,
+    fecha: ahora,
+    planEstadoAlIngreso: planStatus(cliente).cls,
+    creadoPor: operadorActual || "",
+    glosa: GLOSA_LAVADO_WEB,
+  };
+  const clienteActualizado: Cliente = {
+    ...cliente,
+    visitas: (cliente.visitas || 0) + 1,
+    ultimaVisita: ahora,
+  };
+  return {
+    ingresos: [ingreso, ...data.ingresos],
+    clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),
+    ventas: data.ventas.map((v) => (v.id === venta.id ? { ...v, canjeadaEn: ahora } : v)),
   };
 }
 

@@ -1,14 +1,15 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { registrarIngreso, registrarIngresoDetailing } from "@/lib/logic";
+import { registrarIngreso, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
 import { yaIngresoHoy, type EstadoReingresoPlan } from "@/lib/helpers";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
 // Acciones de "dar ingreso" al vehículo: la garantía/bloqueo de reingreso, el
-// check-in de un servicio de Detailing ya vendido, y el cobro de un lavado
-// único (con o sin cupón de descuento vigente).
+// check-in de un servicio de Detailing ya vendido, el canje de un lavado
+// único ya pagado desde /pagar, y el cobro de un lavado único presencial
+// (con o sin cupón de descuento vigente).
 export function useIngresoActions(
   c: Cliente,
   clearPlate: () => void,
@@ -16,12 +17,13 @@ export function useIngresoActions(
   opts: {
     estadoIngreso: EstadoReingresoPlan;
     citaDetailingPendiente: Cita | undefined;
+    lavadoWebPendiente: Venta | undefined;
     cuponDescuentoVigente: Cupon | undefined;
     precioLavadoUnicoFinal: number;
   }
 ) {
   const { data, ui, commit, patchUi } = useApp();
-  const { estadoIngreso, citaDetailingPendiente, cuponDescuentoVigente, precioLavadoUnicoFinal } = opts;
+  const { estadoIngreso, citaDetailingPendiente, lavadoWebPendiente, cuponDescuentoVigente, precioLavadoUnicoFinal } = opts;
 
   const hacerRegistro = async (esGarantia: boolean, cliente: Cliente) => {
     const patch = registrarIngreso(data, cliente, ui.perfilActual?.nombre, esGarantia);
@@ -123,6 +125,18 @@ export function useIngresoActions(
     });
   };
 
+  const registrarLavadoWeb = async (cliente: Cliente = c) => {
+    if (!lavadoWebPendiente) return;
+    const patch = registrarIngresoLavadoWeb(data, cliente, lavadoWebPendiente, ui.perfilActual?.nombre);
+    const ok = await commit(patch);
+    if (!ok) {
+      setGuardarErr(ERROR_GUARDADO_INGRESO);
+      return;
+    }
+    clearPlate();
+    patchUi({ operResult: null });
+  };
+
   const registrarPagado = (cliente: Cliente = c) => {
     if (yaIngresoHoy(data.ingresos, cliente.id)) {
       patchUi({
@@ -139,5 +153,5 @@ export function useIngresoActions(
     cobrarLavadoUnico(cliente);
   };
 
-  return { registrar, registrarDetailing, registrarPagado, cobrarLavadoUnico };
+  return { registrar, registrarDetailing, registrarLavadoWeb, registrarPagado, cobrarLavadoUnico };
 }

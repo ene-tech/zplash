@@ -29,6 +29,12 @@ export const CATEGORIA_DETAILING = "Lavado Completo Detailing";
  * físico por el túnel (ver registrarIngresoDetailing en lib/logic). */
 export const GLOSA_SERVICIO_DETAILING = "Servicio de Detailing";
 
+/** Glosa de Ingreso para un "Lavado único (Web)" pagado por adelantado desde
+ * /pagar: igual que GLOSA_SERVICIO_DETAILING, no constituye una venta nueva
+ * (la venta ya se hizo online), solo deja constancia del paso físico por el
+ * túnel al canjearlo (ver registrarIngresoLavadoWeb en lib/logic/ingresos). */
+export const GLOSA_LAVADO_WEB = "Lavado pagado online";
+
 /** Ids del catálogo de "Servicios Adicionales" (fuera de la categoría
  * CATEGORIA_DETAILING) que igual implican que el vehículo pasa por el túnel
  * y por lo tanto también dan derecho a la pasada libre — mismo mecanismo que

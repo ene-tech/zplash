@@ -38,6 +38,11 @@ export const ventas = pgTable(
     viaCupon: boolean("via_cupon").notNull().default(false),
     cuponCodigo: text("cupon_codigo").references(() => cupones.codigo, { onDelete: "set null" }),
     facturaEmitida: boolean("factura_emitida").notNull().default(false),
+    // Momento en que un "Lavado único (Web)" comprado por adelantado desde
+    // /pagar se canjeó físicamente en el túnel (ver registrarIngresoLavadoWeb
+    // en @/lib/logic/ingresos) — null mientras siga pendiente de canjear.
+    // Evita que el mismo lavado pagado online se pueda canjear dos veces.
+    canjeadaEn: timestamptz("canjeada_en"),
   },
   (t) => [index("ventas_cliente_id_idx").on(t.clienteId), index("ventas_fecha_idx").on(t.fecha)]
 );

@@ -19,6 +19,7 @@ import {
   precioReactivacionVencido,
   precioRenovacionLocal,
   precioUpgradePlan,
+  ventaLavadoWebPendiente,
   ventaUpgradeElegible,
   visitasUltimoPeriodoVencido,
 } from "@/lib/helpers";
@@ -137,11 +138,17 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     });
   });
 
+  // Lavado único comprado por adelantado desde /pagar y todavía sin canjear
+  // físicamente (ver ventaLavadoWebPendiente) — mismo patrón que
+  // citaDetailingPendiente, pero para una compra suelta en vez de una Cita.
+  const lavadoWebPendiente = ventaLavadoWebPendiente(data.ventas, c.id);
+
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
   const ingreso = useIngresoActions(c, clearPlate, setGuardarErr, {
     estadoIngreso,
     citaDetailingPendiente,
+    lavadoWebPendiente,
     cuponDescuentoVigente,
     precioLavadoUnicoFinal,
   });
@@ -202,6 +209,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     cuponDescuentoVigente,
     precioLavadoUnicoFinal,
     citaDetailingPendiente,
+    lavadoWebPendiente,
     ...ingreso,
     ...plan,
     ...ficha,
@@ -209,6 +217,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     registrarPagado: conFichaCompleta(ingreso.registrarPagado),
     cobrarLavadoUnico: conFichaCompleta(ingreso.cobrarLavadoUnico),
     registrarDetailing: conFichaCompleta(ingreso.registrarDetailing),
+    registrarLavadoWeb: conFichaCompleta(ingreso.registrarLavadoWeb),
     contratarPlan: conFichaCompleta(plan.contratarPlan),
     renovar: conFichaCompleta(plan.renovar),
     reactivar: conFichaCompleta(plan.reactivar),

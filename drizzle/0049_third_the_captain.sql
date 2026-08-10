@@ -1,0 +1,1 @@
+ALTER TABLE "ventas" ADD COLUMN "canjeada_en" timestamp with time zone;

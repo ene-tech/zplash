@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "firma_correo" text DEFAULT '' NOT NULL;

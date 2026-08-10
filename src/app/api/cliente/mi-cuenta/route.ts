@@ -25,7 +25,7 @@ export async function GET() {
 
   const [comprasRows, citasRows, tarjetasRows] = await Promise.all([
     db
-      .select({ fecha: ventas.fecha, tipo: ventas.tipo, plan: ventas.plan, monto: ventas.precio })
+      .select({ fecha: ventas.fecha, tipo: ventas.tipo, plan: ventas.plan, monto: ventas.precio, patente: ventas.patente })
       .from(ventas)
       .where(or(inArray(ventas.patente, patentes), inArray(ventas.clienteId, sesion.clienteIds)))
       .orderBy(desc(ventas.fecha))
@@ -54,7 +54,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    compras: comprasRows.map((v) => ({ fecha: v.fecha, tipo: v.plan || v.tipo, monto: v.monto })),
+    compras: comprasRows.map((v) => ({ fecha: v.fecha, tipo: v.plan || v.tipo, monto: v.monto, patente: v.patente })),
     detailing: citasRows.map((c) => ({
       id: c.id,
       patente: c.patente,

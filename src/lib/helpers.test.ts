@@ -37,6 +37,7 @@ import {
   sumarMeses,
   vencimientoAnclado,
   ventaLavadoUnicoDeIngreso,
+  ventaLavadoWebPendiente,
   visitasDesdeContratacion,
   visitasPeriodoPlan,
   visitasUltimos30Dias,
@@ -500,6 +501,48 @@ describe("ventaLavadoUnicoDeIngreso", () => {
     const ingreso: Pick<Ingreso, "clienteId" | "fecha"> = { clienteId: "c1", fecha: "2026-01-05T10:00:00.000Z" };
 
     expect(ventaLavadoUnicoDeIngreso([lejana, cercana], ingreso)).toBe(cercana);
+  });
+});
+
+function ventaLavadoWebBase(overrides: Partial<Venta> = {}): Venta {
+  return {
+    id: "v-web-1",
+    clienteId: "c1",
+    patente: "AB1234",
+    nombre: "JUAN PEREZ",
+    plan: "",
+    precio: 9990,
+    tipo: "Lavado único (Web)",
+    fecha: "2026-01-05T10:00:00.000Z",
+    ...overrides,
+  };
+}
+
+describe("ventaLavadoWebPendiente", () => {
+  it("encuentra una venta de Lavado único (Web) sin canjear del cliente", () => {
+    const venta = ventaLavadoWebBase();
+    expect(ventaLavadoWebPendiente([venta], "c1")).toBe(venta);
+  });
+
+  it("ignora una venta ya canjeada", () => {
+    const venta = ventaLavadoWebBase({ canjeadaEn: "2026-01-06T10:00:00.000Z" });
+    expect(ventaLavadoWebPendiente([venta], "c1")).toBeUndefined();
+  });
+
+  it("ignora ventas de otro cliente", () => {
+    const venta = ventaLavadoWebBase({ clienteId: "c2" });
+    expect(ventaLavadoWebPendiente([venta], "c1")).toBeUndefined();
+  });
+
+  it("ignora un Lavado único presencial (sin '(Web)')", () => {
+    const venta = ventaLavadoWebBase({ tipo: "Lavado único" });
+    expect(ventaLavadoWebPendiente([venta], "c1")).toBeUndefined();
+  });
+
+  it("con varias sin canjear, elige la más antigua", () => {
+    const nueva = ventaLavadoWebBase({ id: "v-nueva", fecha: "2026-01-06T10:00:00.000Z" });
+    const vieja = ventaLavadoWebBase({ id: "v-vieja", fecha: "2026-01-04T10:00:00.000Z" });
+    expect(ventaLavadoWebPendiente([nueva, vieja], "c1")).toBe(vieja);
   });
 });
 

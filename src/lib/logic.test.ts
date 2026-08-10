@@ -6,6 +6,7 @@ import {
   importarClientes,
   registrarIngreso,
   registrarIngresoDetailing,
+  registrarIngresoLavadoWeb,
   renovarPlan,
 } from "./logic";
 import { CONFIG_DEFAULT, PRECIOS_DEFAULT } from "./helpers";
@@ -296,6 +297,42 @@ describe("registrarIngresoDetailing", () => {
 
     const citaActualizada = patch.citas!.find((c) => c.id === cita.id)!;
     expect(citaActualizada.estado).toBe("listo_entrega");
+  });
+});
+
+describe("registrarIngresoLavadoWeb", () => {
+  function ventaLavadoWebBase(overrides: Partial<Venta> = {}): Venta {
+    return {
+      id: "v-web-1",
+      clienteId: "c1",
+      patente: "AB1234",
+      nombre: "JUAN PEREZ",
+      plan: "",
+      precio: 9990,
+      tipo: "Lavado único (Web)",
+      fecha: "2026-01-05T10:00:00.000Z",
+      ...overrides,
+    };
+  }
+
+  it("deja el ingreso con glosa 'Lavado pagado online', sin crear una venta nueva, y marca la venta como canjeada", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 1 });
+    const venta = ventaLavadoWebBase();
+    data.clientes = [cliente];
+    data.ventas = [venta];
+
+    const patch = registrarIngresoLavadoWeb(data, cliente, venta, "Operador X");
+
+    expect(patch.ingresos).toHaveLength(1);
+    expect(patch.ingresos![0].glosa).toBe("Lavado pagado online");
+    const clienteActualizado = patch.clientes!.find((c) => c.id === cliente.id)!;
+    expect(clienteActualizado.visitas).toBe(2);
+    expect(patch.ventas).toHaveLength(1);
+    expect(patch.ventas![0].canjeadaEn).toBeTruthy();
+    // No es una venta nueva: mismo id, mismo precio, solo se agregó canjeadaEn.
+    expect(patch.ventas![0].id).toBe(venta.id);
+    expect(patch.ventas![0].precio).toBe(venta.precio);
   });
 });
 

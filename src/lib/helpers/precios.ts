@@ -17,6 +17,23 @@ export const PRECIO_LAVADO_UNICO = 9990;
 /** Clave usada dentro de Precios para guardar el valor editable del lavado único. */
 export const LAVADO_UNICO_KEY = "Lavado único";
 
+/** `Venta.tipo` con el que queda un "Lavado único" comprado por adelantado
+ * desde /pagar (ver retorno/route.ts, que arma el tipo como `${nombre} (Web)`
+ * y nombre siempre es LAVADO_UNICO_KEY para este ítem del carrito). */
+export const LAVADO_UNICO_WEB_TIPO = `${LAVADO_UNICO_KEY} (Web)`;
+
+/**
+ * Venta de "Lavado único (Web)" ya pagada por este cliente pero todavía sin
+ * canjear físicamente (ver registrarIngresoLavadoWeb en lib/logic/ingresos) —
+ * la más antigua sin canjear, por si compró más de una y no vino a
+ * buscarlas todas de una vez.
+ */
+export function ventaLavadoWebPendiente(ventas: Venta[], clienteId: string): Venta | undefined {
+  return ventas
+    .filter((v) => v.clienteId === clienteId && v.tipo === LAVADO_UNICO_WEB_TIPO && !v.canjeadaEn)
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
+}
+
 /**
  * Precio del plan para quien contrata con renovación automática (Oneclick
  * Mall) desde /pagar — más barato que pagar un período a la vez con Webpay
