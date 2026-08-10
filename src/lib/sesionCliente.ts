@@ -7,11 +7,9 @@ export interface VehiculoSesion {
 
 // La sesión real (ver @/lib/auth/clienteSession y @/app/api/cliente) vive en
 // una cookie httpOnly firmada, no acá — este tipo es solo lo que devuelve
-// GET /api/cliente/sesion para pintar el Portal Cliente. `email` es el de
-// alguna de las filas de `clientes` resueltas por teléfono, si la tienen
-// cargada (usado por TicketsEmpresaSection); puede no haber ninguna.
+// GET /api/cliente/sesion para pintar el Portal Cliente. `email` es el
+// correo con el que se hizo login (usado también por TicketsEmpresaSection).
 export interface SesionCliente {
-  telefono: string;
-  email: string | null;
+  email: string;
   vehiculos: VehiculoSesion[];
 }

@@ -14,8 +14,7 @@ export async function GET() {
 
   const clientesEncontrados = await getClientesByIds(sesion.clienteIds);
   const respuesta: SesionCliente = {
-    telefono: sesion.telefono,
-    email: clientesEncontrados.find((c) => c.email)?.email || null,
+    email: sesion.email,
     vehiculos: clientesEncontrados.map((c) => {
       const estado = planStatus(c);
       return {

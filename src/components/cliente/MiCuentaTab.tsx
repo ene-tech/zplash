@@ -33,10 +33,10 @@ interface Compra {
   patente: string;
 }
 
-function CuentaBar({ telefono, onLogout }: { telefono: string; onLogout: () => void }) {
+function CuentaBar({ email, onLogout }: { email: string; onLogout: () => void }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22, flexWrap: "wrap", gap: 10 }}>
-      <span style={{ fontSize: 13 }}>{telefono}</span>
+      <span style={{ fontSize: 13 }}>{email}</span>
       <button type="button" className="logout-btn" onClick={onLogout}>
         Cerrar sesión
       </button>
@@ -72,9 +72,9 @@ export default function MiCuentaTab() {
 
   return (
     <div>
-      <CuentaBar telefono={sesion.telefono} onLogout={cerrar} />
+      <CuentaBar email={sesion.email} onLogout={cerrar} />
       <ActivarNotificaciones />
-      {sesion.email && <TicketsEmpresaSection key={sesion.email} email={sesion.email} />}
+      <TicketsEmpresaSection key={sesion.email} email={sesion.email} />
 
       <h3 style={{ marginBottom: 12 }}>Mis vehículos</h3>
       <div className="card-grid" style={{ marginBottom: 26 }}>

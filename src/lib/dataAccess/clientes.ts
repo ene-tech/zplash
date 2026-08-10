@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes } from "@/db/schema";
 import type { Cliente, ClientePatch } from "@/types";
@@ -21,12 +21,17 @@ export async function buscarClientePorPatente(patente: string): Promise<Cliente 
 }
 
 // Usado por el login por OTP del Portal Cliente (@/app/api/cliente/otp):
-// clientes.telefono no es único, así que un mismo teléfono puede resolver a
+// clientes.email no es único, así que un mismo correo puede resolver a
 // varias filas (varias patentes de una misma persona) — la sesión que arma
 // otp/verificar/route.ts cubre todas las que devuelva esta consulta.
-export async function buscarClientesPorTelefono(telefono: string): Promise<Cliente[]> {
-  if (!telefono) return [];
-  const rows = await getDb().select().from(clientes).where(eq(clientes.telefono, telefono));
+// Comparación case-insensitive (mismo criterio que aplicarPagoPackEmpresa)
+// porque clientes.email no siempre quedó guardado en minúsculas.
+export async function buscarClientesPorEmail(email: string): Promise<Cliente[]> {
+  if (!email) return [];
+  const rows = await getDb()
+    .select()
+    .from(clientes)
+    .where(sql`lower(${clientes.email}) = ${email.toLowerCase()}`);
   return rows.map(clienteFromRow);
 }
 
