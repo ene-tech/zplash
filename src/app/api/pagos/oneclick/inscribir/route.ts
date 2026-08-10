@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 
-    let body: { patente?: string; email?: string };
+    let body: { patente?: string; email?: string; soloGuardar?: boolean };
     try {
       body = await request.json();
     } catch {
@@ -35,6 +35,11 @@ export async function POST(request: NextRequest) {
     if (!isValidEmail(email)) {
       return NextResponse.json({ error: "Email inválido" }, { status: 400 });
     }
+    // "pendiente_solo_tarjeta" viaja hasta /inscripcion/retorno (vía la misma
+    // fila) para que ese callback sepa que esto vino de "Mis tarjetas" y no
+    // debe cobrar de inmediato como sí hace el flujo normal de /pagar — ver
+    // el comentario en /inscripcion/retorno/route.ts.
+    const estadoPendiente = body.soloGuardar ? "pendiente_solo_tarjeta" : "pendiente";
 
     const db = getDb();
     const returnUrl = new URL("/api/pagos/oneclick/inscripcion/retorno", request.nextUrl.origin).toString();
@@ -55,7 +60,7 @@ export async function POST(request: NextRequest) {
         .set({
           email,
           tokenInscripcion: respuesta.token,
-          estado: "pendiente",
+          estado: estadoPendiente,
           actualizadoEn: new Date().toISOString(),
         })
         .where(eq(suscripcionesOneclick.id, existente.id));
@@ -66,7 +71,7 @@ export async function POST(request: NextRequest) {
         username: patente,
         email,
         tokenInscripcion: respuesta.token,
-        estado: "pendiente",
+        estado: estadoPendiente,
       });
     }
 

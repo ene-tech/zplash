@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { suscripcionesOneclick } from "@/db/schema";
+import { clientes, suscripcionesOneclick } from "@/db/schema";
 import { cobrarSuscripcion } from "@/lib/pagos";
 import { oneclickInscription } from "@/lib/transbank";
 
@@ -30,7 +30,13 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     console.error("Suscripción Oneclick no encontrada para token", tbkToken);
     return redirectResultado(origin, "error");
   }
-  if (suscripcion.estado !== "pendiente") {
+
+  // "pendiente_solo_tarjeta" = inscripción disparada desde "Mis tarjetas" en
+  // Mi Cuenta (ver /api/pagos/oneclick/inscribir): a diferencia del flujo de
+  // /pagar, acá el cliente solo quiere guardar la tarjeta, no pagar un ciclo
+  // ahora — más abajo no se llama a cobrarSuscripcion() para ese caso.
+  const esSoloTarjeta = suscripcion.estado === "pendiente_solo_tarjeta";
+  if (suscripcion.estado !== "pendiente" && !esSoloTarjeta) {
     // Ya procesado (doble callback): no repetir el cobro inmediato.
     return redirectResultado(origin, suscripcion.estado === "activa" ? "ok" : "anulado");
   }
@@ -44,7 +50,7 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
       .update(suscripcionesOneclick)
       .set({ estado: "cancelada", tokenInscripcion: null, actualizadoEn: new Date().toISOString() })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
-    return redirectResultado(origin, "error");
+    return redirectResultado(origin, esSoloTarjeta ? "tarjeta_error" : "error");
   }
 
   if (resultado.response_code !== 0 || !resultado.tbk_user) {
@@ -52,7 +58,33 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
       .update(suscripcionesOneclick)
       .set({ estado: "cancelada", tokenInscripcion: null, actualizadoEn: new Date().toISOString() })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
-    return redirectResultado(origin, "anulado");
+    return redirectResultado(origin, esSoloTarjeta ? "tarjeta_anulada" : "anulado");
+  }
+
+  if (esSoloTarjeta) {
+    // Sin cobro inmediato: si la patente tiene un plan vigente, el próximo
+    // cobro automático queda agendado justo para su vencimiento real (nunca
+    // antes, para no duplicar lo que el cliente ya pagó por otro medio). Si
+    // no tiene plan vigente, la tarjeta queda guardada pero sin fecha de
+    // cobro — el cron (que solo mira proximoCobro <= ahora) la deja en paz
+    // hasta que el cliente contrate/renueve y quede con un vencimiento real.
+    const [cliente] = await db.select({ vencimiento: clientes.vencimiento }).from(clientes).where(eq(clientes.patente, suscripcion.patente)).limit(1);
+    const vencimientoFuturo = cliente?.vencimiento && new Date(cliente.vencimiento) > new Date() ? cliente.vencimiento : null;
+
+    await db
+      .update(suscripcionesOneclick)
+      .set({
+        tbkUser: resultado.tbk_user,
+        cardTipo: resultado.card_type || null,
+        cardUltimosDigitos: resultado.card_number || null,
+        estado: "activa",
+        proximoCobro: vencimientoFuturo,
+        tokenInscripcion: null,
+        actualizadoEn: new Date().toISOString(),
+      })
+      .where(eq(suscripcionesOneclick.id, suscripcion.id));
+
+    return redirectResultado(origin, "tarjeta_guardada");
   }
 
   const activada = {

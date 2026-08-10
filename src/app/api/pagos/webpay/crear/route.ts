@@ -4,7 +4,10 @@ import { getDb } from "@/db";
 import { pagosWebpay, pagosWebpayItems, precios, servicios } from "@/db/schema";
 import {
   PLANES,
+  formatRut,
+  isValidEmail,
   isValidPatente,
+  isValidRut,
   normPlate,
   precioLavadoUnicoWeb,
   precioNormal,
@@ -30,11 +33,58 @@ function generarBuyOrder(): string {
   return "wp" + Date.now().toString(36) + Math.floor(Math.random() * 36).toString(36);
 }
 
-interface ItemResuelto {
+interface BodyItem {
+  tipo?: string;
+  servicioId?: string;
+  tipoDocumento?: string;
+  razonSocial?: string;
+  rut?: string;
+  direccion?: string;
+  giro?: string;
+  email?: string;
+}
+
+interface DatosDocumento {
+  tipoDocumento: string | null;
+  razonSocial: string | null;
+  rut: string | null;
+  direccion: string | null;
+  giro: string | null;
+  email: string | null;
+}
+
+interface ItemResuelto extends DatosDocumento {
   tipo: TipoPago;
   servicioId: string | null;
   nombre: string;
   monto: number;
+}
+
+const SIN_DOCUMENTO: DatosDocumento = { tipoDocumento: null, razonSocial: null, rut: null, direccion: null, giro: null, email: null };
+
+// Boleta/Factura son opcionales (compatibilidad con llamadores que no los
+// mandan, ej. el flujo de plan vía ResultadoBusqueda): si viene "Factura" se
+// exigen los datos de la empresa, mismo criterio que ya usa
+// /api/pagos/webpay/crear-empresa para Pack Empresa.
+function resolverDocumento(item: BodyItem): { doc: DatosDocumento; error?: string } {
+  if (item.tipoDocumento !== "Factura") {
+    return item.tipoDocumento === "Boleta" ? { doc: { ...SIN_DOCUMENTO, tipoDocumento: "Boleta" } } : { doc: SIN_DOCUMENTO };
+  }
+  const razonSocial = (item.razonSocial || "").trim();
+  const rutCrudo = (item.rut || "").trim();
+  const direccion = (item.direccion || "").trim();
+  const giro = (item.giro || "").trim();
+  const email = (item.email || "").trim().toLowerCase();
+  if (!razonSocial || !rutCrudo || !direccion || !giro || !email) {
+    return { doc: SIN_DOCUMENTO, error: "Completa Razón Social, RUT, Giro, Dirección y Correo para la factura" };
+  }
+  if (!isValidRut(rutCrudo)) {
+    return { doc: SIN_DOCUMENTO, error: "RUT inválido" };
+  }
+  if (!isValidEmail(email)) {
+    return { doc: SIN_DOCUMENTO, error: "Correo inválido para la factura" };
+  }
+  return { doc: { tipoDocumento: "Factura", razonSocial, rut: formatRut(rutCrudo), direccion, giro, email } };
 }
 
 export async function POST(request: NextRequest) {
@@ -43,7 +93,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 
-    let body: { patente?: string; items?: { tipo?: string; servicioId?: string }[] };
+    let body: { patente?: string; items?: BodyItem[] };
     try {
       body = await request.json();
     } catch {
@@ -76,23 +126,28 @@ export async function POST(request: NextRequest) {
     const items: ItemResuelto[] = [];
     for (const item of body.items) {
       const tipo = item.tipo as TipoPago;
+      const { doc, error: errorDocumento } = resolverDocumento(item);
+      if (errorDocumento) {
+        return NextResponse.json({ error: errorDocumento }, { status: 400 });
+      }
       if (tipo === "servicio") {
         const [servicio] = await db.select().from(servicios).where(eq(servicios.id, item.servicioId ?? "")).limit(1);
         if (!servicio || !servicio.activo) {
           return NextResponse.json({ error: "Servicio no encontrado" }, { status: 400 });
         }
-        items.push({ tipo, servicioId: servicio.id, nombre: servicio.nombre, monto: precioServicio(preciosMap, servicio.id) });
+        items.push({ tipo, servicioId: servicio.id, nombre: servicio.nombre, monto: precioServicio(preciosMap, servicio.id), ...doc });
       } else if (tipo === "lavado_unico") {
-        items.push({ tipo, servicioId: null, nombre: "Lavado único", monto: precioLavadoUnicoWeb(preciosMap) });
+        items.push({ tipo, servicioId: null, nombre: "Lavado único", monto: precioLavadoUnicoWeb(preciosMap), ...doc });
       } else if (tipo === "aspirado") {
         items.push({
           tipo,
           servicioId: null,
           nombre: "Uso Zona Aspirado Autoservicio",
           monto: precioZonaAspirado(preciosMap),
+          ...doc,
         });
       } else {
-        items.push({ tipo, servicioId: null, nombre: "Plan Ilimitado Mensual", monto: precioNormal(preciosMap, PLANES[0]) });
+        items.push({ tipo, servicioId: null, nombre: "Plan Ilimitado Mensual", monto: precioNormal(preciosMap, PLANES[0]), ...doc });
       }
     }
 
@@ -122,6 +177,12 @@ export async function POST(request: NextRequest) {
         servicioId: item.servicioId,
         nombre: item.nombre,
         monto: item.monto,
+        tipoDocumento: item.tipoDocumento,
+        razonSocial: item.razonSocial,
+        rut: item.rut,
+        direccion: item.direccion,
+        giro: item.giro,
+        email: item.email,
       }))
     );
 

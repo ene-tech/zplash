@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fmtCLP, fmtDate, fmtFecha } from "@/lib/helpers";
 import { useSesionCliente } from "@/hooks/useSesionCliente";
 import { TicketsEmpresaSection } from "@/components/cliente/miCuenta/TicketsEmpresaSection";
 import { SolicitudCambioPatente } from "@/components/cliente/miCuenta/SolicitudCambioPatente";
+import { QuitarVehiculo } from "@/components/cliente/miCuenta/QuitarVehiculo";
 import { OtpLoginForm } from "@/components/cliente/miCuenta/OtpLoginForm";
 import { ActivarNotificaciones } from "@/components/cliente/miCuenta/ActivarNotificaciones";
 import { RenovacionLegacyCard } from "@/components/cliente/miCuenta/RenovacionLegacyCard";
+import { AgregarTarjeta } from "@/components/cliente/miCuenta/AgregarTarjeta";
+import { EliminarTarjeta } from "@/components/cliente/miCuenta/EliminarTarjeta";
 
 interface Tarjeta {
   patente: string;
   cardTipo: string | null;
   cardUltimosDigitos: string | null;
   estado: string;
+  proximoCobro: string | null;
 }
 interface RenovacionLegacy {
   patente: string;
@@ -51,8 +55,7 @@ export default function MiCuentaTab() {
   const [compras, setCompras] = useState<Compra[]>([]);
   const [renovacionesLegacy, setRenovacionesLegacy] = useState<RenovacionLegacy[]>([]);
 
-  useEffect(() => {
-    if (!sesion) return;
+  const cargarMiCuenta = useCallback(() => {
     fetch("/api/cliente/mi-cuenta")
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { tarjetas: Tarjeta[]; detailing: Detailing[]; compras: Compra[]; renovacionesLegacy: RenovacionLegacy[] } | null) => {
@@ -62,7 +65,12 @@ export default function MiCuentaTab() {
         setCompras(data.compras);
         setRenovacionesLegacy(data.renovacionesLegacy || []);
       });
-  }, [sesion]);
+  }, []);
+
+  useEffect(() => {
+    if (!sesion) return;
+    cargarMiCuenta();
+  }, [sesion, cargarMiCuenta]);
 
   if (cargando) return null;
 
@@ -77,21 +85,37 @@ export default function MiCuentaTab() {
       <TicketsEmpresaSection key={sesion.email} email={sesion.email} />
 
       <h3 style={{ marginBottom: 12 }}>Mis vehículos</h3>
-      <div className="card-grid" style={{ marginBottom: 26 }}>
-        {sesion.vehiculos.map((v) => (
-          <div className="vehicle-card" key={v.patente}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className="plate-tag">{v.patente}</span>
-              <span className={`status-pill ${v.estado.cls}`}>{v.estado.label}</span>
+      {sesion.vehiculos.length > 0 ? (
+        <div className="card-grid" style={{ marginBottom: 26 }}>
+          {sesion.vehiculos.map((v) => (
+            <div className="vehicle-card" key={v.patente}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="plate-tag">{v.patente}</span>
+                <span className={`status-pill ${v.estado.cls}`}>{v.estado.label}</span>
+              </div>
+              <div className="plan-nombre">{v.plan}</div>
+              {v.vencimiento && (
+                <div style={{ color: "var(--gray)", fontSize: 12.5 }}>Vence el {fmtFecha(v.vencimiento)}</div>
+              )}
+              {v.plan !== "Sin plan" && (
+                <SolicitudCambioPatente
+                  patente={v.patente}
+                  plan={v.plan}
+                  vencimiento={v.vencimiento}
+                  patentePendiente={v.patentePendiente}
+                  patentePendienteDesde={v.patentePendienteDesde}
+                  onActualizado={refrescar}
+                />
+              )}
+              <QuitarVehiculo patente={v.patente} onQuitado={refrescar} />
             </div>
-            <div className="plan-nombre">{v.plan}</div>
-            {v.vencimiento && (
-              <div style={{ color: "var(--gray)", fontSize: 12.5 }}>Vence el {fmtFecha(v.vencimiento)}</div>
-            )}
-            {v.plan !== "Sin plan" && <SolicitudCambioPatente patente={v.patente} plan={v.plan} vencimiento={v.vencimiento} />}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="card" style={{ color: "var(--gray)", fontSize: 14, marginBottom: 26 }}>
+          No tienes vehículos en tu cuenta.
+        </p>
+      )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <h3 style={{ margin: 0 }}>Servicios de Detailing agendados</h3>
@@ -120,20 +144,24 @@ export default function MiCuentaTab() {
         </p>
       )}
 
-      <h3 style={{ marginBottom: 12 }}>Tarjetas registradas</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+        <h3 style={{ margin: 0 }}>Tarjetas registradas</h3>
+        <AgregarTarjeta vehiculos={sesion.vehiculos} emailDefault={sesion.email} />
+      </div>
       {tarjetas.length > 0 || renovacionesLegacy.length > 0 ? (
         <div className="card-grid" style={{ marginBottom: 26 }}>
           {tarjetas.map((t) => (
             <div className="vehicle-card" key={t.patente}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span className="plate-tag">{t.patente}</span>
-                <span className={`status-pill ${t.estado === "activa" ? "ok" : "bad"}`}>
-                  {t.estado === "activa" ? "Renovación automática activa" : "Cancelada"}
+                <span className={`status-pill ${t.estado === "activa" ? "ok" : "warn"}`}>
+                  {t.estado === "suspendida" ? "Suspendida" : t.proximoCobro ? "Renovación automática activa" : "Activa"}
                 </span>
               </div>
               <div className="plan-nombre">
                 {t.cardTipo} terminada en {t.cardUltimosDigitos}
               </div>
+              <EliminarTarjeta patente={t.patente} onEliminada={cargarMiCuenta} />
             </div>
           ))}
           {renovacionesLegacy.map((r) => (
@@ -142,11 +170,7 @@ export default function MiCuentaTab() {
         </div>
       ) : (
         <p className="card" style={{ color: "var(--gray)", fontSize: 14, marginBottom: 26 }}>
-          No tienes tarjetas registradas. Puedes inscribir una desde{" "}
-          <a href="/pagar" style={{ color: "var(--gold)" }}>
-            Pagar / Renovar plan
-          </a>{" "}
-          para activar la renovación automática.
+          No tienes tarjetas registradas — usa &quot;+ Agregar tarjeta&quot; arriba para guardar una.
         </p>
       )}
 

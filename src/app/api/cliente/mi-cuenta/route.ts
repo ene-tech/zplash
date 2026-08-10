@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { citaServicios, citas, servicios, suscripcionesOneclick, ventas } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
@@ -35,7 +35,14 @@ export async function GET() {
       .from(citas)
       .where(or(inArray(citas.patente, patentes), inArray(citas.clienteId, sesion.clienteIds)))
       .orderBy(desc(citas.fechaHora)),
-    db.select().from(suscripcionesOneclick).where(inArray(suscripcionesOneclick.patente, patentes)),
+    // Solo tarjetas realmente registradas: "pendiente"/"pendiente_solo_tarjeta"
+    // son intentos de inscripción a medio camino y "cancelada" es un intento
+    // fallido — mostrarlas acá confunde al cliente (parece que su patente/plan
+    // quedó cancelado, no que una inscripción de tarjeta falló).
+    db
+      .select()
+      .from(suscripcionesOneclick)
+      .where(and(inArray(suscripcionesOneclick.patente, patentes), inArray(suscripcionesOneclick.estado, ["activa", "suspendida"]))),
   ]);
 
   const citaIds = citasRows.map((c) => c.id);
@@ -67,6 +74,11 @@ export async function GET() {
       cardTipo: t.cardTipo,
       cardUltimosDigitos: t.cardUltimosDigitos,
       estado: t.estado,
+      // Solo si hay un próximo cobro agendado la tarjeta está realmente
+      // renovando algo automáticamente — inscribirla desde "Mis tarjetas" sin
+      // un plan vigente la deja "activa" (guardada, lista para usarse) pero
+      // sin ningún cobro programado, ver /inscripcion/retorno.
+      proximoCobro: t.proximoCobro,
     })),
     // Clientes con renovación automática detectada en pedidos de WooCommerce
     // Subscriptions (ver renovacionAutoWooDesde) que todavía no tienen una

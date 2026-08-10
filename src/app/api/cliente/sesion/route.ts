@@ -22,6 +22,8 @@ export async function GET() {
         plan: c.plan || "Sin plan",
         estado: { label: estado.label, cls: estado.cls },
         vencimiento: c.vencimiento || null,
+        patentePendiente: c.patentePendiente || null,
+        patentePendienteDesde: c.patentePendienteDesde || null,
       };
     }),
   };

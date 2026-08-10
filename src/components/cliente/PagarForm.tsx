@@ -11,6 +11,10 @@ import { fmtCLP } from "@/lib/helpers";
 export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const r = usePagarForm();
+  // lavado_unico/aspirado ya piden su propia patente arriba en PagoUnicoCard
+  // (que además cobra directo, sin pasar por "Buscar"): el panel genérico de
+  // abajo sería un segundo campo de patente redundante para ese flujo.
+  const esPagoUnico = r.item === "lavado_unico" || r.item === "aspirado";
 
   return (
     <div className="content" style={{ maxWidth: 640 }}>
@@ -38,7 +42,7 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
           setPatente={r.setPatente}
           err={r.err}
           pagando={r.pagando}
-          onPagar={r.pagar}
+          onPagar={(tipo, datosDocumento) => r.pagar(tipo, undefined, undefined, datosDocumento)}
         />
       )}
 
@@ -52,46 +56,50 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
           setPatente={r.setPatente}
           err={r.err}
           pagando={r.pagando}
-          onPagar={r.pagar}
+          onPagar={(tipo, datosDocumento) => r.pagar(tipo, undefined, undefined, datosDocumento)}
         />
       )}
 
-      <div className="scan-panel">
-        <h2>Pagar en ZPlash</h2>
-        <p className="hint">Ingresa tu patente para renovar tu plan o pagar un servicio.</p>
-        <input
-          ref={inputRef}
-          className="plate-input"
-          value={r.patente}
-          onChange={(e) => r.setPatente(e.target.value.toUpperCase())}
-          onKeyDown={(e) => e.key === "Enter" && r.buscar()}
-          placeholder="AB1234"
-          maxLength={6}
-        />
-        <div className="err">{r.err}</div>
-        <button className="btn" onClick={r.buscar} disabled={r.buscando}>
-          {r.buscando ? "Buscando..." : "Buscar"}
-        </button>
-      </div>
+      {!esPagoUnico && (
+        <>
+          <div className="scan-panel">
+            <h2>Pagar en ZPlash</h2>
+            <p className="hint">Ingresa tu patente para renovar tu plan o pagar un servicio.</p>
+            <input
+              ref={inputRef}
+              className="plate-input"
+              value={r.patente}
+              onChange={(e) => r.setPatente(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === "Enter" && r.buscar()}
+              placeholder="AB1234"
+              maxLength={6}
+            />
+            <div className="err">{r.err}</div>
+            <button className="btn" onClick={r.buscar} disabled={r.buscando}>
+              {r.buscando ? "Buscando..." : "Buscar"}
+            </button>
+          </div>
 
-      <ResultadoBusqueda
-        precios={precios}
-        resultado={r.resultado}
-        mostrarAuto={r.mostrarAuto}
-        setMostrarAuto={r.setMostrarAuto}
-        pagando={r.pagando}
-        accionPlan={r.accionPlan}
-        pasoMetodo={r.pasoMetodo}
-        elegirMetodo={r.elegirMetodo}
-        cancelarMetodo={r.cancelarMetodo}
-        conectarGoogle={r.conectarGoogle}
-        confirmarPago={r.confirmarPago}
-        soloPagoUnico={r.soloPagoUnico}
-        email={r.email}
-        setEmail={r.setEmail}
-        inscribiendo={r.inscribiendo}
-        activarAutomatica={r.activarAutomatica}
-      />
+          <ResultadoBusqueda
+            precios={precios}
+            resultado={r.resultado}
+            mostrarAuto={r.mostrarAuto}
+            setMostrarAuto={r.setMostrarAuto}
+            pagando={r.pagando}
+            accionPlan={r.accionPlan}
+            pasoMetodo={r.pasoMetodo}
+            elegirMetodo={r.elegirMetodo}
+            cancelarMetodo={r.cancelarMetodo}
+            conectarGoogle={r.conectarGoogle}
+            confirmarPago={r.confirmarPago}
+            soloPagoUnico={r.soloPagoUnico}
+            email={r.email}
+            setEmail={r.setEmail}
+            inscribiendo={r.inscribiendo}
+            activarAutomatica={r.activarAutomatica}
+          />
+        </>
+      )}
 
       {precios.servicios.length > 0 && (
         <>

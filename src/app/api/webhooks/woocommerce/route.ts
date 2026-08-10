@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
-import { movimientoToRow } from "@/lib/dataAccess";
-import { PLANES, formatTelefono, movimientoContableDesdeVenta, sigueVigenteHoy, vencimientoAnclado } from "@/lib/helpers";
+import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
+import { PLANES, formatTelefono, movimientoContableDesdeVenta, resolverPatentePendiente, sigueVigenteHoy, vencimientoAnclado } from "@/lib/helpers";
+import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
 import { addDaysISO, buscarClienteExistente, extraerPatente, huboRenovacionWebReciente, verificarFirma } from "./shared";
 
 export const runtime = "nodejs";
@@ -130,6 +131,18 @@ export async function POST(request: NextRequest) {
           : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
       }
     }
+    // Resuelve un cambio de patente pendiente (ver patentePendiente en
+    // @/db/schema/clientes) si esta renovación efectivamente avanza el
+    // vencimiento — mismo mecanismo que ya aplican dataAccess/clientes.ts::
+    // upsertClientes y @/lib/pagos/aplicarPagoAprobado (ver
+    // resolverPatentePendiente en @/lib/helpers), replicado acá porque este
+    // webhook tampoco pasa por ninguno de los dos. Sin esto, un cliente
+    // cuya renovación mensual sigue cobrándola WooCommerce (ver
+    // renovacionAutoWooDesde) podía pedir el cambio pero nunca se le
+    // aplicaba: este webhook escribía `vencimiento` directo a la base sin
+    // tocar `patente`/`patentePendiente`.
+    const anterior = clienteFromRow(existente);
+    const { fila, patenteAnterior } = resolverPatentePendiente(anterior, { ...anterior, vencimiento: nuevoVencimiento });
     try {
       await db
         .update(clientes)
@@ -139,6 +152,9 @@ export async function POST(request: NextRequest) {
           email: email || existente.email,
           vencimiento: nuevoVencimiento,
           plan: recontratacion ? PLANES[0] : existente.plan || PLANES[0],
+          patente: fila.patente ?? anterior.patente,
+          patentePendiente: fila.patentePendiente || null,
+          patentePendienteDesde: fila.patentePendienteDesde || null,
           // Recontratación: reinicia el ciclo igual que un cliente nuevo, y
           // limpia la marca de cancelación que puso el webhook de suscripción.
           ...(recontratacion ? { fechaContratacion: fechaOrden, suscripcionCanceladaEn: null } : {}),
@@ -149,6 +165,17 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error("Error actualizando cliente desde webhook WooCommerce", error);
       return NextResponse.json({ error: "Error actualizando cliente" }, { status: 500 });
+    }
+    // Mismo aviso por WhatsApp ("cambio_patente") que dispara upsertClientes/
+    // aplicarPagoAprobado cuando el cambio pendiente se aplica — ver
+    // evaluarReglasPorCambioPatente.
+    if (patenteAnterior) {
+      const clienteCambiado = { ...anterior, ...fila };
+      after(() =>
+        evaluarReglasPorCambioPatente(clienteCambiado, patenteAnterior).catch((error) =>
+          console.error("Error evaluando reglas de WhatsApp por cambio de patente (WooCommerce)", error)
+        )
+      );
     }
   } else {
     clienteId = "c" + Date.now() + Math.floor(Math.random() * 1000);

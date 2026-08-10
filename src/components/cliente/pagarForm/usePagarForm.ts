@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { isValidEmail, isValidPatente, normPlate } from "@/lib/helpers";
-import { redirigirAWebpay } from "@/lib/webpayClient";
+import { redirigirAInscripcionOneclick, redirigirAWebpay } from "@/lib/webpayClient";
 
 export interface EstadoPlan {
   encontrado: boolean;
@@ -16,6 +16,18 @@ export interface EstadoPlan {
 export type TipoPago = "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" | "aspirado";
 export type AccionPlan = { tipo: "plan_nuevo" | "renovacion"; label: string };
 export type PasoMetodo = "elegir" | "google-conectando" | "google-preview";
+
+// Datos de boleta/factura que junta PagoUnicoCard antes de cobrar (ver
+// mismo esquema de columnas ya usado por pagosWebpayItems para Pack
+// Empresa): si tipoDocumento es "Boleta" no lleva los demás campos.
+export interface DatosDocumento {
+  tipoDocumento: "Boleta" | "Factura";
+  razonSocial?: string;
+  rut?: string;
+  direccion?: string;
+  giro?: string;
+  email?: string;
+}
 
 // Lógica de la pantalla pública "Pagar en ZPlash": buscar el estado del plan
 // por patente, pagar cualquier ítem (plan/renovación/servicio/lavado único/
@@ -61,7 +73,7 @@ export function usePagarForm() {
     }
   }
 
-  async function pagar(tipo: TipoPago, servicioId?: string, key?: string) {
+  async function pagar(tipo: TipoPago, servicioId?: string, key?: string, datosDocumento?: DatosDocumento) {
     const p = normPlate(patente);
     if (!isValidPatente(p)) {
       setErr("Patente inválida. Ej: AB1234 o ABCD12.");
@@ -73,7 +85,7 @@ export function usePagarForm() {
       const res = await fetch("/api/pagos/webpay/crear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patente: p, items: [{ tipo, servicioId }] }),
+        body: JSON.stringify({ patente: p, items: [{ tipo, servicioId, ...datosDocumento }] }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -135,16 +147,7 @@ export function usePagarForm() {
         setInscribiendo(false);
         return;
       }
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = data.url;
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = "TBK_TOKEN";
-      input.value = data.token;
-      form.appendChild(input);
-      document.body.appendChild(form);
-      form.submit();
+      redirigirAInscripcionOneclick(data.url, data.token);
     } catch {
       setErr("Sin conexión. Intenta de nuevo.");
       setInscribiendo(false);

@@ -3,6 +3,8 @@ export interface VehiculoSesion {
   plan: string;
   estado: { label: string; cls: "ok" | "warn" | "bad" };
   vencimiento: string | null;
+  patentePendiente: string | null;
+  patentePendienteDesde: string | null;
 }
 
 // La sesión real (ver @/lib/auth/clienteSession y @/app/api/cliente) vive en

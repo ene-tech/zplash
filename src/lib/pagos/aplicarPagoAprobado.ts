@@ -25,6 +25,15 @@ interface AplicarPagoParams {
   // se extiende (o inicia) el ciclo de 30 días como cualquier renovación web.
   tipoVentaNuevo: string;
   tipoVentaExistente: string;
+  // Boleta/Factura elegida en el checkout (ver DatosDocumento en
+  // usePagarForm) — snapshot al momento del pago, igual que ya hace
+  // aplicarPagoPackEmpresa con estas mismas columnas de `ventas`.
+  tipoDocumento?: string | null;
+  razonSocial?: string | null;
+  rut?: string | null;
+  direccion?: string | null;
+  giro?: string | null;
+  email?: string | null;
 }
 
 /**
@@ -139,6 +148,12 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
     metodoPago: p.metodoPago,
     esServicioAdicional: p.esServicioAdicional,
     creadoPor: p.creadoPor,
+    tipoDocumento: p.tipoDocumento || null,
+    razonSocial: p.razonSocial || null,
+    rut: p.rut || null,
+    direccion: p.direccion || null,
+    giro: p.giro || null,
+    email: p.email || null,
   });
 
   // A diferencia de insertVentas (@/lib/dataAccess/ventas), esta función no

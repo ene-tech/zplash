@@ -82,7 +82,11 @@ export const suscripcionesOneclick = pgTable("suscripciones_oneclick", {
   tbkUser: text("tbk_user"),
   cardTipo: text("card_tipo"),
   cardUltimosDigitos: text("card_ultimos_digitos"),
-  estado: text("estado").notNull().default("pendiente"), // pendiente|activa|suspendida|cancelada
+  // pendiente|pendiente_solo_tarjeta|activa|suspendida|cancelada — la variante
+  // "_solo_tarjeta" es igual a "pendiente" salvo que le dice a
+  // /inscripcion/retorno que no cobre de inmediato al confirmar (inscripción
+  // disparada desde "Mis tarjetas" en Mi Cuenta, no desde /pagar).
+  estado: text("estado").notNull().default("pendiente"),
   proximoCobro: timestamptz("proximo_cobro"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   actualizadoEn: timestamptz("actualizado_en"),

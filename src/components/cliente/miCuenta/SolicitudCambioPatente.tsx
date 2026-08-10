@@ -6,22 +6,68 @@ import { fmtFecha, isValidPatente, normPlate, PATENTE_FORMATO_MSG } from "@/lib/
 // Solo aplica a vehículos con un plan mensual vigente: el cambio de patente
 // no es inmediato porque el plan ya está pagado/activo para el mes en curso
 // bajo la patente actual — se hace efectivo recién cuando ese mes termina y
-// empieza el siguiente. Por ahora esto solo queda visible en la pantalla
-// (no hay backend detrás del login todavía, ver MiCuentaTab).
-export function SolicitudCambioPatente({ patente, plan, vencimiento }: { patente: string; plan: string; vencimiento: string | null }) {
+// empieza el siguiente (ver resolverPatentePendiente en @/lib/helpers, que
+// aplica esto tanto para renovaciones propias como para las que sigue
+// cobrando WooCommerce — ver /api/webhooks/woocommerce/route.ts). Llama a
+// /api/cliente/mi-cuenta/{solicitar,cancelar}-cambio-patente (sesión por
+// cookie OTP), mismo patrón que QuitarVehiculo/EliminarTarjeta.
+export function SolicitudCambioPatente({
+  patente,
+  plan,
+  vencimiento,
+  patentePendiente,
+  patentePendienteDesde,
+  onActualizado,
+}: {
+  patente: string;
+  plan: string;
+  vencimiento: string | null;
+  patentePendiente: string | null;
+  patentePendienteDesde: string | null;
+  onActualizado: () => void;
+}) {
   const [abierto, setAbierto] = useState(false);
   const [nueva, setNueva] = useState("");
   const [error, setError] = useState("");
   const [confirmando, setConfirmando] = useState(false);
-  const [solicitada, setSolicitada] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
 
-  if (solicitada) {
+  async function cancelar() {
+    setEnviando(true);
+    setError("");
+    try {
+      const res = await fetch("/api/cliente/mi-cuenta/cancelar-cambio-patente", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patente }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "No se pudo cancelar la solicitud");
+        setEnviando(false);
+        return;
+      }
+      onActualizado();
+    } catch {
+      setError("Sin conexión. Intenta de nuevo.");
+      setEnviando(false);
+    }
+  }
+
+  if (patentePendiente) {
     return (
-      <p style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 8 }}>
-        Solicitaste cambiar tu patente a <strong>{solicitada}</strong>. El cambio se aplicará
-        automáticamente a tu plan cuando termine tu mes actual{vencimiento ? ` (vence el ${fmtFecha(vencimiento)})` : ""} e
-        inicie el próximo — hasta esa fecha tu plan sigue funcionando con la patente {patente}.
-      </p>
+      <div style={{ marginTop: 8 }}>
+        <p style={{ color: "var(--gray)", fontSize: 12.5, marginBottom: 6 }}>
+          Solicitaste cambiar tu patente a <strong>{patentePendiente}</strong>. El cambio se aplicará
+          automáticamente a tu plan cuando termine tu mes actual{vencimiento ? ` (vence el ${fmtFecha(vencimiento)})` : ""} e
+          inicie el próximo — hasta esa fecha tu plan sigue funcionando con la patente {patente}
+          {patentePendienteDesde ? ` (solicitado el ${new Date(patentePendienteDesde).toLocaleDateString("es-CL")})` : ""}.
+        </p>
+        {error && <div className="err">{error}</div>}
+        <button type="button" className="btn ghost" style={{ padding: "6px 10px", fontSize: 12.5 }} onClick={cancelar} disabled={enviando}>
+          {enviando ? "Cancelando..." : "Cancelar solicitud"}
+        </button>
+      </div>
     );
   }
 
@@ -49,6 +95,33 @@ export function SolicitudCambioPatente({ patente, plan, vencimiento }: { patente
     }
     setConfirmando(true);
   };
+
+  async function confirmar() {
+    setEnviando(true);
+    setError("");
+    try {
+      const res = await fetch("/api/cliente/mi-cuenta/solicitar-cambio-patente", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patente, nuevaPatente: nueva }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "No se pudo guardar la solicitud");
+        setEnviando(false);
+        setConfirmando(false);
+        return;
+      }
+      setConfirmando(false);
+      setAbierto(false);
+      setNueva("");
+      onActualizado();
+    } catch {
+      setError("Sin conexión. Intenta de nuevo.");
+      setEnviando(false);
+      setConfirmando(false);
+    }
+  }
 
   return (
     <div style={{ marginTop: 8 }}>
@@ -91,20 +164,13 @@ export function SolicitudCambioPatente({ patente, plan, vencimiento }: { patente
               ¿Estás seguro que deseas cambiar tu <strong>{plan}</strong> de tu vehículo patente{" "}
               <strong>{patente}</strong> a tu patente <strong>{normPlate(nueva)}</strong>?
             </div>
+            {error && <div className="err">{error}</div>}
             <div className="modal-actions">
-              <button type="button" className="btn ghost" onClick={() => setConfirmando(false)}>
+              <button type="button" className="btn ghost" onClick={() => setConfirmando(false)} disabled={enviando}>
                 Cancelar
               </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  setSolicitada(normPlate(nueva));
-                  setConfirmando(false);
-                  setAbierto(false);
-                }}
-              >
-                Sí, cambiar patente
+              <button type="button" className="btn" onClick={confirmar} disabled={enviando}>
+                {enviando ? "Guardando..." : "Sí, cambiar patente"}
               </button>
             </div>
           </div>

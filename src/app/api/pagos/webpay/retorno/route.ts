@@ -191,6 +191,12 @@ async function procesarRetorno(
                 esServicioAdicional,
                 tipoVentaNuevo: tipoVenta ?? "Plan nuevo (Web)",
                 tipoVentaExistente: tipoVenta ?? "Renovación (Web)",
+                tipoDocumento: item.tipoDocumento,
+                razonSocial: item.razonSocial,
+                rut: item.rut,
+                direccion: item.direccion,
+                giro: item.giro,
+                email: item.email,
               },
               tx2
             );
