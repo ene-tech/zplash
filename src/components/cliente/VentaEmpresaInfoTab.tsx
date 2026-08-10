@@ -6,7 +6,7 @@ import type { PreciosPublicos } from "@/components/cliente/types";
 import { FormularioCompra } from "@/components/cliente/ventaEmpresaInfo/FormularioCompra";
 import { ConsultaTickets } from "@/components/cliente/ventaEmpresaInfo/ConsultaTickets";
 
-const WHATSAPP_URL = "https://wa.me/56939059611?text=" + encodeURIComponent("Hola, quiero cotizar lavados para mi empresa");
+const WHATSAPP_URL = "https://wa.me/56957969446?text=" + encodeURIComponent("Hola, quiero cotizar lavados para mi empresa");
 const EMAIL = "TB@ZPLASH.CL";
 
 export default function VentaEmpresaInfoTab({ precios }: { precios: PreciosPublicos | null }) {

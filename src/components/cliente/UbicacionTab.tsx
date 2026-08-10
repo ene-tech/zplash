@@ -6,7 +6,7 @@ const HORARIOS = [
 const DIRECCION = "Prieto Norte 71, Temuco";
 const MAPS_URL = "https://www.google.com/maps/search/?api=1&query=Prieto+Norte+71%2C+Temuco%2C+Chile";
 const WAZE_URL = "https://waze.com/ul?q=Prieto%20Norte%2071%2C%20Temuco%2C%20Chile&navigate=yes";
-const WHATSAPP_URL = "https://wa.me/56939059611";
+const WHATSAPP_URL = "https://wa.me/56957969446";
 
 export default function UbicacionTab() {
   return (

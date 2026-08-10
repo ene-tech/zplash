@@ -3,7 +3,7 @@ import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 
 const WHATSAPP_URL =
-  "https://wa.me/56939059611?text=" + encodeURIComponent("Hola, quiero agendar un Servicio de Detailing para mi auto");
+  "https://wa.me/56957969446?text=" + encodeURIComponent("Hola, quiero agendar un Servicio de Detailing para mi auto");
 
 // Ver nota en /cliente/page.tsx: precios siempre frescos desde la base.
 export const dynamic = "force-dynamic";
