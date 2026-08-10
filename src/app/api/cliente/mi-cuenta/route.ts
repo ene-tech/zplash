@@ -18,7 +18,7 @@ export async function GET() {
   const clientesEncontrados = await getClientesByIds(sesion.clienteIds);
   const patentes = clientesEncontrados.map((c) => c.patente);
   if (!patentes.length) {
-    return NextResponse.json({ tarjetas: [], detailing: [], compras: [] });
+    return NextResponse.json({ tarjetas: [], detailing: [], compras: [], renovacionesLegacy: [] });
   }
 
   const db = getDb();
@@ -68,5 +68,12 @@ export async function GET() {
       cardUltimosDigitos: t.cardUltimosDigitos,
       estado: t.estado,
     })),
+    // Clientes con renovación automática detectada en pedidos de WooCommerce
+    // Subscriptions (ver renovacionAutoWooDesde) que todavía no tienen una
+    // suscripción Oneclick propia activa — si ya migraron a esta app no hace
+    // falta mostrarles también la tarjeta del sistema anterior.
+    renovacionesLegacy: clientesEncontrados
+      .filter((c) => c.renovacionAutoWooDesde && !tarjetasRows.some((t) => t.patente === c.patente && t.estado === "activa"))
+      .map((c) => ({ patente: c.patente, desde: c.renovacionAutoWooDesde as string })),
   });
 }

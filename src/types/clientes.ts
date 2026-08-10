@@ -29,6 +29,10 @@ export interface Cliente extends DatosFacturacion {
   // pedidos al recontratar. Uso interno de esos dos endpoints — no hay UI que
   // lo lea o lo edite (ver /api/webhooks/woocommerce/{route,suscripcion}.ts).
   suscripcionCanceladaEn?: string | null;
+  // Ver renovacionAutoWooDesde en db/schema/clientes.ts — evidencia de que la
+  // renovación mensual de este cliente sigue cobrándola WooCommerce
+  // Subscriptions (sistema anterior), usada para mostrárselo en Mi Cuenta.
+  renovacionAutoWooDesde?: string | null;
   origen?: "WEB" | "LOCAL";
   visitas?: number;
   ultimaVisita?: string;

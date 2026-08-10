@@ -1,0 +1,1 @@
+ALTER TABLE "clientes" ADD COLUMN "renovacion_auto_woo_desde" timestamp with time zone;

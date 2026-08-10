@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
   try {
     await getDb()
       .update(clientes)
-      .set({ suscripcionCanceladaEn: new Date().toISOString() })
+      .set({ suscripcionCanceladaEn: new Date().toISOString(), renovacionAutoWooDesde: null })
       .where(eq(clientes.id, existente.id));
   } catch (error) {
     console.error("Error marcando cliente como cancelado desde webhook de suscripción WooCommerce", error);

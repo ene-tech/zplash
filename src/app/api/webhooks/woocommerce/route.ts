@@ -71,6 +71,12 @@ export async function POST(request: NextRequest) {
   const telefono = formatTelefono(String(billing.phone || ""));
   const fechaOrden = order.date_created ? new Date(order.date_created as string).toISOString() : new Date().toISOString();
   const monto = Number(order.total) || 0;
+  // WooCommerce Subscriptions marca así sus pedidos de renovación automática
+  // (visto en producción: created_via "subscription" + payment_method
+  // "transbank_oneclick_mall_rest") — evidencia real de que este cliente
+  // sigue con la renovación cobrada por el sistema anterior, para mostrárselo
+  // en Mi Cuenta (ver renovacionAutoWooDesde en db/schema/clientes.ts).
+  const esRenovacionAutoWoo = order.created_via === "subscription";
 
   let existente: typeof clientes.$inferSelect | undefined;
   try {
@@ -136,6 +142,7 @@ export async function POST(request: NextRequest) {
           // Recontratación: reinicia el ciclo igual que un cliente nuevo, y
           // limpia la marca de cancelación que puso el webhook de suscripción.
           ...(recontratacion ? { fechaContratacion: fechaOrden, suscripcionCanceladaEn: null } : {}),
+          ...(esRenovacionAutoWoo ? { renovacionAutoWooDesde: fechaOrden } : {}),
           origen: "WEB",
         })
         .where(eq(clientes.id, clienteId));
@@ -156,6 +163,7 @@ export async function POST(request: NextRequest) {
         plan: PLANES[0],
         vencimiento,
         fechaContratacion: fechaOrden,
+        ...(esRenovacionAutoWoo ? { renovacionAutoWooDesde: fechaOrden } : {}),
         origen: "WEB",
         visitas: 0,
         creadoEn: new Date().toISOString(),

@@ -7,12 +7,17 @@ import { TicketsEmpresaSection } from "@/components/cliente/miCuenta/TicketsEmpr
 import { SolicitudCambioPatente } from "@/components/cliente/miCuenta/SolicitudCambioPatente";
 import { OtpLoginForm } from "@/components/cliente/miCuenta/OtpLoginForm";
 import { ActivarNotificaciones } from "@/components/cliente/miCuenta/ActivarNotificaciones";
+import { RenovacionLegacyCard } from "@/components/cliente/miCuenta/RenovacionLegacyCard";
 
 interface Tarjeta {
   patente: string;
   cardTipo: string | null;
   cardUltimosDigitos: string | null;
   estado: string;
+}
+interface RenovacionLegacy {
+  patente: string;
+  desde: string;
 }
 interface Detailing {
   id: string;
@@ -44,16 +49,18 @@ export default function MiCuentaTab() {
   const [tarjetas, setTarjetas] = useState<Tarjeta[]>([]);
   const [detailing, setDetailing] = useState<Detailing[]>([]);
   const [compras, setCompras] = useState<Compra[]>([]);
+  const [renovacionesLegacy, setRenovacionesLegacy] = useState<RenovacionLegacy[]>([]);
 
   useEffect(() => {
     if (!sesion) return;
     fetch("/api/cliente/mi-cuenta")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { tarjetas: Tarjeta[]; detailing: Detailing[]; compras: Compra[] } | null) => {
+      .then((data: { tarjetas: Tarjeta[]; detailing: Detailing[]; compras: Compra[]; renovacionesLegacy: RenovacionLegacy[] } | null) => {
         if (!data) return;
         setTarjetas(data.tarjetas);
         setDetailing(data.detailing);
         setCompras(data.compras);
+        setRenovacionesLegacy(data.renovacionesLegacy || []);
       });
   }, [sesion]);
 
@@ -114,7 +121,7 @@ export default function MiCuentaTab() {
       )}
 
       <h3 style={{ marginBottom: 12 }}>Tarjetas registradas</h3>
-      {tarjetas.length > 0 ? (
+      {tarjetas.length > 0 || renovacionesLegacy.length > 0 ? (
         <div className="card-grid" style={{ marginBottom: 26 }}>
           {tarjetas.map((t) => (
             <div className="vehicle-card" key={t.patente}>
@@ -128,6 +135,9 @@ export default function MiCuentaTab() {
                 {t.cardTipo} terminada en {t.cardUltimosDigitos}
               </div>
             </div>
+          ))}
+          {renovacionesLegacy.map((r) => (
+            <RenovacionLegacyCard key={r.patente} patente={r.patente} desde={r.desde} />
           ))}
         </div>
       ) : (

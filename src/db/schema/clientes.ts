@@ -34,6 +34,16 @@ export const clientes = pgTable("clientes", {
   // que nunca canceló, y el vencimiento seguía apilándose sobre el ciclo
   // viejo.
   suscripcionCanceladaEn: timestamptz("suscripcion_cancelada_en"),
+  // Seteado por el webhook de pedidos de WooCommerce (ver ../route.ts) cuando
+  // un pedido trae created_via = "subscription" — evidencia real de que la
+  // renovación mensual de este cliente la sigue cobrando automáticamente
+  // WooCommerce Subscriptions + Transbank Oneclick Mall (el sistema viejo),
+  // no el Oneclick propio de esta app (ver suscripcionesOneclick). Se limpia
+  // a null cuando el webhook de suscripción marca suscripcionCanceladaEn.
+  // Solo se usa para mostrarle esto al cliente en Mi Cuenta (de solo lectura
+  // — gestionar/cancelar esa suscripción todavía requiere WhatsApp/WooCommerce
+  // mientras la migración de las suscripciones activas siga en curso).
+  renovacionAutoWooDesde: timestamptz("renovacion_auto_woo_desde"),
   origen: text("origen").notNull().default("LOCAL"),
   visitas: integer("visitas").notNull().default(0),
   ultimaVisita: timestamptz("ultima_visita"),
