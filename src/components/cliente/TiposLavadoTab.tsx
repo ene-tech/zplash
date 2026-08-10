@@ -6,7 +6,7 @@ import type { PreciosPublicos } from "./types";
 export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos | null }) {
   return (
     <div>
-      <h2 style={{ marginBottom: 12 }}>LAVADOS EXTERIOR TUNEL + USO ILIMITADO ESTACIONES DE ASPIRADO</h2>
+      <h2 className="section-title">LAVADOS EXTERIOR TUNEL + USO ILIMITADO ESTACIONES DE ASPIRADO</h2>
       <div className="landing-banners" style={{ marginBottom: 22 }}>
         <Link href="/servicios/full-tunnel" className="landing-banner">
           <Image src="/fondo-producto.jpg" alt="Lavado Full Tunnel" fill unoptimized />

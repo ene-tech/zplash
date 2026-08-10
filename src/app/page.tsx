@@ -52,13 +52,19 @@ export default async function LandingPage() {
           <DetailingTab precios={precios} />
         </div>
 
-        <h2 style={{ marginBottom: 12 }}>Venta a Empresa</h2>
+        <h2 className="section-title" style={{ marginTop: 26 }}>
+          Venta a Empresa
+        </h2>
         <VentaEmpresaInfoTab precios={precios} />
 
-        <h2 style={{ margin: "26px 0 12px" }}>Preguntas Frecuentes</h2>
+        <h2 className="section-title" style={{ marginTop: 26 }}>
+          Preguntas Frecuentes
+        </h2>
         <FaqTab />
 
-        <h2 style={{ margin: "26px 0 12px" }}>Ubicación y Horarios</h2>
+        <h2 className="section-title" style={{ marginTop: 26 }}>
+          Ubicación y Horarios
+        </h2>
         <UbicacionTab />
       </div>
     </div>
