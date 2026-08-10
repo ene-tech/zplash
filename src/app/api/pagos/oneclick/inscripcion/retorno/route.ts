@@ -1,9 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, suscripcionesOneclick } from "@/db/schema";
-import { cobrarSuscripcion } from "@/lib/pagos";
+import { cancelarSuscripcionWooCommerceLegacy, cobrarSuscripcion } from "@/lib/pagos";
 import { oneclickInscription } from "@/lib/transbank";
+
+// Si la patente que acaba de activar su tarjeta Oneclick propia todavía
+// tiene marca de renovación automática por WooCommerce (ver
+// renovacionAutoWooDesde en @/db/schema/clientes), dispara la cancelación de
+// esa suscripción vieja — si no, WooCommerce le sigue cobrando su próximo
+// ciclo con la tarjeta anterior al mismo tiempo que el cron nuevo cobra con
+// la tarjeta recién inscrita (doble cobro real). Se llama después de que la
+// suscripción Oneclick ya quedó "activa" en la base, con after() para no
+// retrasar la respuesta al cliente — ver cancelarSuscripcionWooCommerceLegacy
+// para el detalle de por qué es best-effort.
+function dispararMigracionLegacySiCorresponde(
+  db: ReturnType<typeof getDb>,
+  cliente: { id: string; email: string | null; renovacionAutoWooDesde: string | null } | undefined,
+  patente: string
+) {
+  if (!cliente?.renovacionAutoWooDesde) return;
+  after(() =>
+    cancelarSuscripcionWooCommerceLegacy(patente, cliente.email || "")
+      .then(async ({ cancelada, subscriptionId }) => {
+        if (!cancelada) return;
+        console.log(`Suscripción WooCommerce #${subscriptionId} cancelada tras migrar ${patente} a Oneclick propio`);
+        await db.update(clientes).set({ renovacionAutoWooDesde: null }).where(eq(clientes.id, cliente.id));
+      })
+      .catch((error) => console.error("Error cancelando suscripción WooCommerce tras migración de tarjeta", patente, error))
+  );
+}
 
 export const runtime = "nodejs";
 
@@ -61,6 +87,12 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     return redirectResultado(origin, esSoloTarjeta ? "tarjeta_anulada" : "anulado");
   }
 
+  const [cliente] = await db
+    .select({ id: clientes.id, email: clientes.email, vencimiento: clientes.vencimiento, renovacionAutoWooDesde: clientes.renovacionAutoWooDesde })
+    .from(clientes)
+    .where(eq(clientes.patente, suscripcion.patente))
+    .limit(1);
+
   if (esSoloTarjeta) {
     // Sin cobro inmediato: si la patente tiene un plan vigente, el próximo
     // cobro automático queda agendado justo para su vencimiento real (nunca
@@ -68,7 +100,6 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     // no tiene plan vigente, la tarjeta queda guardada pero sin fecha de
     // cobro — el cron (que solo mira proximoCobro <= ahora) la deja en paz
     // hasta que el cliente contrate/renueve y quede con un vencimiento real.
-    const [cliente] = await db.select({ vencimiento: clientes.vencimiento }).from(clientes).where(eq(clientes.patente, suscripcion.patente)).limit(1);
     const vencimientoFuturo = cliente?.vencimiento && new Date(cliente.vencimiento) > new Date() ? cliente.vencimiento : null;
 
     await db
@@ -84,6 +115,7 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
       })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
 
+    dispararMigracionLegacySiCorresponde(db, cliente, suscripcion.patente);
     return redirectResultado(origin, "tarjeta_guardada");
   }
 
@@ -105,6 +137,8 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
       actualizadoEn: new Date().toISOString(),
     })
     .where(eq(suscripcionesOneclick.id, suscripcion.id));
+
+  dispararMigracionLegacySiCorresponde(db, cliente, suscripcion.patente);
 
   // Tarjeta inscrita: cobra ya mismo en vez de esperar al cron del día
   // siguiente, para que el plan quede activo de inmediato.
