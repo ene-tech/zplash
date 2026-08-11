@@ -163,7 +163,7 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
               <button className="btn" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.contratarPlan}>
-                Renovar / Contratar plan
+                Contratar plan nuevo ({fmtCLP(r.pNormal)})
               </button>
               <button className="btn secondary" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.registrarPagado}>
                 Lavado Full Túnel ({fmtCLP(r.precioLavadoUnicoFinal)})
