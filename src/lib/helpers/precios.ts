@@ -1,4 +1,4 @@
-import type { ConfigGlobal, Precios, Venta } from "@/types";
+import type { ConfigGlobal, Precios, PreciosTamano, TamanoVehiculo, Venta } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 
@@ -9,6 +9,15 @@ export const PRECIOS_DEFAULT: Precios = {
   techo: { normal: 19990, promo: 0 },
   motor: { normal: 29990, promo: 0 },
   "chasis-grafitado": { normal: 59990, promo: 0 },
+};
+
+/** Precios por tamaño para el Lavado Completo Detailing (id "detailing-mediano",
+ * único servicio de esa categoría desde que se fusionaron los 3 SKUs de
+ * tamaño — Auto Pequeño/Mediano-SUV-Pickup/Auto XL — en uno solo con precio
+ * S/M/L/XL, ver migración 0055). Solo usado como fallback si `precios_tamano`
+ * viniera vacío (instalación nueva/sin datos aún). */
+export const PRECIOS_TAMANO_DEFAULT: PreciosTamano = {
+  "detailing-mediano": { s: 24990, m: 29990, l: 34990, xl: 39990 },
 };
 
 /** Precio de un lavado único para clientes sin plan vigente (vencido o sin plan). */
@@ -240,4 +249,20 @@ export function precioLavadoUnicoWeb(precios: Precios): number {
 /** Precio vigente de un servicio del catálogo, editable por el administrador desde Configuración; si no se ha guardado uno, es 0. */
 export function precioServicio(precios: Precios, servicioId: string): number {
   return (precios[servicioId] && precios[servicioId].normal) || 0;
+}
+
+/**
+ * Precio de un servicio para un tamaño de vehículo dado (ver PreciosTamano):
+ * si el servicio no tiene fila en `preciosTamano`, o el tamaño puntual quedó
+ * en 0 sin cargar, cae al precio flat de `precios` (precioServicio) — así un
+ * servicio recién agregado no muestra $0 mientras el admin no haya cargado
+ * los 4 precios por tamaño.
+ */
+export function precioServicioTamano(
+  precios: Precios,
+  preciosTamano: PreciosTamano,
+  servicioId: string,
+  tamano: TamanoVehiculo
+): number {
+  return preciosTamano[servicioId]?.[tamano] || precioServicio(precios, servicioId);
 }

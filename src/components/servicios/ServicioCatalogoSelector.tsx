@@ -2,7 +2,7 @@
 
 import type { RefObject } from "react";
 import { fmtCLP, precioServicio } from "@/lib/helpers";
-import type { Precios } from "@/types";
+import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION, type Precios } from "@/types";
 import PriceInput from "@/components/PriceInput";
 import { AJUSTES, CATEGORIA_ADICIONALES } from "./useServiciosAdicionalesForm";
 import { CATEGORIA_DETAILING } from "@/lib/helpers";
@@ -17,7 +17,8 @@ type Props = ReturnType<typeof useServicioSeleccion> & {
 // el ajuste de tamaño para Detailing, y el sub-formulario de ítems
 // personalizados (monto libre + detalle de texto) dentro de "Adicionales".
 export default function ServicioCatalogoSelector(props: Props) {
-  const { categorias, catalogo, serviciosSeleccionados, toggleServicio, hayDetailingSeleccionado, ajuste, setAjuste } = props;
+  const { categorias, catalogo, serviciosSeleccionados, toggleServicio, hayDetailingSeleccionado, ajuste, setAjuste, tamano, setTamano } =
+    props;
 
   return (
     <>
@@ -42,19 +43,34 @@ export default function ServicioCatalogoSelector(props: Props) {
               ))}
           </div>
           {cat === CATEGORIA_DETAILING && hayDetailingSeleccionado && (
-            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-              {AJUSTES.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  className={ajuste === a ? "btn" : "btn ghost"}
-                  style={{ marginTop: 0 }}
-                  onClick={() => setAjuste(ajuste === a ? 0 : a)}
-                >
-                  + {fmtCLP(a)}
-                </button>
-              ))}
-            </div>
+            <>
+              <div className="tamano-grid" style={{ marginTop: 10 }}>
+                {TAMANOS_VEHICULO.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`tamano-btn${tamano === t ? " selected" : ""}`}
+                    onClick={() => setTamano(tamano === t ? null : t)}
+                  >
+                    <div className="letra">{TAMANO_LABEL[t]}</div>
+                    <div className="detalle">{TAMANO_DESCRIPCION[t]}</div>
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                {AJUSTES.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    className={ajuste === a ? "btn" : "btn ghost"}
+                    style={{ marginTop: 0 }}
+                    onClick={() => setAjuste(ajuste === a ? 0 : a)}
+                  >
+                    + {fmtCLP(a)}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
           {cat === CATEGORIA_ADICIONALES && (
             <div style={{ marginTop: 14 }}>

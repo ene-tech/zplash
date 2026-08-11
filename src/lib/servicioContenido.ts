@@ -10,17 +10,9 @@ export interface ServicioContenido {
 }
 
 export const SERVICIO_CONTENIDO: Record<string, ServicioContenido> = {
-  "detailing-pequeno": {
-    descripcion:
-      "Limpieza completa por dentro y por fuera pensada para autos pequeños: carrocería, llantas, vidrios, interior aspirado y detallado. Se agenda con horario para asegurar tu cupo.",
-  },
   "detailing-mediano": {
     descripcion:
-      "Limpieza completa por dentro y por fuera para SUV, camionetas y pick-up: carrocería, llantas, vidrios, interior aspirado y detallado. Se agenda con horario para asegurar tu cupo.",
-  },
-  "detailing-xl": {
-    descripcion:
-      "Limpieza completa por dentro y por fuera para autos XL: carrocería, llantas, vidrios, interior aspirado y detallado. Se agenda con horario para asegurar tu cupo.",
+      "Limpieza completa por dentro y por fuera: carrocería, llantas, vidrios, interior aspirado y detallado. Precio según el tamaño de tu vehículo. Se agenda con horario para asegurar tu cupo.",
   },
   tapiz: {
     descripcion:

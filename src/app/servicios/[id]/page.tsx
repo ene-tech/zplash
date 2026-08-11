@@ -1,9 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Calendar, MessageCircle } from "lucide-react";
 import { fmtCLP } from "@/lib/helpers";
 import { obtenerContenidoServicio } from "@/lib/servicioContenido";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
-import ProductoBanner from "@/components/cliente/ProductoBanner";
+import ProductoHero from "@/components/cliente/ProductoHero";
+import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION } from "@/types";
 
 const WHATSAPP_URL = (nombre: string) =>
   "https://wa.me/56957969446?text=" + encodeURIComponent(`Hola, quiero agendar el servicio "${nombre}" para mi auto`);
@@ -19,19 +21,21 @@ export default async function ServicioLandingPage({ params }: { params: Promise<
       <div className="cliente-header">
         <div className="title">
           <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
           </Link>
           <span className="mode">{servicio?.nombre ?? "Servicio"}</span>
         </div>
-        <a href="/pagar" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
-          Pagar / Renovar plan
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
+            Mi cuenta
+          </Link>
+        </div>
       </div>
 
       <div className="content">
-        <a href="/cliente" className="landing-back">
+        <Link href="/#lavados" className="landing-back">
           ← Volver a Tipos de Lavados
-        </a>
+        </Link>
 
         {!servicio ? (
           <div className="card">
@@ -39,23 +43,33 @@ export default async function ServicioLandingPage({ params }: { params: Promise<
           </div>
         ) : (
           <>
-            <div className="card" style={{ marginBottom: 18 }}>
-              <ProductoBanner imagen="/fondo-producto.jpg" alt={servicio.nombre} videoUrl={contenido.videoUrl} />
-              <h3>{servicio.nombre}</h3>
-              <div className="price-row" style={{ marginBottom: 0 }}>
-                <span className="new">{fmtCLP(servicio.precio)}</span>
-              </div>
-            </div>
-
-            <div className="card" style={{ marginBottom: 18 }}>
-              <h3>Cómo funciona</h3>
-              <p style={{ color: "var(--gray)", fontSize: 14, lineHeight: 1.6 }}>{contenido.descripcion}</p>
-            </div>
-
-            <div className="card" style={{ textAlign: "center" }}>
-              <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 14 }}>
-                Este servicio se agenda con horario. Cuéntanos la patente de tu auto y coordinamos tu hora.
-              </p>
+            <ProductoHero
+              eyebrow="Detailing"
+              titulo={servicio.nombre}
+              descripcion={contenido.descripcion}
+              imagen="/fondo-producto.jpg"
+              videoUrl={contenido.videoUrl}
+              features={[
+                { icon: <Calendar />, titulo: "Se agenda con horario", detalle: "Cuéntanos la patente de tu auto y coordinamos tu hora." },
+                { icon: <MessageCircle />, titulo: "Coordinación por WhatsApp", detalle: "Agenda directo por WhatsApp, sin llamadas." },
+              ]}
+            >
+              {servicio.preciosTamano ? (
+                <div className="hours-table">
+                  {TAMANOS_VEHICULO.map((t) => (
+                    <div key={t} className="hours-row">
+                      <span className="dia">
+                        {TAMANO_LABEL[t]} · {TAMANO_DESCRIPCION[t]}
+                      </span>
+                      <span style={{ color: "var(--gold)", fontWeight: 700 }}>{fmtCLP(servicio.preciosTamano![t])}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="price-row" style={{ marginTop: 20, marginBottom: 16 }}>
+                  <span className="new">{fmtCLP(servicio.precio)}</span>
+                </div>
+              )}
               <a
                 href={WHATSAPP_URL(servicio.nombre)}
                 target="_blank"
@@ -65,7 +79,7 @@ export default async function ServicioLandingPage({ params }: { params: Promise<
               >
                 Agendar por WhatsApp
               </a>
-            </div>
+            </ProductoHero>
           </>
         )}
       </div>

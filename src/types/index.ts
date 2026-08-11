@@ -23,7 +23,7 @@ import type {
 import type { AlertaMantencion, Maquinaria, RegistroMantencion } from "./mantencion";
 import type { PlantillaCorreo } from "./mail";
 import type { PerfilPublico } from "./perfiles";
-import type { Precios } from "./precios";
+import type { Precios, PreciosTamano } from "./precios";
 import type { Servicio } from "./servicios";
 import type { Venta } from "./ventas";
 import type { PlantillaWhatsapp, ReglaWhatsapp } from "./whatsapp";
@@ -33,6 +33,7 @@ export interface AppData {
   ingresos: Ingreso[];
   ventas: Venta[];
   precios: Precios;
+  preciosTamano: PreciosTamano;
   perfiles: PerfilPublico[];
   cupones: Cupon[];
   movimientosContables: MovimientoContable[];

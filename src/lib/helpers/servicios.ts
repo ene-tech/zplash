@@ -4,11 +4,14 @@ import type { Servicio } from "@/types";
  * la migración todavía no corrió — mismo patrón que PERFILES_DEFAULT. Mismos
  * ids/nombres/categorías que el antiguo SERVICIOS_ADICIONALES hardcodeado;
  * duracionMinutos queda en 30 como placeholder editable de inmediato desde
- * la pestaña Agenda (no hay dato real de duración por servicio todavía). */
+ * la pestaña Agenda (no hay dato real de duración por servicio todavía).
+ * "Lavado Completo Detailing" quedó como un solo servicio (id
+ * "detailing-mediano", conservado por continuidad de datos): antes eran 3
+ * filas por tamaño (Auto Pequeño/Mediano-SUV-Pickup/Auto XL), fusionadas en
+ * una con precio S/M/L/XL vía PRECIOS_TAMANO_DEFAULT/precios_tamano (ver
+ * migración 0055). */
 export const SERVICIOS_DEFAULT: Servicio[] = [
-  { id: "detailing-pequeno", categoria: "Lavado Completo Detailing", nombre: "Auto Pequeño", duracionMinutos: 30, activo: true },
-  { id: "detailing-mediano", categoria: "Lavado Completo Detailing", nombre: "Mediano / SUV / Pick-up", duracionMinutos: 30, activo: true },
-  { id: "detailing-xl", categoria: "Lavado Completo Detailing", nombre: "Auto XL", duracionMinutos: 30, activo: true },
+  { id: "detailing-mediano", categoria: "Lavado Completo Detailing", nombre: "Lavado Completo Detailing", duracionMinutos: 30, activo: true },
   { id: "tapiz", categoria: "Servicios Adicionales", nombre: "Limpieza de Tapiz (2 Corridas de Asientos)", duracionMinutos: 30, activo: true },
   { id: "alfombra", categoria: "Servicios Adicionales", nombre: "Limpieza de Alfombra", duracionMinutos: 30, activo: true },
   { id: "techo", categoria: "Servicios Adicionales", nombre: "Limpieza de Techo", duracionMinutos: 30, activo: true },

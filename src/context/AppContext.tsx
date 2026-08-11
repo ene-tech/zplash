@@ -10,6 +10,7 @@ import {
   PLANTILLAS_CORREO_DEFAULT,
   PLANTILLAS_WHATSAPP_DEFAULT,
   PRECIOS_DEFAULT,
+  PRECIOS_TAMANO_DEFAULT,
   recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
@@ -38,6 +39,7 @@ import {
   commitPlantillasCorreo,
   commitPlantillasWhatsapp,
   commitPrecios,
+  commitPreciosTamano,
   commitProductos,
   commitProveedores,
   commitRegistrosMantencion,
@@ -54,6 +56,7 @@ const initialData: AppData = {
   ingresos: [],
   ventas: [],
   precios: JSON.parse(JSON.stringify(PRECIOS_DEFAULT)),
+  preciosTamano: JSON.parse(JSON.stringify(PRECIOS_TAMANO_DEFAULT)),
   perfiles: JSON.parse(JSON.stringify(PERFILES_DEFAULT)),
   cupones: [],
   movimientosContables: [],
@@ -230,6 +233,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     agregar(commitReglasConciliacion(previous.reglasConciliacion, patch.reglasConciliacion));
     agregar(commitEmpresas(previous.empresas, patch.empresas, usuario));
     agregar(commitPrecios(patch.precios));
+    agregar(commitPreciosTamano(patch.preciosTamano));
     agregar(commitServicios(previous.servicios, patch.servicios));
     agregar(commitHorariosAgenda(previous.horariosAgenda, patch.horariosAgenda));
     agregar(commitBloqueosAgenda(previous.bloqueosAgenda, patch.bloqueosAgenda));

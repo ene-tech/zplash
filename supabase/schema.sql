@@ -307,6 +307,22 @@ create table if not exists servicios (
   creado_en timestamptz not null default now()
 );
 
+-- Precio diferenciado por tamaño de vehículo (S/M/L/XL) para servicios cuyo
+-- costo depende del tamaño del auto (hoy: Lavado Completo Detailing) —
+-- separado de `precios` (un solo valor por clave) porque acá un mismo
+-- servicio necesita 4 precios a la vez. Si un servicio no tiene fila acá, el
+-- sitio cae al precio flat de `precios` (ver precioServicioTamano en
+-- lib/helpers/precios.ts). onDelete cascade sigue el mismo criterio que
+-- cita_servicios: los servicios del catálogo casi nunca se borran de
+-- verdad, se desactivan.
+create table if not exists precios_tamano (
+  servicio_id text primary key references servicios(id) on delete cascade,
+  s numeric not null default 0,
+  m numeric not null default 0,
+  l numeric not null default 0,
+  xl numeric not null default 0
+);
+
 -- Horario semanal recurrente único para todo el negocio: a diferencia de
 -- ConsultaPro (horario por profesional), acá no hay "profesional" al que
 -- asignarle una cita — un lavadero atiende con capacidad de 1 cupo por
@@ -535,6 +551,7 @@ alter table ingresos enable row level security;
 alter table ventas enable row level security;
 alter table perfiles enable row level security;
 alter table precios enable row level security;
+alter table precios_tamano enable row level security;
 alter table config enable row level security;
 alter table cupones enable row level security;
 alter table movimientos_contables enable row level security;
