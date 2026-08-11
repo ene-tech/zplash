@@ -1,10 +1,10 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Calendar, MessageCircle } from "lucide-react";
 import { fmtCLP } from "@/lib/helpers";
 import { obtenerContenidoServicio } from "@/lib/servicioContenido";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import ProductoHero from "@/components/cliente/ProductoHero";
+import ClienteHeader from "@/components/cliente/ClienteHeader";
 import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION } from "@/types";
 
 const WHATSAPP_URL = (nombre: string) =>
@@ -18,19 +18,7 @@ export default async function ServicioLandingPage({ params }: { params: Promise<
 
   return (
     <div id="app">
-      <div className="cliente-header">
-        <div className="title">
-          <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
-          </Link>
-          <span className="mode">{servicio?.nombre ?? "Servicio"}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
-            Mi cuenta
-          </Link>
-        </div>
-      </div>
+      <ClienteHeader titulo={servicio?.nombre ?? "Servicio"} />
 
       <div className="content">
         <Link href="/#lavados" className="landing-back">

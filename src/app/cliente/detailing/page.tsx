@@ -1,7 +1,6 @@
-import Image from "next/image";
-import Link from "next/link";
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
+import ClienteHeader from "@/components/cliente/ClienteHeader";
 
 const WHATSAPP_URL =
   "https://wa.me/56957969446?text=" + encodeURIComponent("Hola, quiero agendar un Servicio de Detailing para mi auto");
@@ -15,17 +14,7 @@ export default async function DetailingLandingPage() {
 
   return (
     <div id="app">
-      <div className="cliente-header">
-        <div className="title">
-          <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
-          </Link>
-          <span className="mode">Portal Cliente</span>
-        </div>
-        <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
-          Mi cuenta
-        </Link>
-      </div>
+      <ClienteHeader titulo="Portal Cliente" />
 
       <div className="cliente-hero">
         <h1>Lavado Completo Detailing</h1>

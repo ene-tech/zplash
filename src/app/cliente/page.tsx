@@ -1,7 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import MiCuentaTab from "@/components/cliente/MiCuentaTab";
-import CarritoBadge from "@/components/cliente/CarritoBadge";
+import ClienteHeader from "@/components/cliente/ClienteHeader";
 
 // Antes esta página era una segunda "home" pública con pestañas (Ubicación,
 // Lavados, Detailing, Empresa, FAQ) que duplicaba el contenido de / y había
@@ -12,15 +11,7 @@ import CarritoBadge from "@/components/cliente/CarritoBadge";
 export default function ClientePage() {
   return (
     <div id="app">
-      <div className="cliente-header">
-        <div className="title">
-          <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
-          </Link>
-          <span className="mode">Mi Cuenta</span>
-        </div>
-        <CarritoBadge />
-      </div>
+      <ClienteHeader titulo="Mi Cuenta" ocultarMiCuenta />
 
       <div className="content">
         <Link href="/" className="landing-back">

@@ -1,11 +1,10 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Droplets, Clock, ListPlus } from "lucide-react";
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoHero from "@/components/cliente/ProductoHero";
-import CarritoBadge from "@/components/cliente/CarritoBadge";
+import ClienteHeader from "@/components/cliente/ClienteHeader";
 import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
 
 const PREGUNTAS_FULL_TUNNEL = [
@@ -40,20 +39,7 @@ export default async function FullTunnelPage() {
 
   return (
     <div id="app">
-      <div className="cliente-header">
-        <div className="title">
-          <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
-          </Link>
-          <span className="mode">Lavado Full Tunnel</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <CarritoBadge />
-          <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
-            Mi cuenta
-          </Link>
-        </div>
-      </div>
+      <ClienteHeader titulo="Lavado Full Tunnel" />
 
       <div className="content">
         <Link href="/#lavados" className="landing-back">

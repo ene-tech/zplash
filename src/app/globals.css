@@ -1217,9 +1217,13 @@ tr:hover td {
   margin-top: 0;
   text-decoration: none;
 }
-/* Acceso rápido a "Mi cuenta" en mobile, al lado del carrito — .site-nav-btn
-   (el botón de texto) se esconde bajo 900px y sin esto "Mi cuenta" solo
-   quedaba disponible abriendo el menú hamburguesa. Oculto por defecto y solo
+/* Acceso rápido a "Mi cuenta" en mobile, al lado del carrito — el botón de
+   texto (.btn-mi-cuenta) se esconde bajo 900px y sin esto "Mi cuenta" solo
+   quedaba disponible abriendo el menú hamburguesa (en la landing) o no
+   quedaba disponible en absoluto (en el resto de las páginas de cliente,
+   que no tienen hamburguesa). Mismo componente/clase en SiteNav y en
+   ClienteHeader (el header compartido del resto de las páginas), para que
+   el formato de header sea igual en toda la app. Oculto por defecto y solo
    se muestra en el mismo breakpoint que esconde el botón de texto (ver
    media query más abajo), para no duplicar el link en desktop. */
 .site-nav-account-link {
@@ -1260,12 +1264,6 @@ tr:hover td {
   color: var(--white);
   background: var(--bg-card);
 }
-.site-nav-mobile-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
 /* 900px en vez del breakpoint global de 640: con logo (210px) + 5 enlaces +
    carrito + 2 botones, el nav horizontal no entra antes de eso. */
 @media (max-width: 900px) {
@@ -1275,11 +1273,12 @@ tr:hover td {
   .site-nav-toggle {
     display: inline-flex;
   }
-  .site-nav-actions .site-nav-btn {
+  .btn-mi-cuenta {
     display: none;
   }
   .site-nav-account-link {
     display: inline-flex;
+    margin-right: 8px;
   }
 }
 @media (min-width: 901px) {
