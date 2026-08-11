@@ -15,7 +15,7 @@ export default function ClientePage() {
       <div className="cliente-header">
         <div className="title">
           <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
           </Link>
           <span className="mode">Mi Cuenta</span>
         </div>

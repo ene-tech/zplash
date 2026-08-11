@@ -18,13 +18,13 @@ export default async function DetailingLandingPage() {
       <div className="cliente-header">
         <div className="title">
           <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
           </Link>
           <span className="mode">Portal Cliente</span>
         </div>
-        <a href="/cliente" className="btn ghost" style={{ marginTop: 0, textDecoration: "none" }}>
-          ← Volver a Mi Cuenta
-        </a>
+        <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
+          Mi cuenta
+        </Link>
       </div>
 
       <div className="cliente-hero">
