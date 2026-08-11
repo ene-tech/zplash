@@ -19,6 +19,7 @@ function appDataVacia(): AppData {
     ingresos: [],
     ventas: [],
     precios: PRECIOS_DEFAULT,
+    preciosTamano: {},
     perfiles: [],
     cupones: [],
     movimientosContables: [],

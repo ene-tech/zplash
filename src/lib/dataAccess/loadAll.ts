@@ -27,6 +27,7 @@ import {
   plantillasCorreo,
   plantillasWhatsapp,
   precios,
+  preciosTamano,
   productos,
   proveedores,
   registrosMantencion,
@@ -43,6 +44,7 @@ import {
   PLANTILLAS_CORREO_DEFAULT,
   PLANTILLAS_WHATSAPP_DEFAULT,
   PRECIOS_DEFAULT,
+  PRECIOS_TAMANO_DEFAULT,
   recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
@@ -61,7 +63,7 @@ import { proveedorFromRow } from "./inventario/proveedores";
 import { alertaMantencionFromRow, maquinariaFromRow, registroMantencionFromRow } from "./mantencion";
 import { plantillaCorreoFromRow } from "./mail";
 import { perfilPublicoFromRow } from "./perfiles";
-import { preciosFromRows } from "./precios";
+import { preciosFromRows, preciosTamanoFromRows } from "./precios";
 import { safe } from "./shared";
 import { servicioFromRow } from "./servicios";
 import { ventaFromRow } from "./ventas";
@@ -107,6 +109,7 @@ export async function loadCore(): Promise<AppDataCore> {
     clientesRows,
     perfilesRows,
     preciosRows,
+    preciosTamanoRows,
     cuponesRows,
     categoriasGastoRows,
     categoriasIngresoRows,
@@ -136,6 +139,7 @@ export async function loadCore(): Promise<AppDataCore> {
     safe(db.select().from(clientes)),
     safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos, icono: perfiles.icono }).from(perfiles)),
     safe(db.select().from(precios)),
+    safe(db.select().from(preciosTamano)),
     safe(db.select().from(cupones).orderBy(desc(cupones.creadoEn))),
     safe(db.select().from(categoriasGasto).orderBy(asc(categoriasGasto.nombre))),
     safe(db.select().from(categoriasIngreso).orderBy(asc(categoriasIngreso.nombre))),
@@ -165,6 +169,7 @@ export async function loadCore(): Promise<AppDataCore> {
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
   const preciosData = preciosRows.length ? preciosFromRows(preciosRows) : PRECIOS_DEFAULT;
+  const preciosTamanoData = preciosTamanoRows.length ? preciosTamanoFromRows(preciosTamanoRows) : PRECIOS_TAMANO_DEFAULT;
   const categoriasGastoData = categoriasGastoRows.length
     ? categoriasGastoRows.map(categoriaGastoFromRow)
     : CATEGORIAS_GASTO_DEFAULT;
@@ -189,6 +194,7 @@ export async function loadCore(): Promise<AppDataCore> {
     clientes: clientesRows.map(clienteFromRow),
     perfiles: perfilesData,
     precios: preciosData,
+    preciosTamano: preciosTamanoData,
     categoriasGasto: categoriasGastoData,
     categoriasIngreso: categoriasIngresoData,
     categoriasProducto: categoriasProductoRows.map(categoriaProductoFromRow),

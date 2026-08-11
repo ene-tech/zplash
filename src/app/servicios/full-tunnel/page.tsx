@@ -1,9 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Droplets, Clock, ListPlus } from "lucide-react";
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import FaqAccordion from "@/components/cliente/FaqAccordion";
-import ProductoBanner from "@/components/cliente/ProductoBanner";
+import ProductoHero from "@/components/cliente/ProductoHero";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
 import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
 
@@ -42,27 +43,35 @@ export default async function FullTunnelPage() {
       <div className="cliente-header">
         <div className="title">
           <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
           </Link>
           <span className="mode">Lavado Full Tunnel</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <CarritoBadge />
-          <a href="/pagar" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
-            Pagar / Renovar plan
-          </a>
+          <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
+            Mi cuenta
+          </Link>
         </div>
       </div>
 
       <div className="content">
-        <a href="/cliente" className="landing-back">
+        <Link href="/#lavados" className="landing-back">
           ← Volver a Tipos de Lavados
-        </a>
+        </Link>
 
-        <div className="card" style={{ marginBottom: 18 }}>
-          <ProductoBanner imagen="/fondo-producto.jpg" alt="Lavado Full Tunnel" />
-          <h3>🚿 Lavado Full Tunnel</h3>
-          <div className="price-row" style={{ marginBottom: 14 }}>
+        <ProductoHero
+          eyebrow="Lavado por túnel"
+          titulo="Lavado Full Tunnel"
+          descripcion="Nosotros lavamos el exterior de tu auto en minutos y luego puedes usar todo el tiempo que quieras la zona de aspirado autoservicio para limpiar el interior."
+          imagen="/fondo-producto.jpg"
+          features={[
+            { icon: <Droplets />, titulo: "Lavado completo", detalle: "Prelavado, jabón, cepillado, enjuague y secado en un solo pase." },
+            { icon: <Clock />, titulo: "Sin reserva de hora", detalle: "Llega directo al local cuando quieras, sin agendar." },
+            { icon: <ListPlus />, titulo: "Servicios adicionales aparte", detalle: "Tapiz, alfombra, techo, motor y chasis se cotizan por separado." },
+          ]}
+        >
+          <div className="price-row" style={{ marginTop: 20, marginBottom: 14 }}>
             <span className="new">{fmtCLP(precios.lavadoUnico.precio)}</span>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -71,15 +80,7 @@ export default async function FullTunnelPage() {
             </Link>
             <AgregarCarritoButton item={{ key: "lavado_unico", tipo: "lavado_unico", nombre: "Lavado Full Tunnel", precio: precios.lavadoUnico.precio }} />
           </div>
-        </div>
-
-        <div className="card" style={{ marginBottom: 18 }}>
-          <h3>Cómo funciona</h3>
-          <p style={{ color: "var(--gray)", fontSize: 14, lineHeight: 1.6 }}>
-            Un pase completo por nuestro túnel de lavado: para quienes no tienen el Plan Ilimitado Mensual vigente y
-            quieren su auto limpio sin reservar hora.
-          </p>
-        </div>
+        </ProductoHero>
 
         <h3 style={{ margin: "22px 0 12px" }}>Preguntas frecuentes</h3>
         <FaqAccordion preguntas={PREGUNTAS_FULL_TUNNEL} />

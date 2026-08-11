@@ -2,7 +2,8 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { CATEGORIA_DETAILING, precioServicio } from "@/lib/helpers";
+import { CATEGORIA_DETAILING, precioServicio, precioServicioTamano } from "@/lib/helpers";
+import type { TamanoVehiculo } from "@/types";
 
 export type Linea = { id: string; nombre: string; precio: number };
 export type ItemPersonalizado = { id: string; nombre: string; precio: number };
@@ -10,12 +11,16 @@ export type ItemPersonalizado = { id: string; nombre: string; precio: number };
 // Estado y acciones del catálogo de servicios elegido para el registro:
 // selección múltiple normal, salvo "Lavado Completo Detailing" que es
 // single-select (radio) dentro de su categoría; más los ítems personalizados
-// (monto libre con su propio detalle de texto).
+// (monto libre con su propio detalle de texto). El precio de Detailing
+// depende además del tamaño del vehículo (ver `tamano`, obligatorio para
+// cobrar el precio correcto — validarRegistroServicioAdicional exige elegirlo
+// antes de registrar si hay Detailing seleccionado).
 export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInputElement | null>, setErr: (msg: string) => void) {
   const { data } = useApp();
   const [serviciosSeleccionados, setServiciosSeleccionados] = useState<string[]>([]);
   const [itemsPersonalizados, setItemsPersonalizados] = useState<ItemPersonalizado[]>([]);
   const [ajuste, setAjuste] = useState<0 | 5000 | 10000>(0);
+  const [tamano, setTamano] = useState<TamanoVehiculo | null>(null);
   const [montoPersonalizadoTexto, setMontoPersonalizadoTexto] = useState("");
 
   const catalogo = data.servicios.filter((s) => s.activo);
@@ -30,7 +35,10 @@ export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInpu
   );
   const lineasCatalogo: Linea[] = serviciosSeleccionados.map((id, idx) => {
     const s = catalogo.find((x) => x.id === id)!;
-    const precio = precioServicio(data.precios, s.id) + (idx === primerDetailingIdx && ajuste > 0 ? ajuste : 0);
+    const esDetailing = idx === primerDetailingIdx;
+    const precioBase =
+      esDetailing && tamano ? precioServicioTamano(data.precios, data.preciosTamano, s.id, tamano) : precioServicio(data.precios, s.id);
+    const precio = precioBase + (esDetailing && ajuste > 0 ? ajuste : 0);
     return { id: s.id, nombre: s.nombre, precio };
   });
   const lineasPersonalizadas: Linea[] = itemsPersonalizados.map((i) => ({ id: i.id, nombre: i.nombre, precio: i.precio }));
@@ -42,7 +50,10 @@ export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInpu
   // demás categorías (Adicionales) siguen siendo multi-selección normal.
   const toggleServicio = (id: string, categoria: string) => {
     setServiciosSeleccionados((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.includes(id)) {
+        if (categoria === CATEGORIA_DETAILING) setTamano(null);
+        return prev.filter((x) => x !== id);
+      }
       if (categoria === CATEGORIA_DETAILING) {
         return [...prev.filter((x) => catalogo.find((s) => s.id === x)?.categoria !== CATEGORIA_DETAILING), id];
       }
@@ -72,6 +83,7 @@ export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInpu
     setServiciosSeleccionados([]);
     setItemsPersonalizados([]);
     setAjuste(0);
+    setTamano(null);
   };
 
   return {
@@ -81,6 +93,8 @@ export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInpu
     itemsPersonalizados,
     ajuste,
     setAjuste,
+    tamano,
+    setTamano,
     montoPersonalizadoTexto,
     setMontoPersonalizadoTexto,
     hayDetailingSeleccionado,

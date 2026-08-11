@@ -3,9 +3,21 @@ import Image from "next/image";
 // Banner de una landing de producto: hoy muestra una imagen fija, pero queda
 // listo para el video publicitario (videoUrl) que reemplazará la imagen sin
 // tocar el resto de la página — mientras no haya video se ve como poster.
-export default function ProductoBanner({ imagen, alt, videoUrl }: { imagen: string; alt: string; videoUrl?: string }) {
+// aspectRatio es configurable porque ProductoHero la usa en un layout de 2
+// columnas (4/3) en vez del banner ancho (3/1) de las demás páginas.
+export default function ProductoBanner({
+  imagen,
+  alt,
+  videoUrl,
+  aspectRatio = "3 / 1",
+}: {
+  imagen: string;
+  alt: string;
+  videoUrl?: string;
+  aspectRatio?: string;
+}) {
   return (
-    <div style={{ position: "relative", width: "100%", aspectRatio: "3 / 1", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+    <div style={{ position: "relative", width: "100%", aspectRatio, borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
       {videoUrl ? (
         <video
           src={videoUrl}

@@ -1,7 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
+
+// Título de sección (.section-title en globals.css): opción E de la
+// propuesta de tipografías, más liviana que el peso 800 de Helvetica Neue
+// que tenía antes. Se expone como variable CSS en vez de className directo
+// porque .section-title se usa en varios componentes distintos.
+const outfit = Outfit({ weight: "500", subsets: ["latin"], variable: "--font-outfit" });
 
 export const metadata: Metadata = {
   title: "ZPlash · Lavado de autos",
@@ -22,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" className={outfit.variable}>
       <body>
         {children}
         <Toaster />

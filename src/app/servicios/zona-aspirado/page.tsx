@@ -1,9 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Wind, Clock, Ticket } from "lucide-react";
 import { fmtCLP } from "@/lib/helpers";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import FaqAccordion from "@/components/cliente/FaqAccordion";
-import ProductoBanner from "@/components/cliente/ProductoBanner";
+import ProductoHero from "@/components/cliente/ProductoHero";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
 import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
 
@@ -37,27 +38,35 @@ export default async function ZonaAspiradoPage() {
       <div className="cliente-header">
         <div className="title">
           <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
           </Link>
           <span className="mode">Uso Zona Aspirado Autoservicio</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <CarritoBadge />
-          <a href="/pagar" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
-            Pagar / Renovar plan
-          </a>
+          <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
+            Mi cuenta
+          </Link>
         </div>
       </div>
 
       <div className="content">
-        <a href="/cliente" className="landing-back">
+        <Link href="/#lavados" className="landing-back">
           ← Volver a Tipos de Lavados
-        </a>
+        </Link>
 
-        <div className="card" style={{ marginBottom: 18 }}>
-          <ProductoBanner imagen="/fondo-producto.jpg" alt="Uso Zona Aspirado Autoservicio" />
-          <h3>🧹 Uso Zona Aspirado Autoservicio</h3>
-          <div className="price-row" style={{ marginBottom: 14 }}>
+        <ProductoHero
+          eyebrow="Autoservicio"
+          titulo="Uso Zona Aspirado Autoservicio"
+          descripcion="Estación de aspirado autoservicio disponible para cualquier cliente: pagas el uso puntual y aspiras tu auto tú mismo, sin límite de tiempo."
+          imagen="/fondo-producto.jpg"
+          features={[
+            { icon: <Wind />, titulo: "Autoservicio", detalle: "Tú mismo limpias el interior, a tu ritmo." },
+            { icon: <Clock />, titulo: "Sin límite de tiempo", detalle: "Usa la estación el tiempo que necesites en cada uso." },
+            { icon: <Ticket />, titulo: "Con o sin plan", detalle: "Cualquier cliente puede pagar el uso puntual, tenga o no el Plan Mensual vigente." },
+          ]}
+        >
+          <div className="price-row" style={{ marginTop: 20, marginBottom: 14 }}>
             <span className="new">{fmtCLP(precios.zonaAspirado.precio)}</span>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -66,15 +75,7 @@ export default async function ZonaAspiradoPage() {
             </Link>
             <AgregarCarritoButton item={{ key: "aspirado", tipo: "aspirado", nombre: "Uso Zona Aspirado Autoservicio", precio: precios.zonaAspirado.precio }} />
           </div>
-        </div>
-
-        <div className="card" style={{ marginBottom: 18 }}>
-          <h3>Cómo funciona</h3>
-          <p style={{ color: "var(--gray)", fontSize: 14, lineHeight: 1.6 }}>
-            Estación de aspirado autoservicio disponible para cualquier cliente: pagas el uso puntual y aspiras tu
-            auto tú mismo, sin límite de tiempo.
-          </p>
-        </div>
+        </ProductoHero>
 
         <h3 style={{ margin: "22px 0 12px" }}>Preguntas frecuentes</h3>
         <FaqAccordion preguntas={PREGUNTAS_ZONA_ASPIRADO} />

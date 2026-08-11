@@ -65,7 +65,7 @@ export function useServiciosAdicionalesForm(refs: FormRefs) {
   } = refs;
   const [err, setErr] = useState("");
   const seleccion = useServicioSeleccion(detallePersonalizadoRef, setErr);
-  const { lineas, totalListado, serviciosSeleccionados } = seleccion;
+  const { lineas, totalListado, serviciosSeleccionados, hayDetailingSeleccionado, tamano } = seleccion;
 
   const [montoAbonoTexto, setMontoAbonoTexto] = useState("");
   const [patenteBuscada, setPatenteBuscada] = useState<string | null>(null);
@@ -176,6 +176,8 @@ export function useServiciosAdicionalesForm(refs: FormRefs) {
 
     const resultado = validarRegistroServicioAdicional({
       lineasCount: lineas.length,
+      hayDetailingSeleccionado,
+      tamanoElegido: tamano !== null,
       nombre,
       telefonoValor,
       emailValor,

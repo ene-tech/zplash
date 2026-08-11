@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Truck, FileBarChart, Receipt, Mail } from "lucide-react";
 import { fmtCLP } from "@/lib/helpers";
 import type { PreciosPublicos } from "@/components/cliente/types";
+import ProductoHero from "@/components/cliente/ProductoHero";
 import { FormularioCompra } from "@/components/cliente/ventaEmpresaInfo/FormularioCompra";
 import { ConsultaTickets } from "@/components/cliente/ventaEmpresaInfo/ConsultaTickets";
 
@@ -14,30 +16,17 @@ export default function VentaEmpresaInfoTab({ precios }: { precios: PreciosPubli
 
   return (
     <div>
-      <div className="card-grid" style={{ marginBottom: 22 }}>
-        <div className="card">
-          <h3>🚛 Control absoluto de tu flota</h3>
-          <p style={{ color: "var(--gray)", fontSize: 14, lineHeight: 1.6 }}>
-            Packs de tickets de lavado para tu empresa, sin el vencimiento de 90 días de otros productos. Úsalos en
-            los vehículos que definas: déjalos abiertos para cualquier patente, o entréganos las patentes de tu
-            flota para las que los contrataste. Ideal para automotoras, rent a car y talleres mecánicos.
-          </p>
-        </div>
-        <div className="card">
-          <h3>📊 Reporte de uso</h3>
-          <p style={{ color: "var(--gray)", fontSize: 14, lineHeight: 1.6 }}>
-            Consulta cuándo y en qué patente se usó cada ticket con el RUT de tu empresa, sin depender de que te
-            enviemos el detalle — más abajo tienes el buscador.
-          </p>
-        </div>
-        <div className="card">
-          <h3>🧾 Boleta o factura</h3>
-          <p style={{ color: "var(--gray)", fontSize: 14, lineHeight: 1.6 }}>
-            Precios con IVA incluido. Emitimos boleta o factura a nombre de tu empresa, pagando el pack completo por
-            adelantado con Webpay.
-          </p>
-        </div>
-      </div>
+      <ProductoHero
+        eyebrow="Venta a Empresa"
+        titulo="Packs de tickets para tu flota"
+        descripcion="Packs de tickets de lavado para tu empresa, sin el vencimiento de 90 días de otros productos. Ideal para automotoras, rent a car y talleres mecánicos."
+        imagen="/fondo-producto.jpg"
+        features={[
+          { icon: <Truck />, titulo: "Control absoluto de tu flota", detalle: "Úsalos en los vehículos que definas: déjalos abiertos para cualquier patente, o entréganos las patentes de tu flota." },
+          { icon: <FileBarChart />, titulo: "Reporte de uso", detalle: "Consulta cuándo y en qué patente se usó cada ticket con el RUT de tu empresa, sin depender de que te enviemos el detalle." },
+          { icon: <Receipt />, titulo: "Boleta o factura", detalle: "Precios con IVA incluido. Emitimos boleta o factura a nombre de tu empresa, pagando el pack completo por adelantado con Webpay." },
+        ]}
+      />
 
       <h3 style={{ marginBottom: 12 }}>Packs de tickets</h3>
       <div className="card-grid" style={{ marginBottom: 22 }}>
@@ -63,7 +52,12 @@ export default function VentaEmpresaInfoTab({ precios }: { precios: PreciosPubli
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3>📩 ¿Necesitas otra cantidad?</h3>
+        <div className="card-icon-title">
+          <span className="icon-chip">
+            <Mail />
+          </span>
+          <h3>¿Necesitas otra cantidad?</h3>
+        </div>
         <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
           Si necesitas más tickets o una cantidad distinta a los packs de arriba, cuéntanos y te enviamos una
           cotización.

@@ -1,3 +1,5 @@
+import { MapPin, Clock, MessageCircle } from "lucide-react";
+
 const HORARIOS = [
   { dia: "Lunes a viernes", franja: "08:30 - 20:00" },
   { dia: "Sábado, domingo y festivos", franja: "10:00 - 19:00" },
@@ -12,7 +14,12 @@ export default function UbicacionTab() {
   return (
     <div className="card-grid">
       <div className="card">
-        <h3>📍 Ubicación</h3>
+        <div className="card-icon-title">
+          <span className="icon-chip">
+            <MapPin />
+          </span>
+          <h3>Ubicación</h3>
+        </div>
         <p style={{ color: "var(--gray)", fontSize: 14 }}>{DIRECCION}</p>
         <div className="map-actions">
           <a href={MAPS_URL} target="_blank" rel="noopener noreferrer" className="btn secondary">
@@ -24,7 +31,12 @@ export default function UbicacionTab() {
         </div>
       </div>
       <div className="card">
-        <h3>🕒 Horario de atención</h3>
+        <div className="card-icon-title">
+          <span className="icon-chip">
+            <Clock />
+          </span>
+          <h3>Horario de atención</h3>
+        </div>
         <p style={{ color: "var(--gray)", fontSize: 13 }}>Abierto todos los días.</p>
         <div className="hours-table">
           {HORARIOS.map((h) => (
@@ -36,7 +48,12 @@ export default function UbicacionTab() {
         </div>
       </div>
       <div className="card">
-        <h3>💬 Contacto</h3>
+        <div className="card-icon-title">
+          <span className="icon-chip">
+            <MessageCircle />
+          </span>
+          <h3>Contacto</h3>
+        </div>
         <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
           Escríbenos por WhatsApp o llámanos si tienes dudas sobre tu plan o un lavado.
         </p>

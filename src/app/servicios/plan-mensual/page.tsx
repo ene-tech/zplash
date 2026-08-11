@@ -1,9 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Car, CreditCard, Bell, Repeat, Check } from "lucide-react";
 import { fmtCLP } from "@/lib/helpers";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import FaqAccordion from "@/components/cliente/FaqAccordion";
-import ProductoBanner from "@/components/cliente/ProductoBanner";
+import ProductoHero from "@/components/cliente/ProductoHero";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
 import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
 
@@ -41,38 +42,56 @@ export default async function PlanMensualPage() {
       <div className="cliente-header">
         <div className="title">
           <Link href="/" aria-label="Ir al inicio">
-            <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+            <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
           </Link>
           <span className="mode">Plan Mensual Ilimitado</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <CarritoBadge />
-          <a href="/pagar" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
-            Pagar / Renovar plan
-          </a>
+          <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
+            Mi cuenta
+          </Link>
         </div>
       </div>
 
       <div className="content">
-        <a href="/cliente" className="landing-back">
+        <Link href="/#lavados" className="landing-back">
           ← Volver a Tipos de Lavados
-        </a>
+        </Link>
+
+        <ProductoHero
+          eyebrow="Plan mensual"
+          titulo="Plan Full Túnel Ilimitado"
+          descripcion="Lavados ilimitados por el túnel durante todo el mes (un ingreso al día). Ideal para quienes usan el auto a diario y quieren mantenerlo siempre limpio sin pensar en pagar cada vez."
+          imagen="/fondo-producto.jpg"
+          features={[
+            { icon: <Car />, titulo: "Lavados ilimitados", detalle: "Un ingreso al día por el túnel, durante 30 días desde la contratación." },
+            { icon: <CreditCard />, titulo: "Dos formas de pagar", detalle: "Mes a mes con tarjeta, o renovación automática más barata." },
+            { icon: <Bell />, titulo: "Te avisamos antes de que venza", detalle: "Para que no te quedes sin plan sin darte cuenta." },
+          ]}
+        />
 
         <div className="card-grid">
-          <div className="card" style={{ gridColumn: "1 / -1" }}>
-            <ProductoBanner imagen="/fondo-producto.jpg" alt="Plan Full Túnel Ilimitado" />
-            <h3>🚗 Plan Full Túnel Ilimitado</h3>
-          </div>
-
-          <div className="card">
-            <h3>Pago período a período</h3>
-            <p style={{ color: "var(--gray)", fontSize: 13, marginBottom: 12 }}>
-              Contrata o renueva un mes a la vez con cualquier tipo de tarjeta (Webpay Plus).
-            </p>
-            <div className="price-row" style={{ marginBottom: 14 }}>
+          <div className="card pricing-card">
+            <div className="card-icon-title">
+              <span className="icon-chip">
+                <CreditCard />
+              </span>
+              <h3>Pago período a período</h3>
+            </div>
+            <p className="desc">Contrata o renueva un mes a la vez con cualquier tipo de tarjeta.</p>
+            <div className="price-row">
               <span className="new">{fmtCLP(precios.plan.precio)}</span>
               <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
             </div>
+            <ul className="pricing-card-features">
+              <li>
+                <Check /> Cualquier tarjeta (Webpay Plus)
+              </li>
+              <li>
+                <Check /> Sin compromiso, renueva cuando quieras
+              </li>
+            </ul>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <Link href="/pagar?item=plan" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
                 Comprar
@@ -81,37 +100,30 @@ export default async function PlanMensualPage() {
             </div>
           </div>
 
-          <div className="card">
-            <h3>Renovación automática</h3>
-            <p style={{ color: "var(--gray)", fontSize: 13, marginBottom: 12 }}>
-              Inscribe tu Tarjeta de Crédito una vez y te cobramos automáticamente cada mes, más barato.
-            </p>
-            <div className="price-row" style={{ marginBottom: 0 }}>
+          <div className="card pricing-card pricing-card--featured">
+            <span className="pricing-card-badge">Más elegido</span>
+            <div className="card-icon-title">
+              <span className="icon-chip">
+                <Repeat />
+              </span>
+              <h3>Renovación automática</h3>
+            </div>
+            <p className="desc">Inscribe tu tarjeta de crédito una vez y te cobramos automáticamente cada mes.</p>
+            <div className="price-row">
               <span className="new">{fmtCLP(precios.planOneclick.precio)}</span>
               <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
             </div>
-            <div className="save" style={{ marginTop: 6 }}>
-              Ahorras {fmtCLP(precios.plan.precio - precios.planOneclick.precio)} al mes
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <Link href="/pagar?item=plan&auto=1" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
-                Contratar
-              </Link>
-            </div>
-          </div>
-
-          <div className="card" style={{ gridColumn: "1 / -1" }}>
-            <h3>Cómo funciona</h3>
-            <p style={{ color: "var(--gray)", fontSize: 14, lineHeight: 1.6 }}>
-              Lavados ilimitados por el túnel durante todo el mes (un ingreso al día). Ideal para quienes usan el
-              auto a diario y quieren mantenerlo siempre limpio sin pensar en pagar cada vez.
-            </p>
-          </div>
-
-          <div className="card" style={{ gridColumn: "1 / -1", textAlign: "center" }}>
-            <a href="/pagar" className="btn" style={{ textDecoration: "none", display: "inline-block" }}>
-              Contratar o renovar mi plan
-            </a>
+            <ul className="pricing-card-features">
+              <li>
+                <Check /> Ahorras {fmtCLP(precios.plan.precio - precios.planOneclick.precio)} al mes
+              </li>
+              <li>
+                <Check /> Cancela cuando quieras
+              </li>
+            </ul>
+            <Link href="/pagar?item=plan&auto=1" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
+              Contratar
+            </Link>
           </div>
         </div>
 

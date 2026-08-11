@@ -5,22 +5,31 @@ import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import { precioServicio, uid } from "@/lib/helpers";
 import { subirBannerServicio } from "@/lib/serverActions";
-import type { Servicio } from "@/types";
+import { TAMANOS_VEHICULO, TAMANO_LABEL, type Servicio, type TamanoVehiculo } from "@/types";
 
 const DURACION_DEFAULT = 30;
+const TAMANO_VACIO: Record<TamanoVehiculo, number> = { s: 0, m: 0, l: 0, xl: 0 };
 
 function ServicioRow({ servicio }: { servicio: Servicio }) {
   const { data, commit } = useApp();
   const [nombre, setNombre] = useState(servicio.nombre);
   const [categoria, setCategoria] = useState(servicio.categoria || "");
   const [precioTexto, setPrecioTexto] = useState(String(precioServicio(data.precios, servicio.id)));
+  const tamanoGuardado = data.preciosTamano[servicio.id] ?? TAMANO_VACIO;
+  const [tamanoTexto, setTamanoTexto] = useState<Record<TamanoVehiculo, string>>({
+    s: String(tamanoGuardado.s),
+    m: String(tamanoGuardado.m),
+    l: String(tamanoGuardado.l),
+    xl: String(tamanoGuardado.xl),
+  });
   const [guardando, setGuardando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const hayCambios = nombre.trim() !== servicio.nombre || categoria.trim() !== (servicio.categoria || "") ||
-    (Number(precioTexto) || 0) !== precioServicio(data.precios, servicio.id);
+    (Number(precioTexto) || 0) !== precioServicio(data.precios, servicio.id) ||
+    TAMANOS_VEHICULO.some((t) => (Number(tamanoTexto[t]) || 0) !== tamanoGuardado[t]);
 
   const guardar = async () => {
     if (!nombre.trim()) {
@@ -33,6 +42,15 @@ function ServicioRow({ servicio }: { servicio: Servicio }) {
         s.id === servicio.id ? { ...s, nombre: nombre.trim(), categoria: categoria.trim() || undefined } : s
       ),
       precios: { ...data.precios, [servicio.id]: { ...data.precios[servicio.id], normal: Number(precioTexto) || 0 } },
+      preciosTamano: {
+        ...data.preciosTamano,
+        [servicio.id]: {
+          s: Number(tamanoTexto.s) || 0,
+          m: Number(tamanoTexto.m) || 0,
+          l: Number(tamanoTexto.l) || 0,
+          xl: Number(tamanoTexto.xl) || 0,
+        },
+      },
     });
     setGuardando(false);
     setMsg({ texto: ok ? "Guardado" : "No se pudo guardar (sin conexión). Intenta de nuevo.", ok });
@@ -108,6 +126,18 @@ function ServicioRow({ servicio }: { servicio: Servicio }) {
               <label>Precio</label>
               <PriceInput value={precioTexto} onChange={setPrecioTexto} />
             </div>
+          </div>
+          <div className="hint" style={{ textAlign: "left", margin: "4px 0 6px" }}>
+            Precios por tamaño de vehículo (opcional): si se cargan, reemplazan al precio de arriba en la web pública
+            para ese tamaño. Un tamaño en 0 cae de vuelta al precio de arriba.
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+            {TAMANOS_VEHICULO.map((t) => (
+              <div className="field" key={t} style={{ width: 100, margin: 0 }}>
+                <label>{TAMANO_LABEL[t]}</label>
+                <PriceInput value={tamanoTexto[t]} onChange={(v) => setTamanoTexto((prev) => ({ ...prev, [t]: v }))} />
+              </div>
+            ))}
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <button className="btn" style={{ marginTop: 0 }} onClick={guardar} disabled={guardando || !hayCambios}>

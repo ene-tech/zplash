@@ -7,6 +7,8 @@ export type MetodoPagoServicioAdicional = "efectivo" | "tarjeta" | "transferenci
 
 export interface DatosValidacionServicioAdicional {
   lineasCount: number;
+  hayDetailingSeleccionado: boolean;
+  tamanoElegido: boolean;
   nombre: string;
   telefonoValor: string;
   emailValor: string;
@@ -39,6 +41,9 @@ export type ResultadoValidacionServicioAdicional = { ok: false; error: string } 
 // pasa (único dato derivado que el caller necesita de vuelta).
 export function validarRegistroServicioAdicional(d: DatosValidacionServicioAdicional): ResultadoValidacionServicioAdicional {
   if (d.lineasCount === 0) return { ok: false, error: "Selecciona al menos un servicio" };
+  if (d.hayDetailingSeleccionado && !d.tamanoElegido) {
+    return { ok: false, error: "Selecciona el tamaño del vehículo para el Lavado Completo Detailing" };
+  }
   if (!d.nombre) return { ok: false, error: "El nombre es obligatorio" };
   if (!d.telefonoValor) return { ok: false, error: "El teléfono es obligatorio" };
   if (!isValidTelefono(d.telefonoValor)) return { ok: false, error: TELEFONO_FORMATO_MSG };
