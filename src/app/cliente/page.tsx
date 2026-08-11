@@ -19,17 +19,7 @@ export default function ClientePage() {
           </Link>
           <span className="mode">Mi Cuenta</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <CarritoBadge />
-          <a href="/pagar" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
-            Pagar / Renovar plan
-          </a>
-        </div>
-      </div>
-
-      <div className="cliente-hero">
-        <h1>Mi Cuenta</h1>
-        <p>Revisa tus vehículos, tu plan, tus tarjetas registradas y tu historial de compras.</p>
+        <CarritoBadge />
       </div>
 
       <div className="content">

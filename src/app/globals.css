@@ -1133,6 +1133,14 @@ tr:hover td {
   .logo-principal {
     height: 60px;
   }
+  /* Título de página al lado del logo (Mi Cuenta, Portal Cliente, nombre del
+     servicio) — en mobile el header queda apretado con logo + texto + acción
+     a la derecha, y el logo ya deja claro dónde está el usuario. Solo afecta
+     al header del portal cliente (.cliente-header), no al .topbar interno
+     (ahí el "mode" sí es información necesaria para el staff). */
+  .cliente-header .title .mode {
+    display: none;
+  }
 }
 
 /* Nav de la landing (/) con enlaces a cada sección — reemplaza el

@@ -59,10 +59,10 @@ export default function SiteNav() {
         </div>
 
         <div className="site-nav-actions">
-          <CarritoBadge />
           <Link href="/cliente" className="site-nav-account-link" aria-label="Mi cuenta" onClick={() => setOpen(false)}>
             <User />
           </Link>
+          <CarritoBadge />
           <Link href="/cliente" className={`btn secondary btn-mi-cuenta site-nav-btn ${navFont.className}`}>
             Mi cuenta
           </Link>
