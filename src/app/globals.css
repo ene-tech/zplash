@@ -1209,6 +1209,30 @@ tr:hover td {
   margin-top: 0;
   text-decoration: none;
 }
+/* Acceso rápido a "Mi cuenta" en mobile, al lado del carrito — .site-nav-btn
+   (el botón de texto) se esconde bajo 900px y sin esto "Mi cuenta" solo
+   quedaba disponible abriendo el menú hamburguesa. Oculto por defecto y solo
+   se muestra en el mismo breakpoint que esconde el botón de texto (ver
+   media query más abajo), para no duplicar el link en desktop. */
+.site-nav-account-link {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--silver);
+  flex-shrink: 0;
+}
+.site-nav-account-link:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.site-nav-account-link svg {
+  width: 18px;
+  height: 18px;
+}
 .site-nav-mobile {
   display: flex;
   flex-direction: column;
@@ -1245,6 +1269,9 @@ tr:hover td {
   }
   .site-nav-actions .site-nav-btn {
     display: none;
+  }
+  .site-nav-account-link {
+    display: inline-flex;
   }
 }
 @media (min-width: 901px) {
@@ -1551,6 +1578,36 @@ tr:hover td {
   position: relative;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.4);
 }
+/* Mobile: los section-title (LAVADO EXTERIOR TUNEL, VENTA A EMPRESA,
+   PREGUNTAS FRECUENTES, UBICACIÓN Y HORARIOS, etc.) van a 45px pensados para
+   desktop — en pantallas chicas ese tamaño ocupa media pantalla por título.
+   Mismo breakpoint de 640px que el resto del sitio. */
+@media (max-width: 640px) {
+  .section-title {
+    font-size: 26px;
+    margin-bottom: 24px;
+    padding-bottom: 10px;
+  }
+}
+
+/* 2ª línea del hero de Lavados ("+ USO ILIMITADO...") indentada para alinear
+   bajo "TUNEL" — solo tiene sentido cuando "LAVADO EXTERIOR TUNEL" entra en
+   una sola línea y sobra ancho para el resto de la frase (860px+, mismo
+   breakpoint que .feature-split). Antes era un marginLeft fijo inline: en
+   pantallas chicas el título ya wrapea a 2-3 líneas por su cuenta y ese
+   offset lo empujaba fuera de la pantalla, cortando el texto. 640px se probó
+   primero pero coincide con el breakpoint de .content (16px→24px de padding),
+   así que justo ahí se sumaban ambos achiques de espacio y el subtítulo
+   pasaba a 4 líneas en vez de 3 — peor que sin indent. Bajo el breakpoint el
+   span queda como texto inline normal (sin indent, sin display propio), para
+   que .section-title's text-wrap:balance lo reparta igual que cualquier otro
+   section-title. */
+@media (min-width: 860px) {
+  .section-title-indent {
+    margin-left: 173px;
+  }
+}
+
 .section-title::after {
   content: "";
   position: absolute;

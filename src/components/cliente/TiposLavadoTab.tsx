@@ -9,9 +9,7 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
       <h2 className="section-title">
         LAVADO EXTERIOR TUNEL
         <br />
-        <span style={{ marginLeft: "173px" }}>
-          + USO ILIMITADO ESTACIONES DE ASPIRADO
-        </span>
+        <span className="section-title-indent">+ USO ILIMITADO ESTACIONES DE ASPIRADO</span>
       </h2>
       <div className="card-grid" style={{ marginBottom: 22 }}>
         <div className="card pricing-card">
