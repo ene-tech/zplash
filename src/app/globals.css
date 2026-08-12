@@ -303,13 +303,30 @@ h4,
 }
 .tamano-btn .letra {
   font-weight: 800;
-  font-size: 26px;
+  font-size: 38px;
   color: var(--gold);
   margin-bottom: 4px;
 }
+/* Mayúscula sostenida vía CSS (no en el string) para poder reusar
+   TAMANO_DESCRIPCION/TAMANO_EJEMPLOS tal cual en otros contextos (banner de
+   tamaño elegido, ficha de servicio) sin heredar el forzado de mayúscula. */
+.tamano-titulo,
+.tamano-btn .detalle,
+.tamano-btn .ejemplos {
+  text-transform: uppercase;
+}
 .tamano-btn .detalle {
+  /* Negrita + blanco (no --silver) para que el tipo de vehículo contraste
+     con los modelos de ejemplo de abajo, que son la info secundaria. */
   font-size: 12.5px;
+  font-weight: 700;
+  color: var(--white);
+}
+.tamano-btn .ejemplos {
+  font-size: 11px;
   color: var(--silver);
+  opacity: 0.75;
+  margin-top: 4px;
 }
 .tamano-actual {
   display: flex;
@@ -1348,6 +1365,31 @@ tr:hover td {
 }
 .announce-bar-cta:hover {
   filter: brightness(1.08);
+}
+.announce-bar-cta-icon {
+  display: none;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+/* Mobile: el botón "Escribir por WhatsApp →" con texto ocupaba mucho ancho
+   al lado del texto del banner — se reduce a un ícono redondo (mismo tamaño
+   38px que .carrito-link/.site-nav-account-link), manteniendo el fondo
+   verde de marca como única señal de "acción principal" del banner. */
+@media (max-width: 640px) {
+  .announce-bar-cta {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+  .announce-bar-cta-icon {
+    display: block;
+  }
+  .announce-bar-cta-label {
+    display: none;
+  }
 }
 .announce-bar-close {
   flex-shrink: 0;
