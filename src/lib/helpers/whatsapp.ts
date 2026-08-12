@@ -30,7 +30,7 @@ Ejemplo: escribe *AB1234* para ver el estado de tu plan.`,
   textoContratarPlan: `🚗 *Plan Full Túnel Ilimitado*
 
 Puedes contratarlo directamente en el local, o desde este link:
-https://zplash.cl/producto/plan-lavado-mensual-promocion/`,
+https://zplash.cl/servicios/plan-mensual`,
 
   horarioUbicacion: `📍 *Ubicación*
 Prieto Norte 71, Temuco

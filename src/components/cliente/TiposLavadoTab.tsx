@@ -19,7 +19,10 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
             </span>
             <h3>Lavado Full Tunnel</h3>
           </div>
-          <p className="desc">Un pase completo por nuestro túnel de lavado.</p>
+          <p className="desc">
+            Limpieza Exterior Full hecha por nosotros sin bajarte de tu auto y luego puedes usar zona de aspirado
+            autoservicio todo el tiempo que quieras.
+          </p>
           <div className="price-row">
             <span className="new">{precios ? fmtCLP(precios.lavadoUnico.precio) : "..."}</span>
             <span style={{ color: "var(--gray)", fontSize: 12.5 }}>Pago único, sin plan</span>

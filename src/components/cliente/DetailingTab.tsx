@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
 import { useTamanoVehiculo } from "@/hooks/useTamanoVehiculo";
 import DetailingQuickView, { type DetailingServicioPreview } from "@/components/cliente/DetailingQuickView";
-import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION } from "@/types";
+import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION, TAMANO_EJEMPLOS } from "@/types";
 import type { PreciosPublicos } from "./types";
 
 export default function DetailingTab({ precios }: { precios: PreciosPublicos | null }) {
@@ -35,15 +35,13 @@ export default function DetailingTab({ precios }: { precios: PreciosPublicos | n
         <div className="empty">Cargando servicios...</div>
       ) : hayServicioConTamano && !tamano ? (
         <div className="card">
-          <h3>¿Qué tamaño tiene tu vehículo?</h3>
-          <p className="desc" style={{ marginBottom: 16 }}>
-            El precio del Lavado Completo Detailing varía según el tamaño de tu auto.
-          </p>
+          <h3 className="tamano-titulo">Selecciona el tamaño de tu vehículo:</h3>
           <div className="tamano-grid">
             {TAMANOS_VEHICULO.map((t) => (
               <button key={t} type="button" className="tamano-btn" onClick={() => elegir(t)}>
                 <div className="letra">{TAMANO_LABEL[t]}</div>
                 <div className="detalle">{TAMANO_DESCRIPCION[t]}</div>
+                <div className="ejemplos">{TAMANO_EJEMPLOS[t]}</div>
               </button>
             ))}
           </div>
