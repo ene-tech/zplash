@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import type { Cliente } from "@/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientesMobileList } from "./clientes/ClientesMobileList";
 import { ClientesTable } from "./clientes/ClientesTable";
 import { filtrarYOrdenarClientes } from "./clientes/filtrarOrdenarClientes";
@@ -64,26 +65,28 @@ export default function ClientesTab() {
           value={ui.search || ""}
           onChange={(e) => patchUi({ search: e.target.value })}
         />
-        <select
-          style={{ maxWidth: 170 }}
-          value={filtroEstado}
-          onChange={(e) => patchUi({ clientesFiltroEstado: e.target.value })}
-        >
-          <option value="todos">Todos los estados</option>
-          <option value="Vigente">Vigente</option>
-          <option value="Por vencer">Por vencer</option>
-          <option value="Vencido">Vencido</option>
-          <option value="Sin plan">Sin plan</option>
-        </select>
-        <select
-          style={{ maxWidth: 150 }}
-          value={filtroOrigen}
-          onChange={(e) => patchUi({ clientesFiltroOrigen: e.target.value })}
-        >
-          <option value="todos">Web y Local</option>
-          <option value="WEB">Solo Web</option>
-          <option value="LOCAL">Solo Local</option>
-        </select>
+        <Select value={filtroEstado} onValueChange={(v) => v && patchUi({ clientesFiltroEstado: v })}>
+          <SelectTrigger className="w-full max-w-[170px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los estados</SelectItem>
+            <SelectItem value="Vigente">Vigente</SelectItem>
+            <SelectItem value="Por vencer">Por vencer</SelectItem>
+            <SelectItem value="Vencido">Vencido</SelectItem>
+            <SelectItem value="Sin plan">Sin plan</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filtroOrigen} onValueChange={(v) => v && patchUi({ clientesFiltroOrigen: v })}>
+          <SelectTrigger className="w-full max-w-[150px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Web y Local</SelectItem>
+            <SelectItem value="WEB">Solo Web</SelectItem>
+            <SelectItem value="LOCAL">Solo Local</SelectItem>
+          </SelectContent>
+        </Select>
         <button className="btn" onClick={() => patchUi({ modal: { type: "client", data: null } })}>
           + Nuevo cliente
         </button>
