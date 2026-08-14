@@ -21,7 +21,10 @@ export function useStatsData() {
   const { data, ui, patchUi } = useApp();
   const hoy = todayStr();
   const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
-  const vencidos = data.clientes.filter((c) => planStatus(c).label === "Vencido").length;
+  const vencidosList = data.clientes.filter((c) => planStatus(c).label === "Vencido");
+  const vencidos = vencidosList.length;
+  const vencidosWeb = vencidosList.filter((c) => c.origen === "WEB").length;
+  const vencidosLocal = vencidos - vencidosWeb;
   const sinPlan = data.clientes.filter((c) => planStatus(c).label === "Sin plan").length;
   const porVencer = data.clientes.filter((c) => planStatus(c).cls === "warn").length;
   const vigentes = data.clientes.filter((c) => planStatus(c).cls !== "bad");
@@ -131,6 +134,8 @@ export function useStatsData() {
     patchUi,
     ingresosHoy,
     vencidos,
+    vencidosWeb,
+    vencidosLocal,
     sinPlan,
     porVencer,
     vigentes,

@@ -24,6 +24,8 @@ export default function StatsTab() {
         ingresosHistoricos={r.data.ingresos.length}
         porVencer={r.porVencer}
         vencidos={r.vencidos}
+        vencidosWeb={r.vencidosWeb}
+        vencidosLocal={r.vencidosLocal}
         sinPlan={r.sinPlan}
         vigentes={r.vigentes.length}
         vigentesWeb={r.vigentesWeb}
