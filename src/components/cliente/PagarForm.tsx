@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
+import VolverBoton from "@/components/cliente/VolverBoton";
 import type { PreciosPublicos } from "@/components/cliente/types";
 import { usePagarForm } from "@/components/cliente/pagarForm/usePagarForm";
 import { PagoUnicoCard } from "@/components/cliente/pagarForm/PagoUnicoCard";
@@ -19,9 +20,7 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
   return (
     <div className="content" style={{ maxWidth: 640 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <a href="/cliente" className="landing-back" style={{ marginBottom: 0 }}>
-          ← Volver a Inicio
-        </a>
+        <VolverBoton href="/cliente" label="Volver a Inicio" style={{ marginBottom: 0 }} />
         <CarritoBadge />
       </div>
 

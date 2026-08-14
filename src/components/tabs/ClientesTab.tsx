@@ -10,6 +10,7 @@ import { filtrarYOrdenarClientes } from "./clientes/filtrarOrdenarClientes";
 export default function ClientesTab() {
   const { data, ui, patchUi, commit } = useApp();
   const filtroEstado = ui.clientesFiltroEstado || "todos";
+  const filtroOrigen = ui.clientesFiltroOrigen || "todos";
   const orden = ui.clientesOrden || "estado";
   const search = ui.search || "";
 
@@ -18,8 +19,8 @@ export default function ClientesTab() {
   // ajena a la búsqueda) — con miles de filas es el costo dominante de cada
   // tecla tipeada.
   const filtered = useMemo(
-    () => filtrarYOrdenarClientes(data.clientes, { search, filtroEstado, orden }),
-    [data.clientes, search, filtroEstado, orden]
+    () => filtrarYOrdenarClientes(data.clientes, { search, filtroEstado, filtroOrigen, orden }),
+    [data.clientes, search, filtroEstado, filtroOrigen, orden]
   );
 
   const sortHeader = (campo: "vencimiento" | "visitas") => {
@@ -73,6 +74,15 @@ export default function ClientesTab() {
           <option value="Por vencer">Por vencer</option>
           <option value="Vencido">Vencido</option>
           <option value="Sin plan">Sin plan</option>
+        </select>
+        <select
+          style={{ maxWidth: 150 }}
+          value={filtroOrigen}
+          onChange={(e) => patchUi({ clientesFiltroOrigen: e.target.value })}
+        >
+          <option value="todos">Web y Local</option>
+          <option value="WEB">Solo Web</option>
+          <option value="LOCAL">Solo Local</option>
         </select>
         <button className="btn" onClick={() => patchUi({ modal: { type: "client", data: null } })}>
           + Nuevo cliente

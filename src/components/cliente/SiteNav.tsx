@@ -10,7 +10,10 @@ import CarritoBadge from "@/components/cliente/CarritoBadge";
 // Segunda prueba: Anton (tan condensada que a 16px las letras se pegaban y
 // se hacían ilegibles) se cambió por Archivo Black — mismo peso pesado
 // tipo "PLASH", pero de ancho normal en vez de condensada, así las letras
-// no se aprietan entre sí. Self-hosteada por next/font/google.
+// no se aprietan entre sí. Self-hosteada por next/font/google. Solo queda
+// en el botón "Mi cuenta" (CTA de marca); los enlaces del menú (desktop y
+// mobile) usan la misma fuente que los section-title (--font-outfit, ver
+// globals.css) para que el menú calce con los títulos de la landing.
 const navFont = Archivo_Black({ weight: "400", subsets: ["latin"] });
 
 // Secciones de la landing en orden de aparición — ids calzan con los
@@ -18,7 +21,7 @@ const navFont = Archivo_Black({ weight: "400", subsets: ["latin"] });
 const SECCIONES = [
   { href: "#lavados", label: "Lavados" },
   { href: "#detailing", label: "Detailing" },
-  { href: "#venta-empresa", label: "Venta a Empresa" },
+  { href: "#venta-empresa", label: "Pack de Tickets" },
   { href: "#faq", label: "Preguntas Frecuentes" },
   { href: "#ubicacion", label: "Ubicación" },
 ];
@@ -50,7 +53,7 @@ export default function SiteNav() {
           <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
         </Link>
 
-        <div className={`site-nav-links ${navFont.className}`}>
+        <div className="site-nav-links">
           {SECCIONES.map((s) => (
             <a key={s.href} href={s.href} className="site-nav-link">
               {s.label}
@@ -70,7 +73,7 @@ export default function SiteNav() {
       </div>
 
       {open && (
-        <div className={`site-nav-mobile ${navFont.className}`} id="site-nav-mobile">
+        <div className="site-nav-mobile" id="site-nav-mobile">
           {SECCIONES.map((s) => (
             <a key={s.href} href={s.href} className="site-nav-mobile-link" onClick={() => setOpen(false)}>
               {s.label}

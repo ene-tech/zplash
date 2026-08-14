@@ -44,6 +44,7 @@ import {
   commitProveedores,
   commitRegistrosMantencion,
   commitReglasConciliacion,
+  commitReglasCorreo,
   commitReglasWhatsapp,
   commitServicios,
   commitVentas,
@@ -81,6 +82,7 @@ const initialData: AppData = {
   registrosMantencion: [],
   alertasMantencion: [],
   plantillasCorreo: JSON.parse(JSON.stringify(PLANTILLAS_CORREO_DEFAULT)),
+  reglasCorreo: [],
   plantillasWhatsapp: JSON.parse(JSON.stringify(PLANTILLAS_WHATSAPP_DEFAULT)),
   reglasWhatsapp: [],
 };
@@ -107,6 +109,7 @@ const initialUI: UIState = {
   perfilSeleccionadoId: null,
   perfilActual: null,
   clientesFiltroEstado: "todos",
+  clientesFiltroOrigen: "todos",
   clientesOrden: "estado",
 };
 
@@ -247,6 +250,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     agregar(commitRegistrosMantencion(previous.registrosMantencion, patch.registrosMantencion));
     agregar(commitAlertasMantencion(previous.alertasMantencion, patch.alertasMantencion));
     agregar(commitPlantillasCorreo(previous.plantillasCorreo, patch.plantillasCorreo));
+    agregar(commitReglasCorreo(previous.reglasCorreo, patch.reglasCorreo));
     agregar(commitPlantillasWhatsapp(previous.plantillasWhatsapp, patch.plantillasWhatsapp));
     agregar(commitReglasWhatsapp(previous.reglasWhatsapp, patch.reglasWhatsapp));
 

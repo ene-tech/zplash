@@ -6,6 +6,7 @@ import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoHero from "@/components/cliente/ProductoHero";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
 import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
+import VolverBoton from "@/components/cliente/VolverBoton";
 
 const PREGUNTAS_ZONA_ASPIRADO = [
   {
@@ -22,7 +23,10 @@ const PREGUNTAS_ZONA_ASPIRADO = [
   },
   {
     q: "¿Qué medios de pago aceptan?",
-    a: "En el local: efectivo, tarjeta y transferencia bancaria. Desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
+    a: [
+      "En el local: efectivo, tarjeta y transferencia bancaria.",
+      "Desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
+    ],
   },
 ];
 
@@ -37,9 +41,7 @@ export default async function ZonaAspiradoPage() {
       <ClienteHeader titulo="Uso Zona Aspirado Autoservicio" />
 
       <div className="content">
-        <Link href="/#lavados" className="landing-back">
-          ← Volver a Tipos de Lavados
-        </Link>
+        <VolverBoton href="/#lavados" label="Volver a Tipos de Lavados" />
 
         <ProductoHero
           eyebrow="Autoservicio"

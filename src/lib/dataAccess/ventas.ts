@@ -4,6 +4,7 @@ import { inArray } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
+import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Venta } from "@/types";
 import { upsertRows } from "./shared";
@@ -85,16 +86,19 @@ export async function insertVentas(rows: Venta[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
     await getDb().insert(ventas).values(rows.map(ventaToRow));
-    // after() (no un simple fire-and-forget): evalúa reglas de WhatsApp (ver
-    // @/lib/whatsapp/reglas) sin retrasar la respuesta, pero garantizando que
-    // Vercel mantenga la función viva hasta que termine — un `.catch()` sin
-    // await se cortaba a medio camino no pocas veces (la función se congelaba
-    // apenas se mandaba la respuesta), dejando el disparo pegado en
-    // "programado" para siempre. Esto es solo el único choke point de ventas
-    // REALMENTE nuevas (a diferencia de upsertVentas, usado para ediciones)
-    // y cubre todas las vías (operador, Webpay, Oneclick, B2B) — un error de
-    // Meta/WhatsApp acá nunca debe hacer fallar la venta que ya se guardó.
+    // after() (no un simple fire-and-forget): evalúa reglas de WhatsApp y de
+    // correo (ver @/lib/whatsapp/reglas, @/lib/mailing/reglas) sin retrasar
+    // la respuesta, pero garantizando que Vercel mantenga la función viva
+    // hasta que termine — un `.catch()` sin await se cortaba a medio camino
+    // no pocas veces (la función se congelaba apenas se mandaba la
+    // respuesta), dejando el disparo pegado en "programado" para siempre.
+    // Esto es solo el único choke point de ventas REALMENTE nuevas (a
+    // diferencia de upsertVentas, usado para ediciones) y cubre todas las
+    // vías (operador, Webpay, Oneclick, B2B) — un error de Meta/WhatsApp o
+    // del proveedor de correo acá nunca debe hacer fallar la venta que ya se
+    // guardó.
     after(() => evaluarReglasPorVenta(rows).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta", error)));
+    after(() => evaluarReglasCorreoPorVenta(rows).catch((error) => console.error("Error evaluando reglas de correo por venta", error)));
     return true;
   } catch (error) {
     console.error("Error guardando ventas", error);

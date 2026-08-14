@@ -13,6 +13,7 @@ import {
   isValidTelefono,
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   montoDescuento,
+  PLANES,
   planStatus,
   precioLavadoUnico,
   precioNormal,
@@ -56,8 +57,16 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const registroIncompleto =
     esNombreVacio(c.nombre) || (!exentoValidacion && (!c.telefono || !isValidTelefono(c.telefono) || !c.email));
   const st = planStatus(c);
-  const pNormal = precioNormal(data.precios, c.plan || "");
-  const pPromo = precioRenovacionLocal(data.config, data.precios, c.plan || "", c.visitas || 0);
+  // Igual que en usePlanActions.contratarPlan: si el cliente aún no tiene
+  // plan (c.plan vacío), el precio a mostrar/cobrar es el del plan por
+  // defecto (PLANES[0]), no precioNormal(precios, "") — que no matchea
+  // ninguna clave de Precios y quedaba en $0.
+  const pNormal = precioNormal(data.precios, c.plan || PLANES[0]);
+  // Mismo fallback que pNormal: si c.plan viniera vacío con un plan igual
+  // vigente (no debería pasar por convención, pero el esquema no lo obliga),
+  // que ahorro = pNormal - pPromo no se dispare a "gratis" por comparar
+  // contra precioRenovacionLocal(..., "", ...), que resuelve a 0.
+  const pPromo = precioRenovacionLocal(data.config, data.precios, c.plan || PLANES[0], c.visitas || 0);
   // El cliente puede renovar cuando quiera, no solo cuando el plan está por
   // vencer: renovarPlan ya ancla la nueva vigencia al vencimiento actual si
   // todavía no pasó (ver lib/logic/ingresos.ts), así que renovar temprano no

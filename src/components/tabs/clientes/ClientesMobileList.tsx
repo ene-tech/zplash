@@ -22,6 +22,7 @@ const ClienteCard = memo(function ClienteCard({
   const prog = planProgreso(c);
   return (
     <MobileRecordCard
+      onClick={() => onInfo(c)}
       title={<span className="mt-1.5 ml-1 block">{c.nombre}</span>}
       subtitle={
         <>

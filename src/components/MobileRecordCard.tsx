@@ -18,6 +18,7 @@ export function MobileRecordCard({
   children,
   className,
   hint,
+  onClick,
 }: {
   avatar?: ReactNode;
   title: ReactNode;
@@ -27,9 +28,14 @@ export function MobileRecordCard({
   children?: ReactNode;
   className?: string;
   hint?: string;
+  // Opcional: hace clickeable toda la tarjeta (ej. abrir la ficha del
+  // registro), sin interferir con el menú de acciones de arriba a la
+  // derecha — MobileRowMenu frena la propagación en su wrapper, así que
+  // tocar "⋮" o una opción del menú no dispara este onClick de rebote.
+  onClick?: () => void;
 }) {
   return (
-    <div className={cn("p-3", className)} title={hint}>
+    <div className={cn("p-3", onClick && "cursor-pointer", className)} title={hint} onClick={onClick}>
       <div className="flex items-center gap-3">
         {avatar}
         <div className="min-w-0 flex-1">

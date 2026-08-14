@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { getDb } from "@/db";
 import { cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
 import { PLAN_ONECLICK_KEY, mesActualKey, precioPlanOneclick } from "@/lib/helpers";
+import { evaluarReglasCorreoPorCobroFallido } from "@/lib/mailing/reglas";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
 import type { Precios } from "@/types";
@@ -163,6 +164,14 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
         buyOrderId: resultado.buyOrder,
         monto: resultado.monto,
       }).catch((error) => console.error("Error evaluando reglas de WhatsApp por cobro fallido", suscripcion.id, error))
+    );
+    after(() =>
+      evaluarReglasCorreoPorCobroFallido({
+        clienteId,
+        patente: suscripcion.patente,
+        buyOrderId: resultado.buyOrder,
+        monto: resultado.monto,
+      }).catch((error) => console.error("Error evaluando reglas de correo por cobro fallido", suscripcion.id, error))
     );
   }
 

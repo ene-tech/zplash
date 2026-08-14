@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 
-export default function FaqAccordion({ preguntas }: { preguntas: { q: string; a: string }[] }) {
+export default function FaqAccordion({
+  preguntas,
+}: {
+  preguntas: { q: string; a: string | string[] }[];
+}) {
   const [abierta, setAbierta] = useState<number | null>(0);
 
   return (
@@ -19,7 +23,19 @@ export default function FaqAccordion({ preguntas }: { preguntas: { q: string; a:
               {p.q}
               <span className="chev">▾</span>
             </button>
-            {open && <div className="faq-answer">{p.a}</div>}
+            {open && (
+              <div className="faq-answer">
+                {Array.isArray(p.a) ? (
+                  <ul className="faq-answer-list">
+                    {p.a.map((item, j) => (
+                      <li key={j}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  p.a
+                )}
+              </div>
+            )}
           </div>
         );
       })}

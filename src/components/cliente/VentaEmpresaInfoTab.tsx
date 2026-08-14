@@ -17,7 +17,7 @@ export default function VentaEmpresaInfoTab({ precios }: { precios: PreciosPubli
   return (
     <div>
       <ProductoHero
-        eyebrow="Venta a Empresa"
+        eyebrow="Pack de Tickets"
         titulo="Packs de tickets para tu flota"
         descripcion="Packs de tickets de lavado para tu empresa, sin el vencimiento de 90 días de otros productos. Ideal para automotoras, rent a car y talleres mecánicos."
         imagen="/fondo-producto.jpg"

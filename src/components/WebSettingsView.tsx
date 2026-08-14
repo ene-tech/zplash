@@ -5,6 +5,8 @@ import Topbar from "@/components/Topbar";
 import WebSettingsTab from "@/components/tabs/WebSettingsTab";
 import WebSettingsServiciosTab from "@/components/tabs/WebSettingsServiciosTab";
 import WebSettingsMailTab from "@/components/tabs/WebSettingsMailTab";
+import ReglasCorreoTab from "@/components/tabs/ReglasCorreoTab";
+import HistorialCorreoTab from "@/components/tabs/HistorialCorreoTab";
 import WebSettingsWhatsappTab from "@/components/tabs/WebSettingsWhatsappTab";
 import WebSettingsWhatsappBotTab from "@/components/tabs/WebSettingsWhatsappBotTab";
 import ReglasWhatsappTab from "@/components/tabs/ReglasWhatsappTab";
@@ -16,6 +18,8 @@ const TABS = [
   { id: "precios", label: "Precios", icon: CircleDollarSign },
   { id: "servicios", label: "Servicios y Banners", icon: Images },
   { id: "mail", label: "Mail Templates", icon: Mail },
+  { id: "correo_reglas", label: "Reglas Correo", icon: Zap },
+  { id: "correo_historial", label: "Historial Correo", icon: History },
   { id: "whatsapp", label: "WhatsApp Plantillas", icon: MessageCircle },
   { id: "whatsapp_bot", label: "Menú Bot WhatsApp", icon: Bot },
   { id: "whatsapp_reglas", label: "Reglas WhatsApp", icon: Zap },
@@ -53,6 +57,8 @@ export default function WebSettingsView() {
             {tabActual.id === "precios" && <WebSettingsTab />}
             {tabActual.id === "servicios" && <WebSettingsServiciosTab />}
             {tabActual.id === "mail" && <WebSettingsMailTab />}
+            {tabActual.id === "correo_reglas" && <ReglasCorreoTab />}
+            {tabActual.id === "correo_historial" && <HistorialCorreoTab />}
             {tabActual.id === "whatsapp" && <WebSettingsWhatsappTab />}
             {tabActual.id === "whatsapp_bot" && <WebSettingsWhatsappBotTab />}
             {tabActual.id === "whatsapp_reglas" && <ReglasWhatsappTab />}

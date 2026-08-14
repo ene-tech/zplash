@@ -21,7 +21,7 @@ import type {
   Proveedor,
 } from "./inventario";
 import type { AlertaMantencion, Maquinaria, RegistroMantencion } from "./mantencion";
-import type { PlantillaCorreo } from "./mail";
+import type { PlantillaCorreo, ReglaCorreo } from "./mail";
 import type { PerfilPublico } from "./perfiles";
 import type { Precios, PreciosTamano } from "./precios";
 import type { Servicio } from "./servicios";
@@ -58,6 +58,7 @@ export interface AppData {
   registrosMantencion: RegistroMantencion[];
   alertasMantencion: AlertaMantencion[];
   plantillasCorreo: PlantillaCorreo[];
+  reglasCorreo: ReglaCorreo[];
   plantillasWhatsapp: PlantillaWhatsapp[];
   reglasWhatsapp: ReglaWhatsapp[];
 }

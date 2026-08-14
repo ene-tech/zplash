@@ -35,6 +35,7 @@ export * from "./loadAll";
 export * from "./mail";
 export * from "./mantencion";
 export * from "./oneclick";
+export * from "./pagos";
 export * from "./perfiles";
 export * from "./precios";
 export * from "./servicios";

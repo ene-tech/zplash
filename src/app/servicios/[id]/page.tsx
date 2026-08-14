@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { Calendar, MessageCircle } from "lucide-react";
 import { fmtCLP } from "@/lib/helpers";
 import { obtenerContenidoServicio } from "@/lib/servicioContenido";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import ProductoHero from "@/components/cliente/ProductoHero";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
+import VolverBoton from "@/components/cliente/VolverBoton";
 import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION } from "@/types";
 
 const WHATSAPP_URL = (nombre: string) =>
@@ -21,9 +21,7 @@ export default async function ServicioLandingPage({ params }: { params: Promise<
       <ClienteHeader titulo={servicio?.nombre ?? "Servicio"} />
 
       <div className="content">
-        <Link href="/#lavados" className="landing-back">
-          ← Volver a Tipos de Lavados
-        </Link>
+        <VolverBoton href="/#lavados" label="Volver a Tipos de Lavados" />
 
         {!servicio ? (
           <div className="card">

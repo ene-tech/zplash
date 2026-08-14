@@ -1212,8 +1212,11 @@ tr:hover td {
 .site-nav-link {
   color: var(--silver);
   text-decoration: none;
+  font-family: var(--font-outfit), "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
   padding: 8px 12px;
   border-radius: 8px;
   white-space: nowrap;
@@ -1272,8 +1275,11 @@ tr:hover td {
 .site-nav-mobile-link {
   color: var(--silver);
   text-decoration: none;
+  font-family: var(--font-outfit), "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 16.5px;
-  font-weight: 700;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
   padding: 10px 8px;
   border-radius: 8px;
 }
@@ -1583,6 +1589,24 @@ tr:hover td {
   line-height: 1.6;
   padding: 0 4px 18px;
 }
+.faq-answer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.faq-answer-list li {
+  padding-left: 16px;
+  position: relative;
+}
+.faq-answer-list li::before {
+  content: "•";
+  color: var(--gold);
+  position: absolute;
+  left: 0;
+}
 /* Chip circular con ícono (lucide), mismo tratamiento dorado con glow que
    ya usan .btn/.status-pill, para reemplazar los emojis sueltos que iban
    antes en los <h3> de la web de clientes — así se leen como parte del
@@ -1620,7 +1644,7 @@ tr:hover td {
   letter-spacing: -0.01em;
   line-height: 1.25;
   text-wrap: balance;
-  text-align: left;
+  text-align: center;
   max-width: none;
   margin: 0 0 40px;
   padding-bottom: 16px;
@@ -1639,29 +1663,18 @@ tr:hover td {
   }
 }
 
-/* 2ª línea del hero de Lavados ("+ USO ILIMITADO...") indentada para alinear
-   bajo "TUNEL" — solo tiene sentido cuando "LAVADO EXTERIOR TUNEL" entra en
-   una sola línea y sobra ancho para el resto de la frase (860px+, mismo
-   breakpoint que .feature-split). Antes era un marginLeft fijo inline: en
-   pantallas chicas el título ya wrapea a 2-3 líneas por su cuenta y ese
-   offset lo empujaba fuera de la pantalla, cortando el texto. 640px se probó
-   primero pero coincide con el breakpoint de .content (16px→24px de padding),
-   así que justo ahí se sumaban ambos achiques de espacio y el subtítulo
-   pasaba a 4 líneas en vez de 3 — peor que sin indent. Bajo el breakpoint el
-   span queda como texto inline normal (sin indent, sin display propio), para
-   que .section-title's text-wrap:balance lo reparta igual que cualquier otro
-   section-title. */
-@media (min-width: 860px) {
-  .section-title-indent {
-    margin-left: 173px;
-  }
-}
+/* .section-title-indent alineaba la 2ª línea del hero de Lavados bajo
+   "TUNEL" con un marginLeft fijo — pensado para título alineado a la
+   izquierda. Ahora que .section-title está centrado, ese offset ya no
+   aplica: la clase queda como no-op (span inline normal) y text-wrap:balance
+   reparte ambas líneas centradas igual que cualquier otro section-title. */
 
 .section-title::after {
   content: "";
   position: absolute;
   bottom: 0;
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 56px;
   height: 3px;
   border-radius: 2px;
@@ -1736,15 +1749,55 @@ tr:hover td {
 .pricing-card--featured .price-row .new {
   font-size: 30px;
 }
+/* Botón "volver" (ver VolverBoton.tsx): imita un botón físico tipo iOS
+   clásico — degradé vertical, bisel de luz arriba, sombra de contacto abajo
+   — para que se lea como un control grande y presionable, no como un link de
+   texto perdido sobre el fondo oscuro. */
 .landing-back {
-  display: inline-block;
-  color: var(--gray);
-  font-size: 13.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 10px 22px 10px 12px;
+  border-radius: 16px;
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 700;
   text-decoration: none;
-  margin-bottom: 14px;
+  background: linear-gradient(180deg, #8fc6f4 0%, var(--blue) 45%, #2f6fae 100%);
+  border: 1px solid rgba(15, 40, 70, 0.55);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -12px 14px -6px rgba(10, 40, 75, 0.45),
+    0 10px 18px -8px rgba(0, 0, 0, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
 .landing-back:hover {
   color: var(--white);
+  filter: brightness(1.08);
+}
+.landing-back:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    inset 0 -4px 8px -4px rgba(10, 40, 75, 0.5),
+    0 3px 6px -3px rgba(0, 0, 0, 0.5);
+}
+.landing-back-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  color: var(--white);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 60%), rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), inset 0 -3px 5px rgba(10, 30, 60, 0.35);
+}
+.landing-back-icon svg {
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3));
 }
 .carrito-link {
   position: relative;

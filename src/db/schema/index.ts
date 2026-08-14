@@ -25,6 +25,7 @@ export * from "./inventario/insumos";
 export * from "./inventario/productos";
 export * from "./inventario/proveedores";
 export * from "./mail";
+export * from "./mailReglas";
 export * from "./mantencion";
 export * from "./otpCliente";
 export * from "./pagos";
