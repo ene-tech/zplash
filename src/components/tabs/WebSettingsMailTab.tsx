@@ -101,7 +101,9 @@ export default function WebSettingsMailTab() {
         <h3>Nueva plantilla de correo</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
           Una plantilla por cada situación del proceso de venta o suscripción (confirmación de compra, pago rechazado,
-          vencimiento próximo, etc.) o para comunicación de ofertas y servicios. En el cuerpo puedes usar{" "}
+          vencimiento próximo, etc.) o para comunicación de ofertas y servicios. Escribe el cuerpo como texto normal
+          (una línea en blanco separa párrafos) — el diseño de marca (logo, colores, footer de contacto) se agrega
+          automáticamente al enviar, no hace falta escribir HTML. En el cuerpo puedes usar{" "}
           <code>{"{{nombre}}"}</code>, <code>{"{{patente}}"}</code>, <code>{"{{plan}}"}</code>, <code>{"{{monto}}"}</code> y{" "}
           <code>{"{{fechaVencimiento}}"}</code>.
         </div>

@@ -2,6 +2,7 @@ import "server-only";
 
 import { marcarDisparoReglaCorreo, obtenerPlantillaCorreo } from "@/lib/dataAccess/mail";
 import { aplicarVariables } from "@/lib/helpers";
+import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 // Reusa el mismo lookup de Cliente y el mismo builder de variables
 // ({{nombre}}, {{patente}}, {{plan}}, {{monto}}, {{fechaVencimiento}}, etc.)
@@ -41,7 +42,13 @@ export async function ejecutarAccionReglaCorreo(
   }
 
   const asunto = aplicarVariables(plantilla.asunto, variables);
-  const html = aplicarVariables(plantilla.cuerpo, variables);
+  // El admin escribe texto plano en Web Settings → Mail Templates (ver
+  // WebSettingsMailTab.tsx, un <textarea> simple); envolverCorreoBase le pone
+  // el diseño de marca (logo, acento dorado, footer) y convierte los
+  // párrafos a HTML — así el contenido queda editable sin HTML/CSS a mano y
+  // el correo se ve profesional igual.
+  const cuerpo = aplicarVariables(plantilla.cuerpo, variables);
+  const html = envolverCorreoBase(cuerpo);
   const resultado = await enviarCorreoTransaccional({ to: cliente.email, subject: asunto, html });
   await marcarDisparoReglaCorreo(disparoId, { estado: resultado.ok ? "enviado" : "error", error: resultado.error });
   return resultado.ok;
