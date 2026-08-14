@@ -94,7 +94,7 @@ export default function OperadorNotFoundResult({
           <input ref={qTelefonoRef} defaultValue="+569" placeholder="+569 -1111 1111" onBlur={r.onTelefonoBlur} />
         </div>
         <div>
-          <label>Correo electrónico</label>
+          <label>Correo electrónico{r.tipoLavado === "plan" ? " *" : ""}</label>
           <input ref={qEmailRef} type="email" placeholder="correo@ejemplo.com" />
         </div>
         <div>

@@ -86,6 +86,7 @@ export function useOperadorNotFoundResult(
       telefonoRaw: qTelefonoRef.current?.value || "",
       emailRaw: qEmailRef.current?.value || "",
       exentoValidacion,
+      tipoCliente: tipoLavado,
       tipoDocumento: tipoDoc,
       razonSocialRaw: qRazonSocialRef.current?.value || "",
       rutRaw: qRutRef.current?.value || "",

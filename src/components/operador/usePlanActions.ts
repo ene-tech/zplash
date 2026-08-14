@@ -2,9 +2,24 @@
 
 import { useApp } from "@/context/AppContext";
 import { registrarIngreso, renovarPlan } from "@/lib/logic";
-import { PLANES, precioNormal, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
+import { PLANES, isValidEmail, isValidTelefono, precioNormal, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
+
+// Sin correo no hay a quién mandarle el aviso automático de contratación (ver
+// tipoEvento="venta_creada" + ReglaCorreo en Web Settings → Reglas Correo,
+// que exige cliente.email o queda en error — ver ejecutarAccionReglaCorreo en
+// @/lib/mailing/reglas/motor.ts): a diferencia del resto de las acciones del
+// módulo Operador, contratar un plan exige teléfono y correo válidos sin
+// excepción, ni siquiera para los perfiles exentos de la validación general
+// (Administración/Gerencia, ver esExentoValidacionRegistroOperador) — esos
+// perfiles solo están exentos para dar ingreso al túnel, no para vender un
+// plan nuevo.
+const faltanDatosContactoPlan = (cliente: Cliente): boolean =>
+  !cliente.telefono || !isValidTelefono(cliente.telefono) || !cliente.email || !isValidEmail(cliente.email);
+
+const MSG_FALTAN_DATOS_CONTACTO_PLAN =
+  "Para contratar un plan, el cliente debe tener teléfono y correo válidos registrados (se usan para el aviso de contratación). Complétalos en la ficha antes de continuar.";
 
 // Acciones que cambian el plan del cliente: renovación anticipada a precio
 // preferencial, reactivación promocional de un plan vencido, renovación
@@ -96,6 +111,10 @@ export function usePlanActions(
   };
 
   const contratarPlan = (cliente: Cliente = c) => {
+    if (faltanDatosContactoPlan(cliente)) {
+      setGuardarErr(MSG_FALTAN_DATOS_CONTACTO_PLAN);
+      return;
+    }
     const plan = cliente.plan || PLANES[0];
     const precio = precioNormal(data.precios, plan);
     pedirPago(precio, `Contratación de plan (${plan}) para ${cliente.nombre}`, async (pago) => {
@@ -141,6 +160,10 @@ export function usePlanActions(
   // monto de caja, así que no tiene el mismo problema.
   const upgradeAPlan = (cliente: Cliente = c) => {
     if (!ventaUpgrade) return;
+    if (faltanDatosContactoPlan(cliente)) {
+      setGuardarErr(MSG_FALTAN_DATOS_CONTACTO_PLAN);
+      return;
+    }
     const plan = PLANES[0];
     // Si el upgrade se hace el mismo día del lavado único original, el
     // Ingreso ya registrado en cobrarLavadoUnico cubre el paso de hoy por el
