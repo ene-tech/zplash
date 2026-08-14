@@ -32,6 +32,7 @@ import {
   proveedores,
   registrosMantencion,
   reglasConciliacion,
+  reglasCorreo,
   reglasWhatsapp,
   servicios,
   ventas,
@@ -61,7 +62,7 @@ import { destinoInventarioFromRow, movimientoInventarioFromRow } from "./inventa
 import { categoriaProductoFromRow, productoFromRow } from "./inventario/productos";
 import { proveedorFromRow } from "./inventario/proveedores";
 import { alertaMantencionFromRow, maquinariaFromRow, registroMantencionFromRow } from "./mantencion";
-import { plantillaCorreoFromRow } from "./mail";
+import { plantillaCorreoFromRow, reglaCorreoFromRow } from "./mail";
 import { perfilPublicoFromRow } from "./perfiles";
 import { preciosFromRows, preciosTamanoFromRows } from "./precios";
 import { safe } from "./shared";
@@ -134,6 +135,7 @@ export async function loadCore(): Promise<AppDataCore> {
     alertasMantencionRows,
     plantillasCorreoRows,
     plantillasWhatsappRows,
+    reglasCorreoRows,
     reglasWhatsappRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
@@ -164,6 +166,7 @@ export async function loadCore(): Promise<AppDataCore> {
     safe(db.select().from(alertasMantencion).orderBy(asc(alertasMantencion.fechaObjetivo))),
     safe(db.select().from(plantillasCorreo).orderBy(asc(plantillasCorreo.nombre))),
     safe(db.select().from(plantillasWhatsapp).orderBy(asc(plantillasWhatsapp.nombre))),
+    safe(db.select().from(reglasCorreo).orderBy(asc(reglasCorreo.nombre))),
     safe(db.select().from(reglasWhatsapp).orderBy(asc(reglasWhatsapp.nombre))),
   ]);
 
@@ -217,6 +220,7 @@ export async function loadCore(): Promise<AppDataCore> {
     registrosMantencion: registrosMantencionRows.map(registroMantencionFromRow),
     alertasMantencion: alertasMantencionRows.map(alertaMantencionFromRow),
     plantillasCorreo: plantillasCorreoData,
+    reglasCorreo: reglasCorreoRows.map(reglaCorreoFromRow),
     plantillasWhatsapp: plantillasWhatsappData,
     reglasWhatsapp: reglasWhatsappRows.map(reglaWhatsappFromRow),
   };

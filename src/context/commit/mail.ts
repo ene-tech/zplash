@@ -1,5 +1,5 @@
-import { deletePlantillasCorreo, upsertPlantillasCorreo } from "@/lib/serverActions";
-import type { PlantillaCorreo } from "@/types";
+import { deletePlantillasCorreo, deleteReglasCorreo, upsertPlantillasCorreo, upsertReglasCorreo } from "@/lib/serverActions";
+import type { PlantillaCorreo, ReglaCorreo } from "@/types";
 import { diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 
 export function commitPlantillasCorreo(previous: PlantillaCorreo[], siguientes: PlantillaCorreo[] | undefined): CommitResult {
@@ -8,5 +8,14 @@ export function commitPlantillasCorreo(previous: PlantillaCorreo[], siguientes: 
   const ops: Promise<boolean>[] = [];
   if (cambiados.length) ops.push(upsertPlantillasCorreo(cambiados));
   if (eliminados.length) ops.push(deletePlantillasCorreo(eliminados));
+  return { ops, auditoria: [] };
+}
+
+export function commitReglasCorreo(previous: ReglaCorreo[], siguientes: ReglaCorreo[] | undefined): CommitResult {
+  if (!siguientes) return SIN_CAMBIOS;
+  const { cambiados, eliminados } = diffPorId(previous, siguientes);
+  const ops: Promise<boolean>[] = [];
+  if (cambiados.length) ops.push(upsertReglasCorreo(cambiados));
+  if (eliminados.length) ops.push(deleteReglasCorreo(eliminados));
   return { ops, auditoria: [] };
 }
