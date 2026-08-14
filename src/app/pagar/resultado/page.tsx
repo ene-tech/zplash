@@ -1,4 +1,4 @@
-import Link from "next/link";
+import VolverBoton from "@/components/cliente/VolverBoton";
 
 const MENSAJES: Record<string, { titulo: string; texto: string; cls: "ok" | "warn" | "bad"; volverHref: string; volverLabel: string }> = {
   ok: { titulo: "¡Pago exitoso!", texto: "Tu pago se procesó correctamente.", cls: "ok", volverHref: "/pagar", volverLabel: "Volver" },
@@ -38,9 +38,7 @@ export default async function ResultadoPage({
 
   return (
     <div className="content" style={{ maxWidth: 480 }}>
-      <Link href="/" className="landing-back">
-        ← Volver a Inicio
-      </Link>
+      <VolverBoton href="/" label="Volver a Inicio" />
       <div className={`result-card ${info.cls === "ok" ? "found" : "notfound"}`}>
         <div className="result-head">
           <strong>{info.titulo}</strong>

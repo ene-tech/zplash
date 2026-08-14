@@ -1,6 +1,6 @@
-import Link from "next/link";
 import MiCuentaTab from "@/components/cliente/MiCuentaTab";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
+import VolverBoton from "@/components/cliente/VolverBoton";
 
 // Antes esta página era una segunda "home" pública con pestañas (Ubicación,
 // Lavados, Detailing, Empresa, FAQ) que duplicaba el contenido de / y había
@@ -14,9 +14,7 @@ export default function ClientePage() {
       <ClienteHeader titulo="Mi Cuenta" ocultarMiCuenta />
 
       <div className="content">
-        <Link href="/" className="landing-back">
-          ← Volver al inicio
-        </Link>
+        <VolverBoton href="/" label="Volver al inicio" />
         <MiCuentaTab />
       </div>
     </div>

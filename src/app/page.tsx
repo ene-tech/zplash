@@ -31,7 +31,7 @@ export default async function LandingPage() {
         </div>
 
         <div id="venta-empresa" className="anchor-section">
-          <h2 className="section-title">Venta a Empresa</h2>
+          <h2 className="section-title">Pack de Tickets</h2>
           <VentaEmpresaInfoTab precios={precios} />
         </div>
 

@@ -6,11 +6,15 @@ import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoHero from "@/components/cliente/ProductoHero";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
 import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
+import VolverBoton from "@/components/cliente/VolverBoton";
 
 const PREGUNTAS_FULL_TUNNEL = [
   {
     q: "¿Qué incluye el Lavado Full Tunnel?",
-    a: "Un pase completo por nuestro túnel de lavado automático: prelavado, jabón, cepillado, enjuague y secado. Los servicios adicionales (tapiz, alfombra, techo, motor, chasis) se cotizan aparte.",
+    a: [
+      "Un pase completo por nuestro túnel de lavado automático: prelavado, jabón, cepillado, enjuague y secado.",
+      "Los servicios adicionales (tapiz, alfombra, techo, motor, chasis) se cotizan aparte.",
+    ],
   },
   {
     q: "¿Necesito reservar hora?",
@@ -18,11 +22,17 @@ const PREGUNTAS_FULL_TUNNEL = [
   },
   {
     q: "¿Qué medios de pago aceptan?",
-    a: "En el local: efectivo, tarjeta y transferencia bancaria. Desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
+    a: [
+      "En el local: efectivo, tarjeta y transferencia bancaria.",
+      "Desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
+    ],
   },
   {
     q: "¿Tienen descuento para mi primera visita?",
-    a: 'Sí. Escríbenos por WhatsApp con la palabra "descuento" seguida de tu patente y te enviamos un código de descuento válido por 7 días.',
+    a: [
+      'Sí. Escríbenos por WhatsApp con la palabra "descuento" seguida de tu patente.',
+      "Te enviamos un código de descuento válido por 7 días.",
+    ],
   },
   {
     q: "Si lavo seguido, ¿me conviene más el Plan Mensual Ilimitado?",
@@ -42,9 +52,7 @@ export default async function FullTunnelPage() {
       <ClienteHeader titulo="Lavado Full Tunnel" />
 
       <div className="content">
-        <Link href="/#lavados" className="landing-back">
-          ← Volver a Tipos de Lavados
-        </Link>
+        <VolverBoton href="/#lavados" label="Volver a Tipos de Lavados" />
 
         <ProductoHero
           eyebrow="Lavado por túnel"

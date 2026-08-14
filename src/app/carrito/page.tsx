@@ -4,6 +4,7 @@ import { useState } from "react";
 import { fmtCLP, isValidPatente, normPlate } from "@/lib/helpers";
 import { redirigirAWebpay } from "@/lib/webpayClient";
 import { useCarrito } from "@/hooks/useCarrito";
+import VolverBoton from "@/components/cliente/VolverBoton";
 
 export default function CarritoPage() {
   const { items, total, quitar, vaciar } = useCarrito();
@@ -44,9 +45,7 @@ export default function CarritoPage() {
 
   return (
     <div className="content" style={{ maxWidth: 640 }}>
-      <a href="/cliente" className="landing-back">
-        ← Volver a Tipos de Lavados
-      </a>
+      <VolverBoton href="/cliente" label="Volver a Tipos de Lavados" />
       <h2 style={{ marginBottom: 18 }}>🛒 Tu carrito</h2>
 
       {items.length === 0 ? (

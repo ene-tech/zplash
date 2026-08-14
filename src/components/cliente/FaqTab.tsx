@@ -1,33 +1,61 @@
 import FaqAccordion from "./FaqAccordion";
 
-export const PREGUNTAS: { q: string; a: string }[] = [
+export const PREGUNTAS: { q: string; a: string | string[] }[] = [
   {
     q: "¿Qué incluye el Plan Ilimitado Mensual?",
-    a: "Lavados ilimitados por el túnel durante 30 días desde la contratación, con un ingreso máximo por día. No incluye los servicios adicionales (tapiz, alfombra, techo, motor, chasis).",
+    a: [
+      "Lavados Full Tunel ilimitados durante 30 días desde la contratación.",
+      "Máximo 1 ingreso cada 24 horas.",
+      "Uso ilimitado de las máquinas aspiradoras autoservicio.",
+      "Válido para una patente; puede cambiarse al término del período.",
+      "Para vehículos de uso particular o empresa; prohibido para transporte público, taxi, Uber o colectivos.",
+    ],
   },
   {
     q: "¿Cómo renuevo mi plan?",
-    a: "Puedes renovarlo en el local, o desde la sección Pagar de nuestra web ingresando tu patente: ahí puedes pagar un período con tarjeta (Webpay Plus) o activar la renovación automática mensual.",
+    a: [
+      "En el local.",
+      "Desde la web, en la sección Pagar, ingresando tu patente.",
+      "Ahí puedes pagar un período con tarjeta (Webpay Plus) o activar la renovación automática mensual.",
+    ],
   },
   {
     q: "¿Qué pasa si mi plan vence?",
-    a: "Puedes seguir viniendo y pagar un lavado único, o renovar tu plan apenas quieras. Te avisamos cuando esté por vencer.",
+    a: [
+      "Puedes seguir viniendo y pagar un lavado único.",
+      "Puedes renovar tu plan apenas quieras.",
+      "Te avisamos cuando esté por vencer.",
+    ],
   },
   {
     q: "¿Qué medios de pago aceptan?",
-    a: "En el local: efectivo, tarjeta y transferencia bancaria. Desde la web: tarjetas de crédito o débito a través de Webpay Plus, o renovación automática con Oneclick.",
+    a: [
+      "En el local: efectivo, tarjeta y transferencia bancaria.",
+      "Desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
+      "Renovación automática con Oneclick.",
+    ],
   },
   {
     q: "¿Tienen descuento para mi primera visita?",
-    a: "Sí. Escríbenos por WhatsApp con la palabra \"descuento\" seguida de tu patente y te enviamos un código de descuento válido por 7 días.",
+    a: [
+      "Sí. Escríbenos por WhatsApp con la palabra \"descuento\" seguida de tu patente.",
+      "Te enviamos un código de descuento válido por 7 días.",
+    ],
   },
   {
     q: "¿Puedo comprar lavados para mi empresa?",
-    a: "Sí, vendemos lotes de cupones de lavado para empresas, con boleta o factura. Revisa la pestaña \"Venta a Empresa\" para cotizar.",
+    a: [
+      "Sí, vendemos lotes de cupones de lavado para empresas.",
+      "Con boleta o factura.",
+      "Revisa la pestaña \"Pack de Tickets\" para cotizar.",
+    ],
   },
   {
     q: "¿Necesito reservar hora?",
-    a: "Para el lavado túnel no. Para el Lavado Completo Detailing y servicios adicionales te recomendamos agendar con anticipación por WhatsApp para asegurar tu horario.",
+    a: [
+      "Lavado túnel: no se necesita reserva.",
+      "Lavado Completo Detailing y servicios adicionales: se recomienda agendar con anticipación por WhatsApp para asegurar tu horario.",
+    ],
   },
 ];
 

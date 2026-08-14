@@ -6,27 +6,49 @@ import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoHero from "@/components/cliente/ProductoHero";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
 import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
+import VolverBoton from "@/components/cliente/VolverBoton";
 
 const PREGUNTAS_PLAN_MENSUAL = [
   {
     q: "¿Qué incluye el Plan Ilimitado Mensual?",
-    a: "Lavados ilimitados por el túnel durante 30 días desde la contratación, con un ingreso máximo por día. No incluye los servicios adicionales (tapiz, alfombra, techo, motor, chasis).",
+    a: [
+      "Lavados Full Tunel ilimitados durante 30 días desde la contratación.",
+      "Máximo 1 ingreso cada 24 horas.",
+      "Uso ilimitado de las máquinas aspiradoras autoservicio.",
+      "Válido para una patente; puede cambiarse al término del período.",
+      "Para vehículos de uso particular o empresa; prohibido para transporte público, taxi, Uber o colectivos.",
+    ],
   },
   {
     q: "¿Cuál es la diferencia entre pago período a período y renovación automática?",
-    a: "Con pago período a período pagas un mes a la vez con tarjeta (Webpay Plus). Con la renovación automática inscribes tu tarjeta una vez y te cobramos cada mes automáticamente, a un precio más bajo.",
+    a: [
+      "Pago período a período: pagas un mes a la vez con tarjeta (Webpay Plus).",
+      "Renovación automática: inscribes tu tarjeta una vez y te cobramos cada mes automáticamente, a un precio más bajo.",
+    ],
   },
   {
     q: "¿Cómo renuevo mi plan?",
-    a: "Puedes renovarlo en el local, o desde la sección Pagar de nuestra web ingresando tu patente: ahí puedes pagar un período con tarjeta (Webpay Plus) o activar la renovación automática mensual.",
+    a: [
+      "En el local.",
+      "Desde la web, en la sección Pagar, ingresando tu patente.",
+      "Ahí puedes pagar un período con tarjeta (Webpay Plus) o activar la renovación automática mensual.",
+    ],
   },
   {
     q: "¿Qué pasa si mi plan vence?",
-    a: "Puedes seguir viniendo y pagar un lavado único, o renovar tu plan apenas quieras. Te avisamos cuando esté por vencer.",
+    a: [
+      "Puedes seguir viniendo y pagar un lavado único.",
+      "Puedes renovar tu plan apenas quieras.",
+      "Te avisamos cuando esté por vencer.",
+    ],
   },
   {
     q: "¿Qué medios de pago aceptan?",
-    a: "En el local: efectivo, tarjeta y transferencia bancaria. Desde la web: tarjetas de crédito o débito a través de Webpay Plus, o renovación automática con Oneclick.",
+    a: [
+      "En el local: efectivo, tarjeta y transferencia bancaria.",
+      "Desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
+      "Renovación automática con Oneclick.",
+    ],
   },
 ];
 
@@ -41,9 +63,7 @@ export default async function PlanMensualPage() {
       <ClienteHeader titulo="Plan Mensual Ilimitado" />
 
       <div className="content">
-        <Link href="/#lavados" className="landing-back">
-          ← Volver a Tipos de Lavados
-        </Link>
+        <VolverBoton href="/#lavados" label="Volver a Tipos de Lavados" />
 
         <ProductoHero
           eyebrow="Plan mensual"
