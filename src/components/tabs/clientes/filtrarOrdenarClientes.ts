@@ -56,14 +56,20 @@ function ordenColumna(a: Cliente, b: Cliente, orden: string): number {
 
 export function filtrarYOrdenarClientes(
   clientes: Cliente[],
-  opts: { search: string; filtroEstado: string; orden: string }
+  opts: { search: string; filtroEstado: string; filtroOrigen?: string; orden: string }
 ): Cliente[] {
-  const { search, filtroEstado, orden } = opts;
+  const { search, filtroEstado, filtroOrigen = "todos", orden } = opts;
   const qPatente = normPlate(search);
   const qNombre = search.toLowerCase().trim();
   let filtered = clientes.filter((c) => !search || coincidePatente(c, qPatente) || coincideNombre(c, qNombre));
   if (filtroEstado !== "todos") {
     filtered = filtered.filter((c) => planStatus(c).label === filtroEstado);
+  }
+  if (filtroOrigen !== "todos") {
+    // c.origen guarda "WEB"/"LOCAL" (ver Cliente en @/types/clientes); default
+    // "LOCAL" para filas viejas sin el campo seteado, mismo fallback que usa
+    // ClienteRow para mostrarlo.
+    filtered = filtered.filter((c) => (c.origen || "LOCAL") === filtroOrigen);
   }
   return [...filtered].sort((a, b) => {
     if (search) {

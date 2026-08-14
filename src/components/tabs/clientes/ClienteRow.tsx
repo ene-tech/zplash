@@ -26,7 +26,7 @@ export const ClienteRow = memo(function ClienteRow({
   const st = planStatus(c);
   const prog = planProgreso(c);
   return (
-    <TableRow>
+    <TableRow className="cursor-pointer" onClick={() => onInfo(c)}>
       <TableCell className={`plate-tag ${plateEstadoCls(c)}`}>
         <span className="inline-flex items-center gap-1">
           {c.patente}
@@ -53,7 +53,10 @@ export const ClienteRow = memo(function ClienteRow({
       </TableCell>
       <TableCell>{c.visitas || 0}</TableCell>
       <TableCell className="sticky right-0 z-10 bg-background">
-        <div className="flex items-center gap-1">
+        {/* stopPropagation: la fila entera ahora abre la ficha al pinchar
+            (ver TableRow arriba) — sin esto, cualquiera de estos tres
+            botones también disparaba onInfo por el burbujeo del click. */}
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <Button variant="ghost" size="icon-sm" title="Información adicional" aria-label="Información adicional" onClick={() => onInfo(c)}>
             <Info />
           </Button>

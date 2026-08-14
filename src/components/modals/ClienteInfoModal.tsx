@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import {
   cancelarSuscripcionOneclick,
   cobrarSuscripcionManual,
+  obtenerDetallePagosVentas,
   obtenerSuscripcionOneclick,
   reactivarSuscripcionOneclick,
   suspenderSuscripcionOneclick,
 } from "@/lib/serverActions";
-import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
+import type { DetallePagoVenta, SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import {
+  fmtCLP,
   fmtDate,
   fmtFecha,
   inicioPeriodoPlan,
@@ -21,6 +23,7 @@ import {
 import type { Cliente } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const { data: appData, patchUi, loadingHistorial } = useApp();
@@ -34,6 +37,17 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const [cobrando, setCobrando] = useState(false);
   const [errSuscripcion, setErrSuscripcion] = useState("");
 
+  // Historial de compras completo del cliente — al estilo del pedido de
+  // cliente en WooCommerce: qué compró, cuándo, cuánto pagó y con qué
+  // comprobante, sin importar si fue por web, automático o registrado a
+  // mano en local. appData.ventas llega en la oleada "historial" (ver
+  // loadingHistorial), igual que visitasPeriodo/visitasPlan más abajo.
+  const ventasCliente = useMemo(
+    () => appData.ventas.filter((v) => v.clienteId === c.id).sort((a, b) => (a.fecha < b.fecha ? 1 : -1)),
+    [appData.ventas, c.id]
+  );
+  const [detallePagos, setDetallePagos] = useState<Record<string, DetallePagoVenta>>({});
+
   const cerrar = () => patchUi({ modal: null });
 
   useEffect(() => {
@@ -41,6 +55,20 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
       .then(setSuscripcion)
       .catch(() => setSuscripcion(null));
   }, [c.patente]);
+
+  // Comprobante real de Transbank (authorizationCode) para las ventas de
+  // este cliente que tengan Webpay/Oneclick detrás — ver dataAccess/pagos.ts.
+  // Clave de dependencia por ids unidos (no el array en sí, que cambia de
+  // referencia en cada render) para no repetir el fetch de más.
+  const idsVentas = ventasCliente.map((v) => v.id).join(",");
+  useEffect(() => {
+    // Sin ventas no hay nada que pedir — detallePagos ya arranca en {} (ver
+    // useState arriba), así que no hace falta setState acá para ese caso.
+    if (!idsVentas) return;
+    obtenerDetallePagosVentas(idsVentas.split(","))
+      .then(setDetallePagos)
+      .catch(() => setDetallePagos({}));
+  }, [idsVentas]);
 
   async function reintentarCobro() {
     if (!suscripcion) return;
@@ -105,7 +133,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && cerrar()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Información adicional</DialogTitle>
         </DialogHeader>
@@ -203,6 +231,64 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             )}
           </div>
         )}
+
+        <div className="border-t border-border pt-3.5">
+          <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Historial de compras</div>
+          {loadingHistorial ? (
+            <p className="text-sm text-muted-foreground">Cargando…</p>
+          ) : ventasCliente.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Este cliente todavía no tiene compras registradas.</p>
+          ) : (
+            // min-w-0: DialogContent es un grid (ver dialog.tsx) y sin esto
+            // sus hijos no se dejan achicar por debajo del ancho natural de
+            // la tabla, empujando TODO el diálogo más ancho — con solo
+            // overflow-y-auto en el popup (sin overflow-x explícito), eso
+            // termina scrolleando el diálogo completo hacia el costado en
+            // vez de solo esta tabla. overflow-x-auto acá adentro contiene
+            // el scroll horizontal donde corresponde. Sin límite de alto a
+            // propósito (antes max-h-64): que se vean todas las filas de
+            // una vez: el popup entero ya tiene su propio tope/scroll
+            // vertical (max-h-[calc(100dvh-2rem)] en DialogContent) para
+            // historiales muy largos.
+            <div className="min-w-0 overflow-x-auto rounded-md border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Monto</TableHead>
+                    <TableHead>Origen</TableHead>
+                    <TableHead>Método</TableHead>
+                    <TableHead>Comprobante</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ventasCliente.map((v) => {
+                    const detalle = detallePagos[v.id];
+                    return (
+                      <TableRow key={v.id}>
+                        <TableCell className="whitespace-nowrap">{fmtDate(v.fecha)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{v.tipo}</TableCell>
+                        <TableCell className="whitespace-nowrap">{fmtCLP(v.precio)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{v.creadoPor || "-"}</TableCell>
+                        <TableCell className="whitespace-nowrap capitalize">{v.metodoPago || "-"}</TableCell>
+                        <TableCell>
+                          {detalle ? (
+                            <span title={`${detalle.origen === "webpay" ? "Webpay" : "Oneclick"} · buyOrder ${detalle.buyOrder}`}>
+                              {detalle.authorizationCode || "-"} {detalle.responseCode === 0 ? "✓" : "✗"}
+                            </span>
+                          ) : (
+                            v.voucher || "-"
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={cerrar}>
