@@ -4,6 +4,7 @@
 // hace falta correrlo de nuevo si se reemplaza la imagen fuente.
 //
 // Uso: node scripts/recortar-tamanos-vehiculo.js
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- script CommonJS plano (sin "type":"module"), `import` acá no correría con `node` directo.
 const sharp = require("sharp");
 
 const SRC = "scripts/assets/Tamaño-vehiculos.png";
