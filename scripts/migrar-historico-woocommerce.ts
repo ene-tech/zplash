@@ -30,7 +30,14 @@ import postgres from "postgres";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { PLANES, fmtCLP, formatTelefono, movimientoContableDesdeVenta, normPlate } from "@/lib/helpers";
 
-const WC_SITE_URL = "https://zplash.cl";
+// NO hardcodear esto: "https://zplash.cl" dejó de servir WordPress/WooCommerce
+// desde el corte de dominio del 12-ago-2026 (ver next.config.ts,
+// REDIRECTS_LEGACY_WORDPRESS) y a la fecha de este comentario todavía no está
+// confirmado a qué URL quedó (la cuenta de hosting es BanaHosting —
+// ns8986/ns8987.banahosting.com son los nameservers de zplash.cl — hay que
+// entrar a ese panel y confirmar/crear el subdominio correcto). Se pasa por
+// env (--env-file=.env.local) para no tener que tocar este archivo cuando se
+// confirme.
 const ESTADOS_VALIDOS = new Set(["processing", "completed"]);
 const CREADO_POR = "Migración histórica WooCommerce";
 
@@ -68,7 +75,7 @@ function addDaysISO(iso: string, dias: number): string {
   return d.toISOString();
 }
 
-async function fetchTodosLosPedidos(consumerKey: string, consumerSecret: string): Promise<OrderWC[]> {
+async function fetchTodosLosPedidos(siteUrl: string, consumerKey: string, consumerSecret: string): Promise<OrderWC[]> {
   const auth = "Basic " + Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
   const perPage = 100;
   let page = 1;
@@ -76,7 +83,7 @@ async function fetchTodosLosPedidos(consumerKey: string, consumerSecret: string)
   const pedidos: OrderWC[] = [];
 
   do {
-    const url = `${WC_SITE_URL}/wp-json/wc/v3/orders?per_page=${perPage}&page=${page}&orderby=date&order=asc`;
+    const url = `${siteUrl}/wp-json/wc/v3/orders?per_page=${perPage}&page=${page}&orderby=date&order=asc`;
     const res = await fetch(url, { headers: { Authorization: auth } });
     if (!res.ok) throw new Error(`WooCommerce API ${res.status} en página ${page}: ${await res.text()}`);
     totalPages = Number(res.headers.get("X-WP-TotalPages")) || 1;
@@ -92,16 +99,18 @@ async function fetchTodosLosPedidos(consumerKey: string, consumerSecret: string)
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const dbUrl = process.env.DATABASE_URL;
+  const siteUrl = process.env.WOOCOMMERCE_SITE_URL;
   const ck = process.env.WOOCOMMERCE_CONSUMER_KEY;
   const cs = process.env.WOOCOMMERCE_CONSUMER_SECRET;
   if (!dbUrl) throw new Error("Falta DATABASE_URL en las variables de entorno");
+  if (!siteUrl) throw new Error("Falta WOOCOMMERCE_SITE_URL (URL actual del WordPress/WooCommerce — ya no es zplash.cl, ver comentario arriba)");
   if (!ck || !cs) throw new Error("Faltan WOOCOMMERCE_CONSUMER_KEY / WOOCOMMERCE_CONSUMER_SECRET");
 
   const client = postgres(dbUrl, { prepare: false, max: 5 });
   const db = drizzle(client);
 
   console.log("Trayendo pedidos de WooCommerce...");
-  const pedidos = await fetchTodosLosPedidos(ck, cs);
+  const pedidos = await fetchTodosLosPedidos(siteUrl, ck, cs);
   console.log(`Total pedidos en WooCommerce: ${pedidos.length}`);
 
   const [clientesExistentes, ventasExistentesRows] = await Promise.all([

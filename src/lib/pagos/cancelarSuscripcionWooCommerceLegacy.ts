@@ -1,7 +1,23 @@
 import "server-only";
 import { normPlate } from "@/lib/helpers";
 
-const WC_SITE_URL = "https://zplash.cl";
+// NO hardcodear esto: "https://zplash.cl" dejó de servir WordPress/WooCommerce
+// desde el corte de dominio del 12-ago-2026 (ver next.config.ts,
+// REDIRECTS_LEGACY_WORDPRESS) y a la fecha de este comentario todavía no está
+// confirmado a qué URL quedó el WordPress/WooCommerce viejo (la cuenta de
+// hosting es BanaHosting — ns8986/ns8987.banahosting.com son los nameservers
+// de zplash.cl — hay que entrar a ese panel y confirmar/crear el subdominio
+// correcto). Se lee de env para poder corregirlo sin deploy en cuanto se
+// confirme, y para que si falta o queda mal, esta función (que corre en vivo
+// desde /api/pagos/oneclick/inscripcion/retorno) reviente fuerte en vez de
+// fallar en silencio (best-effort, ver comentario más abajo) dejando al
+// cliente con doble cobro real: WooCommerce le sigue cobrando la tarjeta
+// vieja porque nunca se canceló su suscripción allá.
+function wcSiteUrl(): string {
+  const url = process.env.WOOCOMMERCE_SITE_URL;
+  if (!url) throw new Error("Falta WOOCOMMERCE_SITE_URL (URL actual del WordPress/WooCommerce — ya no es zplash.cl, ver comentario)");
+  return url;
+}
 
 type SubscriptionWC = {
   id: number;
@@ -49,7 +65,7 @@ async function buscarSuscripcionActiva(patente: string, email: string): Promise<
   let page = 1;
   let totalPages = 1;
   do {
-    const url = `${WC_SITE_URL}/wp-json/wc/v3/subscriptions?per_page=${perPage}&page=${page}&status=active`;
+    const url = `${wcSiteUrl()}/wp-json/wc/v3/subscriptions?per_page=${perPage}&page=${page}&status=active`;
     const res = await fetch(url, { headers: { Authorization: auth } });
     if (!res.ok) throw new Error(`WooCommerce API ${res.status} buscando suscripciones activas: ${await res.text()}`);
     totalPages = Number(res.headers.get("X-WP-TotalPages")) || 1;
@@ -97,7 +113,7 @@ export async function cancelarSuscripcionWooCommerceLegacy(
     return { cancelada: false };
   }
 
-  const res = await fetch(`${WC_SITE_URL}/wp-json/wc/v3/subscriptions/${sub.id}`, {
+  const res = await fetch(`${wcSiteUrl()}/wp-json/wc/v3/subscriptions/${sub.id}`, {
     method: "PUT",
     headers: { Authorization: authHeader(), "Content-Type": "application/json" },
     body: JSON.stringify({ status: "cancelled" }),

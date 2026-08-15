@@ -26,7 +26,14 @@ import { and, inArray, isNull } from "drizzle-orm";
 import { clientes } from "@/db/schema";
 import { normPlate } from "@/lib/helpers";
 
-const WC_SITE_URL = "https://zplash.cl";
+// NO hardcodear esto: "https://zplash.cl" dejó de servir WordPress/WooCommerce
+// desde el corte de dominio del 12-ago-2026 (ver next.config.ts,
+// REDIRECTS_LEGACY_WORDPRESS) y a la fecha de este comentario todavía no está
+// confirmado a qué URL quedó (la cuenta de hosting es BanaHosting —
+// ns8986/ns8987.banahosting.com son los nameservers de zplash.cl — hay que
+// entrar a ese panel y confirmar/crear el subdominio correcto). Se pasa por
+// env (--env-file=.env.local) para no tener que tocar este archivo cuando se
+// confirme.
 
 type SubscriptionWC = {
   id: number;
@@ -53,7 +60,7 @@ function extraerPatente(sub: SubscriptionWC): string {
   return normPlate(candidatos.find((c) => c && c.trim()) || "");
 }
 
-async function fetchSuscripcionesActivas(consumerKey: string, consumerSecret: string): Promise<SubscriptionWC[]> {
+async function fetchSuscripcionesActivas(siteUrl: string, consumerKey: string, consumerSecret: string): Promise<SubscriptionWC[]> {
   const auth = "Basic " + Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
   const perPage = 100;
   let page = 1;
@@ -61,7 +68,7 @@ async function fetchSuscripcionesActivas(consumerKey: string, consumerSecret: st
   const subs: SubscriptionWC[] = [];
 
   do {
-    const url = `${WC_SITE_URL}/wp-json/wc/v3/subscriptions?per_page=${perPage}&page=${page}&status=active`;
+    const url = `${siteUrl}/wp-json/wc/v3/subscriptions?per_page=${perPage}&page=${page}&status=active`;
     const res = await fetch(url, { headers: { Authorization: auth } });
     if (!res.ok) throw new Error(`WooCommerce API ${res.status} en página ${page}: ${await res.text()}`);
     totalPages = Number(res.headers.get("X-WP-TotalPages")) || 1;
@@ -76,16 +83,18 @@ async function fetchSuscripcionesActivas(consumerKey: string, consumerSecret: st
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const dbUrl = process.env.DATABASE_URL;
+  const siteUrl = process.env.WOOCOMMERCE_SITE_URL;
   const ck = process.env.WOOCOMMERCE_CONSUMER_KEY;
   const cs = process.env.WOOCOMMERCE_CONSUMER_SECRET;
   if (!dbUrl) throw new Error("Falta DATABASE_URL en las variables de entorno");
+  if (!siteUrl) throw new Error("Falta WOOCOMMERCE_SITE_URL (URL actual del WordPress/WooCommerce — ya no es zplash.cl, ver comentario arriba)");
   if (!ck || !cs) throw new Error("Faltan WOOCOMMERCE_CONSUMER_KEY / WOOCOMMERCE_CONSUMER_SECRET");
 
   const client = postgres(dbUrl, { prepare: false, max: 5 });
   const db = drizzle(client);
 
   console.log("Trayendo suscripciones activas de WooCommerce...");
-  const subs = await fetchSuscripcionesActivas(ck, cs);
+  const subs = await fetchSuscripcionesActivas(siteUrl, ck, cs);
   console.log(`Total suscripciones activas: ${subs.length}`);
 
   const clientesExistentes = await db.select().from(clientes);
