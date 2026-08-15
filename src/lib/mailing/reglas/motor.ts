@@ -44,11 +44,11 @@ export async function ejecutarAccionReglaCorreo(
   const asunto = aplicarVariables(plantilla.asunto, variables);
   // El admin escribe texto plano en Web Settings → Mail Templates (ver
   // WebSettingsMailTab.tsx, un <textarea> simple); envolverCorreoBase le pone
-  // el diseño de marca (logo, acento dorado, footer) y convierte los
-  // párrafos a HTML — así el contenido queda editable sin HTML/CSS a mano y
-  // el correo se ve profesional igual.
-  const cuerpo = aplicarVariables(plantilla.cuerpo, variables);
-  const html = envolverCorreoBase(cuerpo);
+  // el diseño de marca (logo, acento dorado, footer), convierte los párrafos
+  // a HTML y recién ahí aplica las {{variables}} (nombre/patente/
+  // fechaVencimiento en negrita) — así el contenido queda editable sin
+  // HTML/CSS a mano y el correo se ve profesional igual.
+  const html = envolverCorreoBase(plantilla.cuerpo, variables);
   const resultado = await enviarCorreoTransaccional({ to: cliente.email, subject: asunto, html });
   await marcarDisparoReglaCorreo(disparoId, { estado: resultado.ok ? "enviado" : "error", error: resultado.error });
   return resultado.ok;

@@ -14,6 +14,15 @@ function escapeHtml(texto: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// Único formato que se admite en el texto plano del admin, aparte de
+// {{variables}}: **negrita** (sintaxis tipo WhatsApp/Markdown, no requiere
+// saber HTML). Corre después de escapeHtml — los asteriscos no son
+// caracteres especiales de HTML, así que es seguro envolverlos en <strong>
+// sobre el texto ya escapado.
+function negritaMarkdownAHtml(textoEscapado: string): string {
+  return textoEscapado.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
 // Convierte texto plano (líneas en blanco separan párrafos, igual que
 // escribir un correo normal) a HTML seguro — el admin escribe texto corrido
 // en el textarea, no HTML a mano.
@@ -22,12 +31,29 @@ function textoPlanoAHtml(texto: string): string {
     .split(/\n{2,}/)
     .map((parrafo) => parrafo.trim())
     .filter(Boolean)
-    .map((parrafo) => `<p style="margin:0 0 16px;">${escapeHtml(parrafo).replace(/\n/g, "<br>")}</p>`)
+    .map((parrafo) => `<p style="margin:0 0 16px;">${negritaMarkdownAHtml(escapeHtml(parrafo).replace(/\n/g, "<br>"))}</p>`)
     .join("");
 }
 
-// Envuelve el cuerpo de una PlantillaCorreo (ya con las {{variables}}
-// aplicadas, ver aplicarVariables en @/lib/helpers) en una plantilla base con
+// Variables que van resaltadas en negrita dentro del cuerpo — los datos que
+// identifican la operación (a quién, qué patente, hasta cuándo), no el resto
+// (plan/monto siguen en texto normal, se pidió negrita solo para estos tres).
+const CAMPOS_NEGRITA = new Set(["nombre", "patente", "fechaVencimiento"]);
+
+// Reemplaza {{variables}} directamente sobre el HTML que ya devolvió
+// textoPlanoAHtml (en vez de sobre el texto plano, antes de escapar) para
+// poder envolver nombre/patente/fechaVencimiento en <strong> sin que
+// escapeHtml se coma esas etiquetas — cada valor se escapa acá mismo porque
+// el texto que lo rodea ya pasó por escapeHtml antes de este reemplazo.
+function aplicarVariablesHtml(html: string, variables: Record<string, string>): string {
+  return html.replace(/\{\{(\w+)\}\}/g, (_, clave: string) => {
+    const valor = escapeHtml(variables[clave] ?? "");
+    return CAMPOS_NEGRITA.has(clave) ? `<strong>${valor}</strong>` : valor;
+  });
+}
+
+// Envuelve el cuerpo de una PlantillaCorreo (con las {{variables}} todavía
+// sin aplicar — ver aplicarVariablesHtml arriba) en una plantilla base con
 // diseño de marca — header con el logo, acento dorado y footer de contacto —
 // para que un correo automático se vea profesional sin que el admin tenga
 // que escribir HTML/CSS a mano en el textarea de Web Settings → Mail
@@ -38,8 +64,8 @@ function textoPlanoAHtml(texto: string): string {
 // Layout basado en tablas con estilos inline (no <style> ni flexbox/grid):
 // es el único patrón que renderiza consistente en Outlook de escritorio,
 // que sigue usando el motor de Word para HTML y no soporta CSS moderno.
-export function envolverCorreoBase(cuerpoPlano: string): string {
-  const contenido = textoPlanoAHtml(cuerpoPlano);
+export function envolverCorreoBase(cuerpoPlantilla: string, variables: Record<string, string>): string {
+  const contenido = aplicarVariablesHtml(textoPlanoAHtml(cuerpoPlantilla), variables);
   return `<!DOCTYPE html>
 <html lang="es">
 <head>

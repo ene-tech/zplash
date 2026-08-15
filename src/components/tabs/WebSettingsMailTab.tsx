@@ -103,9 +103,11 @@ export default function WebSettingsMailTab() {
           Una plantilla por cada situación del proceso de venta o suscripción (confirmación de compra, pago rechazado,
           vencimiento próximo, etc.) o para comunicación de ofertas y servicios. Escribe el cuerpo como texto normal
           (una línea en blanco separa párrafos) — el diseño de marca (logo, colores, footer de contacto) se agrega
-          automáticamente al enviar, no hace falta escribir HTML. En el cuerpo puedes usar{" "}
+          automáticamente al enviar, no hace falta escribir HTML. Usa <code>{"**texto**"}</code> para negrita. En el
+          cuerpo puedes usar{" "}
           <code>{"{{nombre}}"}</code>, <code>{"{{patente}}"}</code>, <code>{"{{plan}}"}</code>, <code>{"{{monto}}"}</code> y{" "}
-          <code>{"{{fechaVencimiento}}"}</code>.
+          <code>{"{{fechaVencimiento}}"}</code> (<code>{"{{nombre}}"}</code>, <code>{"{{patente}}"}</code> y{" "}
+          <code>{"{{fechaVencimiento}}"}</code> salen siempre en negrita).
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <div className="field" style={{ flex: 1, minWidth: 200 }}>
