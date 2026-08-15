@@ -52,8 +52,8 @@ export function ConsultaTickets() {
     <div className="card">
       <h3>📋 Consulta el uso de tus tickets</h3>
       <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 14 }}>
-        Ingresa el RUT con el que compraste tu Pack Empresa y revisa qué tickets están disponibles, cuáles se usaron
-        y en qué patente.
+        Ingresa el RUT con el que compraste tus tickets y revisa cuáles están disponibles, cuáles se usaron y en qué
+        patente.
       </p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
         <input

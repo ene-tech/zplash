@@ -55,7 +55,7 @@ const REDIRECTS_LEGACY_WORDPRESS: { source: string; destination: string }[] = [
   { source: "/planes", destination: "/servicios/plan-mensual" },
   { source: "/tipos-de-laavdo", destination: "/#lavados" }, // typo del slug original, pero está indexado y recibe clics igual
   { source: "/lavado-pro", destination: "/servicios/full-tunnel" },
-  { source: "/empresas", destination: "/#venta-empresa" },
+  { source: "/empresas", destination: "/#lavados" },
   { source: "/registrate", destination: "/cliente" },
   { source: "/landing", destination: "/" },
   { source: "/about", destination: "/" }, // página demo del tema, sin contenido propio
@@ -69,18 +69,19 @@ const REDIRECTS_LEGACY_WORDPRESS: { source: string; destination: string }[] = [
   { source: "/producto/plan-lavado-mensual-promocion", destination: "/servicios/plan-mensual" }, // el bot de WhatsApp linkeaba directo acá — ver lib/helpers/whatsapp.ts
   { source: "/producto/lavado-de-tapiz", destination: "/servicios/tapiz" },
   { source: "/producto/promo-lavado", destination: "/#lavados" },
-  // Los packs de 10/20/30/40 tickets siguen vigentes — hoy viven como "Packs
-  // de tickets para tu flota" en Venta a Empresa (ver PACKS_EMPRESA en
-  // lib/helpers/precios.ts, mismas 4 cantidades), no como producto suelto.
-  { source: "/producto/10-tickets-de-lavado", destination: "/#venta-empresa" },
-  { source: "/producto/20-tickets-de-lavado", destination: "/#venta-empresa" },
-  { source: "/producto/30-tickets-de-lavado", destination: "/#venta-empresa" },
-  { source: "/producto/40-tickets-de-lavado", destination: "/#venta-empresa" },
+  // Los tickets de lavado siguen vigentes — hoy viven como un solo producto
+  // ampliable (10+ tickets) dentro de Tipo de Lavados (ver CANTIDAD_MINIMA_TICKETS
+  // en lib/helpers/precios.ts), no como los 4 packs fijos de antes ni como
+  // producto suelto.
+  { source: "/producto/10-tickets-de-lavado", destination: "/#lavados" },
+  { source: "/producto/20-tickets-de-lavado", destination: "/#lavados" },
+  { source: "/producto/30-tickets-de-lavado", destination: "/#lavados" },
+  { source: "/producto/40-tickets-de-lavado", destination: "/#lavados" },
 
   // Taxonomías y archivos automáticos de WordPress/WooCommerce
   { source: "/categoria-producto/planes", destination: "/servicios/plan-mensual" },
   { source: "/categoria-producto/membresia", destination: "/#lavados" },
-  { source: "/categoria-producto/ticket-empresas", destination: "/#venta-empresa" },
+  { source: "/categoria-producto/ticket-empresas", destination: "/#lavados" },
   { source: "/etiqueta-producto/1-mes", destination: "/servicios/plan-mensual" },
   { source: "/categoria-producto/sin-categorizar", destination: "/" },
   { source: "/category/uncategorized", destination: "/" },

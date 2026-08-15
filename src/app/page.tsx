@@ -2,7 +2,6 @@ import AnnounceBar from "@/components/cliente/AnnounceBar";
 import SiteNav from "@/components/cliente/SiteNav";
 import TiposLavadoTab from "@/components/cliente/TiposLavadoTab";
 import DetailingTab from "@/components/cliente/DetailingTab";
-import VentaEmpresaInfoTab from "@/components/cliente/VentaEmpresaInfoTab";
 import FaqTab from "@/components/cliente/FaqTab";
 import UbicacionTab from "@/components/cliente/UbicacionTab";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
@@ -28,11 +27,6 @@ export default async function LandingPage() {
 
         <div id="detailing" className="anchor-section">
           <DetailingTab precios={precios} />
-        </div>
-
-        <div id="venta-empresa" className="anchor-section">
-          <h2 className="section-title">Pack de Tickets</h2>
-          <VentaEmpresaInfoTab precios={precios} />
         </div>
 
         <div id="faq" className="anchor-section">

@@ -37,9 +37,9 @@ export interface ConfigGlobal {
   horarioOperadorFindeInicio: string;
   horarioOperadorFindeFin: string;
   festivos: string[];
-  // Días de vigencia de los tickets de un Pack Empresa (ver PACKS_EMPRESA en
-  // helpers.ts), editable en Web Settings — a propósito no amarrado a los 90
-  // días fijos de otros productos.
+  // Días de vigencia de los tickets del Pack de Tickets (ver TICKETS_KEY en
+  // helpers/precios.ts), editable en Web Settings — a propósito no amarrado a
+  // los 90 días fijos de otros productos.
   vigenciaDiasPackEmpresa: number;
   // Escala de precio de renovación preferencial para clientes Local (origen
   // distinto de "WEB") según su cantidad de visitas acumuladas

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { pagosWebpay, pagosWebpayItems, precios } from "@/db/schema";
-import { formatRut, isValidEmail, isValidPatente, isValidRut, normPlate, packEmpresaPorCantidad, precioPackEmpresa } from "@/lib/helpers";
+import { CANTIDAD_MAXIMA_TICKETS, CANTIDAD_MINIMA_TICKETS, formatRut, isValidEmail, isValidPatente, isValidRut, normPlate, precioTickets } from "@/lib/helpers";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { webpayTransaction } from "@/lib/transbank";
 
@@ -48,9 +48,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
     }
 
-    const pack = packEmpresaPorCantidad(Number(body.cantidad));
-    if (!pack) {
-      return NextResponse.json({ error: "Pack inválido" }, { status: 400 });
+    const cantidad = Math.round(Number(body.cantidad));
+    if (!Number.isInteger(cantidad) || cantidad < CANTIDAD_MINIMA_TICKETS || cantidad > CANTIDAD_MAXIMA_TICKETS) {
+      return NextResponse.json(
+        { error: `Cantidad inválida, entre ${CANTIDAD_MINIMA_TICKETS} y ${CANTIDAD_MAXIMA_TICKETS} tickets` },
+        { status: 400 }
+      );
     }
 
     const tipoDocumento = body.tipoDocumento as TipoDocumento;
@@ -107,7 +110,7 @@ export async function POST(request: NextRequest) {
     const db = getDb();
     const filasPrecios = await db.select().from(precios);
     const preciosMap = Object.fromEntries(filasPrecios.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
-    const monto = precioPackEmpresa(preciosMap, pack.cantidad);
+    const monto = precioTickets(preciosMap, cantidad);
     if (!monto || monto <= 0) {
       return NextResponse.json({ error: "No se pudo calcular el monto a cobrar" }, { status: 500 });
     }
@@ -130,7 +133,7 @@ export async function POST(request: NextRequest) {
       id: `${buyOrder}-0`,
       buyOrder,
       tipo: "pack_empresa",
-      nombre: pack.key,
+      nombre: `${cantidad} Tickets`,
       monto,
       tipoDocumento,
       razonSocial: razonSocial || null,
@@ -139,7 +142,7 @@ export async function POST(request: NextRequest) {
       giro: giro || null,
       email,
       nombreLote: nombreLote || null,
-      cantidadCupones: pack.cantidad,
+      cantidadCupones: cantidad,
       patentesAutorizadas: patentes.length ? patentes : null,
     });
 

@@ -4,15 +4,16 @@ import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import {
+  CANTIDAD_MINIMA_TICKETS,
   CATEGORIA_DETAILING,
   fmtCLP,
-  PACKS_EMPRESA,
   PLANES,
   PLAN_ONECLICK_KEY,
   precioNormal,
-  precioPackEmpresa,
   precioPlanOneclick,
   precioServicio,
+  precioTickets,
+  TICKETS_KEY,
 } from "@/lib/helpers";
 import { TAMANOS_VEHICULO, TAMANO_LABEL, type TamanoVehiculo } from "@/types";
 
@@ -24,8 +25,8 @@ export default function WebSettingsTab() {
   const [renovacionAutoVal, setRenovacionAutoVal] = useState(() => String(precioPlanOneclick(data.precios)));
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
 
-  const [packsVal, setPacksVal] = useState<Record<number, string>>(() =>
-    Object.fromEntries(PACKS_EMPRESA.map((p) => [p.cantidad, String(precioPackEmpresa(data.precios, p.cantidad))]))
+  const [precioTicketsVal, setPrecioTicketsVal] = useState(() =>
+    String(precioTickets(data.precios, CANTIDAD_MINIMA_TICKETS))
   );
   const [vigenciaVal, setVigenciaVal] = useState(() => String(data.config.vigenciaDiasPackEmpresa));
   const [msgEmpresa, setMsgEmpresa] = useState<{ texto: string; ok: boolean } | null>(null);
@@ -51,13 +52,11 @@ export default function WebSettingsTab() {
 
   const guardarEmpresa = async () => {
     const precios = { ...data.precios };
-    for (const pack of PACKS_EMPRESA) {
-      precios[pack.key] = { normal: Number(packsVal[pack.cantidad]) || 0, promo: 0 };
-    }
+    precios[TICKETS_KEY] = { normal: Number(precioTicketsVal) || 0, promo: 0 };
     const vigenciaDiasPackEmpresa = Math.max(1, Number(vigenciaVal) || 0);
     const ok = await commit({ precios, config: { ...data.config, vigenciaDiasPackEmpresa } });
     setMsgEmpresa({
-      texto: ok ? "Packs Empresa actualizados correctamente" : "No se pudo guardar (sin conexión). Intenta de nuevo.",
+      texto: ok ? "Pack de tickets actualizado correctamente" : "No se pudo guardar (sin conexión). Intenta de nuevo.",
       ok,
     });
   };
@@ -108,22 +107,18 @@ export default function WebSettingsTab() {
       </div>
 
       <div className="modal" style={{ maxWidth: 420, margin: 0 }}>
-        <h3>Packs Empresa (venta online)</h3>
+        <h3>Pack de Tickets (venta online)</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-          Precios (IVA incluido) de los 4 packs de tickets que se venden en la pestaña &quot;Venta a Empresa&quot; del portal
-          cliente, y cuántos días de vigencia tienen los tickets desde que se compran — a propósito no está
-          amarrado a los 90 días de otros productos.
+          Precio (IVA incluido) del pack base de {CANTIDAD_MINIMA_TICKETS} tickets que se vende en &quot;Tipo de
+          Lavados&quot; del portal cliente — define también el precio unitario para cantidades mayores — y cuántos
+          días de vigencia tienen los tickets desde que se compran, a propósito no amarrado a los 90 días de otros
+          productos.
         </div>
 
-        {PACKS_EMPRESA.map((pack) => (
-          <div className="field" key={pack.cantidad}>
-            <label>{pack.cantidad} Tickets</label>
-            <PriceInput
-              value={packsVal[pack.cantidad]}
-              onChange={(v) => setPacksVal((prev) => ({ ...prev, [pack.cantidad]: v }))}
-            />
-          </div>
-        ))}
+        <div className="field">
+          <label>{CANTIDAD_MINIMA_TICKETS} Tickets</label>
+          <PriceInput value={precioTicketsVal} onChange={setPrecioTicketsVal} />
+        </div>
 
         <div className="field">
           <label>Días de vigencia de los tickets</label>
@@ -132,7 +127,7 @@ export default function WebSettingsTab() {
 
         <div className="err" style={{ color: msgEmpresa?.ok ? "var(--green)" : undefined }}>{msgEmpresa?.texto || ""}</div>
         <button className="btn" onClick={guardarEmpresa}>
-          Guardar Packs Empresa
+          Guardar Pack de Tickets
         </button>
       </div>
 

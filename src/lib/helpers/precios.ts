@@ -98,6 +98,14 @@ export function precioUpgradePlan(precios: Precios): number {
  * reciente, y solo si ocurrió hace menos de `horasVentana` (ver
  * ConfigGlobal.horasVentanaUpgradePlan) — pasada esa ventana el lavado ya se
  * disfrutó sin plan y la promoción deja de tener sentido.
+ *
+ * Cuenta tanto un "Lavado único" presencial como un "Lavado único (Web)"
+ * (ver LAVADO_UNICO_WEB_TIPO) YA CANJEADO (`canjeadaEn` presente, ver
+ * registrarIngresoLavadoWeb en @/lib/logic/ingresos) — recién ahí el cliente
+ * efectivamente pasó por el túnel sin plan, mismo hecho que dispara la
+ * promoción para el presencial. Uno sin canjear sigue siendo un vale
+ * pendiente de usar (ver ventaLavadoWebPendiente): ofrecerle el upgrade
+ * antes de eso dejaría ese vale huérfano, sin nadie que lo canjee.
  */
 export function ventaUpgradeElegible(
   ventas: Venta[],
@@ -106,7 +114,11 @@ export function ventaUpgradeElegible(
   ahora: Date = new Date()
 ): Venta | undefined {
   const ultima = ventas
-    .filter((v) => v.clienteId === clienteId && v.tipo === "Lavado único")
+    .filter(
+      (v) =>
+        v.clienteId === clienteId &&
+        (v.tipo === LAVADO_UNICO_KEY || (v.tipo === LAVADO_UNICO_WEB_TIPO && !!v.canjeadaEn))
+    )
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
   if (!ultima) return undefined;
   const msDesde = ahora.getTime() - new Date(ultima.fecha).getTime();
@@ -153,30 +165,42 @@ export function fmtHorasVentanaUpgradePlan(horas: number): string {
   return horas === 1 ? "1 hora" : `${horas} horas`;
 }
 
-/** Catálogo fijo de los 4 packs de tickets para empresas (flotas, automotoras,
- * rent a car, talleres mecánicos), vendidos online con Webpay desde la
- * pestaña "Venta a Empresa" del portal cliente. `key` es la clave usada
- * dentro de `Precios` (mismo patrón que PLAN_ONECLICK_KEY/UPGRADE_PLAN_KEY),
- * y `precioDefault` es el valor IVA incluido publicado en zplash.cl/empresas/
- * mientras el administrador no lo edite desde Web Settings. */
-export const PACKS_EMPRESA = [
-  { cantidad: 10, key: "Pack Empresa 10 Tickets", precioDefault: 89990 },
-  { cantidad: 20, key: "Pack Empresa 20 Tickets", precioDefault: 159990 },
-  { cantidad: 30, key: "Pack Empresa 30 Tickets", precioDefault: 224990 },
-  { cantidad: 40, key: "Pack Empresa 40 Tickets", precioDefault: 279600 },
-] as const;
+/** Cantidad mínima de tickets de lavado vendibles online (tarjeta "10 Tickets
+ * de Lavado" en Tipo de Lavados) — reemplaza a los 4 tiers fijos de
+ * PACKS_EMPRESA (10/20/30/40) que existían cuando este producto vivía en la
+ * zona "Venta Empresa", ya retirada. Desde acá el cliente puede comprar
+ * cualquier cantidad entera igual o mayor a esta, al mismo precio unitario. */
+export const CANTIDAD_MINIMA_TICKETS = 10;
 
-export type CantidadPackEmpresa = (typeof PACKS_EMPRESA)[number]["cantidad"];
+/** Tope superior de una sola compra online de tickets: los 4 tiers fijos que
+ * reemplaza esto topaban en 40, pero un cliente de flota legítimo puede
+ * necesitar bastante más — este límite existe solo para que una cantidad
+ * absurda (typo o intento de abuso, ej. 500.000) no dispare un cobro gigante
+ * por Transbank ni un insert masivo de cupones en una sola transacción (ver
+ * aplicarPagoPackEmpresa, que genera `cantidad` filas sincrónicamente). */
+export const CANTIDAD_MAXIMA_TICKETS = 500;
 
-export function packEmpresaPorCantidad(cantidad: number): (typeof PACKS_EMPRESA)[number] | undefined {
-  return PACKS_EMPRESA.find((p) => p.cantidad === cantidad);
+/** Precio IVA incluido de los `CANTIDAD_MINIMA_TICKETS` tickets base, mientras
+ * el administrador no lo edite desde Web Settings. */
+export const PRECIO_TICKETS_10_DEFAULT = 79990;
+
+/** Clave usada dentro de Precios para guardar el valor editable del pack base de tickets. */
+export const TICKETS_KEY = "Pack Tickets 10";
+
+/** Precio unitario vigente de un ticket de lavado, editable por el administrador vía el precio del pack base; si no se ha guardado uno, cae a PRECIO_TICKETS_10_DEFAULT / CANTIDAD_MINIMA_TICKETS. */
+export function precioTicketUnitario(precios: Precios): number {
+  // `!= null` (no un simple `||`): un admin que guarda $0 a propósito (ej.
+  // una promo puntual) es un valor configurado válido, no "todavía no
+  // configuré nada" — con `||` ese 0 se perdía y se cobraba igual el default.
+  const configurado = precios[TICKETS_KEY]?.normal;
+  const precio10 = configurado != null ? configurado : PRECIO_TICKETS_10_DEFAULT;
+  return precio10 / CANTIDAD_MINIMA_TICKETS;
 }
 
-/** Precio vigente de un pack empresa, editable por el administrador desde Web Settings; si no se ha guardado uno, usa precioDefault. */
-export function precioPackEmpresa(precios: Precios, cantidad: number): number {
-  const pack = packEmpresaPorCantidad(cantidad);
-  if (!pack) return 0;
-  return (precios[pack.key] && precios[pack.key].normal) || pack.precioDefault;
+/** Precio total por comprar `cantidad` tickets (debe ser un entero entre CANTIDAD_MINIMA_TICKETS y CANTIDAD_MAXIMA_TICKETS, si no retorna 0). */
+export function precioTickets(precios: Precios, cantidad: number): number {
+  if (!Number.isInteger(cantidad) || cantidad < CANTIDAD_MINIMA_TICKETS || cantidad > CANTIDAD_MAXIMA_TICKETS) return 0;
+  return Math.round(precioTicketUnitario(precios) * cantidad);
 }
 
 export function fmtCLP(n: number): string {

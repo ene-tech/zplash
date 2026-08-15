@@ -21,7 +21,6 @@ const navFont = Archivo_Black({ weight: "400", subsets: ["latin"] });
 const SECCIONES = [
   { href: "#lavados", label: "Lavados" },
   { href: "#detailing", label: "Detailing" },
-  { href: "#venta-empresa", label: "Pack de Tickets" },
   { href: "#faq", label: "Preguntas Frecuentes" },
   { href: "#ubicacion", label: "Ubicación" },
 ];

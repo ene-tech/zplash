@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 const LIMITE_REQUESTS = 20;
 const VENTANA_MS = 5 * 60 * 1000;
 
-// Público: la empresa consulta el estado de sus tickets (Pack Empresa) sin
+// Público: la empresa consulta el estado de sus tickets (Pack de Tickets) sin
 // depender del admin, por RUT (widget "Consulta tickets") o por email (Mi
 // Cuenta, portal cliente) — ver "página pública de consulta por RUT" en el
 // plan. Solo expone lo necesario para el reporte (código, estado, patente/

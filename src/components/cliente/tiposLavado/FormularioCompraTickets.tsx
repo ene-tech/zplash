@@ -8,9 +8,22 @@ import { useSesionCliente } from "@/hooks/useSesionCliente";
 type TipoDocumento = "Boleta" | "Factura";
 type ModoPatente = "abierto" | "lista";
 
-export function FormularioCompra({ cantidad, precio }: { cantidad: number; precio: number }) {
+// A diferencia del viejo FormularioCompra (que recibía una cantidad fija por
+// pack, ver VentaEmpresaInfoTab hoy retirado), acá la cantidad es libre desde
+// `cantidadMinima` — el cliente la elige y el precio se recalcula en vivo con
+// `precioUnitario`.
+export function FormularioCompraTickets({
+  cantidadMinima,
+  cantidadMaxima,
+  precioUnitario,
+}: {
+  cantidadMinima: number;
+  cantidadMaxima: number;
+  precioUnitario: number;
+}) {
   const { sesion } = useSesionCliente();
   const patentesPropias = sesion?.vehiculos.map((v) => v.patente) ?? [];
+  const [cantidadTexto, setCantidadTexto] = useState(String(cantidadMinima));
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>("Boleta");
   const [email, setEmail] = useState("");
   const [nombreLote, setNombreLote] = useState("");
@@ -23,8 +36,16 @@ export function FormularioCompra({ cantidad, precio }: { cantidad: number; preci
   const [pagando, setPagando] = useState(false);
   const [err, setErr] = useState("");
 
+  const cantidad = Math.round(Number(cantidadTexto));
+  const cantidadValida = Number.isInteger(cantidad) && cantidad >= cantidadMinima && cantidad <= cantidadMaxima;
+  const precio = cantidadValida ? Math.round(precioUnitario * cantidad) : 0;
+
   async function comprar() {
     setErr("");
+    if (!cantidadValida) {
+      setErr(`Ingresa una cantidad válida, entre ${cantidadMinima} y ${cantidadMaxima} tickets`);
+      return;
+    }
     if (!isValidEmail(email)) {
       setErr("Ingresa un email válido. Ahí podrás ver tus tickets desde Mi Cuenta.");
       return;
@@ -81,6 +102,20 @@ export function FormularioCompra({ cantidad, precio }: { cantidad: number; preci
 
   return (
     <div className="card" style={{ marginTop: 12 }}>
+      <div className="field">
+        <label>Cantidad de tickets</label>
+        <input
+          type="number"
+          min={cantidadMinima}
+          max={cantidadMaxima}
+          step={1}
+          value={cantidadTexto}
+          onChange={(e) => setCantidadTexto(e.target.value)}
+        />
+        <div style={{ color: "var(--gray)", fontSize: 12, marginTop: 4 }}>
+          Entre {cantidadMinima} y {cantidadMaxima} tickets, a {fmtCLP(precioUnitario)} c/u.
+        </div>
+      </div>
       <div className="field">
         <label>Email</label>
         <input

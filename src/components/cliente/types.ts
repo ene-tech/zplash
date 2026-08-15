@@ -16,5 +16,9 @@ export interface PreciosPublicos {
     // vehículo (ver PreciosTamano) — hoy solo Lavado Completo Detailing.
     preciosTamano?: Record<TamanoVehiculo, number>;
   }[];
-  packsEmpresa: { cantidad: number; nombre: string; precio: number }[];
+  // Pack de tickets de lavado (ver TicketsCard en Tipo de Lavados): cantidad
+  // mínima y máxima comprable de una sola vez, el precio total de la mínima,
+  // el precio unitario para calcular el total de cualquier cantidad, y los
+  // días de vigencia configurados (ConfigGlobal.vigenciaDiasPackEmpresa).
+  tickets: { cantidadMinima: number; cantidadMaxima: number; precioBase: number; precioUnitario: number; vigenciaDias: number };
 }

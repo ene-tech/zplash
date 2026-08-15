@@ -45,9 +45,9 @@ export const PREGUNTAS: { q: string; a: string | string[] }[] = [
   {
     q: "¿Puedo comprar lavados para mi empresa?",
     a: [
-      "Sí, vendemos lotes de cupones de lavado para empresas.",
+      "Sí, vendemos lotes de tickets de lavado, desde 10.",
       "Con boleta o factura.",
-      "Revisa la pestaña \"Pack de Tickets\" para cotizar.",
+      "Revisa la sección \"Tipo de Lavados\" para comprarlos.",
     ],
   },
   {

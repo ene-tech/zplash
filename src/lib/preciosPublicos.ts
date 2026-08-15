@@ -1,15 +1,17 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { precios, preciosTamano, servicios } from "@/db/schema";
+import { config, precios, preciosTamano, servicios } from "@/db/schema";
 import {
-  PACKS_EMPRESA,
+  CANTIDAD_MAXIMA_TICKETS,
+  CANTIDAD_MINIMA_TICKETS,
   PLANES,
   precioLavadoUnicoWeb,
   precioNormal,
-  precioPackEmpresa,
   precioPlanOneclick,
   precioServicio,
+  precioTicketUnitario,
+  precioTickets,
   precioZonaAspirado,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
@@ -21,10 +23,11 @@ import type { PreciosPublicos } from "@/components/cliente/types";
 // cliente, p.ej. /pagar tras una interacción).
 export async function getPreciosPublicos(): Promise<PreciosPublicos> {
   const db = getDb();
-  const [filas, filasServicios, filasTamano] = await Promise.all([
+  const [filas, filasServicios, filasTamano, [configRow]] = await Promise.all([
     db.select().from(precios),
     db.select().from(servicios).where(eq(servicios.activo, true)),
     db.select().from(preciosTamano),
+    db.select({ vigenciaDiasPackEmpresa: config.vigenciaDiasPackEmpresa }).from(config).limit(1),
   ]);
   const preciosMap = Object.fromEntries(filas.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
   const preciosTamanoMap = Object.fromEntries(
@@ -44,10 +47,12 @@ export async function getPreciosPublicos(): Promise<PreciosPublicos> {
       precio: precioServicio(preciosMap, s.id),
       preciosTamano: preciosTamanoMap[s.id],
     })),
-    packsEmpresa: PACKS_EMPRESA.map((p) => ({
-      cantidad: p.cantidad,
-      nombre: p.key,
-      precio: precioPackEmpresa(preciosMap, p.cantidad),
-    })),
+    tickets: {
+      cantidadMinima: CANTIDAD_MINIMA_TICKETS,
+      cantidadMaxima: CANTIDAD_MAXIMA_TICKETS,
+      precioBase: precioTickets(preciosMap, CANTIDAD_MINIMA_TICKETS),
+      precioUnitario: precioTicketUnitario(preciosMap),
+      vigenciaDias: configRow?.vigenciaDiasPackEmpresa || 45,
+    },
   };
 }

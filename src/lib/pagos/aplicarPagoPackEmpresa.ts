@@ -8,8 +8,8 @@ import { generarCodigoCupon, movimientoContableDesdeVenta, uid } from "@/lib/hel
 type PagoWebpayItemRow = typeof pagosWebpayItems.$inferSelect;
 
 /**
- * Aplica un pago aprobado de un Pack Empresa (10/20/30/40 tickets, ver
- * PACKS_EMPRESA en @/lib/helpers): a diferencia de aplicarPagoAprobado, no
+ * Aplica un pago aprobado de un Pack de Tickets (cantidad libre desde
+ * CANTIDAD_MINIMA_TICKETS, ver @/lib/helpers/precios): a diferencia de aplicarPagoAprobado, no
  * CREA fila en `clientes` (no hay una sola patente de auto asociada —
  * `clientes.patente` es UNIQUE, así que varias compras de empresa con
  * patente "" chocarían) ni extiende ningún plan. En vez de eso genera el
@@ -31,7 +31,11 @@ export async function aplicarPagoPackEmpresa(
   }
 
   const [configRow] = await db.select({ vigenciaDiasPackEmpresa: config.vigenciaDiasPackEmpresa }).from(config).limit(1);
-  const vigenciaDias = configRow?.vigenciaDiasPackEmpresa || 365;
+  // 45 (no 365): mismo default que la columna en @/db/schema/config y que
+  // preciosPublicos.ts — este fallback solo aplica si la fila singleton de
+  // `config` faltara por completo, pero antes de este ajuste quedó
+  // desalineado con el nuevo default de vigencia del Pack de Tickets.
+  const vigenciaDias = configRow?.vigenciaDiasPackEmpresa || 45;
   const fechaCaducidad = new Date(Date.now() + vigenciaDias * 86400000).toISOString();
 
   const existentesRows = await db.select({ codigo: cupones.codigo }).from(cupones);

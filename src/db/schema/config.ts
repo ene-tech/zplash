@@ -13,10 +13,10 @@ export const config = pgTable("config", {
   horarioOperadorFindeInicio: text("horario_operador_finde_inicio").notNull().default("09:55"),
   horarioOperadorFindeFin: text("horario_operador_finde_fin").notNull().default("19:15"),
   festivos: jsonb("festivos").$type<string[]>().notNull().default([]),
-  // Días de vigencia de los tickets de un Pack Empresa (ver PACKS_EMPRESA en
-  // helpers.ts) desde su fecha de compra/generación — editable en Web
+  // Días de vigencia de los tickets del Pack de Tickets (ver TICKETS_KEY en
+  // helpers/precios.ts) desde su fecha de compra/generación — editable en Web
   // Settings, a propósito NO amarrado a los 90 días fijos de otros productos.
-  vigenciaDiasPackEmpresa: integer("vigencia_dias_pack_empresa").notNull().default(365),
+  vigenciaDiasPackEmpresa: integer("vigencia_dias_pack_empresa").notNull().default(45),
   // Escala de precio de renovación preferencial por visitas para clientes
   // Local, keyed por plan (ver TramoRenovacionLocal/precioRenovacionLocal en
   // @/types y @/lib/helpers).

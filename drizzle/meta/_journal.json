@@ -407,6 +407,13 @@
       "when": 1786706869339,
       "tag": "0057_sweet_gambit",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1786754465647,
+      "tag": "0058_boring_solo",
+      "breakpoints": true
     }
   ]
 }

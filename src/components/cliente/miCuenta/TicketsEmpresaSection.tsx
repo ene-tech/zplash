@@ -19,9 +19,9 @@ function estadoClase(estado: string): "ok" | "warn" | "bad" {
 
 // A diferencia del resto de MiCuentaTab (vehículos/tarjetas/detailing, ver
 // *_DEMO ahí), esta sección SÍ es real: busca en /api/empresa/tickets por el
-// email de la sesión — funciona apenas alguien compra un Pack Empresa con
-// ese correo (ver FormularioCompra en VentaEmpresaInfoTab), sin depender de
-// que el login con Google esté conectado de verdad.
+// email de la sesión — funciona apenas alguien compra tickets con ese correo
+// (ver FormularioCompraTickets en TicketsCard, dentro de Tipo de Lavados),
+// sin depender de que el login con Google esté conectado de verdad.
 // Se instancia con key={email} en los call sites para que un cambio de
 // correo remonte el componente en vez de reutilizar el estado — así
 // `cargando` arranca en `true` sin necesidad de resetearlo desde el efecto.
