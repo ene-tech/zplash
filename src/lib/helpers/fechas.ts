@@ -1,6 +1,14 @@
-/** Clave "YYYY-MM" de una fecha ISO, usada para filtrar movimientos por mes. */
+/** Clave "YYYY-MM" de una fecha ISO en hora de Chile (no en la hora local del
+ * proceso), usada para filtrar movimientos contables por mes y como guarda
+ * anti-doble-cobro de los ciclos Oneclick (ver cobrarSuscripcion/
+ * cobrarOfertaOneclick en @/lib/pagos). Antes usaba los componentes UTC de
+ * `Date` directo: en producción el server corre en UTC, así que un cobro
+ * hecho en las últimas horas de un mes chileno (pero ya "el 1" en UTC) quedaba
+ * etiquetado con el mes siguiente, y el chequeo de "¿ya se cobró este ciclo?"
+ * no lo encontraba — dejaba pasar un segundo cobro real cerca del cambio de
+ * mes. Reusa la misma conversión que ahoraEnSantiago (ver más abajo). */
 export function mesKey(fecha: string): string {
-  const d = new Date(fecha);
+  const d = fechaEnSantiago(new Date(fecha));
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
 }
 
@@ -53,14 +61,14 @@ export function esFinDeSemanaOFestivo(fecha: Date, festivos: string[]): boolean 
   return festivos.includes(ymd(fecha));
 }
 
-/** Reempaqueta la hora actual real como si fuera hora local del proceso, pero con
+/** Reempaqueta una fecha real como si fuera hora local del proceso, pero con
  * los componentes (año/mes/día/hora/minuto) de la zona horaria del negocio
  * (America/Santiago). Así, sin importar en qué TZ corra el servidor (en
  * producción, Node/Vercel suele correr en UTC), `getHours()`/`getDay()`/etc.
- * sobre el resultado devuelven la hora de pared de Chile — necesario para que
- * dentroDeHorarioOperador compare la hora configurada contra la hora real del
- * local y no contra la hora UTC del servidor. */
-export function ahoraEnSantiago(): Date {
+ * sobre el resultado devuelven la hora de pared de Chile para esa fecha —
+ * separada de ahoraEnSantiago (el caso "ahora mismo") para que mesKey pueda
+ * convertir una fecha arbitraria sin duplicar el Intl.DateTimeFormat. */
+function fechaEnSantiago(fecha: Date): Date {
   const partes = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Santiago",
     year: "numeric",
@@ -70,10 +78,17 @@ export function ahoraEnSantiago(): Date {
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
-  }).formatToParts(new Date());
+  }).formatToParts(fecha);
   const get = (tipo: string) => Number(partes.find((p) => p.type === tipo)!.value);
   // La hora "24" de Intl para medianoche se mapea a 0 en el constructor de Date.
   return new Date(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"), get("second"));
+}
+
+/** `fechaEnSantiago` para el instante actual — necesario para que
+ * dentroDeHorarioOperador compare la hora configurada contra la hora real del
+ * local y no contra la hora UTC del servidor. */
+export function ahoraEnSantiago(): Date {
+  return fechaEnSantiago(new Date());
 }
 
 /** Primer día del mes actual, en formato YYYY-MM-DD. */

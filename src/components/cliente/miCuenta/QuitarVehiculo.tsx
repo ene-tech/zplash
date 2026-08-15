@@ -7,8 +7,21 @@ import { useState } from "react";
 // historial de compras de ese vehículo, solo lo desvincula de esta cuenta —
 // mismo criterio de "cuenta" que usa el login por OTP (clientes.email no es
 // único, un correo puede resolver a varias patentes).
-export function QuitarVehiculo({ patente, onQuitado }: { patente: string; onQuitado: () => void }) {
-  const [confirmando, setConfirmando] = useState(false);
+//
+// Controlado desde VehiculoCard (menú "⋮" de la tarjeta): el trigger vive
+// en el DropdownMenu, este componente solo pinta el modal de confirmación
+// cuando `abierto` es true.
+export function QuitarVehiculo({
+  patente,
+  abierto,
+  onCerrar,
+  onQuitado,
+}: {
+  patente: string;
+  abierto: boolean;
+  onCerrar: () => void;
+  onQuitado: () => void;
+}) {
   const [quitando, setQuitando] = useState(false);
   const [error, setError] = useState("");
 
@@ -27,7 +40,8 @@ export function QuitarVehiculo({ patente, onQuitado }: { patente: string; onQuit
         setQuitando(false);
         return;
       }
-      setConfirmando(false);
+      setQuitando(false);
+      onCerrar();
       onQuitado();
     } catch {
       setError("Sin conexión. Intenta de nuevo.");
@@ -35,37 +49,26 @@ export function QuitarVehiculo({ patente, onQuitado }: { patente: string; onQuit
     }
   }
 
-  return (
-    <>
-      <button
-        type="button"
-        className="btn ghost"
-        style={{ marginTop: 8, padding: "6px 10px", fontSize: 12.5 }}
-        onClick={() => setConfirmando(true)}
-      >
-        Quitar de mi cuenta
-      </button>
+  if (!abierto) return null;
 
-      {confirmando && (
-        <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 400 }}>
-            <h3>Quitar patente {patente}</h3>
-            <div style={{ color: "var(--white)", fontSize: 14, lineHeight: 1.5, marginBottom: 10 }}>
-              Este vehículo dejará de aparecer en tu cuenta. Su plan y su historial de compras no se
-              cancelan ni se eliminan — si más adelante lo necesitas de vuelta, contáctanos.
-            </div>
-            {error && <div className="err">{error}</div>}
-            <div className="modal-actions">
-              <button type="button" className="btn ghost" onClick={() => setConfirmando(false)} disabled={quitando}>
-                Cancelar
-              </button>
-              <button type="button" className="btn danger" onClick={quitar} disabled={quitando}>
-                {quitando ? "Quitando..." : "Sí, quitar"}
-              </button>
-            </div>
-          </div>
+  return (
+    <div className="modal-overlay">
+      <div className="modal" style={{ maxWidth: 400 }}>
+        <h3>Quitar patente {patente}</h3>
+        <div style={{ color: "var(--white)", fontSize: 14, lineHeight: 1.5, marginBottom: 10 }}>
+          Este vehículo dejará de aparecer en tu cuenta. Su plan y su historial de compras no se
+          cancelan ni se eliminan — si más adelante lo necesitas de vuelta, contáctanos.
         </div>
-      )}
-    </>
+        {error && <div className="err">{error}</div>}
+        <div className="modal-actions">
+          <button type="button" className="btn ghost" onClick={onCerrar} disabled={quitando}>
+            Cancelar
+          </button>
+          <button type="button" className="btn danger" onClick={quitar} disabled={quitando}>
+            {quitando ? "Quitando..." : "Sí, quitar"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

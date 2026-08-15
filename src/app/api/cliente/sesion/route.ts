@@ -24,6 +24,14 @@ export async function GET() {
         vencimiento: c.vencimiento || null,
         patentePendiente: c.patentePendiente || null,
         patentePendienteDesde: c.patentePendienteDesde || null,
+        // Datos de facturación vigentes (ver DatosFacturacion en @/types):
+        // los usa DatosFacturacionSection para mostrar/editar la empresa
+        // inscrita para Factura en vez de Boleta.
+        tipoDocumento: c.tipoDocumento,
+        razonSocial: c.razonSocial,
+        rut: c.rut,
+        direccion: c.direccion,
+        giro: c.giro,
       };
     }),
   };

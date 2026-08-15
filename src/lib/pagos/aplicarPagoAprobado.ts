@@ -5,6 +5,7 @@ import { getDb, type DbOrTx } from "@/db";
 import { clientes, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
 import { PLANES, movimientoContableDesdeVenta, resolverPatentePendiente, sigueVigenteHoy, uid, vencimientoAnclado } from "@/lib/helpers";
+import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorCambioPatente, evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Cliente, Venta } from "@/types";
 
@@ -52,10 +53,21 @@ interface AplicarPagoParams {
  * extendería de nuevo, gratis). Los tres llamadores (webpay/retorno,
  * cobrarSuscripcion x2) ahora pasan su propia transacción.
  */
-export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = getDb()): Promise<{ clienteId: string }> {
+export async function aplicarPagoAprobado(
+  p: AplicarPagoParams,
+  db: DbOrTx = getDb()
+): Promise<{ clienteId: string; vencimiento: string | null }> {
   const [existente] = await db.select().from(clientes).where(eq(clientes.patente, p.patente)).limit(1);
 
   let clienteId: string;
+  // Vencimiento resultante tras aplicar este pago — devuelto para que
+  // cobrarOfertaOneclick pueda anclar `suscripcionesOneclick.proximoCobro` al
+  // vencimiento REAL en vez de a un "hoy + 30 días" a ciegas (ver ese
+  // comentario en cobrarOfertaOneclick.ts para el desfase que esto evita).
+  // Por defecto queda en lo que ya tenía `existente` (ej. rama
+  // esServicioAdicional, que no toca vencimiento); las otras dos ramas lo
+  // reasignan a lo que efectivamente escriben.
+  let vencimientoResultante: string | null = existente?.vencimiento ?? null;
   let cambioPatente: { cliente: Cliente; patenteAnterior: string } | undefined;
   if (p.esServicioAdicional) {
     if (existente) {
@@ -86,6 +98,7 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
     const nuevoVencimiento = sigueVigenteHoy(existente.vencimiento)
       ? addDaysISO(existente.vencimiento!, 30)
       : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
+    vencimientoResultante = nuevoVencimiento;
     clienteId = existente.id;
     const anterior = clienteFromRow(existente);
     // Resuelve un cambio de patente pendiente (ver clientes.patente_pendiente,
@@ -118,12 +131,13 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
     }
   } else {
     clienteId = uid();
+    vencimientoResultante = addDaysISO(new Date().toISOString(), 30);
     await db.insert(clientes).values({
       id: clienteId,
       nombre: "Cliente Web",
       patente: p.patente,
       plan: PLANES[0],
-      vencimiento: addDaysISO(new Date().toISOString(), 30),
+      vencimiento: vencimientoResultante,
       fechaContratacion: new Date().toISOString(),
       origen: "WEB",
       visitas: 0,
@@ -158,8 +172,10 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
 
   // A diferencia de insertVentas (@/lib/dataAccess/ventas), esta función no
   // pasa por ahí — es el choke point de ventas confirmadas por un pago
-  // externo (Webpay, Oneclick), así que dispara las reglas WhatsApp acá
-  // mismo, fire-and-forget, mismo patrón que insertVentas.ts.
+  // externo (Webpay, Oneclick), así que dispara las reglas de WhatsApp y de
+  // correo acá mismo, fire-and-forget, mismo patrón que insertVentas.ts (las
+  // ventas Web/Oneclick se quedaban sin correo de confirmación porque esta
+  // función solo llamaba a evaluarReglasPorVenta de WhatsApp).
   const venta: Venta = {
     id: p.ventaId,
     clienteId,
@@ -178,6 +194,7 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
   // función viva hasta que termine el envío (ver mismo fix en dataAccess/
   // ventas.ts::insertVentas).
   after(() => evaluarReglasPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta (pago externo)", error)));
+  after(() => evaluarReglasCorreoPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de correo por venta (pago externo)", error)));
   if (cambioPatente) {
     const { cliente: clienteCambiado, patenteAnterior } = cambioPatente;
     after(() =>
@@ -209,5 +226,5 @@ export async function aplicarPagoAprobado(p: AplicarPagoParams, db: DbOrTx = get
       .onConflictDoUpdate({ target: movimientosContables.id, set: movimientoRow });
   }
 
-  return { clienteId };
+  return { clienteId, vencimiento: vencimientoResultante };
 }

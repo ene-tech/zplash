@@ -14,6 +14,9 @@ import {
   precioServicio,
   precioZonaAspirado,
 } from "@/lib/helpers";
+import { leerSesionCliente } from "@/lib/auth/clienteSession";
+import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
+import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { webpayTransaction } from "@/lib/transbank";
 
@@ -23,9 +26,29 @@ const LIMITE_REQUESTS = 10;
 const VENTANA_MS = 5 * 60 * 1000;
 const MAX_ITEMS = 20;
 
-type TipoPago = "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" | "aspirado";
-const TIPOS_VALIDOS = new Set<TipoPago>(["plan_nuevo", "renovacion", "servicio", "lavado_unico", "aspirado"]);
-const TIPOS_PLAN = new Set<TipoPago>(["plan_nuevo", "renovacion"]);
+type TipoPago = "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" | "aspirado" | "renovacion_temprana" | "reactivacion" | "upgrade_plan";
+const TIPOS_VALIDOS = new Set<TipoPago>([
+  "plan_nuevo",
+  "renovacion",
+  "servicio",
+  "lavado_unico",
+  "aspirado",
+  "renovacion_temprana",
+  "reactivacion",
+  "upgrade_plan",
+]);
+const TIPOS_PLAN = new Set<TipoPago>(["plan_nuevo", "renovacion", "renovacion_temprana", "reactivacion", "upgrade_plan"]);
+// Promociones personales de Mi Cuenta (ver @/lib/helpers/ofertasPlan): a
+// diferencia del resto de los tipos, públicos por patente, estas exigen
+// sesión de Mi Cuenta y que la patente sea de una de las suyas — no son una
+// acción pública como pagar cualquier patente, son un descuento ligado a la
+// cuenta autenticada.
+const TIPOS_PROMO_CUENTA = new Set<TipoPago>(["renovacion_temprana", "reactivacion", "upgrade_plan"]);
+const NOMBRE_PROMO: Record<string, string> = {
+  renovacion_temprana: "Renovación anticipada",
+  reactivacion: "Reactivación de plan",
+  upgrade_plan: "Upgrade a Plan Ilimitado",
+};
 
 function generarBuyOrder(): string {
   // "wp" + timestamp en base36: siempre corto, cabe en el límite de 26
@@ -119,6 +142,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Solo se puede pagar un plan por transacción" }, { status: 400 });
     }
 
+    // Las promociones de Mi Cuenta exigen sesión + que la patente sea del
+    // cliente logueado, y su precio se recalcula acá con datos frescos (ver
+    // calcularOfertasPlanDeCliente) en vez de confiar en nada que mande el
+    // cliente — la oferta que vio en pantalla pudo quedar vieja.
+    const requierePromoCuenta = body.items.some((i) => TIPOS_PROMO_CUENTA.has(i.tipo as TipoPago));
+    let ofertaCliente: Awaited<ReturnType<typeof calcularOfertasPlanDeCliente>> | undefined;
+    if (requierePromoCuenta) {
+      const sesion = await leerSesionCliente();
+      if (!sesion) {
+        return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
+      }
+      const cliente = await buscarClientePorPatente(patente);
+      if (!cliente || !sesion.clienteIds.includes(cliente.id)) {
+        return NextResponse.json({ error: "Esa patente no pertenece a tu cuenta" }, { status: 403 });
+      }
+      ofertaCliente = await calcularOfertasPlanDeCliente(cliente);
+    }
+
     const db = getDb();
     const filasPrecios = await db.select().from(precios);
     const preciosMap = Object.fromEntries(filasPrecios.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
@@ -146,14 +187,33 @@ export async function POST(request: NextRequest) {
           monto: precioZonaAspirado(preciosMap),
           ...doc,
         });
+      } else if (TIPOS_PROMO_CUENTA.has(tipo)) {
+        const precioPromo =
+          tipo === "renovacion_temprana"
+            ? ofertaCliente?.renovacionAnticipada?.pPromo
+            : tipo === "reactivacion"
+              ? ofertaCliente?.reactivacion?.precio
+              : ofertaCliente?.upgrade?.precio;
+        if (precioPromo === undefined) {
+          return NextResponse.json({ error: "Esta promoción ya no está disponible, actualiza la página." }, { status: 400 });
+        }
+        items.push({ tipo, servicioId: null, nombre: NOMBRE_PROMO[tipo], monto: precioPromo, ...doc });
       } else {
         items.push({ tipo, servicioId: null, nombre: "Plan Ilimitado Mensual", monto: precioNormal(preciosMap, PLANES[0]), ...doc });
       }
     }
 
     const montoTotal = items.reduce((sum, i) => sum + i.monto, 0);
-    if (!montoTotal || montoTotal <= 0) {
+    // Separado del chequeo de abajo: NaN/Infinity es un error real de
+    // cálculo (500), pero $0 puede ser un precio legítimo (ej. un tramo de
+    // promoción configurado a propósito en $0) — Webpay no puede cobrar un
+    // monto así, pero no es "se rompió el servidor", así que no corresponde
+    // el mismo 500 ni el mismo mensaje.
+    if (!Number.isFinite(montoTotal)) {
       return NextResponse.json({ error: "No se pudo calcular el monto a cobrar" }, { status: 500 });
+    }
+    if (montoTotal <= 0) {
+      return NextResponse.json({ error: "El monto a cobrar debe ser mayor a $0" }, { status: 400 });
     }
 
     const buyOrder = generarBuyOrder();

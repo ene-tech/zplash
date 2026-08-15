@@ -30,11 +30,17 @@ const MENSAJES: Record<string, { titulo: string; texto: string; cls: "ok" | "war
 export default async function ResultadoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string; buyOrder?: string }>;
+  searchParams: Promise<{ estado?: string; buyOrder?: string; origen?: string }>;
 }) {
-  const { estado: estadoParam, buyOrder } = await searchParams;
+  const { estado: estadoParam, buyOrder, origen } = await searchParams;
   const estado = estadoParam || "error";
   const info = MENSAJES[estado] || MENSAJES.error;
+  // Una promoción de plan pagada desde Mi Cuenta (ver
+  // @/lib/helpers/ofertasPlan) vuelve a Mi Cuenta en vez de a /pagar —
+  // ver TIPOS_PROMO_CUENTA en /api/pagos/webpay/retorno, que es quien manda
+  // este `origen`.
+  const { volverHref, volverLabel } =
+    origen === "cuenta" ? { volverHref: "/cliente", volverLabel: "Volver a Mi Cuenta" } : info;
 
   return (
     <div className="content" style={{ maxWidth: 480 }}>
@@ -48,8 +54,8 @@ export default async function ResultadoPage({
         {buyOrder && (
           <p style={{ marginTop: 10, color: "var(--gray)", fontSize: 12.5 }}>N° de orden: {buyOrder}</p>
         )}
-        <a href={info.volverHref} className="btn" style={{ display: "inline-block", marginTop: 16, textDecoration: "none" }}>
-          {info.volverLabel}
+        <a href={volverHref} className="btn" style={{ display: "inline-block", marginTop: 16, textDecoration: "none" }}>
+          {volverLabel}
         </a>
       </div>
     </div>

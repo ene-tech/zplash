@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { getDb } from "@/db";
-import { citaServicios, citas, servicios, suscripcionesOneclick, ventas } from "@/db/schema";
+import { citaServicios, citas, ingresos, precios, servicios, suscripcionesOneclick, ventas } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
+import { getConfig } from "@/lib/dataAccess/config";
+import { preciosFromRows } from "@/lib/dataAccess/precios";
+import { calcularOfertasPlan, type OfertaPlan } from "@/lib/helpers";
+import { ingresoFromRow } from "@/lib/dataAccess/ingresos";
+import { ventaFromRow } from "@/lib/dataAccess/ventas";
 
 export const runtime = "nodejs";
 
@@ -18,12 +23,12 @@ export async function GET() {
   const clientesEncontrados = await getClientesByIds(sesion.clienteIds);
   const patentes = clientesEncontrados.map((c) => c.patente);
   if (!patentes.length) {
-    return NextResponse.json({ tarjetas: [], detailing: [], compras: [], renovacionesLegacy: [] });
+    return NextResponse.json({ tarjetas: [], detailing: [], compras: [], renovacionesLegacy: [], ofertas: {} });
   }
 
   const db = getDb();
 
-  const [comprasRows, citasRows, tarjetasRows] = await Promise.all([
+  const [comprasRows, citasRows, tarjetasRows, ventasClienteRows, ingresosClienteRows, config, preciosRows] = await Promise.all([
     db
       .select({ fecha: ventas.fecha, tipo: ventas.tipo, plan: ventas.plan, monto: ventas.precio, patente: ventas.patente })
       .from(ventas)
@@ -43,7 +48,30 @@ export async function GET() {
       .select()
       .from(suscripcionesOneclick)
       .where(and(inArray(suscripcionesOneclick.patente, patentes), inArray(suscripcionesOneclick.estado, ["activa", "suspendida"]))),
+    // A diferencia de comprasRows (recortado a LIMITE_COMPRAS y solo para
+    // mostrar el historial), estas dos van completas y por clienteId — las
+    // usa calcularOfertasPlan más abajo para las promociones de plan (ver
+    // @/lib/helpers/ofertasPlan).
+    db.select().from(ventas).where(inArray(ventas.clienteId, sesion.clienteIds)),
+    db.select().from(ingresos).where(inArray(ingresos.clienteId, sesion.clienteIds)),
+    getConfig(),
+    db.select().from(precios),
   ]);
+
+  const preciosMap = preciosFromRows(preciosRows);
+  const ventasPorCliente = ventasClienteRows.map(ventaFromRow);
+  const ingresosPorCliente = ingresosClienteRows.map(ingresoFromRow);
+  const ofertas: Record<string, OfertaPlan> = {};
+  for (const c of clientesEncontrados) {
+    const oferta = calcularOfertasPlan(
+      c,
+      ventasPorCliente.filter((v) => v.clienteId === c.id),
+      ingresosPorCliente.filter((i) => i.clienteId === c.id),
+      config,
+      preciosMap
+    );
+    if (Object.keys(oferta).length) ofertas[c.patente] = oferta;
+  }
 
   const citaIds = citasRows.map((c) => c.id);
   const serviciosPorCita = new Map<string, string[]>();
@@ -87,5 +115,8 @@ export async function GET() {
     renovacionesLegacy: clientesEncontrados
       .filter((c) => c.renovacionAutoWooDesde && !tarjetasRows.some((t) => t.patente === c.patente && t.estado === "activa"))
       .map((c) => ({ patente: c.patente, desde: c.renovacionAutoWooDesde as string })),
+    // Promociones de plan por patente (renovación anticipada, reactivación,
+    // upgrade) — mismas que ve el Operador, ver @/lib/helpers/ofertasPlan.
+    ofertas,
   });
 }

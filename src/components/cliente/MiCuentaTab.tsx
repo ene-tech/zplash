@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { fmtCLP, fmtDate, fmtFecha } from "@/lib/helpers";
+import type { OfertaPlan } from "@/lib/helpers";
 import { useSesionCliente } from "@/hooks/useSesionCliente";
 import { TicketsEmpresaSection } from "@/components/cliente/miCuenta/TicketsEmpresaSection";
-import { SolicitudCambioPatente } from "@/components/cliente/miCuenta/SolicitudCambioPatente";
-import { QuitarVehiculo } from "@/components/cliente/miCuenta/QuitarVehiculo";
+import { VehiculoCard } from "@/components/cliente/miCuenta/VehiculoCard";
+import { AgregarPatente } from "@/components/cliente/miCuenta/AgregarPatente";
 import { OtpLoginForm } from "@/components/cliente/miCuenta/OtpLoginForm";
 import { ActivarNotificaciones } from "@/components/cliente/miCuenta/ActivarNotificaciones";
 import { RenovacionLegacyCard } from "@/components/cliente/miCuenta/RenovacionLegacyCard";
 import { AgregarTarjeta } from "@/components/cliente/miCuenta/AgregarTarjeta";
 import { EliminarTarjeta } from "@/components/cliente/miCuenta/EliminarTarjeta";
+import { DatosFacturacionSection } from "@/components/cliente/miCuenta/DatosFacturacionSection";
 
 interface Tarjeta {
   patente: string;
@@ -54,17 +56,29 @@ export default function MiCuentaTab() {
   const [detailing, setDetailing] = useState<Detailing[]>([]);
   const [compras, setCompras] = useState<Compra[]>([]);
   const [renovacionesLegacy, setRenovacionesLegacy] = useState<RenovacionLegacy[]>([]);
+  const [ofertas, setOfertas] = useState<Record<string, OfertaPlan>>({});
 
   const cargarMiCuenta = useCallback(() => {
     fetch("/api/cliente/mi-cuenta")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { tarjetas: Tarjeta[]; detailing: Detailing[]; compras: Compra[]; renovacionesLegacy: RenovacionLegacy[] } | null) => {
-        if (!data) return;
-        setTarjetas(data.tarjetas);
-        setDetailing(data.detailing);
-        setCompras(data.compras);
-        setRenovacionesLegacy(data.renovacionesLegacy || []);
-      });
+      .then(
+        (
+          data: {
+            tarjetas: Tarjeta[];
+            detailing: Detailing[];
+            compras: Compra[];
+            renovacionesLegacy: RenovacionLegacy[];
+            ofertas: Record<string, OfertaPlan>;
+          } | null
+        ) => {
+          if (!data) return;
+          setTarjetas(data.tarjetas);
+          setDetailing(data.detailing);
+          setCompras(data.compras);
+          setRenovacionesLegacy(data.renovacionesLegacy || []);
+          setOfertas(data.ofertas || {});
+        }
+      );
   }, []);
 
   useEffect(() => {
@@ -84,32 +98,29 @@ export default function MiCuentaTab() {
       <ActivarNotificaciones />
       <TicketsEmpresaSection key={sesion.email} email={sesion.email} />
 
-      <h3 style={{ marginBottom: 12 }}>Mis vehículos</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+        <h3 style={{ margin: 0 }}>Mis vehículos</h3>
+        <AgregarPatente onAgregado={refrescar} />
+      </div>
       {sesion.vehiculos.length > 0 ? (
-        <div className="card-grid" style={{ marginBottom: 26 }}>
-          {sesion.vehiculos.map((v) => (
-            <div className="vehicle-card" key={v.patente}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="plate-tag">{v.patente}</span>
-                <span className={`status-pill ${v.estado.cls}`}>{v.estado.label}</span>
-              </div>
-              <div className="plan-nombre">{v.plan}</div>
-              {v.vencimiento && (
-                <div style={{ color: "var(--gray)", fontSize: 12.5 }}>Vence el {fmtFecha(v.vencimiento)}</div>
-              )}
-              {v.plan !== "Sin plan" && (
-                <SolicitudCambioPatente
-                  patente={v.patente}
-                  plan={v.plan}
-                  vencimiento={v.vencimiento}
-                  patentePendiente={v.patentePendiente}
-                  patentePendienteDesde={v.patentePendienteDesde}
-                  onActualizado={refrescar}
-                />
-              )}
-              <QuitarVehiculo patente={v.patente} onQuitado={refrescar} />
-            </div>
-          ))}
+        // minmax más ancho que el .card-grid genérico: la cabecera de VehiculoCard
+        // ahora lleva patente + plan + estado en una sola línea, y con columnas de
+        // 260px ese texto se trunca demasiado agresivo en pantallas medianas/anchas.
+        <div className="card-grid" style={{ marginBottom: 26, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+          {sesion.vehiculos.map((v) => {
+            // Solo "activa" es cobrable directo (ver cobrarOfertaOneclick): una
+            // tarjeta "suspendida" sigue guardada pero el cron tampoco la cobra.
+            const tarjetaActiva = tarjetas.find((t) => t.patente === v.patente && t.estado === "activa");
+            return (
+              <VehiculoCard
+                key={v.patente}
+                v={v}
+                oferta={ofertas[v.patente]}
+                tarjeta={tarjetaActiva ? { cardTipo: tarjetaActiva.cardTipo, cardUltimosDigitos: tarjetaActiva.cardUltimosDigitos } : undefined}
+                onActualizado={refrescar}
+              />
+            );
+          })}
         </div>
       ) : (
         <p className="card" style={{ color: "var(--gray)", fontSize: 14, marginBottom: 26 }}>
@@ -173,6 +184,8 @@ export default function MiCuentaTab() {
           No tienes tarjetas registradas — usa &quot;+ Agregar tarjeta&quot; arriba para guardar una.
         </p>
       )}
+
+      <DatosFacturacionSection vehiculos={sesion.vehiculos} onActualizado={refrescar} />
 
       <h3 style={{ marginBottom: 12 }}>Historial de compras</h3>
       <div className="table-scroll">

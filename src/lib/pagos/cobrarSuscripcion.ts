@@ -12,8 +12,11 @@ import type { Precios } from "@/types";
 import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
 
 /** Próximo ciclo mensual a partir de una fecha base, saltando meses ya
- * vencidos (ej. si el cron no corrió por 2 meses) hasta caer en el futuro. */
-function proximoCicloISO(base: string | null): string {
+ * vencidos (ej. si el cron no corrió por 2 meses) hasta caer en el futuro.
+ * Exportada: cobrarOfertaOneclick la reusa para empujar `proximoCobro` tras
+ * un cobro manual (renovación anticipada), con `base = null` para anclar
+ * desde hoy en vez de desde el ciclo anterior. */
+export function proximoCicloISO(base: string | null): string {
   const hoy = new Date();
   let d = base ? new Date(base) : new Date(hoy);
   if (isNaN(d.getTime())) d = new Date(hoy);

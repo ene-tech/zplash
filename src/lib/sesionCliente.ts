@@ -1,4 +1,6 @@
-export interface VehiculoSesion {
+import type { DatosFacturacion } from "@/types";
+
+export interface VehiculoSesion extends DatosFacturacion {
   patente: string;
   plan: string;
   estado: { label: string; cls: "ok" | "warn" | "bad" };

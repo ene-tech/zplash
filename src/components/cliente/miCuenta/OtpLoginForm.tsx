@@ -7,6 +7,20 @@ import { useState } from "react";
 // esta pantalla (nunca llegó a conectarse de verdad) o del WhatsApp que se
 // usó después (plantilla paga). Dos pasos: pedir el código (por patente o
 // correo) y verificarlo.
+
+// Oculta parte del correo antes de mostrarlo en pantalla (el correo completo
+// sigue viajando al backend para verificar el código, esto es solo display).
+function ocultarEmail(email: string): string {
+  const [usuario, dominio] = email.split("@");
+  if (!usuario || !dominio) return email;
+  // Con 2 caracteres o menos, mostrar cualquier prefijo deja el usuario
+  // completo a la vista (ej. "jo@..." -> "jo***@..."): para esos casos no se
+  // muestra ningún carácter, en vez de reventar el propósito de la función.
+  if (usuario.length <= 2) return `${"*".repeat(usuario.length)}@${dominio}`;
+  const visible = usuario.slice(0, 2);
+  return `${visible}${"*".repeat(Math.max(usuario.length - visible.length, 3))}@${dominio}`;
+}
+
 export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
   const [paso, setPaso] = useState<"pedir" | "verificar">("pedir");
   const [modo, setModo] = useState<"patente" | "email">("patente");
@@ -71,7 +85,8 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="card" style={{ maxWidth: 420, margin: "0 auto", textAlign: "center" }}>
         <h3>Ingresa el código</h3>
         <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
-          Te enviamos un código de 6 dígitos por correo a <strong>{emailDestino}</strong>. Vence en 5 minutos.
+          Te enviamos un código de 6 dígitos por correo a <strong>{ocultarEmail(emailDestino)}</strong>. Vence en 5
+          minutos.
         </p>
         <div className="field" style={{ marginBottom: 12 }}>
           <input

@@ -34,6 +34,7 @@ export * from "./inventario/proveedores";
 export * from "./loadAll";
 export * from "./mail";
 export * from "./mantencion";
+export * from "./ofertasPlan";
 export * from "./oneclick";
 export * from "./pagos";
 export * from "./perfiles";

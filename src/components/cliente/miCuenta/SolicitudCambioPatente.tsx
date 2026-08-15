@@ -11,12 +11,19 @@ import { fmtFecha, isValidPatente, normPlate, PATENTE_FORMATO_MSG } from "@/lib/
 // cobrando WooCommerce — ver /api/webhooks/woocommerce/route.ts). Llama a
 // /api/cliente/mi-cuenta/{solicitar,cancelar}-cambio-patente (sesión por
 // cookie OTP), mismo patrón que QuitarVehiculo/EliminarTarjeta.
+//
+// El trigger del formulario ("Solicitar cambio de patente") vive en el menú
+// "⋮" de VehiculoCard — `abierto`/`onCerrar` lo controlan desde ahí. El
+// aviso de solicitud pendiente, en cambio, se muestra siempre que exista,
+// sin pasar por el menú.
 export function SolicitudCambioPatente({
   patente,
   plan,
   vencimiento,
   patentePendiente,
   patentePendienteDesde,
+  abierto,
+  onCerrar,
   onActualizado,
 }: {
   patente: string;
@@ -24,9 +31,10 @@ export function SolicitudCambioPatente({
   vencimiento: string | null;
   patentePendiente: string | null;
   patentePendienteDesde: string | null;
+  abierto: boolean;
+  onCerrar: () => void;
   onActualizado: () => void;
 }) {
-  const [abierto, setAbierto] = useState(false);
   const [nueva, setNueva] = useState("");
   const [error, setError] = useState("");
   const [confirmando, setConfirmando] = useState(false);
@@ -71,18 +79,7 @@ export function SolicitudCambioPatente({
     );
   }
 
-  if (!abierto) {
-    return (
-      <button
-        type="button"
-        className="btn ghost"
-        style={{ marginTop: 8, padding: "6px 10px", fontSize: 12.5 }}
-        onClick={() => setAbierto(true)}
-      >
-        Solicitar cambio de patente
-      </button>
-    );
-  }
+  if (!abierto) return null;
 
   const pedirConfirmacion = () => {
     if (!isValidPatente(nueva)) {
@@ -113,8 +110,8 @@ export function SolicitudCambioPatente({
         return;
       }
       setConfirmando(false);
-      setAbierto(false);
       setNueva("");
+      onCerrar();
       onActualizado();
     } catch {
       setError("Sin conexión. Intenta de nuevo.");
@@ -147,9 +144,9 @@ export function SolicitudCambioPatente({
           className="btn ghost"
           style={{ marginTop: 0, padding: "6px 10px", fontSize: 12.5 }}
           onClick={() => {
-            setAbierto(false);
             setNueva("");
             setError("");
+            onCerrar();
           }}
         >
           Cancelar
