@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { fmtCLP, fmtFecha } from "@/lib/helpers";
 import GoogleIcon from "@/components/GoogleIcon";
 import type { PreciosPublicos } from "@/components/cliente/types";
+import { CamposDocumento } from "./CamposDocumento";
+import { useDatosDocumento } from "./useDatosDocumento";
 import type { usePagarForm } from "./usePagarForm";
 
 type Props = Pick<
@@ -11,11 +14,13 @@ type Props = Pick<
   | "mostrarAuto"
   | "setMostrarAuto"
   | "pagando"
+  | "err"
   | "accionPlan"
   | "pasoMetodo"
   | "elegirMetodo"
   | "cancelarMetodo"
   | "conectarGoogle"
+  | "irADocumento"
   | "confirmarPago"
   | "soloPagoUnico"
   | "email"
@@ -30,6 +35,15 @@ type Props = Pick<
 // renovación automática (Oneclick).
 export function ResultadoBusqueda(p: Props) {
   const r = p.resultado;
+  const doc = useDatosDocumento();
+  // A diferencia de PagoUnicoCard/ServicioDocumentoCard, este componente no se
+  // desmonta entre pagos (sigue montado mientras dura la sesión en /pagar) —
+  // sin esto, los datos de Factura llenados para una patente quedarían
+  // precargados si el cliente cancela, busca otra patente y vuelve a pagar.
+  useEffect(() => {
+    if (p.pasoMetodo === "documento") doc.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- doc.reset es estable en los datos que limpia, solo debe correr al entrar al paso
+  }, [p.pasoMetodo]);
   if (!r) return null;
 
   return (
@@ -84,7 +98,7 @@ export function ResultadoBusqueda(p: Props) {
           {p.pasoMetodo === "elegir" && (
             <>
               <p style={{ marginBottom: 12 }}>¿Cómo quieres pagar tu {p.accionPlan.label.toLowerCase()}?</p>
-              <button className="btn" onClick={p.confirmarPago} disabled={p.pagando !== null}>
+              <button className="btn" onClick={p.irADocumento} disabled={p.pagando !== null}>
                 Pagar como Invitado
               </button>
               <button
@@ -115,7 +129,7 @@ export function ResultadoBusqueda(p: Props) {
                     quedará registrada a la cuenta de Google con la que inicies sesión, para que puedas ver tus
                     pagos y renovaciones desde Mi Cuenta.
                   </p>
-                  <button className="btn" onClick={p.confirmarPago} disabled={p.pagando !== null}>
+                  <button className="btn" onClick={p.irADocumento} disabled={p.pagando !== null}>
                     Continuar como Invitado por ahora
                   </button>
                   <button type="button" className="btn ghost" style={{ marginTop: 10 }} onClick={p.cancelarMetodo}>
@@ -123,6 +137,26 @@ export function ResultadoBusqueda(p: Props) {
                   </button>
                 </>
               )}
+            </>
+          )}
+          {p.pasoMetodo === "documento" && (
+            <>
+              <p style={{ marginBottom: 12 }}>Elige cómo quieres recibir el comprobante:</p>
+              <CamposDocumento d={doc} />
+              <div className="err">{doc.error || p.err}</div>
+              <button
+                className="btn"
+                onClick={() => {
+                  const datosDocumento = doc.validar();
+                  if (datosDocumento) p.confirmarPago(datosDocumento);
+                }}
+                disabled={p.pagando !== null}
+              >
+                {p.pagando !== null ? "Redirigiendo..." : "Pagar ahora"}
+              </button>
+              <button type="button" className="btn ghost" style={{ marginTop: 10 }} onClick={p.cancelarMetodo}>
+                Cancelar
+              </button>
             </>
           )}
         </div>

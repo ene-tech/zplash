@@ -7,6 +7,7 @@ import type { PreciosPublicos } from "@/components/cliente/types";
 import { usePagarForm } from "@/components/cliente/pagarForm/usePagarForm";
 import { PagoUnicoCard } from "@/components/cliente/pagarForm/PagoUnicoCard";
 import { ResultadoBusqueda } from "@/components/cliente/pagarForm/ResultadoBusqueda";
+import { ServicioDocumentoCard } from "@/components/cliente/pagarForm/ServicioDocumentoCard";
 import { fmtCLP } from "@/lib/helpers";
 
 export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
@@ -85,11 +86,13 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
             mostrarAuto={r.mostrarAuto}
             setMostrarAuto={r.setMostrarAuto}
             pagando={r.pagando}
+            err={r.err}
             accionPlan={r.accionPlan}
             pasoMetodo={r.pasoMetodo}
             elegirMetodo={r.elegirMetodo}
             cancelarMetodo={r.cancelarMetodo}
             conectarGoogle={r.conectarGoogle}
+            irADocumento={r.irADocumento}
             confirmarPago={r.confirmarPago}
             soloPagoUnico={r.soloPagoUnico}
             email={r.email}
@@ -107,15 +110,24 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
             {precios.servicios.map((s) => (
               <button
                 key={s.id}
-                className="service-btn"
-                onClick={() => r.pagar("servicio", s.id, s.id)}
-                disabled={r.pagando !== null}
+                className={`service-btn ${r.accionServicio?.id === s.id ? "selected" : ""}`}
+                onClick={() => r.elegirServicio(s.id, s.nombre, s.precio)}
+                disabled={r.pagando !== null || r.accionServicio !== null}
               >
                 <div className="nombre">{s.nombre}</div>
                 <div className="precio">{r.pagando === s.id ? "Redirigiendo..." : fmtCLP(s.precio)}</div>
               </button>
             ))}
           </div>
+          {r.accionServicio && (
+            <ServicioDocumentoCard
+              accionServicio={r.accionServicio}
+              pagando={r.pagando}
+              err={r.err}
+              onCancelar={r.cancelarServicio}
+              onConfirmar={r.confirmarServicio}
+            />
+          )}
         </>
       )}
     </div>

@@ -15,7 +15,8 @@ export interface EstadoPlan {
 
 export type TipoPago = "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" | "aspirado";
 export type AccionPlan = { tipo: "plan_nuevo" | "renovacion"; label: string };
-export type PasoMetodo = "elegir" | "google-conectando" | "google-preview";
+export type PasoMetodo = "elegir" | "google-conectando" | "google-preview" | "documento";
+export type AccionServicio = { id: string; nombre: string; precio: number };
 
 // Datos de boleta/factura que junta PagoUnicoCard antes de cobrar (ver
 // mismo esquema de columnas ya usado por pagosWebpayItems para Pack
@@ -48,6 +49,7 @@ export function usePagarForm() {
   const [inscribiendo, setInscribiendo] = useState(false);
   const [accionPlan, setAccionPlan] = useState<AccionPlan | null>(null);
   const [pasoMetodo, setPasoMetodo] = useState<PasoMetodo | null>(null);
+  const [accionServicio, setAccionServicio] = useState<AccionServicio | null>(null);
 
   async function buscar() {
     const p = normPlate(patente);
@@ -115,12 +117,35 @@ export function usePagarForm() {
     setTimeout(() => setPasoMetodo("google-preview"), 600);
   }
 
-  function confirmarPago() {
+  // Paso previo a cobrar: pedir Boleta/Factura (ver CamposDocumento) antes de
+  // ir a Webpay, sea cual sea la puerta de entrada (invitado directo o vuelta
+  // desde la vista previa de Google).
+  function irADocumento() {
+    setPasoMetodo("documento");
+  }
+
+  function confirmarPago(datosDocumento?: DatosDocumento) {
     if (!accionPlan) return;
     const tipo = accionPlan.tipo;
     setAccionPlan(null);
     setPasoMetodo(null);
-    pagar(tipo);
+    pagar(tipo, undefined, undefined, datosDocumento);
+  }
+
+  function elegirServicio(id: string, nombre: string, precio: number) {
+    setErr("");
+    setAccionServicio({ id, nombre, precio });
+  }
+
+  function cancelarServicio() {
+    setAccionServicio(null);
+  }
+
+  function confirmarServicio(datosDocumento: DatosDocumento) {
+    if (!accionServicio) return;
+    const { id } = accionServicio;
+    setAccionServicio(null);
+    pagar("servicio", id, id, datosDocumento);
   }
 
   async function activarAutomatica() {
@@ -170,12 +195,17 @@ export function usePagarForm() {
     inscribiendo,
     accionPlan,
     pasoMetodo,
+    accionServicio,
     buscar,
     pagar,
     elegirMetodo,
     cancelarMetodo,
     conectarGoogle,
+    irADocumento,
     confirmarPago,
+    elegirServicio,
+    cancelarServicio,
+    confirmarServicio,
     activarAutomatica,
   };
 }

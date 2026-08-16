@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { fmtCLP, formatRut, isValidEmail, isValidPatente, isValidRut, normPlate } from "@/lib/helpers";
+import { fmtCLP, isValidPatente, normPlate } from "@/lib/helpers";
+import { CamposDocumento } from "./CamposDocumento";
+import { useDatosDocumento } from "./useDatosDocumento";
 import type { DatosDocumento, TipoPago } from "./usePagarForm";
 
 type Paso = "patente" | "documento";
@@ -9,9 +11,7 @@ type Paso = "patente" | "documento";
 // Tarjeta de pago directo para un ítem sin búsqueda previa (viene de un
 // link con ?item=lavado_unico o ?item=aspirado): primero pide la patente,
 // después si quiere boleta o factura (y si es factura, los datos de la
-// empresa), y recién ahí cobra ese único ítem. Mismos campos/columnas que ya
-// usa Venta Empresa (ver pagosWebpayItems), pero acá el correo solo se pide
-// si eligen Factura.
+// empresa, ver useDatosDocumento), y recién ahí cobra ese único ítem.
 export function PagoUnicoCard({
   icono,
   titulo,
@@ -34,13 +34,8 @@ export function PagoUnicoCard({
   onPagar: (tipo: TipoPago, datosDocumento: DatosDocumento) => void;
 }) {
   const [paso, setPaso] = useState<Paso>("patente");
-  const [tipoDocumento, setTipoDocumento] = useState<DatosDocumento["tipoDocumento"]>("Boleta");
-  const [razonSocial, setRazonSocial] = useState("");
-  const [rut, setRut] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [giro, setGiro] = useState("");
-  const [email, setEmail] = useState("");
   const [errPaso, setErrPaso] = useState("");
+  const doc = useDatosDocumento();
 
   function continuar() {
     if (!isValidPatente(normPlate(patente))) {
@@ -52,34 +47,9 @@ export function PagoUnicoCard({
   }
 
   function pagar() {
-    if (tipoDocumento === "Factura") {
-      if (!razonSocial.trim() || !rut.trim() || !direccion.trim() || !giro.trim() || !email.trim()) {
-        setErrPaso("Completa Razón Social, RUT, Giro, Dirección y Correo para la factura.");
-        return;
-      }
-      if (!isValidRut(rut)) {
-        setErrPaso("RUT inválido. Ej: 12.345.678-9");
-        return;
-      }
-      if (!isValidEmail(email)) {
-        setErrPaso("Correo inválido.");
-        return;
-      }
-    }
-    setErrPaso("");
-    onPagar(
-      tipo,
-      tipoDocumento === "Factura"
-        ? {
-            tipoDocumento,
-            razonSocial: razonSocial.trim(),
-            rut: formatRut(rut),
-            direccion: direccion.trim(),
-            giro: giro.trim(),
-            email: email.trim().toLowerCase(),
-          }
-        : { tipoDocumento }
-    );
+    const datosDocumento = doc.validar();
+    if (!datosDocumento) return;
+    onPagar(tipo, datosDocumento);
   }
 
   return (
@@ -124,45 +94,10 @@ export function PagoUnicoCard({
               </button>
             </div>
           </div>
-          <div className="field">
-            <label>Tipo de documento</label>
-            <select value={tipoDocumento} onChange={(e) => setTipoDocumento(e.target.value as DatosDocumento["tipoDocumento"])}>
-              <option value="Boleta">Boleta</option>
-              <option value="Factura">Factura</option>
-            </select>
-          </div>
 
-          {tipoDocumento === "Factura" && (
-            <div>
-              <div className="field">
-                <label>Razón Social</label>
-                <input value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>RUT</label>
-                <input
-                  value={rut}
-                  onChange={(e) => setRut(e.target.value)}
-                  onBlur={() => setRut((r) => (isValidRut(r) ? formatRut(r) : r))}
-                  placeholder="12.345.678-9"
-                />
-              </div>
-              <div className="field">
-                <label>Giro</label>
-                <input value={giro} onChange={(e) => setGiro(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Dirección</label>
-                <input value={direccion} onChange={(e) => setDireccion(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Correo para recibir la factura</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tucorreo@empresa.cl" />
-              </div>
-            </div>
-          )}
+          <CamposDocumento d={doc} />
 
-          <div className="err">{errPaso || err}</div>
+          <div className="err">{doc.error || err}</div>
           <button className="btn" onClick={pagar} disabled={pagando !== null}>
             {pagando === tipo ? "Redirigiendo..." : "Pagar ahora"}
           </button>
