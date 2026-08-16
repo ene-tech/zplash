@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Sistema de control de acceso y planes de ZPlash",
     start_url: "/",
     display: "standalone",
-    background_color: "#2d2926",
-    theme_color: "#2d2926",
+    background_color: "#262320",
+    theme_color: "#262320",
     icons: [
       {
         src: "/icon-192.png",

@@ -7,7 +7,7 @@
 :root {
   /* Paleta oficial ZPlash Car Wash — Manual de Marca 2024 */
   --gold: #ffc72c; /* Pantone 123 C */
-  --black: #2d2926; /* Pantone Black C */
+  --black: #262320; /* Pantone Black C, ~15% más oscuro que el original de marca */
   --white: #f5f5f0;
   --silver: #c9c6ba; /* versión escala de grises del logo */
   --gray: #8a8780;
@@ -16,10 +16,10 @@
      luminosidad; bg-panel/bg-card/border quedan desplazados el mismo delta
      para mantener los mismos saltos de contraste. El logo es transparente,
      así que no necesita calzar con ningún fondo en particular. */
-  --bg: #2d2926;
-  --bg-panel: #37322c;
-  --bg-card: #403a34;
-  --border: #4f4941;
+  --bg: #262320;
+  --bg-panel: #302c26;
+  --bg-card: #39342e;
+  --border: #48433b;
 
   /* Estados funcionales (no son colores de marca, son semántica de UI: éxito/alerta/error) */
   --red: #e5484d;
@@ -1944,6 +1944,34 @@ tr:hover td {
   padding: 9px 18px;
   font-size: 13px;
   margin-top: 4px;
+}
+
+/* En mobile el ancho angosto hace que un título largo (ej. "Tu plan vence en
+   3 días") se apriete contra el badge y salte de línea de forma rara — se
+   invierte el orden para que el texto quede a la izquierda con todo el
+   ancho disponible y el badge quede fijo a la derecha. Los botones de la
+   tarjeta "Recordatorio" (ver offer-actions en VehiculoCard) se centran acá
+   en vez de quedar pegados a la izquierda cuando el segundo salta de línea. */
+@media (max-width: 640px) {
+  .vehicle-card .offer-card .offer-head {
+    justify-content: space-between;
+  }
+  .vehicle-card .offer-card .offer-head h4 {
+    order: 1;
+  }
+  .vehicle-card .offer-card .offer-head .badge {
+    order: 2;
+  }
+  .vehicle-card .offer-card .offer-actions {
+    justify-content: center;
+    text-align: center;
+  }
+  /* El botón "Registrar tarjeta - Pago automático" no entra en una línea en
+     mobile — a ancho completo su propio texto envuelve en vez de forzar
+     scroll horizontal a toda la tarjeta. */
+  .vehicle-card .offer-card .offer-actions .btn {
+    flex: 1 1 100%;
+  }
 }
 
 @theme inline {

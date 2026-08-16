@@ -78,18 +78,18 @@ export function envolverCorreoBase(cuerpoPlantilla: string, variables: Record<st
       <td align="center" style="padding:32px 16px;">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden;">
           <tr>
-            <td style="background-color:#2d2926; padding:24px; text-align:center;">
+            <td style="background-color:#262320; padding:24px; text-align:center;">
               <img src="https://zplash.cl/logo.png" alt="ZPlash" width="140" style="display:block; margin:0 auto; border:0;">
             </td>
           </tr>
           <tr>
-            <td style="padding:32px 28px 16px; color:#2d2926; font-size:15px; line-height:1.6;">
+            <td style="padding:32px 28px 16px; color:#262320; font-size:15px; line-height:1.6;">
               ${contenido}
             </td>
           </tr>
           <tr>
             <td style="padding:8px 28px 28px; text-align:center;">
-              <a href="https://zplash.cl/cliente" style="display:inline-block; background-color:#ffc72c; color:#2d2926; font-weight:bold; font-size:14px; text-decoration:none; padding:12px 32px; border-radius:6px;">Ir a Mi Cuenta</a>
+              <a href="https://zplash.cl/cliente" style="display:inline-block; background-color:#ffc72c; color:#262320; font-weight:bold; font-size:14px; text-decoration:none; padding:12px 32px; border-radius:6px;">Ir a Mi Cuenta</a>
             </td>
           </tr>
           <tr>
