@@ -5,7 +5,16 @@ import { crearCarpeta, eliminarCarpeta, renombrarCarpeta } from "@/lib/buzon/car
 import { aplicarFiltrosCorreo } from "@/lib/buzon/filtros";
 import { listarCarpetas as listarCarpetasImpl, listarCorreos as listarCorreosImpl, obtenerAdjunto as obtenerAdjuntoImpl, obtenerCorreo as obtenerCorreoImpl } from "@/lib/buzon/leer";
 import { tieneModulo } from "@/lib/session";
-import type { AdjuntoDescargado, CarpetaBuzon, CorreoDetalle, CorreoResumen, ReglaFiltroCorreo, ResultadoFiltrosCorreo } from "@/types";
+import type {
+  AdjuntoDescargado,
+  CarpetaBuzon,
+  CorreoAutomatico,
+  CorreoAutomaticoResumen,
+  CorreoDetalle,
+  CorreoResumen,
+  ReglaFiltroCorreo,
+  ResultadoFiltrosCorreo,
+} from "@/types";
 
 // El envío (redactar/responder) NO vive acá: pasa por /api/correo/enviar
 // (multipart/form-data) porque necesita aceptar adjuntos reales, y los
@@ -69,4 +78,20 @@ export async function aplicarFiltrosCorreoAhora(): Promise<ResultadoFiltrosCorre
   if (!(await tieneModulo("correo"))) return { revisados: 0, movidos: 0, aPapelera: 0, marcadosLeidos: 0, error: "Sin permiso" };
   const reglas = await dataAccess.listarReglasFiltroCorreo();
   return aplicarFiltrosCorreo(reglas);
+}
+
+// Bandeja de salida del remitente automático (Correo → Salida automática).
+// Los datos son del dominio mail (correos_automaticos, escrita por
+// @/lib/mailing/proveedor) pero las acciones viven acá, con las del buzón
+// IMAP, porque las consume la misma pantalla y por lo tanto piden el mismo
+// módulo "correo": un perfil que puede leer info@ puede ver también qué le
+// salió al cliente desde no-reply@.
+export async function listarCorreosAutomaticos(): Promise<CorreoAutomaticoResumen[]> {
+  if (!(await tieneModulo("correo"))) return [];
+  return dataAccess.listarCorreosAutomaticos();
+}
+
+export async function obtenerCorreoAutomatico(id: string): Promise<CorreoAutomatico | null> {
+  if (!(await tieneModulo("correo"))) return null;
+  return dataAccess.obtenerCorreoAutomatico(id);
 }

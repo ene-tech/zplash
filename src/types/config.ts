@@ -3,14 +3,38 @@
 // hoy equivale a "tiene acceso a Configuración", es decir Administración y
 // Gerencia) pueden registrar el ingreso de un vehículo. festivos es una lista
 // de fechas YYYY-MM-DD que se tratan con el horario de fin de semana.
-// Un tramo de la escala de renovación preferencial por visitas (ver
-// tramosRenovacionLocal en ConfigGlobal): visitasMax null = sin tope superior
-// (último tramo abierto, ej. "5 o más visitas").
+/**
+ * Canal por el que un cliente puede tomar una promoción: "LOCAL" es el módulo
+ * Operador (se la cobra el operador en el local) y "WEB" las superficies
+ * online (Mi Cuenta / pagar, y el correo que las enlaza). No confundir con
+ * Cliente.origen, que dice por dónde ENTRÓ el cliente: un cliente de origen
+ * Local igual puede tomar una promoción por el canal Web desde Mi Cuenta.
+ */
+export type CanalPromo = "WEB" | "LOCAL";
+
+/** Canal habilitado en un tramo de promoción: uno puntual, o "AMBOS" = sin restricción de canal. */
+export type CanalTramoPromo = CanalPromo | "AMBOS";
+
+/**
+ * Un tramo de la escala de renovación preferencial anticipada (plan todavía
+ * vigente, ver tramosRenovacionLocal en ConfigGlobal): el rango de pasadas
+ * del período de plan VIGENTE (ver visitasPeriodoPlan — no el total histórico
+ * acumulado en Cliente.visitas, mismo criterio "por período" que
+ * TramoReactivacionVencido), con visitasMax null = sin tope superior (último
+ * tramo abierto, ej. "5 o más pasadas").
+ *
+ * `canal` restringe por dónde se puede tomar ese precio (ver
+ * precioRenovacionLocal): "WEB" lo deja disponible solo en Mi Cuenta / pagar
+ * — el Operador no lo puede cobrar, solo mencionarlo — y "LOCAL" solo en el
+ * módulo Operador. Ausente = "AMBOS", el comportamiento de los tramos
+ * guardados antes de que existiera esta opción.
+ */
 export interface TramoRenovacionLocal {
   id: string;
   visitasMin: number;
   visitasMax: number | null;
   precio: number;
+  canal?: CanalTramoPromo;
 }
 
 /**
@@ -19,6 +43,13 @@ export interface TramoRenovacionLocal {
  * ConfigGlobal): dos rangos independientes, días vencido y visitas del
  * último período vigente (no el histórico acumulado) — ambos con máximo
  * null = sin tope superior.
+ *
+ * `canal` restringe por dónde se puede tomar ese precio (ver
+ * precioReactivacionVencido): "WEB" lo deja disponible solo en Mi Cuenta /
+ * pagar y el Operador no puede cobrarlo (solo se le avisa que el cliente lo
+ * tiene, para que se lo mencione), "LOCAL" solo en el módulo Operador.
+ * Ausente = "AMBOS", el comportamiento de los tramos guardados antes de que
+ * existiera esta opción.
  */
 export interface TramoReactivacionVencido {
   id: string;
@@ -27,6 +58,7 @@ export interface TramoReactivacionVencido {
   visitasMin: number;
   visitasMax: number | null;
   precio: number;
+  canal?: CanalTramoPromo;
 }
 
 import type { TextosBotWhatsapp } from "./whatsapp";
@@ -41,12 +73,17 @@ export interface ConfigGlobal {
   // helpers/precios.ts), editable en Web Settings — a propósito no amarrado a
   // los 90 días fijos de otros productos.
   vigenciaDiasPackEmpresa: number;
-  // Escala de precio de renovación preferencial para clientes Local (origen
-  // distinto de "WEB") según su cantidad de visitas acumuladas
-  // (Cliente.visitas), keyed por plan (mismo patrón que Precios) — permite
-  // ofrecer, por ejemplo, un precio más bajo a quien pasó 0 o 1 vez que a un
-  // cliente frecuente. Si un cliente no cae en ningún tramo, se usa el precio
-  // preferencial general (Precios[plan].promo, ver precioRenovacionLocal).
+  // Escala de precio de renovación preferencial anticipada (plan vigente, aún
+  // sin vencer) según cuántas veces pasó el cliente durante su período de plan
+  // vigente, keyed por plan (mismo patrón que Precios) — permite ofrecer, por
+  // ejemplo, un precio más bajo a quien pasó 0 o 1 vez que a uno que viene
+  // seguido. Cada tramo puede quedar restringido a un canal (ver canal en
+  // TramoRenovacionLocal), para invitar a renovar online a precio preferencial
+  // sin que ese mismo precio se pueda cobrar en el local. Si hay tramos para el
+  // canal que pregunta y ninguno le calza, NO se ofrece promoción (paga el
+  // precio normal); el precio preferencial general (Precios[plan].promo) queda
+  // como respaldo solo cuando ese canal no tiene ningún tramo configurado —
+  // ver precioRenovacionLocal.
   tramosRenovacionLocal: Record<string, TramoRenovacionLocal[]>;
   // Horas desde el pago de un "Lavado único" dentro de las cuales el módulo
   // Operador puede ofrecer la promoción de upgrade a plan (ver
@@ -57,7 +94,9 @@ export interface ConfigGlobal {
   // Web) con el plan vencido hace poco, keyed por plan — a diferencia de
   // tramosRenovacionLocal, si el cliente no calza en ningún tramo no se
   // ofrece la promoción (ver precioReactivacionVencido); un cliente Web sin
-  // tramo sigue viendo su oferta de renovar al último valor pagado.
+  // tramo sigue viendo su oferta de renovar al último valor pagado. Cada
+  // tramo puede además quedar restringido a un canal (ver canal en
+  // TramoReactivacionVencido).
   tramosReactivacionVencido: Record<string, TramoReactivacionVencido[]>;
   // Horas mínimas entre dos ingresos por plan de un mismo vehículo antes de
   // volver a quedar "libre" para reingresar (ver estadoReingresoPlan en

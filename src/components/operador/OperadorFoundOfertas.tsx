@@ -15,11 +15,16 @@ type Props = Pick<
   | "pNormal"
   | "pPromo"
   | "ahorro"
+  | "hayPromoRenovacion"
+  | "showRenovacionSoloWeb"
+  | "pPromoWeb"
   | "renovar"
   | "showReactivacion"
   | "diasVenc"
   | "precioReactivacion"
   | "reactivar"
+  | "showReactivacionSoloWeb"
+  | "precioReactivacionWeb"
   | "esWebVencido"
   | "precioOfertaWeb"
   | "renovarWeb"
@@ -71,7 +76,7 @@ export default function OperadorFoundOfertas(props: Props) {
       {props.showOffer && (
         <div className="offer-card">
           <div className="offer-head">
-            <span className="badge">Oferta</span>
+            <span className="badge">{props.hayPromoRenovacion ? "Oferta" : "Recordatorio"}</span>
             <h4>
               {props.st.diasRestantes === undefined
                 ? "Renovación anticipada disponible"
@@ -81,17 +86,52 @@ export default function OperadorFoundOfertas(props: Props) {
                     : props.st.diasRestantes + " día" + (props.st.diasRestantes === 1 ? "" : "s"))}
             </h4>
           </div>
+          {props.hayPromoRenovacion ? (
+            <>
+              <div className="msg">
+                Ofrécele a {c.nombre} renovar su {c.plan} ahora mismo a precio preferencial.
+              </div>
+              <div className="price-row">
+                <span className="old">{fmtCLP(props.pNormal)}</span>
+                <span className="new">{fmtCLP(props.pPromo)}</span>
+                <span className="save">Ahorra {fmtCLP(props.ahorro)}</span>
+              </div>
+              <button className="btn secondary" onClick={props.renovar}>
+                Renovar plan a precio preferencial
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="msg">
+                {c.nombre} no tiene promoción de renovación vigente (ver Configuración → Precios de planes), pero
+                igual puedes renovarle su {c.plan} ahora al precio normal.
+              </div>
+              <div className="price-row">
+                <span className="new">{fmtCLP(props.pNormal)}</span>
+              </div>
+              <button className="btn secondary" onClick={props.renovar}>
+                Renovar plan ({fmtCLP(props.pNormal)})
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {props.showRenovacionSoloWeb && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Promoción online</span>
+            <h4>Renovación anticipada solo online</h4>
+          </div>
           <div className="msg">
-            Ofrécele a {c.nombre} renovar su {c.plan} ahora mismo a precio preferencial.
+            {c.nombre} puede renovar su {c.plan} antes de que venza a un precio preferencial disponible{" "}
+            <b>solo online</b> — no se puede cobrar acá. Menciónaselo: entrando a su cuenta en la web con su patente lo
+            renueva al tiro a ese precio, sin perder los días que le quedan.
           </div>
           <div className="price-row">
             <span className="old">{fmtCLP(props.pNormal)}</span>
-            <span className="new">{fmtCLP(props.pPromo)}</span>
-            <span className="save">Ahorra {fmtCLP(props.ahorro)}</span>
+            <span className="new">{fmtCLP(props.pPromoWeb!)}</span>
+            <span className="save">solo por la web</span>
           </div>
-          <button className="btn secondary" onClick={props.renovar}>
-            Renovar plan a precio preferencial
-          </button>
         </div>
       )}
       {props.showReactivacion && (
@@ -111,6 +151,24 @@ export default function OperadorFoundOfertas(props: Props) {
           <button className="btn secondary" onClick={props.reactivar}>
             Reactivar plan a precio preferencial ({fmtCLP(props.precioReactivacion!)})
           </button>
+        </div>
+      )}
+      {props.showReactivacionSoloWeb && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Promoción online</span>
+            <h4>
+              Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
+            </h4>
+          </div>
+          <div className="msg">
+            {c.nombre} tiene una promoción para reactivar su {c.plan} disponible <b>solo online</b> — no se puede cobrar
+            acá. Menciónasela: entrando a su cuenta en la web con su patente puede reactivarlo al tiro a ese precio.
+          </div>
+          <div className="price-row">
+            <span className="new">{fmtCLP(props.precioReactivacionWeb!)}</span>
+            <span className="save">solo por la web</span>
+          </div>
         </div>
       )}
       {props.esWebVencido && !props.showReactivacion && (

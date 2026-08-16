@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { crearCarpetaBuzon, eliminarCarpetaBuzon, listarCarpetasBuzon, listarCorreos, obtenerAdjuntoCorreo, obtenerCorreo, renombrarCarpetaBuzon } from "@/lib/serverActions";
 import { fmtFecha, fmtHora } from "@/lib/helpers";
 import type { CarpetaBuzon, CorreoDetalle, CorreoResumen } from "@/types";
+import BandejaSalidaAutomatica from "@/components/correo/BandejaSalidaAutomatica";
 import FiltrosCorreoPanel from "@/components/correo/FiltrosCorreoPanel";
-import { Filter, FolderPlus, Inbox, Paperclip, Pencil, PenSquare, Reply, Trash2 } from "lucide-react";
+import { Filter, FolderPlus, Inbox, Paperclip, Pencil, PenSquare, Reply, Send, Trash2 } from "lucide-react";
 
 const INTERVALO_POLL_MS = 30000;
 
@@ -39,6 +40,10 @@ export default function CorreoView() {
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
   const [error, setError] = useState("");
   const [mostrandoFiltros, setMostrandoFiltros] = useState(false);
+  // Pseudo-carpeta: la bandeja de salida del remitente automático no es una
+  // carpeta IMAP (esa cuenta no tiene buzón, ver BandejaSalidaAutomatica),
+  // así que se elige aparte de `carpetaActual` en vez de sumarse a `carpetas`.
+  const [mostrandoSalidaAuto, setMostrandoSalidaAuto] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -79,6 +84,8 @@ export default function CorreoView() {
     setCarpetaActual(path);
     setSeleccionado(null);
     setDetalle(null);
+    setMostrandoSalidaAuto(false);
+    setMostrandoFiltros(false);
   };
 
   const crearCarpeta = async () => {
@@ -147,7 +154,12 @@ export default function CorreoView() {
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="tabs tabs-primary flex-wrap">
             {carpetas.map((c) => (
-              <div key={c.path} className={`tab group gap-1 ${carpetaActual === c.path ? "active" : ""}`} onClick={() => cambiarCarpeta(c.path)} title={c.nombre}>
+              <div
+                key={c.path}
+                className={`tab group gap-1 ${carpetaActual === c.path && !mostrandoSalidaAuto ? "active" : ""}`}
+                onClick={() => cambiarCarpeta(c.path)}
+                title={c.nombre}
+              >
                 <span className="tab-label">{c.nombre}</span>
                 {!c.especial && (
                   <span className="ml-1 hidden items-center gap-1 group-hover:flex">
@@ -160,6 +172,17 @@ export default function CorreoView() {
             <button type="button" className="tab" onClick={crearCarpeta} title="Nueva carpeta">
               <FolderPlus size={14} />
             </button>
+            <div
+              className={`tab gap-1 ${mostrandoSalidaAuto ? "active" : ""}`}
+              onClick={() => {
+                setMostrandoSalidaAuto(true);
+                setMostrandoFiltros(false);
+              }}
+              title="Correos que salieron solos desde el remitente automático (reglas, campañas y envíos únicos)"
+            >
+              <Send size={12} />
+              <span className="tab-label">Salida automática</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => setMostrandoFiltros(true)}>
@@ -175,6 +198,8 @@ export default function CorreoView() {
 
         {mostrandoFiltros ? (
           <FiltrosCorreoPanel carpetas={carpetas} onVolver={() => setMostrandoFiltros(false)} />
+        ) : mostrandoSalidaAuto ? (
+          <BandejaSalidaAutomatica />
         ) : (
 
         <div className="flex h-[calc(100vh-120px)] overflow-hidden rounded-lg border border-border">

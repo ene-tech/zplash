@@ -36,6 +36,9 @@ function resumenCondicion(r: ReglaCorreo): string {
   if (r.tipoEvento === "migracion_woo_legacy") {
     return `Solo al apretar "Enviar invitaciones" más abajo (no automático)`;
   }
+  if (r.tipoEvento === "envio_manual") {
+    return `No dispara sola — la crea "Correos Únicos" para poder registrar ahí sus envíos puntuales`;
+  }
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
   const soloSinAutopago = r.condicionSoloSinAutopago ? " · solo clientes sin pago automático activo" : "";
   return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}${soloSinAutopago}`;

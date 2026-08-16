@@ -3,6 +3,15 @@ import type { Cliente } from "@/types";
 
 export const ESTADO_PRIORIDAD: Record<string, number> = { Vencido: 0, "Por vencer": 1, "Sin plan": 2, Vigente: 3 };
 
+// Extremo del rango "pasadas desde/hasta" del toolbar de Clientes. Llega el
+// string crudo del input: vacío o a medio tipear (ej. "-", "1e") se trata como
+// extremo abierto, así la tabla no queda vacía mientras el usuario escribe.
+function limitePasadas(valor: string | undefined, abierto: number): number {
+  if (!valor || !valor.trim()) return abierto;
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : abierto;
+}
+
 function coincidePatente(c: Cliente, qPatente: string): boolean {
   return qPatente.length > 0 && normPlate(c.patente).includes(qPatente);
 }
@@ -56,9 +65,16 @@ function ordenColumna(a: Cliente, b: Cliente, orden: string): number {
 
 export function filtrarYOrdenarClientes(
   clientes: Cliente[],
-  opts: { search: string; filtroEstado: string; filtroOrigen?: string; orden: string }
+  opts: {
+    search: string;
+    filtroEstado: string;
+    filtroOrigen?: string;
+    pasadasDesde?: string;
+    pasadasHasta?: string;
+    orden: string;
+  }
 ): Cliente[] {
-  const { search, filtroEstado, filtroOrigen = "todos", orden } = opts;
+  const { search, filtroEstado, filtroOrigen = "todos", pasadasDesde, pasadasHasta, orden } = opts;
   const qPatente = normPlate(search);
   const qNombre = search.toLowerCase().trim();
   let filtered = clientes.filter((c) => !search || coincidePatente(c, qPatente) || coincideNombre(c, qNombre));
@@ -70,6 +86,11 @@ export function filtrarYOrdenarClientes(
     // "LOCAL" para filas viejas sin el campo seteado, mismo fallback que usa
     // ClienteRow para mostrarlo.
     filtered = filtered.filter((c) => (c.origen || "LOCAL") === filtroOrigen);
+  }
+  const desde = limitePasadas(pasadasDesde, -Infinity);
+  const hasta = limitePasadas(pasadasHasta, Infinity);
+  if (desde !== -Infinity || hasta !== Infinity) {
+    filtered = filtered.filter((c) => (c.visitas || 0) >= desde && (c.visitas || 0) <= hasta);
   }
   return [...filtered].sort((a, b) => {
     if (search) {

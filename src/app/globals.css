@@ -918,16 +918,32 @@ h4,
   gap: 10px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+  /* Sin esto el flex queda en stretch: el buscador se estiraba a lo alto de
+     la fila, los Select (altura fija) se pegaban arriba y el botón quedaba
+     abajo por su margin-top — tres alturas distintas en vez de una línea. */
+  align-items: center;
+}
+/* El margin-top de .btn es para botones sueltos dentro de un form; en la fila
+   del toolbar solo descuadra la alineación vertical. */
+.toolbar .btn {
+  margin-top: 0;
 }
 .toolbar input {
   flex: 1;
   min-width: 180px;
+}
+/* Los select nativos del toolbar (Suscripciones, Bodegas, Guía de traspaso)
+   no tenían caja propia: se veían del alto de la fila solo porque el flex los
+   estiraba, y con align-items: center quedaban en su alto intrínseco. */
+.toolbar input,
+.toolbar select {
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--white);
   padding: 10px 14px;
   border-radius: 8px;
   font-size: 14px;
+  font-family: inherit;
 }
 
 table {

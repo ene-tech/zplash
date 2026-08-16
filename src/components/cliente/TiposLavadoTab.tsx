@@ -99,7 +99,10 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
             </span>
             <h3>Zona Aspirado Autoservicio</h3>
           </div>
-          <p className="desc">Estación de aspirado autoservicio para el interior de tu auto.</p>
+          <p className="desc">
+            Uso único de estación de aspirado autoservicio para el interior de tu auto, cuando no
+            necesitas lavar el exterior de tu auto.
+          </p>
           <div className="price-row">
             <span className="new">{precios ? fmtCLP(precios.zonaAspirado.precio) : "..."}</span>
           </div>

@@ -1,4 +1,4 @@
-import type { ConfigGlobal, Precios, PreciosTamano, TamanoVehiculo, Venta } from "@/types";
+import type { CanalPromo, CanalTramoPromo, ConfigGlobal, Precios, PreciosTamano, TamanoVehiculo, Venta } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 
@@ -216,17 +216,41 @@ export function precioPreferencial(precios: Precios, plan: string): number {
 }
 
 /**
- * Precio de renovación preferencial para un cliente Local según su cantidad
- * de visitas acumuladas (ver tramosRenovacionLocal en ConfigGlobal): busca el
- * tramo cuyo rango [visitasMin, visitasMax] contiene `visitas` (evaluando los
- * tramos ordenados de menor a mayor visitasMin, para que el resultado sea
- * determinístico aunque el admin los haya guardado en otro orden). Si ninguno
- * calza, cae al precio preferencial general (Precios[plan].promo).
+ * Precio de renovación preferencial anticipada (plan todavía vigente) para un
+ * cliente, según cuántas veces pasó durante su período de plan vigente (ver
+ * tramosRenovacionLocal en ConfigGlobal y visitasPeriodoPlan en
+ * helpers/ingresos — NO el total histórico de Cliente.visitas): busca el
+ * tramo cuyo rango [visitasMin, visitasMax] contiene `visitasPeriodo`
+ * (evaluando los tramos ordenados de menor a mayor visitasMin, para que el
+ * resultado sea determinístico aunque el admin los haya guardado en otro
+ * orden).
+ *
+ * `canal` es el canal QUE PREGUNTA ("LOCAL" = módulo Operador, "WEB" = Mi
+ * Cuenta / pagar): solo califican los tramos de ese canal o sin restricción
+ * ("AMBOS", también los guardados antes de que existiera el campo) — así se
+ * puede invitar a renovar online a un precio que el operador no puede cobrar
+ * en el local. Ante rangos que se pisan gana el tramo del canal específico
+ * por sobre el "AMBOS", igual que en precioReactivacionVencido.
+ *
+ * `undefined` = no corresponde ofrecer promoción, el cliente renueva al precio
+ * normal: es lo que deja fuera al que viene mucho (queda sobre el visitasMax
+ * del último tramo). El precio preferencial general (Precios[plan].promo)
+ * sigue siendo el respaldo SOLO cuando ese canal no tiene ningún tramo
+ * configurado, que es el comportamiento previo a que existiera la escala.
  */
-export function precioRenovacionLocal(config: ConfigGlobal, precios: Precios, plan: string, visitas: number): number {
-  const tramos = [...(config.tramosRenovacionLocal[plan] || [])].sort((a, b) => a.visitasMin - b.visitasMin);
-  const match = tramos.find((t) => visitas >= t.visitasMin && (t.visitasMax === null || visitas <= t.visitasMax));
-  return match ? match.precio : precioPreferencial(precios, plan);
+export function precioRenovacionLocal(
+  config: ConfigGlobal,
+  precios: Precios,
+  plan: string,
+  visitasPeriodo: number,
+  canal: CanalPromo
+): number | undefined {
+  const tramos = (config.tramosRenovacionLocal[plan] || [])
+    .filter((t) => canalTramo(t) === "AMBOS" || canalTramo(t) === canal)
+    .sort((a, b) => a.visitasMin - b.visitasMin || Number(canalTramo(a) === "AMBOS") - Number(canalTramo(b) === "AMBOS"));
+  if (!tramos.length) return precioPreferencial(precios, plan);
+  const match = tramos.find((t) => visitasPeriodo >= t.visitasMin && (t.visitasMax === null || visitasPeriodo <= t.visitasMax));
+  return match?.precio;
 }
 
 /**
@@ -238,24 +262,43 @@ export function precioRenovacionLocal(config: ConfigGlobal, precios: Precios, pl
  * determinístico). A diferencia de precioRenovacionLocal, si ningún tramo
  * calza no hay precio de respaldo: `undefined` significa que no corresponde
  * ofrecer la promoción.
+ *
+ * `canal` es el canal QUE PREGUNTA ("LOCAL" = módulo Operador, "WEB" = Mi
+ * Cuenta / pagar): solo califican los tramos de ese canal o sin restricción
+ * ("AMBOS", también los guardados antes de que existiera el campo). Así una
+ * promoción marcada "WEB" no se puede cobrar en el local — el Operador igual
+ * la ve, consultando aparte por el canal Web, para poder mencionársela al
+ * cliente (ver useOperadorFoundResult). Ante rangos que se pisan gana el
+ * tramo del canal específico por sobre el "AMBOS", para que una promo
+ * dirigida a un canal le pueda mejorar el precio general.
  */
 export function precioReactivacionVencido(
   config: ConfigGlobal,
   plan: string,
   diasVencido: number,
-  visitas: number
+  visitas: number,
+  canal: CanalPromo
 ): number | undefined {
   const tramos = [...(config.tramosReactivacionVencido[plan] || [])].sort(
-    (a, b) => a.diasVencidoMin - b.diasVencidoMin || a.visitasMin - b.visitasMin
+    (a, b) =>
+      a.diasVencidoMin - b.diasVencidoMin ||
+      a.visitasMin - b.visitasMin ||
+      Number(canalTramo(a) === "AMBOS") - Number(canalTramo(b) === "AMBOS")
   );
   const match = tramos.find(
     (t) =>
+      (canalTramo(t) === "AMBOS" || canalTramo(t) === canal) &&
       diasVencido >= t.diasVencidoMin &&
       (t.diasVencidoMax === null || diasVencido <= t.diasVencidoMax) &&
       visitas >= t.visitasMin &&
       (t.visitasMax === null || visitas <= t.visitasMax)
   );
   return match?.precio;
+}
+
+/** Canal habilitado en un tramo, con el default de los tramos guardados antes de que el campo existiera. */
+export function canalTramo(tramo: { canal?: CanalTramoPromo }): CanalTramoPromo {
+  return tramo.canal ?? "AMBOS";
 }
 
 /** Precio vigente del lavado único PRESENCIAL, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */

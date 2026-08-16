@@ -19,13 +19,22 @@ export interface PlantillaCorreo {
 // Venta.creadoPor) — para reglas que no tiene sentido disparar en una
 // renovación automática Oneclick o un pedido WooCommerce, ej. una invitación
 // que un operador entrega en persona.
+// "envio_manual": no la evalúa ningún hook ni el cron — la crea sola
+// obtenerOCrearReglaEnvioManual (@/lib/dataAccess/mail) la primera vez que se
+// manda una PlantillaCorreo desde Web Settings → Correos Únicos, una por
+// plantilla. Existe como ReglaCorreo por el mismo motivo que
+// "migracion_woo_legacy": disparos_regla_correo.regla_id es NOT NULL, así que
+// es la vía para reusar la tabla de disparos (auditoría en Historial Correo +
+// idempotencia) sin migrar el esquema. Nace con activa=false para que se lea
+// de un vistazo, en la lista de Reglas Correo, que no dispara sola.
 export type TipoEventoReglaCorreo =
   | "venta_creada"
   | "venta_creada_presencial"
   | "plan_proximo_vencer"
   | "plan_vencido"
   | "cobro_fallido"
-  | "migracion_woo_legacy";
+  | "migracion_woo_legacy"
+  | "envio_manual";
 
 // Regla de negocio ("cuándo mandar qué correo") — motor en paralelo al de
 // WhatsApp (ver ReglaWhatsapp en @/types/whatsapp y comentario en
@@ -83,6 +92,30 @@ export interface HistorialReglaCorreo {
   error?: string;
 }
 
+export type EstadoCorreoAutomatico = "enviado" | "error";
+
+// Fila liviana de la bandeja de salida del remitente automático (Correo →
+// Salida automática) — el sobre, sin el HTML del cuerpo, mismo criterio que
+// CorreoResumen en @/types/buzon: la lista puede traer cientos de correos y
+// el cuerpo se pide aparte al abrir uno (ver CorreoAutomatico).
+export interface CorreoAutomaticoResumen {
+  id: string;
+  de: string;
+  para: string;
+  asunto: string;
+  estado: EstadoCorreoAutomatico;
+  error?: string;
+  clienteNombre?: string;
+  creadoEn: string;
+}
+
+// El correo completo, con el HTML ya renderizado tal como le llegó al
+// destinatario (variables resueltas, diseño de envolverCorreoBase aplicado).
+export interface CorreoAutomatico extends CorreoAutomaticoResumen {
+  html: string;
+  proveedorId?: string;
+}
+
 // Resultado de la campaña de migración WooCommerce→Oneclick (Web Settings →
 // Reglas Correo → "Migrar clientes WooCommerce", ver
 // @/lib/mailing/migracionWoo) — mismo propósito que
@@ -93,4 +126,10 @@ export interface ResultadoEnvioMasivoCorreo {
   enviados: number;
   fallidos: number;
   sinEmail: number;
+  // Clientes que ya habían recibido esta plantilla en este mismo ciclo de
+  // vencimiento y que la idempotencia de disparos_regla_correo dejó afuera
+  // (ver enviarCorreosMasivos). Se cuenta y se muestra en vez de sumarse en
+  // silencio a "enviados": un reenvío que en realidad no mandó nada tiene que
+  // notarse. `undefined` en la campaña de migración Woo, que no lo reporta.
+  omitidos?: number;
 }

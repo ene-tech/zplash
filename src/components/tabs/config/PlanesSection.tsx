@@ -7,6 +7,7 @@ import { PLANES, precioNormal, precioPreferencial, uid } from "@/lib/helpers";
 import type { TramoRenovacionLocal } from "@/types";
 import { Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import CanalTramoSelect from "./CanalTramoSelect";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
@@ -27,7 +28,7 @@ export default function PlanesSection() {
   const agregarTramo = (plan: string) => {
     setTramosVals((cur) => ({
       ...cur,
-      [plan]: [...(cur[plan] || []), { id: uid(), visitasMin: 0, visitasMax: null, precio: 0 }],
+      [plan]: [...(cur[plan] || []), { id: uid(), visitasMin: 0, visitasMax: null, precio: 0, canal: "AMBOS" }],
     }));
   };
 
@@ -57,7 +58,7 @@ export default function PlanesSection() {
     <ConfigSection
       title="Precios de planes y renovación preferencial"
       icon={Tag}
-      description="Estos valores se usan para mostrar la oferta de renovación al operador cuando un plan está por vencer."
+      description="Estos valores se usan para ofrecer la renovación cuando un plan está por vencer, tanto al operador en el local como al cliente en su cuenta web."
     >
       {PLANES.map((p) => (
         <div key={p} className="flex flex-col gap-3">
@@ -72,15 +73,20 @@ export default function PlanesSection() {
 
           <div>
             <div className="hint" style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}>
-              Renovación preferencial por visitas — {p} (clientes Local)
+              Renovación preferencial anticipada por pasadas — {p}
             </div>
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 10 }}>
-              Ofrece un precio distinto al de arriba según cuántas veces ha pasado el cliente por el local (ej:
-              $16.990 para quienes pasaron 0 o 1 vez). Si un cliente no cae en ningún tramo, se usa el precio de
-              promoción de renovación de arriba. No aplica a clientes Web.
+              Ofrece un precio distinto al de arriba para renovar antes de que el plan venza, según cuántas veces pasó
+              el cliente durante su período de plan vigente (ej: $16.990 para quien pasó 0 o 1 vez). El tope de pasadas
+              es lo que deja fuera al que viene mucho: si hay tramos para el canal y ninguno le calza, no se le ofrece
+              promoción y renueva al precio normal. El canal define por dónde se puede tomar el precio: “Solo Web” queda
+              disponible únicamente en la cuenta del cliente —así se le invita a renovar online antes del vencimiento— y
+              el operador no lo puede cobrar en el local, pero igual ve el aviso para mencionárselo; “Solo Local” solo lo
+              puede cobrar el operador. El precio de promoción de renovación de arriba se sigue usando como respaldo solo
+              en los canales que no tengan ningún tramo configurado.
             </div>
             {(tramosVals[p] || []).map((t) => (
-              <div key={t.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+              <div key={t.id} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <input
                     type="number"
@@ -100,8 +106,9 @@ export default function PlanesSection() {
                     }
                     style={{ width: 60 }}
                   />
-                  <span style={{ color: "var(--gray)", fontSize: 13 }}>visitas</span>
+                  <span style={{ color: "var(--gray)", fontSize: 13 }}>pasadas</span>
                 </div>
+                <CanalTramoSelect value={t.canal} onChange={(canal) => editarTramo(p, t.id, { canal })} />
                 <PriceInput
                   value={String(t.precio)}
                   onChange={(v) => editarTramo(p, t.id, { precio: Number(v) || 0 })}

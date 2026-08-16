@@ -428,6 +428,13 @@
       "when": 1786823836440,
       "tag": "0060_reglas_correo_dias_despues_vencimiento",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1786886343280,
+      "tag": "0061_clever_weapon_omega",
+      "breakpoints": true
     }
   ]
 }

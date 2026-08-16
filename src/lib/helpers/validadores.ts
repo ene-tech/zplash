@@ -84,3 +84,33 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function isValidEmail(email: string | null | undefined): boolean {
   return EMAIL_REGEX.test((email || "").trim());
 }
+
+/**
+ * Más estricto que isValidEmail: responde si una dirección tiene alguna
+ * posibilidad real de recibir un correo del remitente automático. Se usa SOLO
+ * en el motor de correo (@/lib/mailing/reglas/motor) para decidir si borrar el
+ * email del cliente y que el operador lo vuelva a pedir — a propósito NO se
+ * usa en los formularios: endurecer isValidEmail rechazaría en el registro
+ * direcciones que hoy se aceptan, que es un cambio de otra naturaleza.
+ *
+ * Los dos casos extra que agarra, sacados de fallas reales de Resend en el log
+ * (todas pasaban EMAIL_REGEX sin problema):
+ *
+ *  - Caracteres no-ASCII ("cardenas.matias.nuños@gmail.com",
+ *    "israelgutiérrezf1982@gmail.com"). Mandar a esas direcciones exige la
+ *    extensión SMTPUTF8, que los proveedores transaccionales no soportan:
+ *    rebotan siempre, no es cosa de reintentar.
+ *  - Punto al principio o al final de la parte local, o dos puntos seguidos
+ *    ("cliente.@gmail.com") — inválido según RFC 5322.
+ *
+ * Ante la duda devuelve `true`: el costo de un falso negativo acá es borrarle
+ * el correo bueno a un cliente, mucho peor que reintentar un envío que falla.
+ */
+export function esEmailEnviable(email: string | null | undefined): boolean {
+  const limpio = (email || "").trim();
+  if (!isValidEmail(limpio)) return false;
+  if (/[^\x20-\x7E]/.test(limpio)) return false;
+  const local = limpio.slice(0, limpio.lastIndexOf("@"));
+  if (local.startsWith(".") || local.endsWith(".") || local.includes("..")) return false;
+  return true;
+}

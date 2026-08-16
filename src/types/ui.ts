@@ -59,5 +59,7 @@ export interface UIState {
   perfilActual: PerfilPublico | null;
   clientesFiltroEstado: string;
   clientesFiltroOrigen: string;
+  clientesPasadasDesde: string;
+  clientesPasadasHasta: string;
   clientesOrden: string;
 }

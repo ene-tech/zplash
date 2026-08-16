@@ -7,6 +7,7 @@ import { PLANES, uid } from "@/lib/helpers";
 import type { TramoReactivacionVencido } from "@/types";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import CanalTramoSelect from "./CanalTramoSelect";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
@@ -23,7 +24,7 @@ export default function ReactivacionSection() {
       ...cur,
       [plan]: [
         ...(cur[plan] || []),
-        { id: uid(), diasVencidoMin: 0, diasVencidoMax: null, visitasMin: 0, visitasMax: null, precio: 0 },
+        { id: uid(), diasVencidoMin: 0, diasVencidoMax: null, visitasMin: 0, visitasMax: null, precio: 0, canal: "AMBOS" },
       ],
     }));
   };
@@ -50,7 +51,7 @@ export default function ReactivacionSection() {
     <ConfigSection
       title="Reactivación de plan vencido"
       icon={RefreshCw}
-      description="Ofrece un precio preferencial para recuperar clientes que se vencieron hace poco (Local o Web), según hace cuántos días venció su plan y cuántas veces pasó durante su último período pagado (ej: $15.990 para quien pasó 0 o 1 vez y venció hace 0 a 15 días). Si un cliente no cae en ningún tramo, no se le ofrece esta promoción — un cliente Web sigue viendo su oferta de renovar al mismo valor de su último pedido."
+      description="Ofrece un precio preferencial para recuperar clientes que se vencieron hace poco (Local o Web), según hace cuántos días venció su plan y cuántas veces pasó durante su último período pagado (ej: $15.990 para quien pasó 0 o 1 vez y venció hace 0 a 15 días). Si un cliente no cae en ningún tramo, no se le ofrece esta promoción — un cliente Web sigue viendo su oferta de renovar al mismo valor de su último pedido. El canal define por dónde se puede tomar el precio: “Solo Web” queda disponible únicamente en la cuenta del cliente (y en los correos de plan vencido, que enlazan ahí) y el operador no puede cobrarlo en el local, pero igual ve el aviso para mencionárselo; “Solo Local” solo lo puede cobrar el operador."
     >
       {PLANES.map((p) => (
         <div key={p}>
@@ -101,6 +102,7 @@ export default function ReactivacionSection() {
                 />
                 <span style={{ color: "var(--gray)", fontSize: 13 }}>visitas</span>
               </div>
+              <CanalTramoSelect value={t.canal} onChange={(canal) => editarTramo(p, t.id, { canal })} />
               <PriceInput
                 value={String(t.precio)}
                 onChange={(v) => editarTramo(p, t.id, { precio: Number(v) || 0 })}

@@ -4,6 +4,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes } from "@/db/schema";
 import type { Cliente, ClientePatch } from "@/types";
+import { insertAuditoria } from "./auditoria";
 import { upsertRows } from "./shared";
 
 export async function getClientesByIds(ids: string[]): Promise<Cliente[]> {
@@ -171,6 +172,42 @@ export async function deleteClientes(ids: string[]): Promise<boolean> {
     console.error("Error eliminando clientes", error);
     return false;
   }
+}
+
+/**
+ * Borra el email de un cliente cuando quedó demostrado que no se le puede
+ * escribir (dirección malformada o rechazada de plano por el proveedor, ver
+ * ejecutarAccionReglaCorreo). Con el campo vacío, la ficha del operador pasa
+ * sola a mostrar el input "Correo electrónico" con su botón Guardar (ver
+ * OperadorFoundResult), así que el próximo lavado de ese cliente es la
+ * oportunidad de pedirle la dirección buena.
+ *
+ * La dirección vieja no se pierde: queda en `correos_automaticos.para` (la
+ * bandeja de salida, con el correo que se intentó mandar) y en la auditoría
+ * que escribe esta misma función — útil porque muchas son la dirección
+ * correcta con un error tipográfico obvio, y el operador puede confirmarla en
+ * vez de pedirla desde cero.
+ */
+export async function limpiarEmailCliente(id: string, emailAnterior: string, motivo: string): Promise<boolean> {
+  try {
+    await getDb().update(clientes).set({ email: null }).where(eq(clientes.id, id));
+  } catch (error) {
+    console.error("Error borrando el email inválido del cliente", id, error);
+    return false;
+  }
+  // Después de la escritura real y sin await bloqueante sobre su resultado:
+  // insertAuditoria ya falla en silencio a propósito (ver su comentario).
+  await insertAuditoria([
+    {
+      tabla: "clientes",
+      registroId: id,
+      accion: "update",
+      datosAnteriores: { email: emailAnterior },
+      datosNuevos: { email: null, motivo },
+      usuario: "correo-automatico",
+    },
+  ]);
+  return true;
 }
 
 // Update puntual (no pasa por el upsert en lote de arriba) para la solicitud

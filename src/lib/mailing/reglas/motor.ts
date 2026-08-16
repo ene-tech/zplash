@@ -1,6 +1,7 @@
 import "server-only";
 
-import { marcarDisparoReglaCorreo, obtenerPlantillaCorreo } from "@/lib/dataAccess/mail";
+import { limpiarEmailCliente } from "@/lib/dataAccess/clientes";
+import { eliminarDisparoReglaCorreo, marcarDisparoReglaCorreo, obtenerPlantillaCorreo } from "@/lib/dataAccess/mail";
 import { aplicarVariables } from "@/lib/helpers";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
@@ -49,7 +50,30 @@ export async function ejecutarAccionReglaCorreo(
   // fechaVencimiento en negrita) — así el contenido queda editable sin
   // HTML/CSS a mano y el correo se ve profesional igual.
   const html = envolverCorreoBase(plantilla.cuerpo, variables);
-  const resultado = await enviarCorreoTransaccional({ to: cliente.email, subject: asunto, html });
+  const resultado = await enviarCorreoTransaccional({
+    to: cliente.email,
+    subject: asunto,
+    html,
+    disparoId,
+    clienteId: cliente.id,
+  });
+
+  // Dirección irrecuperable (malformada, o rechazada de plano por el
+  // proveedor): se le borra el email al cliente para que la ficha del operador
+  // vuelva a pedirlo en su próximo lavado (ver limpiarEmailCliente). Solo con
+  // `permanente`: un límite de envío o una caída del proveedor NO borran nada.
+  if (!resultado.ok && resultado.permanente) {
+    await limpiarEmailCliente(cliente.id, cliente.email, resultado.error || "correo rechazado");
+    // Y se borra el disparo, en vez de marcarlo "error". Si quedara, el unique
+    // (regla_id, origen_tipo, origen_id) dejaría a este cliente fuera de
+    // cualquier reenvío durante todo el ciclo de plan — justo cuando el
+    // operador acaba de capturarle la dirección buena, que es el punto de todo
+    // esto. La falla no se pierde: quedó en la bandeja de salida (con la
+    // dirección mala) y en la auditoría del cliente.
+    await eliminarDisparoReglaCorreo(disparoId);
+    return false;
+  }
+
   await marcarDisparoReglaCorreo(disparoId, { estado: resultado.ok ? "enviado" : "error", error: resultado.error });
   return resultado.ok;
 }

@@ -10,6 +10,7 @@ import {
   esExentoFormatoCliente,
   esExentoHorarioOperador,
   esExentoValidacionRegistroOperador,
+  esEmailEnviable,
   esFinDeSemanaOFestivo,
   esServicioTunelLibre,
   fmtCLP,
@@ -112,6 +113,34 @@ describe("formatTelefono / isValidTelefono", () => {
     expect(isValidTelefono(null)).toBe(true);
     expect(isValidTelefono("221234567")).toBe(false);
     expect(isValidTelefono("+56912345678")).toBe(true);
+  });
+});
+
+describe("esEmailEnviable", () => {
+  // Las cuatro direcciones son fallas reales de Resend sacadas del log; las
+  // tres últimas pasan isValidEmail sin problema, que es justo el motivo por
+  // el que existe esta función aparte. Importa que sean exactas: de esto
+  // depende que se le borre el correo a un cliente.
+  it("rechaza las direcciones que el proveedor rebota siempre", () => {
+    expect(esEmailEnviable("jorge sancheztemuco@gmail.com")).toBe(false); // espacio
+    expect(esEmailEnviable("israelgutiérrezf1982@gmail.com")).toBe(false); // tilde
+    expect(esEmailEnviable("cardenas.matias.nuños@gmail.com")).toBe(false); // ñ
+    expect(esEmailEnviable("cliente.@gmail.com")).toBe(false); // punto al final de la parte local
+  });
+
+  it("acepta direcciones normales, incluidas las de forma poco común", () => {
+    expect(esEmailEnviable("juan.perez@gmail.com")).toBe(true);
+    expect(esEmailEnviable("juan+lavado@sub.dominio.cl")).toBe(true);
+    expect(esEmailEnviable("  espacios.alrededor@gmail.com  ")).toBe(true);
+    expect(esEmailEnviable("a_b-c'd@empresa.co.uk")).toBe(true);
+  });
+
+  it("trata el email ausente como no enviable, sin confundirlo con uno malo", () => {
+    // El motor chequea `!cliente.email` antes, así que acá no se llega con
+    // vacío — pero si se llegara, no debe explotar.
+    expect(esEmailEnviable("")).toBe(false);
+    expect(esEmailEnviable(null)).toBe(false);
+    expect(esEmailEnviable(undefined)).toBe(false);
   });
 });
 
@@ -438,19 +467,49 @@ describe("precioReactivacionVencido", () => {
   };
 
   it("calza por ambos rangos (días vencido y visitas)", () => {
-    expect(precioReactivacionVencido(config, "plan1", 15, 1)).toBe(15990);
+    expect(precioReactivacionVencido(config, "plan1", 15, 1, "LOCAL")).toBe(15990);
   });
 
   it("tramo con techo abierto en días vencido", () => {
-    expect(precioReactivacionVencido(config, "plan1", 40, 0)).toBe(17990);
+    expect(precioReactivacionVencido(config, "plan1", 40, 0, "WEB")).toBe(17990);
   });
 
   it("tramo con techo abierto en visitas", () => {
-    expect(precioReactivacionVencido(config, "plan1", 5, 10)).toBe(18990);
+    expect(precioReactivacionVencido(config, "plan1", 5, 10, "LOCAL")).toBe(18990);
   });
 
   it("sin tramos configurados para el plan -> undefined (no se ofrece promoción)", () => {
-    expect(precioReactivacionVencido(config, "otro-plan", 15, 1)).toBeUndefined();
+    expect(precioReactivacionVencido(config, "otro-plan", 15, 1, "LOCAL")).toBeUndefined();
+  });
+
+  it("tramo sin canal (guardado antes de la opción) vale para los dos canales", () => {
+    expect(precioReactivacionVencido(config, "plan1", 15, 1, "WEB")).toBe(15990);
+    expect(precioReactivacionVencido(config, "plan1", 15, 1, "LOCAL")).toBe(15990);
+  });
+
+  it("tramo marcado para un canal solo se ofrece por ese canal", () => {
+    const soloWeb: ConfigGlobal = {
+      ...CONFIG_DEFAULT,
+      tramosReactivacionVencido: {
+        plan1: [{ id: "t1", diasVencidoMin: 0, diasVencidoMax: 15, visitasMin: 0, visitasMax: null, precio: 15990, canal: "WEB" }],
+      },
+    };
+    expect(precioReactivacionVencido(soloWeb, "plan1", 10, 0, "WEB")).toBe(15990);
+    expect(precioReactivacionVencido(soloWeb, "plan1", 10, 0, "LOCAL")).toBeUndefined();
+  });
+
+  it("con rangos que se pisan, el tramo del canal específico le gana al de AMBOS", () => {
+    const mixto: ConfigGlobal = {
+      ...CONFIG_DEFAULT,
+      tramosReactivacionVencido: {
+        plan1: [
+          { id: "ambos", diasVencidoMin: 0, diasVencidoMax: 15, visitasMin: 0, visitasMax: null, precio: 17990, canal: "AMBOS" },
+          { id: "web", diasVencidoMin: 0, diasVencidoMax: 15, visitasMin: 0, visitasMax: null, precio: 14990, canal: "WEB" },
+        ],
+      },
+    };
+    expect(precioReactivacionVencido(mixto, "plan1", 10, 0, "WEB")).toBe(14990);
+    expect(precioReactivacionVencido(mixto, "plan1", 10, 0, "LOCAL")).toBe(17990);
   });
 });
 
@@ -898,17 +957,66 @@ describe("calcularOfertasPlan", () => {
     d.setHours(d.getHours() - horas);
     return d.toISOString();
   };
+  // Pasada del período de plan vigente (ver visitasPeriodoPlan), el eje de la
+  // escala de renovación anticipada: los clientes de este bloque contratan
+  // hace 10 días, así que un ingreso de ayer cae dentro del período vigente.
+  const ingresoAyer = (): Ingreso => ({
+    id: "i1",
+    clienteId: "c1",
+    patente: "AB1234",
+    nombre: "Cliente",
+    fecha: diasDesdeHoy(-1),
+    planEstadoAlIngreso: "ok",
+  });
 
   it("plan vigente -> ofrece renovación anticipada al precio del tramo, sin reactivación ni upgrade", () => {
-    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), visitas: 3 };
+    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
     const oferta = calcularOfertasPlan(cliente, [], [], config, precios);
     expect(oferta.renovacionAnticipada).toEqual({ pNormal: 21990, pPromo: 15990, ahorro: 6000, diasRestantes: undefined });
     expect(oferta.reactivacion).toBeUndefined();
     expect(oferta.upgrade).toBeUndefined();
   });
 
+  it("pasadas del período vigente por sobre el último tramo -> sin promoción, renueva al precio normal", () => {
+    // El tramo llega hasta 1 pasada: con 2 en el período vigente el cliente
+    // "viene mucho" y queda fuera de la promoción — no cae al precio
+    // preferencial general, paga el normal (ahorro 0).
+    const soloPocasPasadas: ConfigGlobal = {
+      ...config,
+      tramosRenovacionLocal: { [PLAN]: [{ id: "r1", visitasMin: 0, visitasMax: 1, precio: 15990 }] },
+    };
+    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
+    const dosPasadas = [ingresoAyer(), { ...ingresoAyer(), id: "i2", fecha: diasDesdeHoy(-2) }];
+    expect(calcularOfertasPlan(cliente, [], dosPasadas, soloPocasPasadas, precios).renovacionAnticipada).toEqual({
+      pNormal: 21990,
+      pPromo: 21990,
+      ahorro: 0,
+      diasRestantes: undefined,
+    });
+    // Con una sola pasada sí califica.
+    expect(calcularOfertasPlan(cliente, [], [ingresoAyer()], soloPocasPasadas, precios).renovacionAnticipada?.pPromo).toBe(15990);
+  });
+
+  it("tramo marcado 'Solo Web' -> solo aplica por el canal Web; en Local cae al precio preferencial general", () => {
+    const soloWeb: ConfigGlobal = {
+      ...config,
+      tramosRenovacionLocal: { [PLAN]: [{ id: "r1", visitasMin: 0, visitasMax: null, precio: 15990, canal: "WEB" }] },
+    };
+    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
+    expect(calcularOfertasPlan(cliente, [], [], soloWeb, precios).renovacionAnticipada?.pPromo).toBe(15990);
+    // El canal Local no tiene ningún tramo configurado, así que conserva el
+    // respaldo histórico: el precio de promoción general (Precios[plan].promo).
+    expect(calcularOfertasPlan(cliente, [], [], soloWeb, precios, "LOCAL").renovacionAnticipada?.pPromo).toBe(19990);
+  });
+
+  it("sin tramos configurados -> el precio de promoción general sigue siendo la oferta", () => {
+    const sinTramos: ConfigGlobal = { ...config, tramosRenovacionLocal: {} };
+    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
+    expect(calcularOfertasPlan(cliente, [], [ingresoAyer()], sinTramos, precios).renovacionAnticipada?.pPromo).toBe(19990);
+  });
+
   it("plan por vencer -> igual ofrece renovación anticipada, con diasRestantes definido", () => {
-    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(3), visitas: 0 };
+    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(3), fechaContratacion: diasDesdeHoy(-27) };
     const oferta = calcularOfertasPlan(cliente, [], [], config, precios);
     // No se compara un valor exacto: planStatus calcula sobre el día
     // calendario en horario de Chile (ahoraEnSantiago), así que el redondeo
@@ -936,6 +1044,20 @@ describe("calcularOfertasPlan", () => {
     const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-60), visitas: 0 };
     const oferta = calcularOfertasPlan(cliente, [], [], config, precios);
     expect(oferta.reactivacion).toBeUndefined();
+  });
+
+  it("tramo de reactivación restringido a un canal -> solo se ofrece por ese canal", () => {
+    const soloLocal: ConfigGlobal = {
+      ...config,
+      tramosReactivacionVencido: {
+        [PLAN]: [{ id: "t1", diasVencidoMin: 0, diasVencidoMax: 20, visitasMin: 0, visitasMax: null, precio: 17990, canal: "LOCAL" }],
+      },
+    };
+    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-10), visitas: 0 };
+    // El canal por defecto es "WEB" (Mi Cuenta / pagar / correos): una
+    // promoción marcada "Solo local" no se le muestra ni se le cobra ahí.
+    expect(calcularOfertasPlan(cliente, [], [], soloLocal, precios).reactivacion).toBeUndefined();
+    expect(calcularOfertasPlan(cliente, [], [], soloLocal, precios, "LOCAL").reactivacion?.precio).toBe(17990);
   });
 
   it("plan vencido + Lavado único reciente dentro de la ventana -> ofrece upgrade", () => {

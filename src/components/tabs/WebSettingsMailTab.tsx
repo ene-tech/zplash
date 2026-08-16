@@ -9,20 +9,62 @@ const CATEGORIA_DEFAULT = "Proceso de venta";
 
 function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaCorreo; puedeBorrar: boolean }) {
   const { data, commit } = useApp();
+  const [nombre, setNombre] = useState(plantilla.nombre);
   const [asunto, setAsunto] = useState(plantilla.asunto);
   const [cuerpo, setCuerpo] = useState(plantilla.cuerpo);
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
 
-  const hayCambios = asunto !== plantilla.asunto || cuerpo !== plantilla.cuerpo;
+  const nombreLimpio = nombre.trim();
+  const hayCambios = nombreLimpio !== plantilla.nombre || asunto !== plantilla.asunto || cuerpo !== plantilla.cuerpo;
 
   const guardar = async () => {
+    if (!nombreLimpio) {
+      setMsg({ texto: "El nombre de la situación no puede quedar vacío", ok: false });
+      return;
+    }
     setGuardando(true);
+    // Renombrar solo toca `nombre`: el id es lo que referencia
+    // ReglaCorreo.plantillaCorreoId, así que las reglas que ya apuntan a esta
+    // plantilla siguen apuntando igual. Lo único que hay que arrastrar es el
+    // nombre de la regla "percha" de envío manual, que se generó a partir del
+    // nombre viejo (ver obtenerOCrearReglaEnvioManual) y si no quedaría
+    // mostrando en Reglas Correo un nombre que ya no existe.
+    const perchasRenombradas = data.reglasCorreo.map((r) =>
+      r.tipoEvento === "envio_manual" && r.plantillaCorreoId === plantilla.id
+        ? { ...r, nombre: `Envío manual — ${nombreLimpio}` }
+        : r
+    );
     const ok = await commit({
-      plantillasCorreo: data.plantillasCorreo.map((p) => (p.id === plantilla.id ? { ...p, asunto, cuerpo } : p)),
+      plantillasCorreo: data.plantillasCorreo.map((p) =>
+        p.id === plantilla.id ? { ...p, nombre: nombreLimpio, asunto, cuerpo } : p
+      ),
+      ...(nombreLimpio !== plantilla.nombre ? { reglasCorreo: perchasRenombradas } : {}),
     });
     setGuardando(false);
+    setNombre(nombreLimpio);
     setMsg({ texto: ok ? "Guardado" : "No se pudo guardar (sin conexión). Intenta de nuevo.", ok });
+  };
+
+  // Duplica lo que se ve en pantalla, no lo último guardado: si el admin venía
+  // editando el cuerpo y aprieta "Duplicar", lo natural es que la copia salga
+  // con ese texto. La original conserva sus cambios sin guardar tal cual.
+  // Se inserta justo después de la original para que quede al lado en la lista
+  // (que respeta el orden del array dentro de cada categoría).
+  const duplicar = async () => {
+    const copia: PlantillaCorreo = {
+      id: uid(),
+      nombre: `${nombreLimpio || plantilla.nombre} (copia)`,
+      categoria: plantilla.categoria,
+      asunto,
+      cuerpo,
+      activo: true,
+    };
+    const indice = data.plantillasCorreo.findIndex((p) => p.id === plantilla.id);
+    const plantillasCorreo = [...data.plantillasCorreo];
+    plantillasCorreo.splice(indice + 1, 0, copia);
+    const ok = await commit({ plantillasCorreo });
+    setMsg({ texto: ok ? "Plantilla duplicada" : "No se pudo duplicar (sin conexión). Intenta de nuevo.", ok });
   };
 
   const toggleActivo = () => {
@@ -35,7 +77,15 @@ function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaCorreo; 
 
   return (
     <div className="vehicle-card" style={{ opacity: plantilla.activo ? 1 : 0.6, marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>{plantilla.nombre}</div>
+      <div className="field" style={{ margin: "0 0 8px" }}>
+        <label>Situación</label>
+        <input
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          placeholder="Ej: Confirmación de compra"
+          style={{ fontWeight: 700 }}
+        />
+      </div>
       <div className="field" style={{ margin: "0 0 8px" }}>
         <label>Asunto</label>
         <input value={asunto} onChange={(e) => setAsunto(e.target.value)} placeholder="Asunto del correo" />
@@ -47,6 +97,9 @@ function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaCorreo; 
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button className="btn" style={{ marginTop: 0 }} onClick={guardar} disabled={guardando || !hayCambios}>
           {guardando ? "Guardando..." : "Guardar"}
+        </button>
+        <button className="icon-btn" onClick={duplicar} disabled={guardando}>
+          Duplicar
         </button>
         <button className="icon-btn" onClick={toggleActivo}>
           {plantilla.activo ? "Desactivar" : "Reactivar"}

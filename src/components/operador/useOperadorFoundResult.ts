@@ -22,6 +22,7 @@ import {
   precioUpgradePlan,
   ventaLavadoWebPendiente,
   ventaUpgradeElegible,
+  visitasPeriodoPlan,
   visitasUltimoPeriodoVencido,
 } from "@/lib/helpers";
 import type { Cliente } from "@/types";
@@ -62,11 +63,19 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // defecto (PLANES[0]), no precioNormal(precios, "") — que no matchea
   // ninguna clave de Precios y quedaba en $0.
   const pNormal = precioNormal(data.precios, c.plan || PLANES[0]);
+  // Promoción de renovación anticipada, escalonada por cuántas veces pasó el
+  // cliente durante su período de plan vigente (ver tramosRenovacionLocal /
+  // precioRenovacionLocal): undefined = ningún tramo del canal Local le calza
+  // (típicamente porque viene mucho), así que no hay promoción y renueva al
+  // precio normal.
+  //
   // Mismo fallback que pNormal: si c.plan viniera vacío con un plan igual
   // vigente (no debería pasar por convención, pero el esquema no lo obliga),
   // que ahorro = pNormal - pPromo no se dispare a "gratis" por comparar
   // contra precioRenovacionLocal(..., "", ...), que resuelve a 0.
-  const pPromo = precioRenovacionLocal(data.config, data.precios, c.plan || PLANES[0], c.visitas || 0);
+  const visitasPeriodo = visitasPeriodoPlan(data.ingresos, c);
+  const pPromoTramo = precioRenovacionLocal(data.config, data.precios, c.plan || PLANES[0], visitasPeriodo, "LOCAL");
+  const pPromo = pPromoTramo ?? pNormal;
   // El cliente puede renovar cuando quiera, no solo cuando el plan está por
   // vencer: renovarPlan ya ancla la nueva vigencia al vencimiento actual si
   // todavía no pasó (ver lib/logic/ingresos.ts), así que renovar temprano no
@@ -74,6 +83,17 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // su propia oferta de reactivación (showReactivacion/esWebVencido).
   const showOffer = st.cls !== "bad" && pNormal > 0 && c.origen !== "WEB";
   const ahorro = pNormal - pPromo;
+  // Sin promoción vigente la tarjeta igual se muestra (el operador tiene que
+  // poder renovarle el plan antes de que venza), pero cobrando el precio
+  // normal y sin hablar de "precio preferencial" — ver OperadorFoundOfertas.
+  const hayPromoRenovacion = pPromoTramo !== undefined && ahorro > 0;
+  // Misma promoción consultada por el canal Web: un tramo marcado "Solo Web"
+  // no lo puede cobrar el operador (por eso no entra en pPromo, que es lo que
+  // cobra `renovar`), pero sí se le avisa para que invite al cliente a
+  // renovar online antes de que se le venza — mismo patrón que
+  // showReactivacionSoloWeb, más abajo.
+  const pPromoWeb = precioRenovacionLocal(data.config, data.precios, c.plan || PLANES[0], visitasPeriodo, "WEB");
+  const showRenovacionSoloWeb = showOffer && !hayPromoRenovacion && pPromoWeb !== undefined && pPromoWeb < pNormal;
   const planVigente = st.cls !== "bad";
   // "Administración" y "Gerencia" pueden forzar el ingreso aunque el
   // reingreso esté bloqueado (cliente pasó hace menos de 24:30 horas): se
@@ -99,8 +119,16 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const diasVenc = diasVencido(c);
   const visitasUltPeriodo = visitasUltimoPeriodoVencido(data.ingresos, c);
   const precioReactivacion =
-    diasVenc !== null ? precioReactivacionVencido(data.config, c.plan || "", diasVenc, visitasUltPeriodo) : undefined;
+    diasVenc !== null ? precioReactivacionVencido(data.config, c.plan || "", diasVenc, visitasUltPeriodo, "LOCAL") : undefined;
   const showReactivacion = precioReactivacion !== undefined;
+  // Misma promoción consultada por el canal Web: si el tramo que le calza al
+  // cliente está marcado solo para Web, el Operador NO puede cobrarla acá
+  // (por eso no entra en precioReactivacion, que es lo que cobra `reactivar`),
+  // pero sí se le avisa el precio para que se lo mencione al cliente y este
+  // la tome donde corresponde — Mi Cuenta / pagar.
+  const precioReactivacionWeb =
+    diasVenc !== null ? precioReactivacionVencido(data.config, c.plan || "", diasVenc, visitasUltPeriodo, "WEB") : undefined;
+  const showReactivacionSoloWeb = !showReactivacion && precioReactivacionWeb !== undefined;
 
   // Promoción: si al cliente se le acaba de cobrar un lavado único (dentro de
   // la ventana configurada, ver ventaUpgradeElegible) y sigue sin plan
@@ -207,9 +235,14 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     pNormal,
     pPromo,
     ahorro,
+    hayPromoRenovacion,
+    showRenovacionSoloWeb,
+    pPromoWeb,
     showReactivacion,
     diasVenc,
     precioReactivacion,
+    showReactivacionSoloWeb,
+    precioReactivacionWeb,
     esWebVencido,
     precioOfertaWeb,
     ventaUpgrade,

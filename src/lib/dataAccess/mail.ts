@@ -1,10 +1,13 @@
 import "server-only";
 
-import { and, desc, eq, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, disparosReglaCorreo, plantillasCorreo, reglasCorreo } from "@/db/schema";
+import { clientes, correosAutomaticos, disparosReglaCorreo, plantillasCorreo, reglasCorreo } from "@/db/schema";
 import type {
+  CorreoAutomatico,
+  CorreoAutomaticoResumen,
   DisparoReglaCorreo,
+  EstadoCorreoAutomatico,
   EstadoDisparoReglaCorreo,
   HistorialReglaCorreo,
   OrigenTipoDisparoReglaCorreo,
@@ -122,6 +125,81 @@ export async function listarReglasCorreoActivas(tipoEvento: TipoEventoReglaCorre
   return rows.map(reglaCorreoFromRow);
 }
 
+/**
+ * La ReglaCorreo "percha" de tipoEvento="envio_manual" que ampara los envíos
+ * puntuales de UNA plantilla desde Web Settings → Correos Únicos, creándola la
+ * primera vez. No es una regla de negocio: nace con activa=false y ningún hook
+ * ni el cron la evalúan (ver comentario de TipoEventoReglaCorreo) — existe
+ * solo porque disparos_regla_correo.regla_id es NOT NULL, y colgarse de ella
+ * da gratis la auditoría en Historial Correo y la idempotencia por el unique
+ * (regla_id, origen_tipo, origen_id).
+ *
+ * Una por plantilla (no una sola global) justamente por ese unique: con una
+ * percha compartida, mandar la plantilla A a un cliente lo dejaría fuera de un
+ * envío posterior de la plantilla B en el mismo ciclo, que no tiene nada que
+ * ver.
+ */
+export async function obtenerOCrearReglaEnvioManual(plantillaCorreoId: string, creadoPor?: string): Promise<ReglaCorreo | null> {
+  const db = getDb();
+  const [existente] = await db
+    .select()
+    .from(reglasCorreo)
+    .where(and(eq(reglasCorreo.tipoEvento, "envio_manual"), eq(reglasCorreo.plantillaCorreoId, plantillaCorreoId)))
+    .limit(1);
+  if (existente) return reglaCorreoFromRow(existente);
+
+  const [plantilla] = await db.select().from(plantillasCorreo).where(eq(plantillasCorreo.id, plantillaCorreoId)).limit(1);
+  if (!plantilla) {
+    console.error("No se puede crear la regla de envío manual: plantilla inexistente", plantillaCorreoId);
+    return null;
+  }
+
+  const fila = {
+    id: `envio-manual-${plantillaCorreoId}`,
+    nombre: `Envío manual — ${plantilla.nombre}`,
+    activa: false,
+    tipoEvento: "envio_manual",
+    condicionSoloSinAutopago: false,
+    delayDias: 0,
+    plantillaCorreoId,
+    creadoEn: new Date().toISOString(),
+    creadoPor: creadoPor || null,
+  };
+  try {
+    await db.insert(reglasCorreo).values(fila);
+    return reglaCorreoFromRow(fila as typeof reglasCorreo.$inferSelect);
+  } catch (error) {
+    // Carrera entre dos admins mandando la misma plantilla a la vez: el id es
+    // determinístico (derivado de la plantilla), así que el segundo insert
+    // choca contra la PK — se relee en vez de fallar el envío.
+    console.error("Error creando la regla de envío manual, releyendo", plantillaCorreoId, error);
+    const [reintento] = await db.select().from(reglasCorreo).where(eq(reglasCorreo.id, fila.id)).limit(1);
+    return reintento ? reglaCorreoFromRow(reintento) : null;
+  }
+}
+
+/**
+ * Ids de clientes a los que YA se les envió con éxito una plantilla puntual
+ * desde `desdeISO` — para que Correos Únicos los pre-excluya de la selección
+ * (mismo propósito que clienteIdsConMensajePlantilla en WhatsApp). Es solo
+ * ayuda visual: la garantía dura contra duplicados es el unique de
+ * disparos_regla_correo, no esto.
+ */
+export async function clienteIdsConCorreoDePlantilla(plantillaCorreoId: string, desdeISO: string): Promise<string[]> {
+  const rows = await getDb()
+    .select({ clienteId: disparosReglaCorreo.clienteId })
+    .from(disparosReglaCorreo)
+    .innerJoin(reglasCorreo, eq(reglasCorreo.id, disparosReglaCorreo.reglaId))
+    .where(
+      and(
+        eq(reglasCorreo.plantillaCorreoId, plantillaCorreoId),
+        eq(disparosReglaCorreo.estado, "enviado"),
+        gte(disparosReglaCorreo.creadoEn, desdeISO)
+      )
+    );
+  return rows.map((r) => r.clienteId).filter((id): id is string => !!id);
+}
+
 // ---- Disparos de reglas de correo (auditoría + idempotencia) ----
 
 type DisparoReglaCorreoRow = typeof disparosReglaCorreo.$inferSelect;
@@ -180,6 +258,19 @@ export async function registrarDisparoReglaCorreo(d: NuevoDisparoReglaCorreo): P
   }
 }
 
+// Borra un disparo ya registrado. Único uso: cuando el correo falló por una
+// dirección irrecuperable y se le borró el email al cliente — dejar la fila
+// bloquearía el reenvío por el unique (regla_id, origen_tipo, origen_id)
+// durante todo el ciclo de plan, justo cuando el operador va a capturar la
+// dirección buena. Ver ejecutarAccionReglaCorreo.
+export async function eliminarDisparoReglaCorreo(id: string): Promise<void> {
+  try {
+    await getDb().delete(disparosReglaCorreo).where(eq(disparosReglaCorreo.id, id));
+  } catch (error) {
+    console.error("No se pudo borrar el disparo de correo tras una dirección inválida", id, error);
+  }
+}
+
 export async function marcarDisparoReglaCorreo(id: string, cambios: { estado: EstadoDisparoReglaCorreo; error?: string }): Promise<void> {
   await getDb()
     .update(disparosReglaCorreo)
@@ -193,6 +284,115 @@ export async function listarDisparosProgramadosCorreoVencidos(ahoraISO: string):
     .from(disparosReglaCorreo)
     .where(and(eq(disparosReglaCorreo.estado, "programado"), lte(disparosReglaCorreo.enviarEn, ahoraISO)));
   return rows.map(disparoReglaCorreoFromRow);
+}
+
+// ---- Bandeja de salida del remitente automático (ver comentario de
+// correosAutomaticos en @/db/schema/mail) ----
+
+/**
+ * Guarda la copia de un correo que ya salió (o que falló al salir) por el
+ * remitente automático. Nunca lanza ni retorna error: la llama
+ * enviarCorreoTransaccional DESPUÉS de que el proveedor respondió, así que un
+ * problema guardando la copia no puede volverse un fallo de envío — el correo
+ * ya está en la calle. Solo se pierde la fila de auditoría, y queda en el log.
+ */
+export async function registrarCorreoAutomatico(c: {
+  id: string;
+  de: string;
+  para: string;
+  asunto: string;
+  html: string;
+  estado: EstadoCorreoAutomatico;
+  error?: string;
+  proveedorId?: string;
+  disparoId?: string;
+  clienteId?: string;
+}): Promise<void> {
+  try {
+    await getDb()
+      .insert(correosAutomaticos)
+      .values({
+        id: c.id,
+        de: c.de,
+        para: c.para,
+        asunto: c.asunto,
+        html: c.html,
+        estado: c.estado,
+        error: c.error || null,
+        proveedorId: c.proveedorId || null,
+        disparoId: c.disparoId || null,
+        clienteId: c.clienteId || null,
+        creadoEn: new Date().toISOString(),
+      });
+  } catch (error) {
+    console.error("No se pudo guardar la copia del correo automático", c.para, c.asunto, error);
+  }
+}
+
+// Lista para Correo → Salida automática. Sin el HTML del cuerpo a propósito
+// (ver CorreoAutomaticoResumen): con 200 correos de diseño completo la
+// respuesta pesaría megabytes para mostrar solo asunto y destinatario.
+export async function listarCorreosAutomaticos(limite = 200): Promise<CorreoAutomaticoResumen[]> {
+  const rows = await getDb()
+    .select({
+      id: correosAutomaticos.id,
+      de: correosAutomaticos.de,
+      para: correosAutomaticos.para,
+      asunto: correosAutomaticos.asunto,
+      estado: correosAutomaticos.estado,
+      error: correosAutomaticos.error,
+      clienteNombre: clientes.nombre,
+      creadoEn: correosAutomaticos.creadoEn,
+    })
+    .from(correosAutomaticos)
+    .leftJoin(clientes, eq(correosAutomaticos.clienteId, clientes.id))
+    .orderBy(desc(correosAutomaticos.creadoEn))
+    .limit(limite);
+
+  return rows.map((r) => ({
+    id: r.id,
+    de: r.de,
+    para: r.para,
+    asunto: r.asunto,
+    estado: r.estado as EstadoCorreoAutomatico,
+    error: r.error || undefined,
+    clienteNombre: r.clienteNombre || undefined,
+    creadoEn: r.creadoEn,
+  }));
+}
+
+export async function obtenerCorreoAutomatico(id: string): Promise<CorreoAutomatico | null> {
+  const [row] = await getDb()
+    .select({
+      id: correosAutomaticos.id,
+      de: correosAutomaticos.de,
+      para: correosAutomaticos.para,
+      asunto: correosAutomaticos.asunto,
+      html: correosAutomaticos.html,
+      estado: correosAutomaticos.estado,
+      error: correosAutomaticos.error,
+      proveedorId: correosAutomaticos.proveedorId,
+      clienteNombre: clientes.nombre,
+      creadoEn: correosAutomaticos.creadoEn,
+    })
+    .from(correosAutomaticos)
+    .leftJoin(clientes, eq(correosAutomaticos.clienteId, clientes.id))
+    .where(eq(correosAutomaticos.id, id))
+    .limit(1);
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    de: row.de,
+    para: row.para,
+    asunto: row.asunto,
+    html: row.html,
+    estado: row.estado as EstadoCorreoAutomatico,
+    error: row.error || undefined,
+    proveedorId: row.proveedorId || undefined,
+    clienteNombre: row.clienteNombre || undefined,
+    creadoEn: row.creadoEn,
+  };
 }
 
 // Historial de envíos (Web Settings → Historial Correo) — mismo propósito

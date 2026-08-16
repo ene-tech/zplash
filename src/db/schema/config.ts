@@ -17,11 +17,19 @@ export const config = pgTable("config", {
   // helpers/precios.ts) desde su fecha de compra/generación — editable en Web
   // Settings, a propósito NO amarrado a los 90 días fijos de otros productos.
   vigenciaDiasPackEmpresa: integer("vigencia_dias_pack_empresa").notNull().default(45),
-  // Escala de precio de renovación preferencial por visitas para clientes
-  // Local, keyed por plan (ver TramoRenovacionLocal/precioRenovacionLocal en
-  // @/types y @/lib/helpers).
+  // Escala de precio de renovación preferencial anticipada (plan vigente) por
+  // pasadas del período vigente, keyed por plan (ver
+  // TramoRenovacionLocal/precioRenovacionLocal en @/types y @/lib/helpers).
+  // `canal` (ausente = "AMBOS" en los tramos guardados antes de que existiera)
+  // restringe por dónde se puede tomar ese precio: "WEB" permite invitar a
+  // renovar online a un valor que el operador no puede cobrar en el local.
   tramosRenovacionLocal: jsonb("tramos_renovacion_local")
-    .$type<Record<string, { id: string; visitasMin: number; visitasMax: number | null; precio: number }[]>>()
+    .$type<
+      Record<
+        string,
+        { id: string; visitasMin: number; visitasMax: number | null; precio: number; canal?: "WEB" | "LOCAL" | "AMBOS" }[]
+      >
+    >()
     .notNull()
     .default({}),
   // Horas desde el pago de un "Lavado único" dentro de las cuales se puede
@@ -33,11 +41,21 @@ export const config = pgTable("config", {
   // TramoReactivacionVencido/precioReactivacionVencido en @/types y
   // @/lib/helpers). A diferencia de tramosRenovacionLocal, si el cliente no
   // calza en ningún tramo no se ofrece promoción (sin precio de respaldo).
+  // `canal` (ausente = "AMBOS" en los tramos guardados antes de que existiera)
+  // restringe por dónde se puede tomar ese precio.
   tramosReactivacionVencido: jsonb("tramos_reactivacion_vencido")
     .$type<
       Record<
         string,
-        { id: string; diasVencidoMin: number; diasVencidoMax: number | null; visitasMin: number; visitasMax: number | null; precio: number }[]
+        {
+          id: string;
+          diasVencidoMin: number;
+          diasVencidoMax: number | null;
+          visitasMin: number;
+          visitasMax: number | null;
+          precio: number;
+          canal?: "WEB" | "LOCAL" | "AMBOS";
+        }[]
       >
     >()
     .notNull()

@@ -167,7 +167,7 @@ La configuración inicial (cuenta Twilio, webhook) y los textos editables antes 
 - **Glosa**: nombre libre que identifica un ingreso que no es "por plan" ni "lavado único" (p. ej. una limpieza completa vendida en Servicios Adicionales).
 - **Garantía**: relavado gratuito por reclamo del cliente; no se cuenta como venta en las Estadísticas.
 - **Origen WEB**: cliente/venta que se originó en el flujo de pago online (`/pagar`), a diferencia de una venta hecha en el local.
-- **Renovación preferencial**: promoción de renovación anticipada que ofrece el operador cuando un plan está por vencer.
+- **Renovación preferencial**: promoción de renovación anticipada que se ofrece cuando un plan está por vencer, escalonada por las pasadas del período vigente y restringible a un canal (Web y Local / Solo Web / Solo Local): sirve para invitar a renovar online a precio preferencial y dejar fuera al cliente que viene mucho, que renueva al precio normal.
 
 ## 12. Limitaciones conocidas
 

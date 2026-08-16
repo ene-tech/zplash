@@ -268,10 +268,13 @@ create table if not exists config (
   -- Días de vigencia de los tickets de un Pack Empresa (ver PACKS_EMPRESA en
   -- helpers.ts), editable en Web Settings.
   vigencia_dias_pack_empresa integer not null default 365,
-  -- Escala de precio de renovación preferencial por visitas para clientes
-  -- Local, keyed por plan (ver TramoRenovacionLocal/precioRenovacionLocal en
-  -- @/types y @/lib/helpers). Ej: {"Plan Ilimitado Mensual": [{"id": "...",
-  -- "visitasMin": 0, "visitasMax": 1, "precio": 16990}]}.
+  -- Escala de precio de renovación preferencial anticipada (plan vigente) por
+  -- pasadas del período vigente, keyed por plan (ver
+  -- TramoRenovacionLocal/precioRenovacionLocal en @/types y @/lib/helpers).
+  -- "canal" (opcional, ausente = "AMBOS") restringe por dónde se puede tomar
+  -- ese precio: "WEB" = solo Mi Cuenta / pagar, "LOCAL" = solo el Operador.
+  -- Ej: {"Plan Ilimitado Mensual": [{"id": "...", "visitasMin": 0,
+  -- "visitasMax": 1, "precio": 16990, "canal": "WEB"}]}.
   tramos_renovacion_local jsonb not null default '{}'::jsonb,
   -- Horas desde el pago de un "Lavado único" dentro de las cuales se ofrece
   -- la promoción de upgrade a plan (ver ventaUpgradeElegible en @/lib/helpers).
