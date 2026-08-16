@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SolicitudCambioPatente } from "@/components/cliente/miCuenta/SolicitudCambioPatente";
 import { QuitarVehiculo } from "@/components/cliente/miCuenta/QuitarVehiculo";
 import { useOfertaPlan, type TarjetaGuardada, type TipoOfertaPlan } from "@/components/cliente/miCuenta/useOfertaPlan";
+import { redirigirAInscripcionOneclick } from "@/lib/webpayClient";
 
 type Accion = "cambio" | "quitar" | null;
 
@@ -18,6 +19,12 @@ const NOMBRE_OFERTA: Record<TipoOfertaPlan, string> = {
   reactivacion: "Reactivación de plan",
   upgrade_plan: "Upgrade a Plan Ilimitado",
 };
+
+// "Tu plan vence en X días/hoy" — compartido entre el banner de oferta real y
+// el de recordatorio sin oferta (ver sinOfertaReal más abajo).
+function fraseVenceEn(diasRestantes: number): string {
+  return "Tu plan vence en " + (diasRestantes <= 0 ? "hoy" : diasRestantes + " día" + (diasRestantes === 1 ? "" : "s"));
+}
 
 // Tarjeta de "Mis vehículos" en Mi Cuenta. "Solicitar cambio de patente" y
 // "Quitar de mi cuenta" viven en el menú "⋮" de la esquina superior derecha
@@ -29,11 +36,13 @@ export function VehiculoCard({
   v,
   oferta,
   tarjeta,
+  email,
   onActualizado,
 }: {
   v: VehiculoSesion;
   oferta?: OfertaPlan;
   tarjeta?: TarjetaGuardada;
+  email: string;
   onActualizado: () => void;
 }) {
   const [accion, setAccion] = useState<Accion>(null);
@@ -51,6 +60,41 @@ export function VehiculoCard({
 
   const montoOferta = (tipo: TipoOfertaPlan): number | undefined =>
     tipo === "renovacion_temprana" ? oferta?.renovacionAnticipada?.pPromo : tipo === "reactivacion" ? oferta?.reactivacion?.precio : oferta?.upgrade?.precio;
+
+  const ra = oferta?.renovacionAnticipada;
+  // Sin tramo promocional (ahorro <= 0, o sea la renovación no queda más
+  // barata que el precio normal): no hay nada nuevo que ofrecer, así que con
+  // tarjeta guardada (se cobra sola) el banner no aporta y se esconde entero
+  // — sin tarjeta, se reemplaza por un recordatorio simple invitando a
+  // registrar una y renovar antes del vencimiento (ver render más abajo).
+  const sinOfertaReal = !!ra && ra.ahorro <= 0;
+
+  const [inscribiendo, setInscribiendo] = useState(false);
+  const [errInscripcion, setErrInscripcion] = useState("");
+
+  // Mismo endpoint que AgregarTarjeta ("solo guardar", sin cobrar nada), pero
+  // sin el paso de elegir patente/email: acá ya se sabe ambos por contexto.
+  async function registrarTarjeta() {
+    setErrInscripcion("");
+    setInscribiendo(true);
+    try {
+      const res = await fetch("/api/pagos/oneclick/inscribir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patente: v.patente, email, soloGuardar: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrInscripcion(data.error || "No se pudo iniciar la inscripción");
+        setInscribiendo(false);
+        return;
+      }
+      redirigirAInscripcionOneclick(data.url, data.token);
+    } catch {
+      setErrInscripcion("Sin conexión. Intenta de nuevo.");
+      setInscribiendo(false);
+    }
+  }
 
   return (
     <div className="vehicle-card">
@@ -78,31 +122,47 @@ export function VehiculoCard({
       </div>
       {v.vencimiento && <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>Vence el {fmtFecha(v.vencimiento)}</div>}
 
-      {oferta?.renovacionAnticipada && (
+      {ra && !(sinOfertaReal && tarjeta) && (
         <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">Oferta</span>
-            <h4>
-              {oferta.renovacionAnticipada.diasRestantes === undefined
-                ? "Renovación anticipada disponible"
-                : "Tu plan vence en " +
-                  (oferta.renovacionAnticipada.diasRestantes <= 0
-                    ? "hoy"
-                    : oferta.renovacionAnticipada.diasRestantes + " día" + (oferta.renovacionAnticipada.diasRestantes === 1 ? "" : "s"))}
-            </h4>
-          </div>
-          <div className="msg">Renueva tu {v.plan} ahora mismo a precio preferencial.</div>
-          <div className="price-row">
-            <span className="old">{fmtCLP(oferta.renovacionAnticipada.pNormal)}</span>
-            <span className="new">{fmtCLP(oferta.renovacionAnticipada.pPromo)}</span>
-            <span className="save">Ahorras {fmtCLP(oferta.renovacionAnticipada.ahorro)}</span>
-          </div>
-          <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-            Renovar ahora suma 30 días a la fecha de vencimiento de tu plan actual: no pierdes los días que ya tienes.
-          </div>
-          <button className="btn secondary" onClick={() => pedir("renovacion_temprana")} disabled={pagando !== null}>
-            {pagando === "renovacion_temprana" ? "Procesando..." : "Renovar a precio preferencial"}
-          </button>
+          {sinOfertaReal ? (
+            <>
+              <div className="offer-head">
+                <span className="badge">Recordatorio</span>
+                <h4>{ra.diasRestantes === undefined ? "Tu plan está por vencer" : fraseVenceEn(ra.diasRestantes)}</h4>
+              </div>
+              <div className="msg">
+                Registra una tarjeta y renueva tu {v.plan} antes del vencimiento para mantener tu precio de compra ({fmtCLP(ra.pPromo)}).
+              </div>
+              {errInscripcion && <div className="err">{errInscripcion}</div>}
+              <div className="offer-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button className="btn secondary" onClick={() => pedir("renovacion_temprana")} disabled={pagando !== null}>
+                  {pagando === "renovacion_temprana" ? "Procesando..." : "PAGAR RENOVACIÓN"}
+                </button>
+                <button type="button" className="btn ghost" onClick={registrarTarjeta} disabled={inscribiendo}>
+                  {inscribiendo ? "Redirigiendo..." : "REGISTRAR TARJETA - PAGO AUTOMÁTICO"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="offer-head">
+                <span className="badge">Oferta</span>
+                <h4>{ra.diasRestantes === undefined ? "Renovación anticipada disponible" : fraseVenceEn(ra.diasRestantes)}</h4>
+              </div>
+              <div className="msg">Renueva tu {v.plan} ahora mismo a precio preferencial.</div>
+              <div className="price-row">
+                <span className="old">{fmtCLP(ra.pNormal)}</span>
+                <span className="new">{fmtCLP(ra.pPromo)}</span>
+                <span className="save">Ahorras {fmtCLP(ra.ahorro)}</span>
+              </div>
+              <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+                Renovar ahora suma 30 días a la fecha de vencimiento de tu plan actual: no pierdes los días que ya tienes.
+              </div>
+              <button className="btn secondary" onClick={() => pedir("renovacion_temprana")} disabled={pagando !== null}>
+                {pagando === "renovacion_temprana" ? "Procesando..." : "Renovar a precio preferencial"}
+              </button>
+            </>
+          )}
         </div>
       )}
       {oferta?.reactivacion && (

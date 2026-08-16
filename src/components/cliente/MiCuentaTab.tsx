@@ -117,6 +117,7 @@ export default function MiCuentaTab() {
                 v={v}
                 oferta={ofertas[v.patente]}
                 tarjeta={tarjetaActiva ? { cardTipo: tarjetaActiva.cardTipo, cardUltimosDigitos: tarjetaActiva.cardUltimosDigitos } : undefined}
+                email={sesion.email}
                 onActualizado={refrescar}
               />
             );
