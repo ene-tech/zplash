@@ -115,7 +115,11 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // veces pasó durante su último período de plan pagado (ver
   // tramosReactivacionVencido/precioReactivacionVencido). undefined =
   // ningún tramo calza, no corresponde ofrecerla — en ese caso un cliente
-  // Web sigue viendo su oferta genérica (esWebVencido, más abajo).
+  // Web sigue viendo su oferta genérica (esWebVencido, más abajo). Que el
+  // tramo exista pero sea solo Web también cuenta como "hay promoción": la
+  // genérica no se muestra (ver OperadorFoundOfertas), porque cobrarla acá
+  // sería cobrarle MÁS que lo que el cliente acaba de escuchar que le sale
+  // online.
   const diasVenc = diasVencido(c);
   const visitasUltPeriodo = visitasUltimoPeriodoVencido(data.ingresos, c);
   const precioReactivacion =

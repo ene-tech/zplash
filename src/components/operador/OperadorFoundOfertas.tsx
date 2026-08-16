@@ -171,7 +171,7 @@ export default function OperadorFoundOfertas(props: Props) {
           </div>
         </div>
       )}
-      {props.esWebVencido && !props.showReactivacion && (
+      {props.esWebVencido && !props.showReactivacion && !props.showReactivacionSoloWeb && (
         <div className="offer-card">
           <div className="offer-head">
             <span className="badge">Cliente Web</span>

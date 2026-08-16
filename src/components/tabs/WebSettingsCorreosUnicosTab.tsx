@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { clienteIdsConCorreoDePlantilla, enviarCorreosMasivos, suscripcionesParaFiltroCorreo } from "@/lib/serverActions";
 import { aplicarVariables, fmtFecha, normPlate } from "@/lib/helpers";
@@ -57,6 +57,11 @@ export default function WebSettingsCorreosUnicosTab() {
   const [resultado, setResultado] = useState<ResultadoEnvioMasivoCorreo | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [yaContactados, setYaContactados] = useState<Set<string>>(new Set());
+  // Los ids que excluyó la plantilla ANTERIOR, para poder devolverlos a la
+  // selección al cambiar de plantilla sin tocar lo que el admin excluyó a
+  // mano. En un ref y no en estado: solo lo lee el efecto de abajo, y como
+  // estado se dispararía a sí mismo.
+  const autoExcluidosRef = useRef<string[]>([]);
 
   const plantilla = data.plantillasCorreo.find((p) => p.id === plantillaId);
 
@@ -87,14 +92,27 @@ export default function WebSettingsCorreosUnicosTab() {
   // hace poco. Solo pre-marca la exclusión: el admin puede reincluir a mano.
   // La garantía dura contra duplicados no es esta lista sino la idempotencia
   // de disparos_regla_correo (ver enviarCorreosMasivos).
+  //
+  // Al cambiar de plantilla las exclusiones automáticas de la anterior se
+  // deshacen antes de calcular las nuevas: son de esa plantilla, no del
+  // cliente. Si se acumularan, el segundo envío saldría con gente
+  // deseleccionada en silencio mientras el resumen de abajo — que se lee de
+  // `yaContactados`, ya reseteado — jura que no se excluyó a nadie.
   useEffect(() => {
     let cancelado = false;
     (async () => {
       setYaContactados(new Set());
+      setExcluidos((prev) => {
+        const next = new Set(prev);
+        for (const id of autoExcluidosRef.current) next.delete(id);
+        return next;
+      });
+      autoExcluidosRef.current = [];
       if (!plantillaId) return;
       const desdeISO = new Date(Date.now() - DIAS_YA_CONTACTADO * 86_400_000).toISOString();
       const ids = await clienteIdsConCorreoDePlantilla(plantillaId, desdeISO);
       if (cancelado) return;
+      autoExcluidosRef.current = ids;
       setYaContactados(new Set(ids));
       setExcluidos((prev) => new Set([...prev, ...ids]));
     })();
@@ -212,7 +230,7 @@ export default function WebSettingsCorreosUnicosTab() {
               {sinEmail > 0 ? ` (${sinEmail} sin email registrado, no se les puede enviar)` : ""} ·{" "}
               <strong>{seleccionados.length} seleccionado(s)</strong>
               {yaContactados.size > 0
-                ? ` (${yaContactados.size} ya recibieron esta plantilla en los últimos ${DIAS_YA_CONTACTADO} días, excluidos automáticamente — reincluye a mano en la lista si quieres reenviarles)`
+                ? ` (${yaContactados.size} ya recibieron esta plantilla en los últimos ${DIAS_YA_CONTACTADO} días, excluidos automáticamente — puedes reincluirlos a mano, pero la misma plantilla no se repite dentro del mismo ciclo de plan del cliente)`
                 : ""}
             </>
           )}

@@ -63,15 +63,22 @@ export async function ejecutarAccionReglaCorreo(
   // vuelva a pedirlo en su próximo lavado (ver limpiarEmailCliente). Solo con
   // `permanente`: un límite de envío o una caída del proveedor NO borran nada.
   if (!resultado.ok && resultado.permanente) {
-    await limpiarEmailCliente(cliente.id, cliente.email, resultado.error || "correo rechazado");
-    // Y se borra el disparo, en vez de marcarlo "error". Si quedara, el unique
-    // (regla_id, origen_tipo, origen_id) dejaría a este cliente fuera de
-    // cualquier reenvío durante todo el ciclo de plan — justo cuando el
-    // operador acaba de capturarle la dirección buena, que es el punto de todo
-    // esto. La falla no se pierde: quedó en la bandeja de salida (con la
-    // dirección mala) y en la auditoría del cliente.
-    await eliminarDisparoReglaCorreo(disparoId);
-    return false;
+    const limpiado = await limpiarEmailCliente(cliente.id, cliente.email, resultado.error || "correo rechazado");
+    // Con el email ya borrado se borra también el disparo, en vez de marcarlo
+    // "error". Si quedara, el unique (regla_id, origen_tipo, origen_id)
+    // dejaría a este cliente fuera de cualquier reenvío durante todo el ciclo
+    // de plan — justo cuando el operador acaba de capturarle la dirección
+    // buena, que es el punto de todo esto. La falla no se pierde: quedó en la
+    // bandeja de salida (con la dirección mala) y en la auditoría del cliente.
+    //
+    // Si el borrado del email falló, en cambio, el disparo se queda: la
+    // dirección mala sigue en la ficha, así que la fila es lo único que evita
+    // que el cron le reintente el mismo correo todos los días de acá al
+    // vencimiento, sumando rebotes contra la reputación del remitente.
+    if (limpiado) {
+      await eliminarDisparoReglaCorreo(disparoId);
+      return false;
+    }
   }
 
   await marcarDisparoReglaCorreo(disparoId, { estado: resultado.ok ? "enviado" : "error", error: resultado.error });

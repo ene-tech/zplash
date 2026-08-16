@@ -51,11 +51,29 @@ export interface ResultadoEnvioTransaccional {
 // MAIL_FROM_ADDRESS mal configurado haría que TODOS los envíos fallen y, si
 // eso contara como permanente, le borraríamos el correo a la base entera en
 // una sola campaña. Por eso no basta el nombre del error: el mensaje tiene
-// que hablar explícitamente del campo `to` o del destinatario.
-function esRechazoDeDireccion(error: { name?: string; message?: string }): boolean {
+// que señalar al destinatario y NO al remitente.
+//
+// Las dos reglas son deliberadamente asimétricas, porque los costos lo son:
+//
+//  - Cualquier mención del `from` descarta el rechazo de plano. El mensaje
+//    real de ese caso ("Invalid `from` field. The email address needs to
+//    follow the `email@example.com` format") trae "invalid" y un "to" suelto
+//    de la prosa, así que basta un \bto\b para confundirlo con un rechazo del
+//    destinatario y vaciar la base entera.
+//  - Para reconocer al destinatario no se acepta ese "to" suelto: tiene que
+//    venir el campo `to` como tal, la palabra recipient/destinatario, o la
+//    dirección misma que se intentó usar.
+//
+// Ante la duda, `false`: reintentar un envío que igual va a fallar es mucho
+// más barato que borrarle el correo bueno a un cliente.
+// Exportada solo para el test: es la decisión de la que cuelga el borrado de
+// emails, así que los mensajes reales del proveedor se fijan en proveedor.test.
+export function esRechazoDeDireccion(error: { name?: string; message?: string }, destinatario: string): boolean {
   const mensaje = (error.message || "").toLowerCase();
   if (!mensaje) return false; // Resend a veces manda el error vacío ("{}"): sin evidencia, no se borra nada
-  const hablaDelDestinatario = /\bto\b|recipient|destinat/.test(mensaje);
+  if (/\bfrom\b|remitente|domain is not verified/.test(mensaje)) return false;
+  const direccion = destinatario.trim().toLowerCase();
+  const hablaDelDestinatario = /`to`|\bto field\b|recipient|destinat/.test(mensaje) || (!!direccion && mensaje.includes(direccion));
   const esDireccionInvalida = /invalid|not valid|malformed|does not exist|no existe/.test(mensaje);
   return hablaDelDestinatario && esDireccionInvalida;
 }
@@ -114,7 +132,7 @@ export async function enviarCorreoTransaccional(envio: EnvioCorreoTransaccional)
         // dev): ahí sirve al menos el `name` del error ("validation_error",
         // etc.), que es lo que va a quedar visible en la bandeja de salida.
         error: error.message || error.name || "error del proveedor",
-        permanente: esRechazoDeDireccion(error),
+        permanente: esRechazoDeDireccion(error, envio.to),
       }
     : { ok: true };
   if (error) console.error("Error enviando correo transaccional vía Resend", envio.subject, envio.to, error);

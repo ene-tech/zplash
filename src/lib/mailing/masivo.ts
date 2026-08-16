@@ -27,6 +27,13 @@ import type { ResultadoEnvioMasivoCorreo } from "@/types";
  * plan — reintentar el mismo envío tras un corte a mitad de camino no
  * redispara a quien ya lo recibió, y un cliente que renueva y vuelve a caer en
  * el mismo problema el ciclo siguiente sí vuelve a ser elegible.
+ *
+ * El cliente sin plan no tiene vencimiento y por lo tanto tampoco tiene ciclo:
+ * ahí la llave cae al día del envío. Con el `null` crudo la llave era
+ * constante para siempre y esa plantilla no le podía volver a llegar NUNCA
+ * (quedaba silenciosamente en `omitidos`) — justo a los clientes sin plan, que
+ * son el público natural de una campaña de reactivación. Por día conserva lo
+ * que importa, que es no duplicar dentro de la misma tanda ni en su reintento.
  */
 export async function enviarCorreosMasivos(opts: {
   plantillaCorreoId: string;
@@ -53,6 +60,7 @@ export async function enviarCorreosMasivos(opts: {
     omitidos: 0,
   };
   const ahoraISO = new Date().toISOString();
+  const diaEnvio = ahoraISO.slice(0, 10);
 
   for (const cliente of clientes) {
     if (!cliente.email) {
@@ -64,7 +72,7 @@ export async function enviarCorreosMasivos(opts: {
       id: uid(),
       reglaId: regla.id,
       origenTipo: "cliente",
-      origenId: `${cliente.id}:${cliente.vencimiento}`,
+      origenId: `${cliente.id}:${cliente.vencimiento || `sin-plan-${diaEnvio}`}`,
       clienteId: cliente.id,
       patente: cliente.patente,
       estado: "programado",
