@@ -39,6 +39,21 @@ export const reglasCorreo = pgTable("reglas_correo", {
   // Solo aplica a tipoEvento="plan_proximo_vencer": cuántos días antes del
   // vencimiento se dispara.
   condicionDiasAntesVencimiento: integer("condicion_dias_antes_vencimiento"),
+  // Solo aplica a tipoEvento="plan_proximo_vencer": si true, no dispara para
+  // un cliente origen="WEB" que ya tiene una suscripción Oneclick "activa"
+  // (ver procesarVencimientosCorreo) — a ese cliente el cobro automático ya
+  // lo va a renovar solo, avisarle "tu plan vence" es ruido/confunde. Los
+  // clientes origen="LOCAL" siempre reciben el aviso pase lo que pase (hoy no
+  // tienen cobro automático propio), y un cliente WEB sin tarjeta activa
+  // también lo recibe siempre, porque a él sí le sirve el recordatorio.
+  condicionSoloSinAutopago: boolean("condicion_solo_sin_autopago").notNull().default(false),
+  // Solo aplica a tipoEvento="plan_vencido": días de espera DESPUÉS del
+  // vencimiento antes de mandar (0/null = al día siguiente, ver
+  // DIAS_VENTANA_PLAN_VENCIDO en @/lib/mailing/reglas/cron). Permite, por
+  // ejemplo, avisar recién a los 3 días de vencido a un cliente al que no se
+  // le pudo cobrar automáticamente, dándole tiempo a que el reintento de
+  // cobro (si existe) resuelva solo antes de mandarle el correo.
+  condicionDiasDespuesVencimiento: integer("condicion_dias_despues_vencimiento"),
   // Solo aplica a tipoEvento="venta_creada": días de espera tras la venta
   // antes de mandar (0 = inmediato) — igual semántica que delayDias en
   // ReglaWhatsapp, pero sin el cron de "pendientes programados" de WhatsApp:

@@ -414,6 +414,20 @@
       "when": 1786754465647,
       "tag": "0058_boring_solo",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1786810701664,
+      "tag": "0059_reglas_correo_solo_sin_autopago",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1786823836440,
+      "tag": "0060_reglas_correo_dias_despues_vencimiento",
+      "breakpoints": true
     }
   ]
 }

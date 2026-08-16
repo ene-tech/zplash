@@ -47,6 +47,19 @@ export function construirVariables(opts: {
   montoAPagar?: number;
   diasValidez?: number;
   patenteAnterior?: string;
+  // Precio de reactivación preferencial (ver precioReactivacionVencido en
+  // @/lib/helpers/precios) — hoy solo lo pasa procesarVencimientosCorreo para
+  // tipoEvento "plan_vencido" (ver @/lib/mailing/reglas/cron), calculado por
+  // cliente porque depende de días vencido + visitas del último período. Sin
+  // equivalente WhatsApp todavía, pero vive acá para no duplicar el resto del
+  // builder si se agrega después.
+  precioReactivacion?: number;
+  // Precio de upgrade a Plan Ilimitado (ver precioUpgradePlan en
+  // @/lib/helpers/precios) — hoy solo lo pasa evaluarReglasCorreoPorVenta
+  // (@/lib/mailing/reglas/disparadores) cuando la venta es "Lavado único",
+  // mismo cálculo (calcularOfertasPlanDeCliente) que usa el Operador para
+  // ofrecer el upgrade en el momento.
+  precioUpgrade?: number;
 }): Record<string, string> {
   return {
     nombre: opts.cliente.nombre || "",
@@ -60,6 +73,8 @@ export function construirVariables(opts: {
     montoAPagar: opts.montoAPagar !== undefined ? fmtCLP(opts.montoAPagar) : "",
     diasValidez: opts.diasValidez !== undefined ? String(opts.diasValidez) : "",
     patenteAnterior: opts.patenteAnterior || "",
+    precioReactivacion: opts.precioReactivacion !== undefined ? fmtCLP(opts.precioReactivacion) : "",
+    precioUpgrade: opts.precioUpgrade !== undefined ? fmtCLP(opts.precioUpgrade) : "",
   };
 }
 

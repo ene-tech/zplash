@@ -105,9 +105,13 @@ export default function WebSettingsMailTab() {
           (una línea en blanco separa párrafos) — el diseño de marca (logo, colores, footer de contacto) se agrega
           automáticamente al enviar, no hace falta escribir HTML. Usa <code>{"**texto**"}</code> para negrita. En el
           cuerpo puedes usar{" "}
-          <code>{"{{nombre}}"}</code>, <code>{"{{patente}}"}</code>, <code>{"{{plan}}"}</code>, <code>{"{{monto}}"}</code> y{" "}
-          <code>{"{{fechaVencimiento}}"}</code> (<code>{"{{nombre}}"}</code>, <code>{"{{patente}}"}</code> y{" "}
-          <code>{"{{fechaVencimiento}}"}</code> salen siempre en negrita).
+          <code>{"{{nombre}}"}</code>, <code>{"{{patente}}"}</code>, <code>{"{{plan}}"}</code>, <code>{"{{monto}}"}</code>,{" "}
+          <code>{"{{fechaVencimiento}}"}</code>, <code>{"{{precioReactivacion}}"}</code> y <code>{"{{precioUpgrade}}"}</code>{" "}
+          (estas dos últimas solo tienen valor en su situación correspondiente — &quot;Plan vencido&quot; y una regla
+          de &quot;Se registra una venta&quot; restringida a &quot;Lavado único&quot;: si no corresponde ofrecer el
+          precio para ese cliente en ese momento, el correo no se manda). <code>{"{{nombre}}"}</code>,{" "}
+          <code>{"{{patente}}"}</code> y{" "}
+          <code>{"{{fechaVencimiento}}"}</code> salen siempre en negrita.
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <div className="field" style={{ flex: 1, minWidth: 200 }}>

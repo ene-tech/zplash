@@ -17,10 +17,11 @@ const TIPOS_VENTA_CONOCIDOS = [
 ];
 
 function resumenCondicion(r: ReglaCorreo): string {
-  if (r.tipoEvento === "venta_creada") {
+  if (r.tipoEvento === "venta_creada" || r.tipoEvento === "venta_creada_presencial") {
     const tipo = r.condicionTipoVenta || "cualquier tipo de venta";
     const planes = r.condicionPlanes?.length ? ` (plan: ${r.condicionPlanes.join(", ")})` : "";
-    return `Al vender "${tipo}"${planes}, de inmediato`;
+    const presencial = r.tipoEvento === "venta_creada_presencial" ? " presencial (no web/automática)" : "";
+    return `Al vender "${tipo}"${presencial}${planes}, de inmediato`;
   }
   if (r.tipoEvento === "cobro_fallido") {
     const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
@@ -28,13 +29,16 @@ function resumenCondicion(r: ReglaCorreo): string {
   }
   if (r.tipoEvento === "plan_vencido") {
     const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
-    return `Al día siguiente de vencer el plan${planes}`;
+    const dias = r.condicionDiasDespuesVencimiento || 0;
+    const cuando = dias > 0 ? `${dias} día(s) después de vencer el plan` : "Al día siguiente de vencer el plan";
+    return `${cuando}${planes}`;
   }
   if (r.tipoEvento === "migracion_woo_legacy") {
     return `Solo al apretar "Enviar invitaciones" más abajo (no automático)`;
   }
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
-  return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}`;
+  const soloSinAutopago = r.condicionSoloSinAutopago ? " · solo clientes sin pago automático activo" : "";
+  return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}${soloSinAutopago}`;
 }
 
 function ReglaRow({ regla, puedeBorrar }: { regla: ReglaCorreo; puedeBorrar: boolean }) {
@@ -117,6 +121,8 @@ export default function ReglasCorreoTab() {
   const condicionTipoVentaRef = useRef<HTMLInputElement>(null);
   const [planesElegidos, setPlanesElegidos] = useState<string[]>([]);
   const diasAntesRef = useRef<HTMLInputElement>(null);
+  const diasDespuesRef = useRef<HTMLInputElement>(null);
+  const [soloSinAutopago, setSoloSinAutopago] = useState(false);
   const [plantillaId, setPlantillaId] = useState("");
 
   const togglePlan = (plan: string) => {
@@ -139,9 +145,14 @@ export default function ReglasCorreoTab() {
       nombre,
       activa: true,
       tipoEvento,
-      condicionTipoVenta: tipoEvento === "venta_creada" ? condicionTipoVentaRef.current?.value.trim() || undefined : undefined,
+      condicionTipoVenta:
+        tipoEvento === "venta_creada" || tipoEvento === "venta_creada_presencial"
+          ? condicionTipoVentaRef.current?.value.trim() || undefined
+          : undefined,
       condicionPlanes: planesElegidos.length ? planesElegidos : undefined,
       condicionDiasAntesVencimiento: tipoEvento === "plan_proximo_vencer" ? Number(diasAntesRef.current?.value || 0) : undefined,
+      condicionSoloSinAutopago: tipoEvento === "plan_proximo_vencer" ? soloSinAutopago : undefined,
+      condicionDiasDespuesVencimiento: tipoEvento === "plan_vencido" ? Number(diasDespuesRef.current?.value || 0) : undefined,
       delayDias: 0,
       plantillaCorreoId: plantillaId,
       creadoEn: new Date().toISOString(),
@@ -157,7 +168,9 @@ export default function ReglasCorreoTab() {
     if (nombreRef.current) nombreRef.current.value = "";
     if (condicionTipoVentaRef.current) condicionTipoVentaRef.current.value = "";
     if (diasAntesRef.current) diasAntesRef.current.value = "";
+    if (diasDespuesRef.current) diasDespuesRef.current.value = "";
     setPlanesElegidos([]);
+    setSoloSinAutopago(false);
   };
 
   return (
@@ -181,6 +194,7 @@ export default function ReglasCorreoTab() {
           <label>Evento que dispara la regla</label>
           <select value={tipoEvento} onChange={(e) => setTipoEvento(e.target.value as TipoEventoReglaCorreo)}>
             <option value="venta_creada">Se registra una venta</option>
+            <option value="venta_creada_presencial">Se registra una venta presencial (no web/automática)</option>
             <option value="cobro_fallido">No se pudo cobrar la mensualidad (Oneclick)</option>
             <option value="plan_proximo_vencer">El plan de un cliente está por vencer</option>
             <option value="plan_vencido">El plan de un cliente acaba de vencer</option>
@@ -188,7 +202,7 @@ export default function ReglasCorreoTab() {
           </select>
         </div>
 
-        {tipoEvento === "venta_creada" && (
+        {(tipoEvento === "venta_creada" || tipoEvento === "venta_creada_presencial") && (
           <div className="field" style={{ marginBottom: 10 }}>
             <label>Tipo de venta (vacío = cualquiera)</label>
             <input ref={condicionTipoVentaRef} placeholder="Ej: Lavado único" list="tipos-venta-reglas-correo" />
@@ -204,6 +218,31 @@ export default function ReglasCorreoTab() {
           <div className="field" style={{ marginBottom: 10 }}>
             <label>Días antes del vencimiento</label>
             <input ref={diasAntesRef} type="number" min={0} defaultValue={5} />
+          </div>
+        )}
+
+        {tipoEvento === "plan_proximo_vencer" && (
+          <div className="field" style={{ marginBottom: 10 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400 }}>
+              <input type="checkbox" checked={soloSinAutopago} onChange={(e) => setSoloSinAutopago(e.target.checked)} />
+              Solo clientes sin pago automático activo
+            </label>
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
+              No le avisa a un cliente Web que ya tiene tarjeta Oneclick registrada (a ese el cobro automático lo va a
+              renovar solo). Los clientes de local siempre reciben el aviso.
+            </div>
+          </div>
+        )}
+
+        {tipoEvento === "plan_vencido" && (
+          <div className="field" style={{ marginBottom: 10 }}>
+            <label>Días de demora después del vencimiento</label>
+            <input ref={diasDespuesRef} type="number" min={0} defaultValue={0} />
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
+              0 = avisa al día siguiente de vencer. Con, por ejemplo, 3 días, le da tiempo a un reintento de cobro
+              automático antes de mandar el correo — útil para una regla aparte dirigida a clientes a los que no se
+              les pudo cargar el plan.
+            </div>
           </div>
         )}
 

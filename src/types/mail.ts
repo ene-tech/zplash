@@ -13,7 +13,19 @@ export interface PlantillaCorreo {
   activo: boolean;
 }
 
-export type TipoEventoReglaCorreo = "venta_creada" | "plan_proximo_vencer" | "plan_vencido" | "cobro_fallido" | "migracion_woo_legacy";
+// "venta_creada_presencial": mismo momento que "venta_creada" (se evalúa
+// junto en evaluarReglasCorreoPorVenta), pero solo para ventas que NO son
+// automáticas/web (ver esTarjetaWeb en @/lib/helpers/ventas, basado en
+// Venta.creadoPor) — para reglas que no tiene sentido disparar en una
+// renovación automática Oneclick o un pedido WooCommerce, ej. una invitación
+// que un operador entrega en persona.
+export type TipoEventoReglaCorreo =
+  | "venta_creada"
+  | "venta_creada_presencial"
+  | "plan_proximo_vencer"
+  | "plan_vencido"
+  | "cobro_fallido"
+  | "migracion_woo_legacy";
 
 // Regla de negocio ("cuándo mandar qué correo") — motor en paralelo al de
 // WhatsApp (ver ReglaWhatsapp en @/types/whatsapp y comentario en
@@ -27,6 +39,12 @@ export interface ReglaCorreo {
   condicionTipoVenta?: string;
   condicionPlanes?: string[];
   condicionDiasAntesVencimiento?: number;
+  // Solo aplica a tipoEvento="plan_proximo_vencer" — ver comentario en
+  // @/db/schema/mailReglas.
+  condicionSoloSinAutopago?: boolean;
+  // Solo aplica a tipoEvento="plan_vencido" — ver comentario en
+  // @/db/schema/mailReglas.
+  condicionDiasDespuesVencimiento?: number;
   delayDias: number;
   plantillaCorreoId: string;
   creadoEn: string;

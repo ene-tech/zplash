@@ -1,0 +1,1 @@
+ALTER TABLE "reglas_correo" ADD COLUMN "condicion_dias_despues_vencimiento" integer;
