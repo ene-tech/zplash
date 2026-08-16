@@ -46,6 +46,7 @@ function appDataVacia(): AppData {
     plantillasCorreo: [],
     plantillasWhatsapp: [],
     reglasWhatsapp: [],
+    reglasCorreo: [],
   };
 }
 

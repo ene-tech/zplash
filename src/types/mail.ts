@@ -51,6 +51,10 @@ export interface ReglaCorreo {
   // Solo aplica a tipoEvento="plan_proximo_vencer" — ver comentario en
   // @/db/schema/mailReglas.
   condicionSoloSinAutopago?: boolean;
+  // Solo aplica a tipoEvento="plan_proximo_vencer": manda el correo únicamente
+  // a quien tenga promoción de renovación anticipada vigente por el canal Web
+  // — ver comentario en @/db/schema/mailReglas.
+  condicionSoloConPromoRenovacion?: boolean;
   // Solo aplica a tipoEvento="plan_vencido" — ver comentario en
   // @/db/schema/mailReglas.
   condicionDiasDespuesVencimiento?: number;

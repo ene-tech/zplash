@@ -47,6 +47,16 @@ export const reglasCorreo = pgTable("reglas_correo", {
   // tienen cobro automático propio), y un cliente WEB sin tarjeta activa
   // también lo recibe siempre, porque a él sí le sirve el recordatorio.
   condicionSoloSinAutopago: boolean("condicion_solo_sin_autopago").notNull().default(false),
+  // Solo aplica a tipoEvento="plan_proximo_vencer": si true, no dispara para un
+  // cliente que no tenga promoción de renovación anticipada vigente por el
+  // canal Web (ver tramosRenovacionLocal/precioRenovacionLocal en @/types y
+  // @/lib/helpers) — el que ya viene mucho queda fuera del tramo y renovaría
+  // al precio normal, así que invitarlo con un correo de "precio preferencial"
+  // sería mentirle. Es lo que hace útil a {{precioRenovacion}} en la plantilla:
+  // la regla solo se dispara cuando ese precio existe. En false (default) la
+  // regla dispara para todos y {{precioRenovacion}} queda vacío para los que
+  // no tienen promo, igual que cualquier otra variable sin valor.
+  condicionSoloConPromoRenovacion: boolean("condicion_solo_con_promo_renovacion").notNull().default(false),
   // Solo aplica a tipoEvento="plan_vencido": días de espera DESPUÉS del
   // vencimiento antes de mandar (0/null = al día siguiente, ver
   // DIAS_VENTANA_PLAN_VENCIDO en @/lib/mailing/reglas/cron). Permite, por

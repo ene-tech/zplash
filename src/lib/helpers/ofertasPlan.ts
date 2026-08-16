@@ -2,10 +2,10 @@ import type { CanalPromo, Cliente, ConfigGlobal, Ingreso, Precios, Venta } from 
 import { PLANES } from "./precios";
 import { diasVencido, planStatus } from "./clientes";
 import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
-import { precioNormal, precioRenovacionLocal, precioReactivacionVencido, precioUpgradePlan, ventaUpgradeElegible } from "./precios";
+import { precioNormal, precioRenovacionLocal, precioReactivacionVencido, precioUpgradePlan, tramoRenovacionVigente, ventaUpgradeElegible } from "./precios";
 
 export interface OfertaPlan {
-  renovacionAnticipada?: { pNormal: number; pPromo: number; ahorro: number; diasRestantes?: number };
+  renovacionAnticipada?: { pNormal: number; pPromo: number; ahorro: number; diasRestantes?: number; tramoVigente: boolean };
   reactivacion?: { precio: number; diasVencido: number };
   upgrade?: { precio: number };
 }
@@ -57,7 +57,13 @@ export function calcularOfertasPlan(
     if (pNormal > 0) {
       const visitasPeriodo = visitasPeriodoPlan(ingresosCliente, cliente);
       const pPromo = precioRenovacionLocal(config, precios, plan, visitasPeriodo, canal) ?? pNormal;
-      oferta.renovacionAnticipada = { pNormal, pPromo, ahorro: pNormal - pPromo, diasRestantes: st.diasRestantes };
+      oferta.renovacionAnticipada = {
+        pNormal,
+        pPromo,
+        ahorro: pNormal - pPromo,
+        diasRestantes: st.diasRestantes,
+        tramoVigente: tramoRenovacionVigente(config, plan, visitasPeriodo, canal),
+      };
     }
   }
 

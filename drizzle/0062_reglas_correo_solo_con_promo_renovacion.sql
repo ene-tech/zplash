@@ -1,0 +1,1 @@
+ALTER TABLE "reglas_correo" ADD COLUMN "condicion_solo_con_promo_renovacion" boolean DEFAULT false NOT NULL;

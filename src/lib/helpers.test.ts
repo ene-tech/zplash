@@ -4,6 +4,7 @@ import {
   calcularOfertasPlan,
   CATEGORIA_DETAILING,
   CONFIG_DEFAULT,
+  cuponDelLoteUsadoPorPatente,
   dentroDeHorarioOperador,
   diasVencido,
   esExentoBloqueoReingreso,
@@ -673,6 +674,55 @@ describe("montoDescuento", () => {
   });
 });
 
+describe("cuponDelLoteUsadoPorPatente", () => {
+  const valeBase: Cupon = {
+    id: "cu1",
+    codigo: "ABC123",
+    nombreLote: "Cortesía Feria",
+    numeroLote: 1,
+    totalLote: 10,
+    tipo: "vale",
+    valor: 0,
+    usado: false,
+    creadoEn: new Date().toISOString(),
+    fechaCaducidad: new Date(Date.now() + 86400000).toISOString(),
+    unCuponPorPatente: true,
+  };
+  const yaUsado: Cupon = { ...valeBase, id: "cu0", codigo: "USADO1", numeroLote: 2, usado: true, patenteUso: "AB1234" };
+
+  it("bloquea a una patente que ya canjeó otro cupón del mismo lote", () => {
+    expect(cuponDelLoteUsadoPorPatente(valeBase, "AB1234", [valeBase, yaUsado])).toBe(yaUsado);
+  });
+
+  it("normaliza la patente antes de comparar", () => {
+    expect(cuponDelLoteUsadoPorPatente(valeBase, "ab-1234", [valeBase, yaUsado])).toBe(yaUsado);
+  });
+
+  it("deja pasar a una patente distinta", () => {
+    expect(cuponDelLoteUsadoPorPatente(valeBase, "ZZ9999", [valeBase, yaUsado])).toBeUndefined();
+  });
+
+  it("no aplica si el lote no tiene la regla", () => {
+    const sinRegla = { ...valeBase, unCuponPorPatente: false };
+    expect(cuponDelLoteUsadoPorPatente(sinRegla, "AB1234", [sinRegla, yaUsado])).toBeUndefined();
+  });
+
+  it("ignora cupones usados de otro lote", () => {
+    const otroLote = { ...yaUsado, id: "cu9", nombreLote: "Otro lote" };
+    expect(cuponDelLoteUsadoPorPatente(valeBase, "AB1234", [valeBase, otroLote])).toBeUndefined();
+  });
+
+  it("ignora un lote homónimo sin la regla (ej. los del bot de WhatsApp)", () => {
+    const homonimoSinRegla = { ...yaUsado, id: "cu8", unCuponPorPatente: false };
+    expect(cuponDelLoteUsadoPorPatente(valeBase, "AB1234", [valeBase, homonimoSinRegla])).toBeUndefined();
+  });
+
+  it("no se bloquea a sí mismo si el cupón ya está marcado como usado", () => {
+    const mismo = { ...valeBase, usado: true, patenteUso: "AB1234" };
+    expect(cuponDelLoteUsadoPorPatente(mismo, "AB1234", [mismo])).toBeUndefined();
+  });
+});
+
 describe("esFinDeSemanaOFestivo", () => {
   it("sábado y domingo cuentan como fin de semana", () => {
     expect(esFinDeSemanaOFestivo(new Date("2026-07-18T12:00:00"), [])).toBe(true); // sábado
@@ -972,7 +1022,7 @@ describe("calcularOfertasPlan", () => {
   it("plan vigente -> ofrece renovación anticipada al precio del tramo, sin reactivación ni upgrade", () => {
     const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
     const oferta = calcularOfertasPlan(cliente, [], [], config, precios);
-    expect(oferta.renovacionAnticipada).toEqual({ pNormal: 21990, pPromo: 15990, ahorro: 6000, diasRestantes: undefined });
+    expect(oferta.renovacionAnticipada).toEqual({ pNormal: 21990, pPromo: 15990, ahorro: 6000, diasRestantes: undefined, tramoVigente: true });
     expect(oferta.reactivacion).toBeUndefined();
     expect(oferta.upgrade).toBeUndefined();
   });
@@ -992,6 +1042,7 @@ describe("calcularOfertasPlan", () => {
       pPromo: 21990,
       ahorro: 0,
       diasRestantes: undefined,
+      tramoVigente: false,
     });
     // Con una sola pasada sí califica.
     expect(calcularOfertasPlan(cliente, [], [ingresoAyer()], soloPocasPasadas, precios).renovacionAnticipada?.pPromo).toBe(15990);
@@ -1003,16 +1054,27 @@ describe("calcularOfertasPlan", () => {
       tramosRenovacionLocal: { [PLAN]: [{ id: "r1", visitasMin: 0, visitasMax: null, precio: 15990, canal: "WEB" }] },
     };
     const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
-    expect(calcularOfertasPlan(cliente, [], [], soloWeb, precios).renovacionAnticipada?.pPromo).toBe(15990);
+    const ofertaWeb = calcularOfertasPlan(cliente, [], [], soloWeb, precios).renovacionAnticipada;
+    expect(ofertaWeb?.pPromo).toBe(15990);
+    expect(ofertaWeb?.tramoVigente).toBe(true);
     // El canal Local no tiene ningún tramo configurado, así que conserva el
-    // respaldo histórico: el precio de promoción general (Precios[plan].promo).
-    expect(calcularOfertasPlan(cliente, [], [], soloWeb, precios, "LOCAL").renovacionAnticipada?.pPromo).toBe(19990);
+    // respaldo histórico: el precio de promoción general (Precios[plan].promo)
+    // — pero tramoVigente queda en false, porque ese respaldo no es un tramo
+    // real (ver comentario en tramoRenovacionVigente/@/lib/helpers/precios).
+    const ofertaLocal = calcularOfertasPlan(cliente, [], [], soloWeb, precios, "LOCAL").renovacionAnticipada;
+    expect(ofertaLocal?.pPromo).toBe(19990);
+    expect(ofertaLocal?.tramoVigente).toBe(false);
   });
 
-  it("sin tramos configurados -> el precio de promoción general sigue siendo la oferta", () => {
+  it("sin tramos configurados -> el precio de promoción general sigue siendo la oferta, pero sin tramoVigente", () => {
     const sinTramos: ConfigGlobal = { ...config, tramosRenovacionLocal: {} };
     const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
-    expect(calcularOfertasPlan(cliente, [], [ingresoAyer()], sinTramos, precios).renovacionAnticipada?.pPromo).toBe(19990);
+    const oferta = calcularOfertasPlan(cliente, [], [ingresoAyer()], sinTramos, precios).renovacionAnticipada;
+    expect(oferta?.pPromo).toBe(19990);
+    // Este es justo el caso que condicionSoloConPromoRenovacion (ver
+    // @/lib/mailing/reglas/cron) necesita distinguir: hay un precio "promo"
+    // que mostrar, pero no es una promoción real por tramos.
+    expect(oferta?.tramoVigente).toBe(false);
   });
 
   it("plan por vencer -> igual ofrece renovación anticipada, con diasRestantes definido", () => {

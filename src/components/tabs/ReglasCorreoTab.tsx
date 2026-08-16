@@ -41,7 +41,8 @@ function resumenCondicion(r: ReglaCorreo): string {
   }
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
   const soloSinAutopago = r.condicionSoloSinAutopago ? " · solo clientes sin pago automático activo" : "";
-  return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}${soloSinAutopago}`;
+  const soloConPromo = r.condicionSoloConPromoRenovacion ? " · solo con promoción de renovación vigente" : "";
+  return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}${soloSinAutopago}${soloConPromo}`;
 }
 
 function ReglaRow({ regla, puedeBorrar }: { regla: ReglaCorreo; puedeBorrar: boolean }) {
@@ -126,6 +127,7 @@ export default function ReglasCorreoTab() {
   const diasAntesRef = useRef<HTMLInputElement>(null);
   const diasDespuesRef = useRef<HTMLInputElement>(null);
   const [soloSinAutopago, setSoloSinAutopago] = useState(false);
+  const [soloConPromoRenovacion, setSoloConPromoRenovacion] = useState(false);
   const [plantillaId, setPlantillaId] = useState("");
 
   const togglePlan = (plan: string) => {
@@ -155,6 +157,7 @@ export default function ReglasCorreoTab() {
       condicionPlanes: planesElegidos.length ? planesElegidos : undefined,
       condicionDiasAntesVencimiento: tipoEvento === "plan_proximo_vencer" ? Number(diasAntesRef.current?.value || 0) : undefined,
       condicionSoloSinAutopago: tipoEvento === "plan_proximo_vencer" ? soloSinAutopago : undefined,
+      condicionSoloConPromoRenovacion: tipoEvento === "plan_proximo_vencer" ? soloConPromoRenovacion : undefined,
       condicionDiasDespuesVencimiento: tipoEvento === "plan_vencido" ? Number(diasDespuesRef.current?.value || 0) : undefined,
       delayDias: 0,
       plantillaCorreoId: plantillaId,
@@ -174,6 +177,7 @@ export default function ReglasCorreoTab() {
     if (diasDespuesRef.current) diasDespuesRef.current.value = "";
     setPlanesElegidos([]);
     setSoloSinAutopago(false);
+    setSoloConPromoRenovacion(false);
   };
 
   return (
@@ -233,6 +237,24 @@ export default function ReglasCorreoTab() {
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
               No le avisa a un cliente Web que ya tiene tarjeta Oneclick registrada (a ese el cobro automático lo va a
               renovar solo). Los clientes de local siempre reciben el aviso.
+            </div>
+          </div>
+        )}
+
+        {tipoEvento === "plan_proximo_vencer" && (
+          <div className="field" style={{ marginBottom: 10 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                checked={soloConPromoRenovacion}
+                onChange={(e) => setSoloConPromoRenovacion(e.target.checked)}
+              />
+              Solo clientes con promoción de renovación vigente
+            </label>
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
+              Manda el correo únicamente a quien tenga un precio preferencial de renovación disponible por la web (ver
+              Configuración → Precios de planes): así el cliente que viene mucho, que renovaría al precio normal, queda
+              fuera de la invitación. Usa <code>{"{{precioRenovacion}}"}</code> en la plantilla para mostrar ese precio.
             </div>
           </div>
         )}

@@ -238,6 +238,12 @@ export function precioPreferencial(precios: Precios, plan: string): number {
  * sigue siendo el respaldo SOLO cuando ese canal no tiene ningún tramo
  * configurado, que es el comportamiento previo a que existiera la escala.
  */
+function tramosRenovacionLocalPorCanal(config: ConfigGlobal, plan: string, canal: CanalPromo) {
+  return (config.tramosRenovacionLocal[plan] || [])
+    .filter((t) => canalTramo(t) === "AMBOS" || canalTramo(t) === canal)
+    .sort((a, b) => a.visitasMin - b.visitasMin || Number(canalTramo(a) === "AMBOS") - Number(canalTramo(b) === "AMBOS"));
+}
+
 export function precioRenovacionLocal(
   config: ConfigGlobal,
   precios: Precios,
@@ -245,12 +251,26 @@ export function precioRenovacionLocal(
   visitasPeriodo: number,
   canal: CanalPromo
 ): number | undefined {
-  const tramos = (config.tramosRenovacionLocal[plan] || [])
-    .filter((t) => canalTramo(t) === "AMBOS" || canalTramo(t) === canal)
-    .sort((a, b) => a.visitasMin - b.visitasMin || Number(canalTramo(a) === "AMBOS") - Number(canalTramo(b) === "AMBOS"));
+  const tramos = tramosRenovacionLocalPorCanal(config, plan, canal);
   if (!tramos.length) return precioPreferencial(precios, plan);
   const match = tramos.find((t) => visitasPeriodo >= t.visitasMin && (t.visitasMax === null || visitasPeriodo <= t.visitasMax));
   return match?.precio;
+}
+
+/**
+ * true solo cuando un tramo real de la escala de renovación anticipada calza
+ * para este cliente y canal — a diferencia de `precioRenovacionLocal`, NO
+ * cuenta como "promoción vigente" el respaldo al precio preferencial general
+ * (Precios[plan].promo) que se usa cuando el canal todavía no tiene ningún
+ * tramo configurado: eso no es una promoción real por tramos, es que la
+ * escala no se ha cargado. Usado por condicionSoloConPromoRenovacion (ver
+ * @/lib/mailing/reglas/cron) para no invitar con "precio preferencial" a
+ * quien en realidad no tiene ningún tramo vigente.
+ */
+export function tramoRenovacionVigente(config: ConfigGlobal, plan: string, visitasPeriodo: number, canal: CanalPromo): boolean {
+  return tramosRenovacionLocalPorCanal(config, plan, canal).some(
+    (t) => visitasPeriodo >= t.visitasMin && (t.visitasMax === null || visitasPeriodo <= t.visitasMax)
+  );
 }
 
 /**

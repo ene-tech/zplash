@@ -54,6 +54,15 @@ export function construirVariables(opts: {
   // equivalente WhatsApp todavía, pero vive acá para no duplicar el resto del
   // builder si se agrega después.
   precioReactivacion?: number;
+  // Precio de renovación anticipada preferencial (ver precioRenovacionLocal en
+  // @/lib/helpers/precios) — hoy solo lo pasa procesarVencimientosCorreo para
+  // tipoEvento "plan_proximo_vencer" (ver @/lib/mailing/reglas/cron),
+  // calculado por cliente y SIEMPRE por el canal Web, porque el correo invita
+  // a renovar online: un tramo marcado "Solo Local" no se anuncia por ahí. Va
+  // vacío cuando al cliente no le calza ningún tramo (ej. viene mucho) y
+  // renovaría al precio normal — para no invitarlo a un "precio preferencial"
+  // que no existe está condicionSoloConPromoRenovacion en la regla.
+  precioRenovacion?: number;
   // Precio de upgrade a Plan Ilimitado (ver precioUpgradePlan en
   // @/lib/helpers/precios) — hoy solo lo pasa evaluarReglasCorreoPorVenta
   // (@/lib/mailing/reglas/disparadores) cuando la venta es "Lavado único",
@@ -74,6 +83,7 @@ export function construirVariables(opts: {
     diasValidez: opts.diasValidez !== undefined ? String(opts.diasValidez) : "",
     patenteAnterior: opts.patenteAnterior || "",
     precioReactivacion: opts.precioReactivacion !== undefined ? fmtCLP(opts.precioReactivacion) : "",
+    precioRenovacion: opts.precioRenovacion !== undefined ? fmtCLP(opts.precioRenovacion) : "",
     precioUpgrade: opts.precioUpgrade !== undefined ? fmtCLP(opts.precioUpgrade) : "",
   };
 }
