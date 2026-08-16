@@ -40,13 +40,21 @@ export async function getPreciosPublicos(): Promise<PreciosPublicos> {
     planOneclick: { nombre: PLANES[0], precio: precioPlanOneclick(preciosMap) },
     lavadoUnico: { nombre: "Lavado único", precio: precioLavadoUnicoWeb(preciosMap) },
     zonaAspirado: { nombre: "Uso Zona Aspirado Autoservicio", precio: precioZonaAspirado(preciosMap) },
-    servicios: catalogo.map((s) => ({
-      id: s.id,
-      nombre: s.nombre,
-      categoria: s.categoria ?? undefined,
-      precio: precioServicio(preciosMap, s.id),
-      preciosTamano: preciosTamanoMap[s.id],
-    })),
+    servicios: catalogo
+      .map((s) => ({
+        id: s.id,
+        nombre: s.nombre,
+        categoria: s.categoria ?? undefined,
+        precio: precioServicio(preciosMap, s.id),
+        preciosTamano: preciosTamanoMap[s.id],
+      }))
+      // Un servicio sin precio cargado cae a $0 (ver precioServicio en
+      // helpers/precios.ts) — eso NO significa "gratis", significa que el
+      // admin todavía no le puso precio desde Configuración. Se esconde de
+      // todas las superficies públicas (landing, /cliente, /pagar,
+      // /servicios/[id]) hasta que tenga un precio real en al menos un
+      // tamaño, para que no quede comprable en $0 por descuido.
+      .filter((s) => s.precio > 0 || Object.values(s.preciosTamano ?? {}).some((v) => v > 0)),
     tickets: {
       cantidadMinima: CANTIDAD_MINIMA_TICKETS,
       cantidadMaxima: CANTIDAD_MAXIMA_TICKETS,
