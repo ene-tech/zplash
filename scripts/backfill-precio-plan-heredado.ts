@@ -13,6 +13,9 @@
 // Deja fuera a propósito las ventas de Upgrade y Reactivación: esos son
 // precios promocionales puntuales, no el precio del plan de ese cliente.
 //
+// Y solo clientes con plan vigente: al que ya se le venció no se le arrastra
+// el precio viejo si vuelve (para eso están las promos de reactivación).
+//
 // Uso:
 //   npx tsx --env-file=.env.local scripts/backfill-precio-plan-heredado.ts                     (dry-run: no escribe nada)
 //   npx tsx --env-file=.env.local scripts/backfill-precio-plan-heredado.ts --monto 19990
@@ -63,7 +66,7 @@ async function main() {
         and v.tipo not ilike '%upgrade%' and v.tipo not ilike '%reactivaci%'
       order by v.fecha desc limit 1
     ) u on true
-    where u.precio = ${monto}
+    where u.precio = ${monto} and c.vencimiento >= now()
     order by c.patente
   `)) as unknown as Fila[];
 
