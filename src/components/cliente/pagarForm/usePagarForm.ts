@@ -11,6 +11,9 @@ export interface EstadoPlan {
   plan?: string;
   vencimiento?: string | null;
   estado?: { label: string; cls: "ok" | "warn" | "bad"; diasRestantes?: number };
+  // Ver precioConHeredado: precio de plan que se le respeta a esta patente al
+  // renovar antes de vencer, para mostrar el mismo monto que se va a cobrar.
+  precioPlanHeredado?: number | null;
 }
 
 export type TipoPago = "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" | "aspirado";

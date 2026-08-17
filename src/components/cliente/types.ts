@@ -4,6 +4,10 @@ import type { TamanoVehiculo } from "@/types";
 // del portal cliente (mismo endpoint público que ya usa /pagar).
 export interface PreciosPublicos {
   plan: { nombre: string; precio: number };
+  // Precio de contratar el plan por primera vez (ver precioContratacion) —
+  // igual a `plan.precio` mientras no haya un valor de 1ra contratación
+  // configurado. Solo se muestra donde se sabe que la patente es nueva.
+  planPrimera: { nombre: string; precio: number };
   planOneclick: { nombre: string; precio: number };
   lavadoUnico: { nombre: string; precio: number };
   zonaAspirado: { nombre: string; precio: number };

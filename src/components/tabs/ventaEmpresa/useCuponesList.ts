@@ -37,6 +37,7 @@ export function useCuponesList() {
           "Valor c/u": valorCupon(c),
           Caducidad: new Date(c.fechaCaducidad).toLocaleDateString("es-CL"),
           Estado: est.label,
+          "Un cupón por patente": c.unCuponPorPatente ? "Sí" : "",
           "Patente asignada": c.patenteAsignada || "",
           "Patente de uso": c.patenteUso || "",
         };
@@ -56,6 +57,7 @@ export function useCuponesList() {
                   "Valor c/u": "",
                   Caducidad: "",
                   Estado: "",
+                  "Un cupón por patente": "",
                   "Patente asignada": "",
                   "Patente de uso": "",
                 },

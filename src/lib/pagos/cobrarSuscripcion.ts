@@ -3,8 +3,8 @@ import { TransactionDetail } from "transbank-sdk";
 import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
-import { cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
-import { PLAN_ONECLICK_KEY, mesActualKey, precioPlanOneclick } from "@/lib/helpers";
+import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
+import { PLAN_ONECLICK_KEY, mesActualKey, precioConHeredado, precioPlanOneclick } from "@/lib/helpers";
 import { evaluarReglasCorreoPorCobroFallido } from "@/lib/mailing/reglas";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
@@ -59,7 +59,17 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
 
     const [filaPrecio] = await tx.select().from(precios).where(eq(precios.plan, PLAN_ONECLICK_KEY)).limit(1);
     const preciosMap: Precios = filaPrecio ? { [PLAN_ONECLICK_KEY]: { normal: filaPrecio.normal, promo: filaPrecio.promo } } : {};
-    const monto = precioPlanOneclick(preciosMap);
+    // Precio heredado del cliente (ver precioConHeredado): la renovación
+    // automática es justamente pagar antes de vencer, así que el que venía
+    // pagando menos no puede subir de precio por inscribir su tarjeta acá —
+    // es el caso de los clientes que vienen migrando desde la suscripción de
+    // WooCommerce a $19.990.
+    const [cliente] = await tx
+      .select({ precioPlanHeredado: clientes.precioPlanHeredado })
+      .from(clientes)
+      .where(eq(clientes.patente, suscripcion.patente))
+      .limit(1);
+    const monto = precioConHeredado(precioPlanOneclick(preciosMap), cliente ?? {});
 
     const buyOrder = "oc" + Date.now().toString(36) + Math.floor(Math.random() * 36).toString(36);
     const cicloYm = mesActualKey();

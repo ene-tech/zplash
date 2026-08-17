@@ -47,6 +47,31 @@ export function patenteAutorizadaParaCupon(cupon: Pick<Cupon, "patentesAutorizad
   return cupon.patentesAutorizadas.includes(normPlate(patente));
 }
 
+/** Regla "un cupón por patente" del lote (packs de cortesía, canjes de un
+ * evento publicitario): cada patente puede canjear un solo cupón del lote,
+ * para que la promoción llegue a clientes distintos en vez de que un mismo
+ * auto la queme entera. Devuelve el cupón del lote que esa patente ya canjeó
+ * — quien llama lo usa para mostrarle el código al operador — o undefined si
+ * puede canjear.
+ *
+ * El lote se identifica por `nombreLote` (la misma agrupación que ve el admin
+ * en B2B/Tickets, no hay id de lote) y se cruzan solo cupones que también
+ * llevan la regla: así dos lotes homónimos sin ella —ej. los "WhatsApp -
+ * Primera vez" del bot, que comparten nombre entre todos los clientes— nunca
+ * bloquean un canje. Dos lotes con el mismo nombre y ambos con la regla sí
+ * cuentan como uno solo, que es lo esperable si se repite la misma promo. */
+export function cuponDelLoteUsadoPorPatente(
+  cupon: Pick<Cupon, "id" | "nombreLote" | "unCuponPorPatente">,
+  patente: string,
+  cupones: Cupon[]
+): Cupon | undefined {
+  if (!cupon.unCuponPorPatente) return undefined;
+  const p = normPlate(patente);
+  return cupones.find(
+    (c) => c.id !== cupon.id && c.unCuponPorPatente && c.nombreLote === cupon.nombreLote && c.usado && normPlate(c.patenteUso || "") === p
+  );
+}
+
 export type EstadoCupon = { label: string; cls: "ok" | "warn" | "bad" };
 
 /** Estado a mostrar de un cupón: usado, caducado o disponible — compartido

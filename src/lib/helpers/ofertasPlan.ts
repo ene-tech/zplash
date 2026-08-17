@@ -2,7 +2,15 @@ import type { CanalPromo, Cliente, ConfigGlobal, Ingreso, Precios, Venta } from 
 import { PLANES } from "./precios";
 import { diasVencido, planStatus } from "./clientes";
 import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
-import { precioNormal, precioRenovacionLocal, precioReactivacionVencido, precioUpgradePlan, tramoRenovacionVigente, ventaUpgradeElegible } from "./precios";
+import {
+  precioConHeredado,
+  precioNormal,
+  precioRenovacionLocal,
+  precioReactivacionVencido,
+  precioUpgradePlan,
+  tramoRenovacionVigente,
+  ventaUpgradeElegible,
+} from "./precios";
 
 export interface OfertaPlan {
   renovacionAnticipada?: { pNormal: number; pPromo: number; ahorro: number; diasRestantes?: number; tramoVigente: boolean };
@@ -37,7 +45,7 @@ export interface OfertaPlan {
  * un tramo marcado "LOCAL" no se anuncia por ahí.
  */
 export function calcularOfertasPlan(
-  cliente: Pick<Cliente, "id" | "plan" | "vencimiento" | "fechaContratacion">,
+  cliente: Pick<Cliente, "id" | "plan" | "vencimiento" | "fechaContratacion" | "precioPlanHeredado">,
   ventasCliente: Venta[],
   ingresosCliente: Ingreso[],
   config: ConfigGlobal,
@@ -58,10 +66,13 @@ export function calcularOfertasPlan(
   // se arma, para que Mi Cuenta pueda mostrar su recordatorio de vencimiento y
   // cobrar la renovación (ver sinOfertaReal en VehiculoCard).
   if (st.cls !== "bad") {
-    const pNormal = precioNormal(precios, plan);
+    // El precio heredado se aplica sobre AMBOS (ver precioConHeredado): quien
+    // venía pagando menos renueva a ese valor, y la tarjeta no le inventa un
+    // "ahorro" contra un precio de lista que a él nunca le tocó.
+    const pNormal = precioConHeredado(precioNormal(precios, plan), cliente);
     if (pNormal > 0) {
       const visitasPeriodo = visitasPeriodoPlan(ingresosCliente, cliente);
-      const pPromo = precioRenovacionLocal(config, precios, plan, visitasPeriodo, canal) ?? pNormal;
+      const pPromo = precioConHeredado(precioRenovacionLocal(config, precios, plan, visitasPeriodo, canal) ?? pNormal, cliente);
       oferta.renovacionAnticipada = {
         pNormal,
         pPromo,
@@ -80,7 +91,10 @@ export function calcularOfertasPlan(
     const visitasUltPeriodo = visitasUltimoPeriodoVencido(ingresosCliente, cliente);
     const precioReactivacion = precioReactivacionVencido(config, plan, diasVenc, visitasUltPeriodo, canal);
     if (precioReactivacion !== undefined) {
-      oferta.reactivacion = { precio: precioReactivacion, diasVencido: diasVenc, pNormal: precioNormal(precios, plan) };
+      // pNormal con el heredado aplicado: es lo que se le va a cobrar de
+      // verdad en la renovación siguiente (ver el bloque de arriba), no el
+      // precio de lista.
+      oferta.reactivacion = { precio: precioReactivacion, diasVencido: diasVenc, pNormal: precioConHeredado(precioNormal(precios, plan), cliente) };
     }
   }
 
@@ -88,7 +102,7 @@ export function calcularOfertasPlan(
   if (st.cls === "bad") {
     const ventaUpgrade = ventaUpgradeElegible(ventasCliente, cliente.id, config.horasVentanaUpgradePlan);
     if (ventaUpgrade) {
-      oferta.upgrade = { precio: precioUpgradePlan(precios) };
+      oferta.upgrade = { precio: precioUpgradePlan(precios, ventaUpgrade) };
     }
   }
 

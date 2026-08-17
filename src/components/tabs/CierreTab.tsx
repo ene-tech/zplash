@@ -121,7 +121,7 @@ export default function CierreTab() {
         onDescargar={() => descargarFacturables(r.data, r.facturaFiltrados, r.desde, r.hasta)}
       />
 
-      <DetalleIngresosTabla ingresosPeriodo={r.ingresosPeriodo} />
+      <DetalleIngresosTabla ingresosPeriodo={r.ingresosPeriodo} clientes={r.data.clientes} />
     </div>
   );
 }

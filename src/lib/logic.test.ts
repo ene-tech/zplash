@@ -5,13 +5,14 @@ import {
   importarCartola,
   importarClientes,
   registrarIngreso,
+  registrarIngresoCupon,
   registrarIngresoDetailing,
   registrarIngresoLavadoWeb,
   renovarPlan,
 } from "./logic";
 import { CONFIG_DEFAULT, PRECIOS_DEFAULT } from "./helpers";
 import type { ParsedMovimiento } from "./cartolaParser";
-import type { AppData, Cita, Cliente, Ingreso, Venta } from "@/types";
+import type { AppData, Cita, Cliente, Cupon, Ingreso, Venta } from "@/types";
 
 function appDataVacia(): AppData {
   return {
@@ -335,6 +336,73 @@ describe("registrarIngresoLavadoWeb", () => {
     // No es una venta nueva: mismo id, mismo precio, solo se agregó canjeadaEn.
     expect(patch.ventas![0].id).toBe(venta.id);
     expect(patch.ventas![0].precio).toBe(venta.precio);
+  });
+});
+
+describe("registrarIngresoCupon", () => {
+  function cuponVale(overrides: Partial<Cupon> = {}): Cupon {
+    return {
+      id: "cup1",
+      codigo: "ABC123",
+      nombreLote: "Cortesía Feria",
+      valor: 0,
+      numeroLote: 3,
+      totalLote: 10,
+      fechaCaducidad: "2027-01-01T00:00:00.000Z",
+      usado: false,
+      creadoEn: "2026-01-01T00:00:00.000Z",
+      tipo: "vale",
+      ...overrides,
+    };
+  }
+
+  it("liga el ingreso a la ficha del cliente en vez de dejarlo anónimo", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ visitas: 1 });
+    const cupon = cuponVale();
+    data.clientes = [cliente];
+    data.cupones = [cupon];
+
+    const patch = registrarIngresoCupon(data, cliente, cupon, "Operador X");
+
+    expect(patch.ingresos).toHaveLength(1);
+    expect(patch.ingresos![0].clienteId).toBe(cliente.id);
+    expect(patch.ingresos![0].nombre).toBe(cliente.nombre);
+    expect(patch.ingresos![0].patente).toBe(cliente.patente);
+    expect(patch.ingresos![0].viaCupon).toBe(true);
+    expect(patch.ingresos![0].cuponCodigo).toBe(cupon.codigo);
+    expect(patch.clientes!.find((c) => c.id === cliente.id)!.visitas).toBe(2);
+  });
+
+  it("marca el cupón como usado con la patente, la fecha y el operador del canje", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase();
+    const cupon = cuponVale();
+    const otro = cuponVale({ id: "cup2", codigo: "ZZZ999" });
+    data.clientes = [cliente];
+    data.cupones = [cupon, otro];
+
+    const patch = registrarIngresoCupon(data, cliente, cupon, "Operador X");
+
+    const canjeado = patch.cupones!.find((c) => c.id === cupon.id)!;
+    expect(canjeado.usado).toBe(true);
+    expect(canjeado.patenteUso).toBe(cliente.patente);
+    expect(canjeado.operadorUso).toBe("Operador X");
+    expect(canjeado.fechaUso).toBeTruthy();
+    // Los otros cupones del lote quedan intactos.
+    expect(patch.cupones!.find((c) => c.id === otro.id)!.usado).toBe(false);
+  });
+
+  it("no genera una venta: el lote ya se cobró al generarse", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase();
+    const cupon = cuponVale();
+    data.clientes = [cliente];
+    data.cupones = [cupon];
+
+    const patch = registrarIngresoCupon(data, cliente, cupon, "Operador X");
+
+    expect(patch.ventas).toBeUndefined();
   });
 });
 

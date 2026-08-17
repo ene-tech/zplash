@@ -10,6 +10,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Los skills de agentes traen sus propios .test.mjs (otro runner) y
+    // ensucian el resultado de `npm test`.
+    exclude: ["**/node_modules/**", ".claude/**", ".agents/**"],
     // Dummy: alcanza para que createClient() en @/lib/supabase no reviente
     // al importarse transitivamente (ej. desde @/lib/dataAccess/storage) en
     // tests que no ejercitan código de Supabase de verdad.

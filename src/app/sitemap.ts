@@ -10,7 +10,7 @@ const BASE_URL = "https://zplash.cl";
 // editorial propia, no el texto genérico de CONTENIDO_DEFAULT — listar esos
 // últimos sería mandarle a Google páginas casi idénticas entre sí.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const rutasFijas = ["/", "/servicios/full-tunnel", "/servicios/plan-mensual", "/servicios/zona-aspirado"];
+  const rutasFijas = ["/", "/politicas", "/servicios/full-tunnel", "/servicios/plan-mensual", "/servicios/zona-aspirado"];
   const rutasServicio = Object.keys(SERVICIO_CONTENIDO).map((id) => `/servicios/${id}`);
 
   return [...rutasFijas, ...rutasServicio].map((path) => ({

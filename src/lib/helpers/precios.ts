@@ -1,4 +1,4 @@
-import type { CanalPromo, CanalTramoPromo, ConfigGlobal, Precios, PreciosTamano, TamanoVehiculo, Venta } from "@/types";
+import type { CanalPromo, CanalTramoPromo, Cliente, ConfigGlobal, Precios, PreciosTamano, TamanoVehiculo, Venta } from "@/types";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 
@@ -82,14 +82,22 @@ export function precioZonaAspirado(precios: Precios): number {
   return (precios[ZONA_ASPIRADO_KEY] && precios[ZONA_ASPIRADO_KEY].normal) || PRECIO_ZONA_ASPIRADO;
 }
 
-/** Monto adicional (sobre el lavado único ya pagado) para convertir la visita de hoy en la contratación del Plan Ilimitado Mensual — promoción ofrecida en el módulo Operador dentro de la ventana configurada (ver ConfigGlobal.horasVentanaUpgradePlan). */
-export const PRECIO_UPGRADE_PLAN_DEFAULT = 12000;
-
-/** Clave usada dentro de Precios para guardar el valor editable del upgrade a plan. */
-export const UPGRADE_PLAN_KEY = "Upgrade a Plan Ilimitado";
-
-export function precioUpgradePlan(precios: Precios): number {
-  return (precios[UPGRADE_PLAN_KEY] && precios[UPGRADE_PLAN_KEY].normal) || PRECIO_UPGRADE_PLAN_DEFAULT;
+/**
+ * Monto adicional (sobre el lavado único ya pagado) para convertir la visita
+ * de hoy en la contratación del Plan Ilimitado Mensual — promoción ofrecida
+ * dentro de la ventana configurada (ver ConfigGlobal.horasVentanaUpgradePlan),
+ * tanto en el módulo Operador como en Mi Cuenta.
+ *
+ * Es lo que falta para completar el precio del plan contra lo que el cliente
+ * REALMENTE pagó por ese lavado (`ventaUpgrade.precio`), no contra el precio
+ * de lista: el lavado pudo salir más barato por el cupón de descuento de
+ * primera vez (ver emitirCuponDescuentoPrimeraVez), por una promo de WhatsApp,
+ * o por tener el canal Web su propio precio (ver LAVADO_UNICO_WEB_KEY). Con un
+ * monto adicional fijo ese descuento se regalaba dos veces — el cliente con
+ * cupón terminaba entrando al plan por menos que el que no lo tenía.
+ */
+export function precioUpgradePlan(precios: Precios, ventaUpgrade: Venta): number {
+  return Math.max(0, precioNormal(precios, PLANES[0]) - ventaUpgrade.precio);
 }
 
 /**
@@ -211,8 +219,54 @@ export function precioNormal(precios: Precios, plan: string): number {
   return (precios[plan] && precios[plan].normal) || 0;
 }
 
+/**
+ * Aplica el precio heredado de un cliente (ver `precioPlanHeredado` en
+ * db/schema/clientes.ts) sobre el precio de plan que le tocaría hoy: si venía
+ * pagando menos que el valor vigente, se le respeta ese valor mientras siga
+ * renovando ANTES de que se le venza el plan.
+ *
+ * Nunca sube el precio: un heredado mayor o igual al vigente se ignora (pasa
+ * cuando el precio de lista bajó, o cuando quedó guardado el monto de un pago
+ * de más de un mes). Se aplica a cualquier precio de plan del cliente —
+ * renovación normal, tramo promocional de la escala, y el cobro mensual de la
+ * renovación automática Oneclick (ver cobrarSuscripcion) — para que un mismo
+ * cliente no vea un precio distinto según por dónde pague.
+ *
+ * NO se aplica a una contratación nueva (`plan_nuevo`/contratarPlan) ni a la
+ * reactivación de un plan ya vencido: ahí el cliente dejó de renovar a tiempo
+ * y entra con el precio vigente o con la promoción de reactivación que
+ * corresponda.
+ */
+export function precioConHeredado(precioVigente: number, cliente: Pick<Cliente, "precioPlanHeredado">): number {
+  const heredado = cliente.precioPlanHeredado;
+  return heredado != null && heredado > 0 && heredado < precioVigente ? heredado : precioVigente;
+}
+
 export function precioPreferencial(precios: Precios, plan: string): number {
   return (precios[plan] && precios[plan].promo) || 0;
+}
+
+/** Clave dentro de Precios del valor de la PRIMERA contratación de un plan
+ * (ver precioContratacion) — una fila más de `precios`, igual que
+ * PLAN_ONECLICK_KEY, no una columna nueva. */
+export const keyPrimeraContratacion = (plan: string) => `${plan} (1ra contratación)`;
+
+/**
+ * Precio de contratar un plan (venta "Plan nuevo" en el local, tipo
+ * "plan_nuevo" en la web): el valor de 1ra contratación cuando el cliente
+ * nunca tuvo plan — `vencimiento` nulo, incluida la patente que todavía no
+ * existe en la base (`cliente` sin pasar) — y el precio normal para el que
+ * vuelve después de dejar vencer el suyo: ese ya no es un cliente nuevo y
+ * tiene su propia promoción de reactivación (ver precioReactivacionVencido).
+ *
+ * Sin valor de 1ra contratación cargado ($0) cae al precio normal, que es el
+ * comportamiento previo a que este precio existiera. Es solo el precio de
+ * entrada: la renovación siguiente vale el normal, porque contratar no
+ * escribe `precioPlanHeredado` (ver precioConHeredado).
+ */
+export function precioContratacion(precios: Precios, plan: string, cliente?: Pick<Cliente, "vencimiento"> | null): number {
+  const primera = precios[keyPrimeraContratacion(plan)]?.normal || 0;
+  return !cliente?.vencimiento && primera > 0 ? primera : precioNormal(precios, plan);
 }
 
 /**

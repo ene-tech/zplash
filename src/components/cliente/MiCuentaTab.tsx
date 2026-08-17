@@ -13,6 +13,8 @@ import { RenovacionLegacyCard } from "@/components/cliente/miCuenta/RenovacionLe
 import { AgregarTarjeta } from "@/components/cliente/miCuenta/AgregarTarjeta";
 import { EliminarTarjeta } from "@/components/cliente/miCuenta/EliminarTarjeta";
 import { DatosFacturacionSection } from "@/components/cliente/miCuenta/DatosFacturacionSection";
+import { AvisoPoliticas } from "@/components/cliente/miCuenta/AvisoPoliticas";
+import { PromoModal } from "@/components/cliente/miCuenta/PromoModal";
 
 interface Tarjeta {
   patente: string;
@@ -57,6 +59,10 @@ export default function MiCuentaTab() {
   const [compras, setCompras] = useState<Compra[]>([]);
   const [renovacionesLegacy, setRenovacionesLegacy] = useState<RenovacionLegacy[]>([]);
   const [ofertas, setOfertas] = useState<Record<string, OfertaPlan>>({});
+  // undefined = todavía no llega la respuesta de /api/cliente/mi-cuenta. Sin
+  // ese tercer estado el aviso de políticas parpadea en cada carga para quien
+  // ya aceptó.
+  const [politicasAceptadas, setPoliticasAceptadas] = useState<boolean | undefined>(undefined);
 
   const cargarMiCuenta = useCallback(() => {
     fetch("/api/cliente/mi-cuenta")
@@ -69,6 +75,7 @@ export default function MiCuentaTab() {
             compras: Compra[];
             renovacionesLegacy: RenovacionLegacy[];
             ofertas: Record<string, OfertaPlan>;
+            politicasAceptadas: boolean;
           } | null
         ) => {
           if (!data) return;
@@ -77,6 +84,7 @@ export default function MiCuentaTab() {
           setCompras(data.compras);
           setRenovacionesLegacy(data.renovacionesLegacy || []);
           setOfertas(data.ofertas || {});
+          setPoliticasAceptadas(data.politicasAceptadas);
         }
       );
   }, []);
@@ -94,7 +102,9 @@ export default function MiCuentaTab() {
 
   return (
     <div>
+      <PromoModal />
       <CuentaBar email={sesion.email} onLogout={cerrar} />
+      {politicasAceptadas === false && <AvisoPoliticas onAceptado={() => setPoliticasAceptadas(true)} />}
       <ActivarNotificaciones />
       <TicketsEmpresaSection key={sesion.email} email={sesion.email} />
 
@@ -211,6 +221,14 @@ export default function MiCuentaTab() {
           </tbody>
         </table>
       </div>
+
+      {/* El aviso de arriba desaparece al aceptar, pero el texto tiene que
+          seguir a mano: este enlace queda siempre. */}
+      <p style={{ marginTop: 26, fontSize: 13, color: "var(--gray)" }}>
+        <a href="/politicas" target="_blank" rel="noopener noreferrer">
+          Políticas de Funcionamiento y Garantía
+        </a>
+      </p>
     </div>
   );
 }

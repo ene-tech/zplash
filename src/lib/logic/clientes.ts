@@ -1,4 +1,4 @@
-import { formatRut, planStatus, precioLavadoUnico, precioNormal, uid } from "@/lib/helpers";
+import { formatRut, planStatus, precioContratacion, precioLavadoUnico, uid } from "@/lib/helpers";
 import type { AppData, Cliente, Empresa, Ingreso, PagoInfo, Venta } from "@/types";
 
 export interface DatosClienteModal {
@@ -125,7 +125,9 @@ export function guardarClienteModal(data: AppData, d: DatosClienteModal): Partia
       patente: nuevo.patente,
       nombre: nuevo.nombre,
       plan: nuevo.plan || "",
-      precio: precioNormal(data.precios, d.plan),
+      // Solo llega acá un alta nueva (la edición retorna más arriba), así que
+      // es siempre una 1ra contratación — ver precioContratacion.
+      precio: precioContratacion(data.precios, d.plan),
       tipo: "Plan nuevo",
       fecha: new Date().toISOString(),
       creadoPor: d.perfilNombre || "",

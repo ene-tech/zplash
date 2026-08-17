@@ -33,6 +33,9 @@ export interface Cliente extends DatosFacturacion {
   // renovación mensual de este cliente sigue cobrándola WooCommerce
   // Subscriptions (sistema anterior), usada para mostrárselo en Mi Cuenta.
   renovacionAutoWooDesde?: string | null;
+  // Ver precioPlanHeredado en db/schema/clientes.ts — precio de plan que se le
+  // respeta a este cliente al renovar antes de vencer, por debajo del vigente.
+  precioPlanHeredado?: number | null;
   origen?: "WEB" | "LOCAL";
   visitas?: number;
   ultimaVisita?: string;

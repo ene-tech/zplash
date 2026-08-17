@@ -1,4 +1,4 @@
-import type { AppData, Cita, Cliente, Ingreso, PagoInfo, Venta } from "@/types";
+import type { AppData, Cita, Cliente, Cupon, Ingreso, PagoInfo, Venta } from "@/types";
 import { esRetrocesoInvalido } from "@/lib/agenda";
 import {
   GLOSA_LAVADO_WEB,
@@ -35,6 +35,50 @@ export function registrarIngreso(
   return {
     ingresos: [ingreso, ...data.ingresos],
     clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),
+  };
+}
+
+// Registra el canje de un cupón "vale" en el módulo Operador: marca el cupón
+// como usado y deja el Ingreso ligado a la ficha del cliente, igual que
+// cualquier otro paso por el túnel. Ese vínculo es el punto: hasta antes de
+// esto el canje guardaba un Ingreso anónimo (clienteId "", nombre = el lote),
+// así que del auto que entró gratis no quedaba ni nombre ni teléfono ni
+// correo — ver el respaldo por patente que tuvo que agregarse en
+// DetalleIngresosTabla. Quien llama se asegura de que el cliente exista
+// (creándolo antes si la patente no estaba registrada) y de que venga dentro
+// de `data.clientes`, igual que finalizarClienteRapido con su cliente nuevo.
+// No genera Venta: el lote ya se cobró completo al generarse.
+export function registrarIngresoCupon(
+  data: AppData,
+  cliente: Cliente,
+  cupon: Cupon,
+  operadorActual: string | null | undefined
+): Partial<AppData> {
+  const ahora = new Date().toISOString();
+  const ingreso: Ingreso = {
+    id: "i" + Date.now(),
+    clienteId: cliente.id,
+    patente: cliente.patente,
+    nombre: cliente.nombre,
+    fecha: ahora,
+    planEstadoAlIngreso: planStatus(cliente).cls,
+    creadoPor: operadorActual || "",
+    viaCupon: true,
+    cuponCodigo: cupon.codigo,
+  };
+  const clienteActualizado: Cliente = {
+    ...cliente,
+    visitas: (cliente.visitas || 0) + 1,
+    ultimaVisita: ahora,
+  };
+  return {
+    ingresos: [ingreso, ...data.ingresos],
+    clientes: data.clientes.map((c) => (c.id === cliente.id ? clienteActualizado : c)),
+    cupones: data.cupones.map((c) =>
+      c.id === cupon.id
+        ? { ...cupon, usado: true, patenteUso: cliente.patente, fechaUso: ahora, operadorUso: operadorActual || "" }
+        : c
+    ),
   };
 }
 

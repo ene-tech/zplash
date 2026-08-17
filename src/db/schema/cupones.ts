@@ -33,6 +33,13 @@ export const cupones = pgTable("cupones", {
   // vacío = lote abierto, cualquier patente puede canjear (comportamiento
   // original de "vale").
   patentesAutorizadas: jsonb("patentes_autorizadas").$type<string[]>(),
+  // Regla opcional del lote: cada patente puede canjear un solo cupón del
+  // lote. Se usa en packs de cortesía o de un evento publicitario, donde el
+  // objetivo es que la promoción llegue a clientes distintos y no la queme
+  // entera un mismo auto. Default false para no cambiar el comportamiento de
+  // los lotes ya generados (y de los packs empresa, donde la flota sí puede
+  // canjear varios tickets con la misma patente).
+  unCuponPorPatente: boolean("un_cupon_por_patente").notNull().default(false),
   // Email de quien compró el Pack Empresa por web — permite mostrar los
   // tickets en Mi Cuenta (portal cliente) buscando por el correo de la
   // sesión, sin depender de que el comprador recuerde el RUT. Null en

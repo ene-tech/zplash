@@ -1,8 +1,9 @@
 import "server-only";
 
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes } from "@/db/schema";
+import { clientes, politicasAceptadas } from "@/db/schema";
+import { POLITICAS_VERSION } from "@/lib/politicas";
 import type { Cliente, ClientePatch } from "@/types";
 import { insertAuditoria } from "./auditoria";
 import { upsertRows } from "./shared";
@@ -58,6 +59,7 @@ export function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
     fechaContratacion: c.fechaContratacion || null,
     suscripcionCanceladaEn: c.suscripcionCanceladaEn || null,
     renovacionAutoWooDesde: c.renovacionAutoWooDesde || null,
+    precioPlanHeredado: c.precioPlanHeredado ?? null,
     origen: c.origen || "LOCAL",
     visitas: c.visitas || 0,
     ultimaVisita: c.ultimaVisita || null,
@@ -87,6 +89,7 @@ export function clienteFromRow(r: ClienteRow): Cliente {
     fechaContratacion: r.fechaContratacion || null,
     suscripcionCanceladaEn: r.suscripcionCanceladaEn || null,
     renovacionAutoWooDesde: r.renovacionAutoWooDesde || null,
+    precioPlanHeredado: r.precioPlanHeredado ?? null,
     origen: (r.origen as Cliente["origen"]) || "LOCAL",
     visitas: r.visitas || 0,
     ultimaVisita: r.ultimaVisita || undefined,
@@ -229,4 +232,24 @@ export async function actualizarPatentePendiente(id: string, patentePendiente: s
     console.error("Error actualizando patente pendiente del cliente", id, error);
     return false;
   }
+}
+
+/** ¿Esta cuenta ya aceptó la versión vigente de las políticas? Ver
+ * politicasAceptadas en @/db/schema/clientes. */
+export async function aceptoPoliticas(email: string): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ email: politicasAceptadas.email })
+    .from(politicasAceptadas)
+    .where(and(eq(politicasAceptadas.email, email.toLowerCase()), eq(politicasAceptadas.version, POLITICAS_VERSION)))
+    .limit(1);
+  return !!row;
+}
+
+/** Idempotente: volver a aceptar la misma versión no mueve la fecha original,
+ * que es justamente el dato que hay que poder mostrar si alguien reclama. */
+export async function registrarAceptacionPoliticas(email: string): Promise<void> {
+  await getDb()
+    .insert(politicasAceptadas)
+    .values({ email: email.toLowerCase(), version: POLITICAS_VERSION })
+    .onConflictDoNothing();
 }

@@ -31,6 +31,11 @@ export interface Cupon {
   // autorizadas a canjear cualquiera de los tickets del lote. Vacío/undefined
   // = lote abierto, cualquier patente puede canjear.
   patentesAutorizadas?: string[];
+  // Regla opcional del lote (packs de cortesía / eventos publicitarios): cada
+  // patente puede canjear un solo cupón del lote, para que la promoción
+  // llegue a clientes distintos. Vacío/false = sin la regla, la misma patente
+  // puede canjear varios cupones del lote (comportamiento original).
+  unCuponPorPatente?: boolean;
   // Email de quien compró el Pack Empresa por web — permite mostrar los
   // tickets en Mi Cuenta (portal cliente) buscando por el correo de la
   // sesión. Undefined en cupones generados a mano o sin email.

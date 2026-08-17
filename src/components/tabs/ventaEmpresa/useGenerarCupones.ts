@@ -30,6 +30,7 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [patentesAbierto, setPatentesAbierto] = useState(true);
   const [patentesTexto, setPatentesTexto] = useState("");
+  const [unCuponPorPatente, setUnCuponPorPatente] = useState(false);
 
   // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
   // existe una con ese RUT se traen sus datos en vez de tipearlos de nuevo.
@@ -93,6 +94,16 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
         setErr({ msg: `Patente inválida: ${invalida}. ${PATENTE_FORMATO_MSG}`, ok: false });
         return;
       }
+      // Con las dos reglas juntas el lote se queda sin canjes posibles apenas
+      // cada patente autorizada use el suyo: se avisa acá en vez de generar
+      // cupones que nadie va a poder canjear.
+      if (unCuponPorPatente && patentesAutorizadas.length < cantidad) {
+        setErr({
+          msg: `Con un cupón por patente necesitas al menos ${cantidad} patentes autorizadas (hay ${patentesAutorizadas.length}): el resto del lote quedaría sin poder canjearse`,
+          ok: false,
+        });
+        return;
+      }
     }
 
     const valorPorCupon = Math.round(valorTotal / cantidad);
@@ -115,6 +126,7 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
         tipo: "vale",
         rut: rut || undefined,
         patentesAutorizadas: patentesAutorizadas?.length ? patentesAutorizadas : undefined,
+        unCuponPorPatente,
       });
     }
 
@@ -169,6 +181,7 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
     setErr({
       msg:
         `${cantidad} cupones generados para "${nombreLote}"` +
+        (unCuponPorPatente ? " (un cupón por patente)" : "") +
         (valorTotal > 0 ? ` — se registró ${fmtCLP(valorTotal)} en el cierre de caja de hoy` : ""),
       ok: true,
     });
@@ -182,6 +195,7 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
     if (giroRef.current) giroRef.current.value = "";
     setPatentesAbierto(true);
     setPatentesTexto("");
+    setUnCuponPorPatente(false);
     setTipoDoc("Boleta");
     setHayValor(false);
     setMetodoPago(null);
@@ -204,6 +218,8 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
     setPatentesAbierto,
     patentesTexto,
     setPatentesTexto,
+    unCuponPorPatente,
+    setUnCuponPorPatente,
     onRutBlur,
     generar,
   };

@@ -1,7 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, cupones, precios as preciosTabla, servicios as serviciosTabla } from "@/db/schema";
-import { aplicarVariables, fmtCLP, generarCodigoCupon, isValidEmail, isValidPatente, normPlate, SERVICIOS_DEFAULT, uid } from "@/lib/helpers";
+import { clientes, precios as preciosTabla, servicios as serviciosTabla } from "@/db/schema";
+import { aplicarVariables, fmtCLP, isValidEmail, isValidPatente, normPlate, SERVICIOS_DEFAULT, uid } from "@/lib/helpers";
 // Directo a la capa de datos, no al Server Action de @/lib/serverActions: este flujo
 // corre dentro del webhook de Meta (protegido por firma, ver
 // /api/whatsapp/route.ts), no hay perfil logueado que pase el chequeo de
@@ -9,8 +9,14 @@ import { aplicarVariables, fmtCLP, generarCodigoCupon, isValidEmail, isValidPate
 // textosBotWhatsapp ya mergeado con TEXTOS_BOT_WHATSAPP_DEFAULT (ver
 // @/lib/dataAccess/config), así que cualquier texto que el admin no haya
 // editado en Web Settings → Menú Bot WhatsApp sigue mostrando el de fábrica.
-import { actualizarFlowStateConversacion, cuponFromRow, getConfig, upsertClientes, upsertCupones, vincularClienteConversacion } from "@/lib/dataAccess";
-import type { Cliente, ConversacionWhatsapp, Cupon, FlowStateWhatsapp, Precios, TextosBotWhatsapp } from "@/types";
+import {
+  actualizarFlowStateConversacion,
+  emitirCuponDescuentoPrimeraVez,
+  getConfig,
+  upsertClientes,
+  vincularClienteConversacion,
+} from "@/lib/dataAccess";
+import type { Cliente, ConversacionWhatsapp, FlowStateWhatsapp, Precios, TextosBotWhatsapp } from "@/types";
 import { PLAN_IMAGEN_PATH, SERVICIOS_IMAGEN_PATH, textoPrecios } from "./contenido";
 import { estadoPlanPorPatente, iniciarCambioPatente, manejarPasoCambioPatente } from "./patente";
 
@@ -36,47 +42,6 @@ const PALABRAS_SALIDA_FLUJO = new Set(["cancelar", "salir"]);
 function textoConfirmacionDescuento(textos: TextosBotWhatsapp, codigo: string, fechaCaducidadISO: string, valor: number): string {
   const fecha = new Date(fechaCaducidadISO).toLocaleDateString("es-CL");
   return aplicarVariables(textos.textoDescuentoConfirmacion, { codigo, fecha, monto: fmtCLP(valor) });
-}
-
-// Reutiliza un cupón "descuento" pendiente para esa patente si sigue vigente
-// (evita generar uno nuevo si el cliente vuelve a pasar por el flujo antes
-// de usarlo), o genera uno nuevo con el monto/vigencia configurados en
-// ConfigGlobal.descuentoPrimeraVezValor/DiasValidez (editable en Web
-// Settings → Menú Bot WhatsApp) — misma lógica que antes tenía
-// manejarDescuentoPrimeraVez, ahora factorizada porque el flujo de registro
-// (manejarPasoRegistroDescuento) la necesita en su último paso.
-async function emitirCuponDescuentoPrimeraVez(patente: string, valor: number, diasValidez: number): Promise<Cupon> {
-  const db = getDb();
-  const ahora = new Date();
-  const [pendiente] = await db
-    .select()
-    .from(cupones)
-    .where(and(eq(cupones.patenteAsignada, patente), eq(cupones.tipo, "descuento"), eq(cupones.usado, false)))
-    .limit(1);
-  if (pendiente && new Date(pendiente.fechaCaducidad) > ahora) {
-    return cuponFromRow(pendiente);
-  }
-
-  const existentesRows = await db.select({ codigo: cupones.codigo }).from(cupones);
-  const codigo = generarCodigoCupon(new Set(existentesRows.map((r) => r.codigo)));
-  const fechaCaducidad = new Date(ahora.getTime() + diasValidez * 86400000).toISOString();
-
-  const nuevo: Cupon = {
-    id: uid(),
-    codigo,
-    nombreLote: "WhatsApp - Primera vez",
-    valor,
-    numeroLote: 1,
-    totalLote: 1,
-    fechaCaducidad,
-    usado: false,
-    creadoEn: ahora.toISOString(),
-    creadoPor: "whatsapp-bot",
-    tipo: "descuento",
-    patenteAsignada: patente,
-  };
-  await upsertCupones([nuevo]);
-  return nuevo;
 }
 
 async function existeClienteConPatente(patente: string): Promise<boolean> {
@@ -187,7 +152,13 @@ async function manejarPasoRegistroDescuento(
   await upsertClientes([nuevoCliente]);
   await vincularClienteConversacion(conversacion.id, nuevoCliente.id);
 
-  const cupon = await emitirCuponDescuentoPrimeraVez(patente, descuentoValor, descuentoDiasValidez);
+  const cupon = await emitirCuponDescuentoPrimeraVez({
+    patente,
+    valor: descuentoValor,
+    diasValidez: descuentoDiasValidez,
+    nombreLote: "WhatsApp - Primera vez",
+    creadoPor: "whatsapp-bot",
+  });
   await actualizarFlowStateConversacion(conversacion.id, null);
 
   return { texto: textoConfirmacionDescuento(textos, cupon.codigo, cupon.fechaCaducidad, cupon.valor) };

@@ -23,7 +23,7 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
                 key={c.id}
                 avatar={<MobileRecordAvatar icon={Ticket} tone={est.cls} />}
                 title={<span className="plate-tag">{c.codigo}</span>}
-                subtitle={c.nombreLote}
+                subtitle={c.unCuponPorPatente ? `${c.nombreLote} · 1 por patente` : c.nombreLote}
                 menu={
                   !c.usado && (
                     <MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(c) }]} />
@@ -83,7 +83,10 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
                     <TableCell>
                       {c.numeroLote}/{c.totalLote}
                     </TableCell>
-                    <TableCell className="max-w-[160px] truncate" title={c.nombreLote}>{c.nombreLote}</TableCell>
+                    <TableCell className="max-w-[160px]" title={c.nombreLote}>
+                      <div className="truncate">{c.nombreLote}</div>
+                      {c.unCuponPorPatente && <div className="text-xs text-muted-foreground">1 por patente</div>}
+                    </TableCell>
                     <TableCell>{valorCupon(c)}</TableCell>
                     <TableCell>{new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}</TableCell>
                     <TableCell>

@@ -648,6 +648,13 @@ h4,
   border-radius: 8px;
   font-size: 14px;
 }
+/* El panel del operador está centrado y con poco ancho: ahí el alta rápida
+   del canje de cupón se ve descuadrada si los campos quedan al ancho por
+   defecto (ver OperadorView). En .result-card no aplica — ese ya es un bloque
+   alineado a la izquierda. */
+.scan-panel .quick-form input {
+  width: 100%;
+}
 .quick-form label {
   font-size: 11.5px;
   color: var(--gray);
@@ -1130,6 +1137,64 @@ tr:hover td {
   gap: 10px;
   justify-content: flex-end;
   margin-top: 18px;
+}
+
+/* Pop-up de captación de la landing (DescuentoBienvenidaModal). La foto del
+   túnel va como fondo decorativo y no como <img>: es ornamento, no contenido,
+   así no pide alt ni entra en el orden de lectura del lector de pantalla. El
+   degradado la funde con el fondo del popup para que no corte en seco, y el
+   cuerpo sube sobre esa zona fundida con margin-top negativo. */
+.promo-popup-foto {
+  height: 190px;
+  background:
+    linear-gradient(to bottom, rgba(38, 35, 32, 0.25) 0%, rgba(48, 44, 38, 0.85) 72%, var(--popover) 100%),
+    url("/tunel-bn.png") center 40% / cover no-repeat;
+  filter: grayscale(1) contrast(1.08);
+}
+.promo-popup-cuerpo {
+  position: relative;
+  margin-top: -46px;
+  padding: 0 22px 22px;
+}
+/* Aire entre el gancho y el formulario: sin esto el label "PATENTE" queda
+   pegado a la última línea de la descripción y se lee como parte de ella. */
+.promo-popup-cuerpo [data-slot="dialog-header"] {
+  margin-bottom: 22px;
+}
+.promo-popup-monto {
+  display: block;
+  font-size: 52px;
+  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--gold);
+}
+.promo-popup-subtitulo {
+  display: block;
+  margin-top: 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--white);
+}
+.promo-popup-codigo {
+  margin: 14px 0 4px;
+  text-align: center;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--gold);
+}
+.promo-popup-descartar {
+  display: block;
+  margin: 10px auto 0;
+  background: none;
+  border: none;
+  color: var(--gray);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.promo-popup-descartar:hover {
+  color: var(--white);
 }
 
 @media (max-width: 640px) {

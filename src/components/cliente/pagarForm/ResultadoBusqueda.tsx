@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { fmtCLP, fmtFecha } from "@/lib/helpers";
+import { fmtCLP, fmtFecha, precioConHeredado } from "@/lib/helpers";
 import GoogleIcon from "@/components/GoogleIcon";
 import type { PreciosPublicos } from "@/components/cliente/types";
 import { CamposDocumento } from "./CamposDocumento";
@@ -46,6 +46,13 @@ export function ResultadoBusqueda(p: Props) {
   }, [p.pasoMetodo]);
   if (!r) return null;
 
+  // Precios de esta patente: un cliente con precio heredado (ver
+  // precioConHeredado) renueva a ese valor, tanto pagando el mes como
+  // activando la renovación automática. Sin heredado son los precios públicos.
+  const precioRenovar = precioConHeredado(p.precios.plan.precio, r);
+  const precioAuto = precioConHeredado(p.precios.planOneclick.precio, r);
+  const ahorroAuto = precioRenovar - precioAuto;
+
   return (
     <div className={`result-card ${r.encontrado ? "found" : "notfound"}`}>
       {r.encontrado ? (
@@ -73,7 +80,7 @@ export function ResultadoBusqueda(p: Props) {
               onClick={() => p.elegirMetodo("renovacion", "Renovar plan")}
               disabled={p.pagando !== null || p.accionPlan !== null}
             >
-              {p.pagando === "renovacion" ? "Redirigiendo..." : `Renovar plan — ${fmtCLP(p.precios.plan.precio)}`}
+              {p.pagando === "renovacion" ? "Redirigiendo..." : `Renovar plan — ${fmtCLP(precioRenovar)}`}
             </button>
           )}
         </>
@@ -87,7 +94,7 @@ export function ResultadoBusqueda(p: Props) {
               onClick={() => p.elegirMetodo("plan_nuevo", "Contratar plan")}
               disabled={p.pagando !== null || p.accionPlan !== null}
             >
-              {p.pagando === "plan_nuevo" ? "Redirigiendo..." : `Contratar plan — ${fmtCLP(p.precios.plan.precio)}`}
+              {p.pagando === "plan_nuevo" ? "Redirigiendo..." : `Contratar plan — ${fmtCLP(p.precios.planPrimera.precio)}`}
             </button>
           )}
         </>
@@ -165,15 +172,15 @@ export function ResultadoBusqueda(p: Props) {
       {!p.soloPagoUnico &&
         (!p.mostrarAuto ? (
           <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => p.setMostrarAuto(true)}>
-            Renovación automática — {fmtCLP(p.precios.planOneclick.precio)}/mes (ahorras{" "}
-            {fmtCLP(p.precios.plan.precio - p.precios.planOneclick.precio)})
+            Renovación automática — {fmtCLP(precioAuto)}/mes
+            {ahorroAuto > 0 && <> (ahorras {fmtCLP(ahorroAuto)})</>}
           </button>
         ) : (
           <div className="field" style={{ marginTop: 14 }}>
             <label>Email (para confirmar la inscripción de tu tarjeta)</label>
             <input type="email" value={p.email} onChange={(e) => p.setEmail(e.target.value)} placeholder="tu@email.cl" />
             <button className="btn" style={{ marginTop: 10 }} onClick={p.activarAutomatica} disabled={p.inscribiendo}>
-              {p.inscribiendo ? "Redirigiendo..." : `Activar renovación automática — ${fmtCLP(p.precios.planOneclick.precio)}/mes`}
+              {p.inscribiendo ? "Redirigiendo..." : `Activar renovación automática — ${fmtCLP(precioAuto)}/mes`}
             </button>
           </div>
         ))}

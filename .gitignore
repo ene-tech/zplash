@@ -40,3 +40,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# volcados de datos de clientes (PII) — no van al repo
+auditoria-*.csv
+auditoria-*.pdf
+respaldo-*.csv
+
+# herramientas locales de agentes
+/.claude
+/.agents

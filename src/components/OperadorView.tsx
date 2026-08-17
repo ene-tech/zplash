@@ -126,6 +126,61 @@ export default function OperadorView() {
                       {scan.cuponErr.msg}
                     </div>
                   )}
+                  {scan.cuponPendiente && (
+                    <div className="quick-form" style={{ maxWidth: 340, margin: "14px auto 0" }}>
+                      <div className="hint" style={{ textAlign: "left", marginBottom: 0 }}>
+                        Cupón {scan.cuponPendiente.cupon.codigo} · {scan.cuponPendiente.cupon.nombreLote} para{" "}
+                        {scan.cuponPendiente.patente}. Registra al cliente para completar el canje — los campos con * son
+                        obligatorios.
+                      </div>
+                      <div>
+                        <label>Nombre *</label>
+                        <input
+                          value={scan.datosCliente.nombre}
+                          onChange={(e) => scan.setDatosCliente({ ...scan.datosCliente, nombre: e.target.value })}
+                          placeholder="Nombre del cliente"
+                        />
+                      </div>
+                      <div>
+                        <label>Teléfono *</label>
+                        <input
+                          value={scan.datosCliente.telefono}
+                          onChange={(e) => scan.setDatosCliente({ ...scan.datosCliente, telefono: e.target.value })}
+                          onBlur={scan.onTelefonoBlur}
+                          placeholder="+569 -1111 1111"
+                        />
+                      </div>
+                      <div>
+                        <label>Correo electrónico</label>
+                        <input
+                          type="email"
+                          value={scan.datosCliente.email}
+                          onChange={(e) => scan.setDatosCliente({ ...scan.datosCliente, email: e.target.value })}
+                          placeholder="correo@ejemplo.com"
+                        />
+                      </div>
+                      <div>
+                        <label>Vehículo (Marca y Modelo)</label>
+                        <input
+                          value={scan.datosCliente.vehiculo}
+                          onChange={(e) => scan.setDatosCliente({ ...scan.datosCliente, vehiculo: e.target.value })}
+                          placeholder="Ej: Toyota Yaris"
+                        />
+                      </div>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <button className="btn" style={{ marginTop: 0, flex: "2 1 200px" }} onClick={scan.canjearConClienteNuevo}>
+                          Registrar y canjear cupón
+                        </button>
+                        <button
+                          className="btn ghost"
+                          style={{ marginTop: 0, flex: "1 1 120px" }}
+                          onClick={scan.cancelarCanjePendiente}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <OperadorResult clearPlate={scan.clearPlate} codigoDescuento={scan.codigoDescuento} />
               </>

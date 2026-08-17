@@ -5,19 +5,29 @@ import { useApp } from "@/context/AppContext";
 import {
   PATENTE_FORMATO_MSG,
   ahoraEnSantiago,
+  cuponDelLoteUsadoPorPatente,
   dentroDeHorarioOperador,
   esExentoHorarioOperador,
+  esExentoValidacionRegistroOperador,
   findClient,
+  fmtTelefono,
   isValidPatente,
   normPlate,
   patenteAutorizadaParaCupon,
   resolverDescuento,
+  uid,
 } from "@/lib/helpers";
-import type { Ingreso } from "@/types";
+import { registrarIngresoCupon } from "@/lib/logic";
+import type { Cliente, Cupon } from "@/types";
+import { validarQuickAddCliente } from "./validarQuickAdd";
 
 /** Refresco del reloj del bloqueo horario: no necesita mayor precisión que
  * "dentro del minuto", así que 30s alcanza sin recalcular en cada render. */
 const INTERVALO_RELOJ_MS = 30_000;
+
+/** El teléfono parte con el prefijo puesto, igual que en el alta rápida de
+ * "patente no registrada" (ver OperadorNotFoundResult). */
+const DATOS_CLIENTE_VACIOS = { nombre: "", telefono: "+569", email: "", vehiculo: "" };
 
 // Las fotos de la cámara del celular en resolución completa suelen pesar
 // 5-12 MB, y Plate Recognizer (Snapshot Cloud) rechaza cualquier imagen de
@@ -64,6 +74,10 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
   // al cobrar el lavado único (ver OperadorNotFoundResult), así que se pasa
   // hacia abajo para que el operador no tenga que volver a tipearlo ahí.
   const [codigoDescuento, setCodigoDescuento] = useState("");
+  // Canje frenado a la espera de los datos del cliente: el cupón ya pasó
+  // todas sus validaciones, pero la patente no tiene ficha (ver canjearCupon).
+  const [cuponPendiente, setCuponPendiente] = useState<{ cupon: Cupon; patente: string } | null>(null);
+  const [datosCliente, setDatosCliente] = useState(DATOS_CLIENTE_VACIOS);
 
   // Bloqueo horario del registro de vehículos (ver ConfigTab → "Horario de
   // registro"). El backstop real vive en insertIngresos (@/lib/serverActions) — esto es
@@ -88,6 +102,8 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
     if (plateInputRef.current) plateInputRef.current.value = "";
     if (codigoCuponRef.current) codigoCuponRef.current.value = "";
     setCodigoDescuento("");
+    setCuponPendiente(null);
+    setDatosCliente(DATOS_CLIENTE_VACIOS);
   };
 
   const canjearCupon = async () => {
@@ -122,40 +138,80 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       setCuponErr({ msg: "Este ticket fue contratado para otra patente", ok: false });
       return;
     }
+    const yaCanjeadoDelLote = cuponDelLoteUsadoPorPatente(cupon, patente, data.cupones);
+    if (yaCanjeadoDelLote) {
+      setCuponErr({
+        msg: `Esta patente ya canjeó un cupón de "${cupon.nombreLote}" (código ${yaCanjeadoDelLote.codigo}): este lote es de un cupón por patente`,
+        ok: false,
+      });
+      return;
+    }
 
-    const ahoraISO = new Date().toISOString();
-    const cuponActualizado = {
-      ...cupon,
-      usado: true,
-      patenteUso: patente,
-      fechaUso: ahoraISO,
-      operadorUso: ui.perfilActual?.nombre || "",
-    };
-    const nombreIngreso = `Cupón · ${cupon.nombreLote} (${cupon.numeroLote}/${cupon.totalLote})`;
-    const ingreso: Ingreso = {
-      id: "i" + Date.now(),
-      clienteId: "",
-      patente,
-      nombre: nombreIngreso,
-      fecha: ahoraISO,
-      planEstadoAlIngreso: "ok",
-      creadoPor: ui.perfilActual?.nombre || "",
-      viaCupon: true,
-      cuponCodigo: cupon.codigo,
-    };
+    // Un cupón no puede entrar como un auto anónimo: si la patente no tiene
+    // ficha, el canje queda en espera hasta que el operador registre al
+    // cliente (ver canjearConClienteNuevo). Justamente para eso se reparten
+    // los cupones de cortesía — si no queda el dato, no hay a quién volver a
+    // contactar.
+    const cliente = findClient(data.clientes, patente);
+    if (!cliente) {
+      setCuponPendiente({ cupon, patente });
+      setCuponErr({ msg: `La patente ${patente} no está registrada: completa los datos del cliente para canjear el cupón`, ok: false });
+      return;
+    }
+    await registrarCanje(cupon, cliente, data.clientes);
+  };
 
-    // El monto del lote ya se registro completo en el cierre de caja al
-    // generar los cupones, asi que canjear uno no vuelve a cobrar nada.
-    const ok = await commit({
-      cupones: data.cupones.map((x) => (x.id === cupon.id ? cuponActualizado : x)),
-      ingresos: [ingreso, ...data.ingresos],
-    });
+  // Escribe el canje (cupón usado + ingreso ligado a la ficha, ver
+  // registrarIngresoCupon). `clientes` viaja aparte porque cuando el cliente
+  // se acaba de crear todavía no está en data.clientes.
+  const registrarCanje = async (cupon: Cupon, cliente: Cliente, clientes: Cliente[]) => {
+    const ok = await commit(registrarIngresoCupon({ ...data, clientes }, cliente, cupon, ui.perfilActual?.nombre));
     if (!ok) {
       setCuponErr({ msg: "No se pudo registrar el canje (sin conexión). Intenta de nuevo.", ok: false });
       return;
     }
-    setCuponErr({ msg: `Cupón canjeado para ${patente} (${cupon.nombreLote})`, ok: true });
+    setCuponErr({ msg: `Cupón canjeado para ${cliente.patente} · ${cliente.nombre} (${cupon.nombreLote})`, ok: true });
     clearPlate();
+  };
+
+  // Registra al cliente nuevo y recién ahí canjea, en un solo commit. Se pide
+  // lo mismo que en el alta rápida de "patente no registrada" (Nombre y
+  // Teléfono obligatorios, ver validarQuickAddCliente) para no tener dos
+  // criterios distintos de "ficha mínima" en el mismo módulo; el correo y el
+  // vehículo quedan opcionales pero se piden igual.
+  const canjearConClienteNuevo = async () => {
+    if (!cuponPendiente) return;
+    const validado = validarQuickAddCliente({
+      nombreRaw: datosCliente.nombre,
+      telefonoRaw: datosCliente.telefono,
+      emailRaw: datosCliente.email,
+      exentoValidacion: esExentoValidacionRegistroOperador(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre),
+      tipoCliente: "unico",
+      tipoDocumento: "Boleta",
+      razonSocialRaw: "",
+      rutRaw: "",
+      direccionRaw: "",
+      giroRaw: "",
+    });
+    if (!validado.ok) {
+      setCuponErr({ msg: validado.error, ok: false });
+      return;
+    }
+    const nuevo: Cliente = {
+      id: uid(),
+      nombre: validado.nombre,
+      telefono: validado.telefono,
+      email: validado.email,
+      vehiculo: datosCliente.vehiculo.trim(),
+      patente: cuponPendiente.patente,
+      plan: "",
+      vencimiento: null,
+      origen: "LOCAL",
+      visitas: 0,
+      creadoEn: new Date().toISOString(),
+      creadoPor: ui.perfilActual?.nombre || "",
+    };
+    await registrarCanje(cuponPendiente.cupon, nuevo, [...data.clientes, nuevo]);
   };
 
   const doValidate = () => {
@@ -273,6 +329,16 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
     plateErr,
     escaneando,
     codigoDescuento,
+    cuponPendiente,
+    datosCliente,
+    setDatosCliente,
+    onTelefonoBlur: () => setDatosCliente((d) => (d.telefono.trim() ? { ...d, telefono: fmtTelefono(d.telefono) } : d)),
+    cancelarCanjePendiente: () => {
+      setCuponPendiente(null);
+      setDatosCliente(DATOS_CLIENTE_VACIOS);
+      setCuponErr(null);
+    },
+    canjearConClienteNuevo,
     clearPlate,
     doValidate,
     escanearPatente,

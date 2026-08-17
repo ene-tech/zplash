@@ -9,6 +9,8 @@ import {
   isValidPatente,
   isValidRut,
   normPlate,
+  precioConHeredado,
+  precioContratacion,
   precioLavadoUnicoWeb,
   precioNormal,
   precioServicio,
@@ -160,6 +162,14 @@ export async function POST(request: NextRequest) {
       ofertaCliente = await calcularOfertasPlanDeCliente(cliente);
     }
 
+    // Plan desde /pagar (público, sin sesión): se busca al cliente para
+    // respetarle su precio heredado si renueva (ver precioConHeredado) y para
+    // saber si contratar es su 1ra vez (ver precioContratacion) — una patente
+    // que no existe es un cliente nuevo, y ahí `null` es la respuesta correcta.
+    const clientePlan = body.items.some((i) => i.tipo === "renovacion" || i.tipo === "plan_nuevo")
+      ? await buscarClientePorPatente(patente)
+      : undefined;
+
     const db = getDb();
     const filasPrecios = await db.select().from(precios);
     const preciosMap = Object.fromEntries(filasPrecios.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
@@ -199,7 +209,14 @@ export async function POST(request: NextRequest) {
         }
         items.push({ tipo, servicioId: null, nombre: NOMBRE_PROMO[tipo], monto: precioPromo, ...doc });
       } else {
-        items.push({ tipo, servicioId: null, nombre: "Plan Ilimitado Mensual", monto: precioNormal(preciosMap, PLANES[0]), ...doc });
+        // "plan_nuevo" paga el precio de contratación (el de 1ra contratación
+        // solo si nunca tuvo plan); "renovacion" respeta el precio heredado
+        // del cliente, que es la regla de renovar antes de vencer.
+        const monto =
+          tipo === "renovacion"
+            ? precioConHeredado(precioNormal(preciosMap, PLANES[0]), clientePlan ?? {})
+            : precioContratacion(preciosMap, PLANES[0], clientePlan);
+        items.push({ tipo, servicioId: null, nombre: "Plan Ilimitado Mensual", monto, ...doc });
       }
     }
 

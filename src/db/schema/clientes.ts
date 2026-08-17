@@ -1,4 +1,4 @@
-import { integer, pgTable, text } from "drizzle-orm/pg-core";
+import { integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
 import { timestamptz } from "./shared";
 
 export const clientes = pgTable("clientes", {
@@ -44,6 +44,14 @@ export const clientes = pgTable("clientes", {
   // — gestionar/cancelar esa suscripción todavía requiere WhatsApp/WooCommerce
   // mientras la migración de las suscripciones activas siga en curso).
   renovacionAutoWooDesde: timestamptz("renovacion_auto_woo_desde"),
+  // Precio heredado del plan: lo que este cliente venía pagando antes de un
+  // alza, respetado mientras renueve ANTES de que se le venza (ver
+  // precioConHeredado en @/lib/helpers/precios). null = paga el precio
+  // vigente, que es el caso de todo cliente nuevo. Se cargó por única vez con
+  // scripts/backfill-precio-plan-heredado.ts para los clientes que venían de
+  // WooCommerce a $19.990 cuando el plan pasó a $21.990; de ahí en adelante
+  // es un campo que se setea a mano si hace falta grandfatherear a alguien.
+  precioPlanHeredado: integer("precio_plan_heredado"),
   origen: text("origen").notNull().default("LOCAL"),
   visitas: integer("visitas").notNull().default(0),
   ultimaVisita: timestamptz("ultima_visita"),
@@ -51,3 +59,24 @@ export const clientes = pgTable("clientes", {
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),
 });
+
+// Aceptación de las "Políticas de Funcionamiento y Garantía" (ver
+// @/lib/politicas) por parte de una cuenta del Portal Cliente. Va por email
+// y no por cliente/patente porque clientes.email no es único — un mismo
+// correo resuelve a varias filas de `clientes` (ver buscarClientesPorEmail)
+// y quien acepta es la persona, no cada vehículo. Se guarda en minúscula
+// (ver aceptoPoliticas en @/lib/dataAccess/clientes), por lo mismo que esa
+// búsqueda compara case-insensitive.
+//
+// La PK compuesta (email, version) es a propósito: cada versión aceptada
+// queda como una fila propia, así subir POLITICAS_VERSION vuelve a pedir la
+// aceptación sin borrar la evidencia de haber aceptado la anterior.
+export const politicasAceptadas = pgTable(
+  "politicas_aceptadas",
+  {
+    email: text("email").notNull(),
+    version: text("version").notNull(),
+    aceptadoEn: timestamptz("aceptado_en").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.email, t.version] })]
+);

@@ -1,0 +1,1 @@
+ALTER TABLE "clientes" ADD COLUMN "precio_plan_heredado" integer;

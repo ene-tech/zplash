@@ -1,27 +1,12 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
+import { useDescartable } from "@/hooks/useDescartable";
 
 const DISMISS_KEY = "zplash_announce_descuento_dismissed";
-const DISMISS_EVENT = "zplash:announce-dismissed";
 // Mismo número que UbicacionTab (WHATSAPP_URL) + el keyword real que
 // reconoce el bot (ver FAQ de full-tunnel: "descuento" + patente).
 const WHATSAPP_URL = "https://wa.me/56957969446?text=descuento";
-
-// Mismo patrón que useCarrito.ts (useSyncExternalStore sobre localStorage)
-// en vez de leer localStorage en un useEffect + setState: evita el flash de
-// hidratación mal manejado y la regla react-hooks/set-state-in-effect.
-function subscribe(callback: () => void) {
-  window.addEventListener(DISMISS_EVENT, callback);
-  return () => window.removeEventListener(DISMISS_EVENT, callback);
-}
-function getSnapshot() {
-  return localStorage.getItem(DISMISS_KEY) === "1";
-}
-function getServerSnapshot() {
-  return false;
-}
 
 // Glyph de WhatsApp (no viene en lucide-react, que solo trae íconos
 // genéricos) — necesario para que el botón siga siendo reconocible al
@@ -40,12 +25,7 @@ function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
 // (no son de marca) y se cambió el dismiss in-memory por uno persistido en
 // localStorage, para que no vuelva a aparecer en cada visita.
 export default function AnnounceBar() {
-  const dismissed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  const dismiss = useCallback(() => {
-    localStorage.setItem(DISMISS_KEY, "1");
-    window.dispatchEvent(new Event(DISMISS_EVENT));
-  }, []);
+  const [dismissed, dismiss] = useDescartable(DISMISS_KEY);
 
   if (dismissed) return null;
 

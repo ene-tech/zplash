@@ -110,9 +110,6 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
             <li>
               <Check /> Sin límite de tiempo por uso
             </li>
-            <li>
-              <Check /> Con o sin plan vigente
-            </li>
           </ul>
           <Link href="/servicios/zona-aspirado" className="btn secondary">
             Ver detalles

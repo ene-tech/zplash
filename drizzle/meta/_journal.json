@@ -442,6 +442,27 @@
       "when": 1786907084977,
       "tag": "0062_reglas_correo_solo_con_promo_renovacion",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1786923291463,
+      "tag": "0063_cupones_un_cupon_por_patente",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1786986374481,
+      "tag": "0064_precio_plan_heredado",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1786986662162,
+      "tag": "0065_politicas_aceptadas",
+      "breakpoints": true
     }
   ]
 }

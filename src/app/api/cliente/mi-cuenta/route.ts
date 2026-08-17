@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { citaServicios, citas, ingresos, precios, servicios, suscripcionesOneclick, ventas } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
-import { getClientesByIds } from "@/lib/dataAccess/clientes";
+import { aceptoPoliticas, getClientesByIds } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
 import { preciosFromRows } from "@/lib/dataAccess/precios";
 import { calcularOfertasPlan, type OfertaPlan } from "@/lib/helpers";
@@ -20,10 +20,20 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Sin sesión" }, { status: 401 });
   }
 
-  const clientesEncontrados = await getClientesByIds(sesion.clienteIds);
+  // politicasAceptadas va por email y no por patente, así que también hay que
+  // devolverlo en el early return de abajo: una cuenta sin vehículos igual
+  // tiene que poder aceptar las políticas.
+  const [clientesEncontrados, politicasOk] = await Promise.all([getClientesByIds(sesion.clienteIds), aceptoPoliticas(sesion.email)]);
   const patentes = clientesEncontrados.map((c) => c.patente);
   if (!patentes.length) {
-    return NextResponse.json({ tarjetas: [], detailing: [], compras: [], renovacionesLegacy: [], ofertas: {} });
+    return NextResponse.json({
+      tarjetas: [],
+      detailing: [],
+      compras: [],
+      renovacionesLegacy: [],
+      ofertas: {},
+      politicasAceptadas: politicasOk,
+    });
   }
 
   const db = getDb();
@@ -118,5 +128,6 @@ export async function GET() {
     // Promociones de plan por patente (renovación anticipada, reactivación,
     // upgrade) — mismas que ve el Operador, ver @/lib/helpers/ofertasPlan.
     ofertas,
+    politicasAceptadas: politicasOk,
   });
 }

@@ -1,5 +1,5 @@
 import type { AppData, Cliente } from "@/types";
-import { esTarjetaWeb, PLANES, planStatus, precioNormal } from "@/lib/helpers";
+import { esTarjetaWeb, fmtTelefono, normPlate, PLANES, planStatus, precioNormal } from "@/lib/helpers";
 
 function inRangeLocal(iso: string | null | undefined, desde: string, hasta: string): boolean {
   if (!iso) return false;
@@ -43,12 +43,23 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
     { Concepto: "Registros nuevos", Valor: nuevosPeriodo.length },
     { Concepto: "Planes vendidos (nuevos + renovaciones)", Valor: ventasPeriodo.length },
   ];
-  const detalle = ingresosPeriodo.map((i) => ({
-    Fecha: fmtDateLocal(i.fecha),
-    Patente: i.patente,
-    Cliente: i.nombre,
-    "Estado plan": i.planEstadoAlIngreso === "bad" ? "Vencido" : i.planEstadoAlIngreso === "warn" ? "Por vencer" : "Vigente",
-  }));
+  // Mismo criterio que la tabla "Detalle de ingresos" de CierreTab: el
+  // contacto no está en el Ingreso, se busca en la ficha del cliente por id y,
+  // si el ingreso no tiene clienteId (canje de cupón), por patente.
+  const clientesPorId = new Map(clientes.map((c) => [c.id, c]));
+  const clientesPorPatente = new Map(clientes.filter((c) => normPlate(c.patente)).map((c) => [normPlate(c.patente), c]));
+  const detalle = ingresosPeriodo.map((i) => {
+    const cliente = clientesPorId.get(i.clienteId) || clientesPorPatente.get(normPlate(i.patente));
+    return {
+      Fecha: fmtDateLocal(i.fecha),
+      Patente: i.patente,
+      Cliente: i.nombre,
+      Email: cliente?.email || "",
+      Teléfono: cliente?.telefono ? fmtTelefono(cliente.telefono) : "",
+      Operador: i.creadoPor || "",
+      "Estado plan": i.planEstadoAlIngreso === "bad" ? "Vencido" : i.planEstadoAlIngreso === "warn" ? "Por vencer" : "Vigente",
+    };
+  });
   const planesVendidos = ventasPeriodo.map((v) => ({
     Fecha: fmtDateLocal(v.fecha),
     Patente: v.patente,
@@ -81,7 +92,9 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
     );
     XLSX.utils.book_append_sheet(
       wb,
-      XLSX.utils.json_to_sheet(detalle.length ? detalle : [{ Fecha: "", Patente: "", Cliente: "", "Estado plan": "" }]),
+      XLSX.utils.json_to_sheet(
+        detalle.length ? detalle : [{ Fecha: "", Patente: "", Cliente: "", Email: "", Teléfono: "", Operador: "", "Estado plan": "" }]
+      ),
       "Ingresos"
     );
     XLSX.utils.book_append_sheet(

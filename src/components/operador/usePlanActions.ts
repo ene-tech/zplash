@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { registrarIngreso, renovarPlan } from "@/lib/logic";
-import { PLANES, isValidEmail, isValidTelefono, precioNormal, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
+import { PLANES, isValidEmail, isValidTelefono, precioContratacion, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
@@ -116,7 +116,9 @@ export function usePlanActions(
       return;
     }
     const plan = cliente.plan || PLANES[0];
-    const precio = precioNormal(data.precios, plan);
+    // Mismo cálculo que muestra el botón (ver pContratacion en
+    // useOperadorFoundResult): valor de 1ra contratación si nunca tuvo plan.
+    const precio = precioContratacion(data.precios, plan, cliente);
     pedirPago(precio, `Contratación de plan (${plan}) para ${cliente.nombre}`, async (pago) => {
       const updated = { ...cliente, vencimiento: vencimientoPorDefectoISO(), plan };
       const venta: Venta = {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
-import { PLANES, precioNormal, precioPreferencial, uid } from "@/lib/helpers";
+import { PLANES, keyPrimeraContratacion, precioNormal, precioPreferencial, uid } from "@/lib/helpers";
 import type { TramoRenovacionLocal } from "@/types";
 import { Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,11 @@ export default function PlanesSection() {
   );
   const [promoVals, setPromoVals] = useState<Record<string, string>>(() =>
     Object.fromEntries(PLANES.map((p) => [p, String(precioPreferencial(data.precios, p))]))
+  );
+  // Valor crudo, no precioContratacion(): $0 acá significa "no configurado, se
+  // cobra el precio normal", y así el admin puede volver atrás dejándolo en 0.
+  const [primeraVals, setPrimeraVals] = useState<Record<string, string>>(() =>
+    Object.fromEntries(PLANES.map((p) => [p, String(data.precios[keyPrimeraContratacion(p)]?.normal || 0)]))
   );
   const [tramosVals, setTramosVals] = useState<Record<string, TramoRenovacionLocal[]>>(
     () => data.config.tramosRenovacionLocal
@@ -47,6 +52,7 @@ export default function PlanesSection() {
     const precios = { ...data.precios };
     PLANES.forEach((p) => {
       precios[p] = { normal: Number(normalVals[p]) || 0, promo: Number(promoVals[p]) || 0 };
+      precios[keyPrimeraContratacion(p)] = { normal: Number(primeraVals[p]) || 0, promo: 0 };
     });
     setGuardando(true);
     const ok = await commit({ precios, config: { ...data.config, tramosRenovacionLocal: tramosVals } });
@@ -69,6 +75,15 @@ export default function PlanesSection() {
           <div className="field" style={{ margin: 0 }}>
             <label>Precio promoción de renovación — {p}</label>
             <PriceInput value={promoVals[p] ?? ""} onChange={(v) => setPromoVals((cur) => ({ ...cur, [p]: v }))} />
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Precio 1ra contratación — {p}</label>
+            <PriceInput value={primeraVals[p] ?? ""} onChange={(v) => setPrimeraVals((cur) => ({ ...cur, [p]: v }))} />
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 6 }}>
+              Precio de entrada solo para quien contrata el plan por primera vez (nunca tuvo uno), en el local y en la
+              web. Es solo esa primera vez: después renueva al precio normal. Quien deja vencer su plan y vuelve no
+              cuenta como nuevo —para ese está la reactivación. Déjalo en $0 para cobrarle a todos el precio normal.
+            </div>
           </div>
 
           <div>

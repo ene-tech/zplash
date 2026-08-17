@@ -1,0 +1,1 @@
+ALTER TABLE "cupones" ADD COLUMN "un_cupon_por_patente" boolean DEFAULT false NOT NULL;

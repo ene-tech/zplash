@@ -1,4 +1,4 @@
-import { PLANES, formatRut, montoDescuento, precioLavadoUnico, precioNormal, resolverDescuento, uid } from "@/lib/helpers";
+import { PLANES, formatRut, montoDescuento, precioContratacion, precioLavadoUnico, resolverDescuento, uid } from "@/lib/helpers";
 import { registrarIngreso } from "./ingresos";
 import type { AppData, Cliente, Cupon, Empresa, PagoInfo, Venta } from "@/types";
 
@@ -67,7 +67,9 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
     creadoPor: d.perfilNombre || "",
   };
 
-  const precioBase = d.tipoCliente === "plan" ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
+  // Patente no registrada: si contrata plan es siempre una 1ra contratación
+  // (ver precioContratacion), por eso va sin cliente.
+  const precioBase = d.tipoCliente === "plan" ? precioContratacion(data.precios, plan) : precioLavadoUnico(data.precios);
   let precio = precioBase;
   let cuponAplicado: Cupon | undefined;
   if (d.tipoCliente === "unico" && d.codigoCupon) {

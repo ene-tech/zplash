@@ -36,6 +36,10 @@ export async function GET(request: NextRequest) {
       plan: cliente.plan,
       vencimiento: cliente.vencimiento,
       estado: planStatus(cliente),
+      // Para que /pagar muestre el precio de renovación que realmente se le va
+      // a cobrar a esta patente (ver precioConHeredado): sin esto la pantalla
+      // anunciaba el precio de lista y el cobro salía por otro monto.
+      precioPlanHeredado: cliente.precioPlanHeredado,
     });
   } catch (error) {
     console.error("Error en /api/pagos/estado", error);

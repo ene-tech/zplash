@@ -70,7 +70,7 @@ Pantalla que usa quien recibe los vehículos en la entrada del túnel.
 
 - **Validar patente**: se escribe la patente (formato `AB1234` o similar) y "Validar". Si el cliente existe, muestra su estado de plan y permite registrar el ingreso; si no existe, ofrece crearlo como cliente nuevo.
 - **Escanear patente**: en vez de tipear, se puede tomar una foto de la patente con la cámara del celular; un servicio de reconocimiento (Plate Recognizer) intenta leerla y la deja escrita en el campo para que el operador la revise antes de validar — es una ayuda, no reemplaza la revisión manual.
-- **Canjear cupón**: para vehículos que llegan con un cupón de una Venta Empresa (ver sección 6), se ingresa el código del cupón y la patente; el cupón se marca como usado y queda un registro en el Historial de Ingresos sin volver a cobrar (el monto del lote ya se contabilizó cuando se vendió).
+- **Canjear cupón**: para vehículos que llegan con un cupón de una Venta Empresa (ver sección 6), se ingresa el código del cupón y la patente; el cupón se marca como usado y queda un registro en el Historial de Ingresos sin volver a cobrar (el monto del lote ya se contabilizó cuando se vendió). Si la patente no está registrada, el canje pide antes los datos del cliente (Nombre y Teléfono obligatorios, correo y vehículo opcionales) y crea su ficha: un cupón no entra como auto anónimo, porque el sentido de repartirlos es quedarse con el contacto del cliente que llegó.
 - **Bloqueo por horario**: fuera del horario configurado en Configuración → Horario de registro, un operador estándar no puede registrar ingresos (ve un aviso y debe contactar a Administración/Gerencia). Administración y Gerencia no tienen esta restricción.
 - **Últimos 10 ingresos**: lista abajo de la pantalla para que el operador confirme que su registro quedó guardado.
 
@@ -97,7 +97,7 @@ Todos los vehículos que han entrado al túnel, con fecha, patente, cliente y el
 El reporte operativo del día (o del período que se elija): cantidad y monto de ventas por producto (lavado único, contratación/renovación de plan, servicios adicionales, ingresos de Módulo Contabilidad, etc.), desglose por método de pago (efectivo, tarjeta, transferencia, cuentas por cobrar), autos ingresados con/sin plan, clientes nuevos, facturas pendientes de emitir y el detalle línea por línea de ingresos y servicios adicionales vendidos. Se puede descargar en Excel para archivo o para el contador.
 
 ### B2B/Tickets/Dsctos (Venta Empresa)
-Venta de lotes de cupones o descuentos a empresas (para que las regalen a sus clientes/empleados): se define nombre del lote, cantidad de cupones, valor (o "gratis"), fecha de caducidad y datos de facturación de la empresa. Cada cupón generado tiene un código único que se canjea después en el módulo Operador.
+Venta de lotes de cupones o descuentos a empresas (para que las regalen a sus clientes/empleados): se define nombre del lote, cantidad de cupones, valor (o "gratis"), fecha de caducidad y datos de facturación de la empresa. Cada cupón generado tiene un código único que se canjea después en el módulo Operador. El lote puede marcarse como **"un cupón por patente"**: cada patente canjea uno solo de sus cupones, pensado para packs de cortesía o de un evento publicitario donde la promoción tiene que llegar a clientes distintos y no la puede usar entera un mismo auto.
 
 ### Empresas (Facturación)
 Ficha de las empresas con las que se emite Factura (razón social, RUT, giro, dirección) — se reutiliza automáticamente al escribir un RUT ya registrado, tanto en la ficha de un Cliente como en una Venta Empresa.
@@ -163,7 +163,7 @@ La configuración inicial (cuenta Twilio, webhook) y los textos editables antes 
 
 - **Vigente / Por vencer / Vencido / Sin plan**: estado del Plan Ilimitado Mensual de un cliente según su fecha de vencimiento. "Por vencer" aparece cuando quedan 7 días o menos.
 - **Lavado único**: cobro de $9.990 a un vehículo sin plan vigente.
-- **Cupón**: código canjeable una sola vez, generado en una Venta Empresa; puede ser gratis o con un valor.
+- **Cupón**: código canjeable una sola vez, generado en una Venta Empresa; puede ser gratis o con un valor. El lote puede exigir además que cada patente canjee un solo cupón ("un cupón por patente"), para que una promoción de cortesía llegue a clientes distintos.
 - **Glosa**: nombre libre que identifica un ingreso que no es "por plan" ni "lavado único" (p. ej. una limpieza completa vendida en Servicios Adicionales).
 - **Garantía**: relavado gratuito por reclamo del cliente; no se cuenta como venta en las Estadísticas.
 - **Origen WEB**: cliente/venta que se originó en el flujo de pago online (`/pagar`), a diferencia de una venta hecha en el local.

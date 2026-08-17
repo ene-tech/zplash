@@ -88,6 +88,21 @@ export default function GenerarCuponesForm({
         </div>
       )}
       <div className="field">
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={p.unCuponPorPatente}
+            onChange={(e) => p.setUnCuponPorPatente(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          Un cupón por patente
+        </label>
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12, marginTop: 4 }}>
+          Cada patente puede canjear un solo cupón del lote. Útil en packs de cortesía o de un evento
+          publicitario, para que la promoción llegue a clientes distintos y no la use entera un mismo auto.
+        </div>
+      </div>
+      <div className="field">
         <label>Fecha de caducidad</label>
         <input ref={caducidadRef} type="date" />
       </div>

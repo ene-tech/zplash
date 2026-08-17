@@ -2,7 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, esExentoFormatoCliente, fmtTelefono, formatRut, isValidRut, precioLavadoUnico, precioNormal } from "@/lib/helpers";
+import { PLANES, esExentoFormatoCliente, fmtTelefono, formatRut, isValidRut, precioContratacion, precioLavadoUnico } from "@/lib/helpers";
 import { guardarClienteModal } from "@/lib/logic";
 import type { Cliente, PagoInfo } from "@/types";
 import { validarClienteModal } from "./validarClienteModal";
@@ -144,7 +144,9 @@ export function useClientModal(
     // genera una venta/movimiento en el cierre de caja. Lo mismo aplica a un
     // cliente nuevo creado desde el admin.
     if (contexto === "operador") {
-      const monto = vencimiento ? precioNormal(data.precios, plan) : precioLavadoUnico(data.precios);
+      // Mismo precio que registra guardarClienteModal en la Venta "Plan
+      // nuevo": el de 1ra contratación si el cliente nunca tuvo plan.
+      const monto = vencimiento ? precioContratacion(data.precios, plan, c) : precioLavadoUnico(data.precios);
       const descripcion = vencimiento ? `Contratación de plan para ${nombre}` : `Lavado único para ${nombre}`;
       patchUi({ modal: { type: "pago", monto, descripcion, onConfirm: (pago) => persistir(pago) } });
     } else {

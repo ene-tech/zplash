@@ -6,6 +6,7 @@ import {
   CANTIDAD_MAXIMA_TICKETS,
   CANTIDAD_MINIMA_TICKETS,
   PLANES,
+  precioContratacion,
   precioLavadoUnicoWeb,
   precioNormal,
   precioPlanOneclick,
@@ -37,6 +38,7 @@ export async function getPreciosPublicos(): Promise<PreciosPublicos> {
 
   return {
     plan: { nombre: PLANES[0], precio: precioNormal(preciosMap, PLANES[0]) },
+    planPrimera: { nombre: PLANES[0], precio: precioContratacion(preciosMap, PLANES[0]) },
     planOneclick: { nombre: PLANES[0], precio: precioPlanOneclick(preciosMap) },
     lavadoUnico: { nombre: "Lavado único", precio: precioLavadoUnicoWeb(preciosMap) },
     zonaAspirado: { nombre: "Uso Zona Aspirado Autoservicio", precio: precioZonaAspirado(preciosMap) },

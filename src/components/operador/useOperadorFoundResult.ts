@@ -15,6 +15,8 @@ import {
   montoDescuento,
   PLANES,
   planStatus,
+  precioConHeredado,
+  precioContratacion,
   precioLavadoUnico,
   precioNormal,
   precioReactivacionVencido,
@@ -62,7 +64,17 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // plan (c.plan vacío), el precio a mostrar/cobrar es el del plan por
   // defecto (PLANES[0]), no precioNormal(precios, "") — que no matchea
   // ninguna clave de Precios y quedaba en $0.
-  const pNormal = precioNormal(data.precios, c.plan || PLANES[0]);
+  //
+  // Con el precio heredado aplicado (ver precioConHeredado): renovar en el
+  // mesón antes del vencimiento es la misma renovación anticipada que por la
+  // web, así que al que venía pagando menos se le respeta ese valor acá
+  // también — si no, el mismo cliente pagaba distinto según por dónde entrara.
+  const pNormal = precioConHeredado(precioNormal(data.precios, c.plan || PLANES[0]), c);
+  // Contratar un plan nuevo es su propio precio (ver precioContratacion): al
+  // que nunca tuvo plan se le cobra el valor de 1ra contratación, al que dejó
+  // vencer el suyo el normal. Sin precio heredado: contratar de nuevo no es
+  // renovar antes de vencer, que es lo único que ese precio respeta.
+  const pContratacion = precioContratacion(data.precios, c.plan || PLANES[0], c);
   // Promoción de renovación anticipada, escalonada por cuántas veces pasó el
   // cliente durante su período de plan vigente (ver tramosRenovacionLocal /
   // precioRenovacionLocal): undefined = ningún tramo del canal Local le calza
@@ -75,7 +87,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // contra precioRenovacionLocal(..., "", ...), que resuelve a 0.
   const visitasPeriodo = visitasPeriodoPlan(data.ingresos, c);
   const pPromoTramo = precioRenovacionLocal(data.config, data.precios, c.plan || PLANES[0], visitasPeriodo, "LOCAL");
-  const pPromo = pPromoTramo ?? pNormal;
+  const pPromo = precioConHeredado(pPromoTramo ?? pNormal, c);
   // El cliente puede renovar cuando quiera, no solo cuando el plan está por
   // vencer: renovarPlan ya ancla la nueva vigencia al vencimiento actual si
   // todavía no pasó (ver lib/logic/ingresos.ts), así que renovar temprano no
@@ -140,7 +152,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // solo el adicional — ver usePlanActions.upgradeAPlan.
   const horasVentanaUpgrade = data.config.horasVentanaUpgradePlan;
   const ventaUpgrade = !planVigente ? ventaUpgradeElegible(data.ventas, c.id, horasVentanaUpgrade) : undefined;
-  const precioUpgrade = precioUpgradePlan(data.precios);
+  const precioUpgrade = ventaUpgrade ? precioUpgradePlan(data.precios, ventaUpgrade) : 0;
 
   // Descuento generado por una regla de WhatsApp (ver @/lib/whatsapp/reglas)
   // tras una venta anterior de este vehículo — se reconoce solo por patente,
@@ -237,6 +249,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     horasBloqueoReingreso,
     showOffer,
     pNormal,
+    pContratacion,
     pPromo,
     ahorro,
     hayPromoRenovacion,
