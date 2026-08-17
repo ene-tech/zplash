@@ -148,6 +148,12 @@ export default function OperadorFoundOfertas(props: Props) {
           <div className="price-row">
             <span className="new">{fmtCLP(props.precioReactivacion!)}</span>
           </div>
+          {props.pNormal > 0 && (
+            <div style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+              Aclárale que es solo por este primer mes: la próxima renovación vale {fmtCLP(props.pNormal)} pagándola
+              antes del vencimiento.
+            </div>
+          )}
           <button className="btn secondary" onClick={props.reactivar}>
             Reactivar plan a precio preferencial ({fmtCLP(props.precioReactivacion!)})
           </button>
@@ -163,7 +169,9 @@ export default function OperadorFoundOfertas(props: Props) {
           </div>
           <div className="msg">
             {c.nombre} tiene una promoción para reactivar su {c.plan} disponible <b>solo online</b> — no se puede cobrar
-            acá. Menciónasela: entrando a su cuenta en la web con su patente puede reactivarlo al tiro a ese precio.
+            acá. Menciónasela: entrando a su cuenta en la web con su patente puede reactivarlo al tiro a ese precio, solo
+            por este primer mes
+            {props.pNormal > 0 && <> — después su renovación vale {fmtCLP(props.pNormal)} pagándola antes del vencimiento</>}.
           </div>
           <div className="price-row">
             <span className="new">{fmtCLP(props.precioReactivacionWeb!)}</span>

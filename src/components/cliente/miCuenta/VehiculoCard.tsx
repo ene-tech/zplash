@@ -177,6 +177,12 @@ export function VehiculoCard({
           <div className="price-row">
             <span className="new">{fmtCLP(oferta.reactivacion.precio)}</span>
           </div>
+          {oferta.reactivacion.pNormal > 0 && (
+            <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+              Precio promocional solo por este primer mes. Después tu plan vuelve a {fmtCLP(oferta.reactivacion.pNormal)},
+              pagándolo antes del vencimiento.
+            </div>
+          )}
           <button className="btn secondary" onClick={() => pedir("reactivacion")} disabled={pagando !== null}>
             {pagando === "reactivacion" ? "Procesando..." : `Reactivar plan (${fmtCLP(oferta.reactivacion.precio)})`}
           </button>

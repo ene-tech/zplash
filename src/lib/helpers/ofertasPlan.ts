@@ -6,7 +6,12 @@ import { precioNormal, precioRenovacionLocal, precioReactivacionVencido, precioU
 
 export interface OfertaPlan {
   renovacionAnticipada?: { pNormal: number; pPromo: number; ahorro: number; diasRestantes?: number; tramoVigente: boolean };
-  reactivacion?: { precio: number; diasVencido: number };
+  // `pNormal` = lo que va a pagar DESPUÉS: la promoción de reactivación es
+  // solo por ese primer mes, la renovación siguiente vale el precio normal
+  // (pagándola antes del vencimiento). Va acá porque en un cliente vencido
+  // `renovacionAnticipada` no existe y es el único lugar donde el cliente Web
+  // puede ver ese valor.
+  reactivacion?: { precio: number; diasVencido: number; pNormal: number };
   upgrade?: { precio: number };
 }
 
@@ -75,7 +80,7 @@ export function calcularOfertasPlan(
     const visitasUltPeriodo = visitasUltimoPeriodoVencido(ingresosCliente, cliente);
     const precioReactivacion = precioReactivacionVencido(config, plan, diasVenc, visitasUltPeriodo, canal);
     if (precioReactivacion !== undefined) {
-      oferta.reactivacion = { precio: precioReactivacion, diasVencido: diasVenc };
+      oferta.reactivacion = { precio: precioReactivacion, diasVencido: diasVenc, pNormal: precioNormal(precios, plan) };
     }
   }
 
