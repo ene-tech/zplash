@@ -99,10 +99,16 @@ export function calcularOfertasPlan(
   }
 
   // Upgrade a plan: compró un "Lavado único" hace poco y sigue sin plan vigente.
+  //
+  // Sin adicional que cobrar no hay oferta: con un precio de 1ra contratación
+  // igual o menor a lo que el cliente ya pagó por el lavado, el adicional da 0
+  // y una oferta de $0 no es cobrable (los endpoints de pago rechazan monto <=
+  // 0). Que contrate el plan derecho, que es exactamente el mismo precio.
   if (st.cls === "bad") {
     const ventaUpgrade = ventaUpgradeElegible(ventasCliente, cliente.id, config.horasVentanaUpgradePlan);
-    if (ventaUpgrade) {
-      oferta.upgrade = { precio: precioUpgradePlan(precios, ventaUpgrade) };
+    const precio = ventaUpgrade ? precioUpgradePlan(precios, ventaUpgrade, cliente) : 0;
+    if (precio > 0) {
+      oferta.upgrade = { precio };
     }
   }
 

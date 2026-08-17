@@ -150,9 +150,16 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // la ventana configurada, ver ventaUpgradeElegible) y sigue sin plan
   // vigente, se le puede ofrecer quedar con el Plan Ilimitado Mensual pagando
   // solo el adicional — ver usePlanActions.upgradeAPlan.
+  //
+  // Un adicional de $0 (precio de 1ra contratación igual o menor al lavado que
+  // ya pagó) no se ofrece: `pedirPago(0)` no pregunta método y cerraría la
+  // venta regalando el plan. Sin la venta ancla no se muestra la tarjeta ni
+  // corre `upgradeAPlan` — el operador le contrata el plan derecho, al mismo
+  // precio.
   const horasVentanaUpgrade = data.config.horasVentanaUpgradePlan;
-  const ventaUpgrade = !planVigente ? ventaUpgradeElegible(data.ventas, c.id, horasVentanaUpgrade) : undefined;
-  const precioUpgrade = ventaUpgrade ? precioUpgradePlan(data.precios, ventaUpgrade) : 0;
+  const ventaUpgradeReciente = !planVigente ? ventaUpgradeElegible(data.ventas, c.id, horasVentanaUpgrade) : undefined;
+  const precioUpgrade = ventaUpgradeReciente ? precioUpgradePlan(data.precios, ventaUpgradeReciente, c) : 0;
+  const ventaUpgrade = precioUpgrade > 0 ? ventaUpgradeReciente : undefined;
 
   // Descuento generado por una regla de WhatsApp (ver @/lib/whatsapp/reglas)
   // tras una venta anterior de este vehículo — se reconoce solo por patente,

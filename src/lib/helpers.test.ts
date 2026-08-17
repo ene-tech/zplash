@@ -1197,6 +1197,32 @@ describe("calcularOfertasPlan", () => {
     expect(oferta.upgrade).toEqual({ precio: 13000 });
   });
 
+  it("nunca tuvo plan -> el upgrade completa el precio de 1ra contratación, no el normal", () => {
+    // $14.990 de 1ra contratación - $9.990 ya pagados por el lavado. El que
+    // dejó vencer su plan no es cliente nuevo: completa los $21.990 normales.
+    const preciosConPrimera: Precios = { ...precios, [keyPrimeraContratacion(PLAN)]: { normal: 14990, promo: 0 } };
+    const venta: Venta = {
+      id: "v1",
+      clienteId: "c1",
+      patente: "AB1234",
+      nombre: "Juan",
+      plan: "",
+      precio: 9990,
+      tipo: "Lavado único",
+      fecha: horasDesdeAhora(2),
+    };
+    const nuevo = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
+    const vencido = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-60), visitas: 0 };
+    expect(calcularOfertasPlan(nuevo, [venta], [], config, preciosConPrimera).upgrade).toEqual({ precio: 5000 });
+    expect(calcularOfertasPlan(vencido, [venta], [], config, preciosConPrimera).upgrade).toEqual({ precio: 12000 });
+
+    // 1ra contratación al precio del lavado: no queda adicional que cobrar y
+    // la oferta no se muestra (un upgrade de $0 regalaría el plan).
+    const primeraIgualAlLavado: Precios = { ...precios, [keyPrimeraContratacion(PLAN)]: { normal: 9990, promo: 0 } };
+    expect(calcularOfertasPlan(nuevo, [venta], [], config, primeraIgualAlLavado).upgrade).toBeUndefined();
+    expect(calcularOfertasPlan(vencido, [venta], [], config, primeraIgualAlLavado).upgrade).toEqual({ precio: 12000 });
+  });
+
   it("el Lavado único ya pasó la ventana de la promoción -> no ofrece upgrade", () => {
     const cliente = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
     const venta: Venta = {

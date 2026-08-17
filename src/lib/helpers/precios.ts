@@ -95,9 +95,15 @@ export function precioZonaAspirado(precios: Precios): number {
  * o por tener el canal Web su propio precio (ver LAVADO_UNICO_WEB_KEY). Con un
  * monto adicional fijo ese descuento se regalaba dos veces — el cliente con
  * cupón terminaba entrando al plan por menos que el que no lo tenía.
+ *
+ * El precio a completar es el de contratación (ver precioContratacion): quien
+ * nunca tuvo plan entra por el valor de 1ra contratación, igual que si lo
+ * contratara derecho, y el que dejó vencer el suyo por el normal. `cliente` es
+ * obligatorio a propósito: el upgrade siempre nace de una venta de un cliente
+ * que ya existe, y en precioContratacion omitirlo significa "cliente nuevo".
  */
-export function precioUpgradePlan(precios: Precios, ventaUpgrade: Venta): number {
-  return Math.max(0, precioNormal(precios, PLANES[0]) - ventaUpgrade.precio);
+export function precioUpgradePlan(precios: Precios, ventaUpgrade: Venta, cliente: Pick<Cliente, "vencimiento">): number {
+  return Math.max(0, precioContratacion(precios, PLANES[0], cliente) - ventaUpgrade.precio);
 }
 
 /**
