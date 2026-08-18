@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, precios as preciosTabla, servicios as serviciosTabla } from "@/db/schema";
-import { aplicarVariables, fmtCLP, isValidEmail, isValidPatente, normPlate, SERVICIOS_DEFAULT, uid } from "@/lib/helpers";
+import { clientes } from "@/db/schema";
+import { aplicarVariables, fmtCLP, isValidEmail, isValidPatente, normPlate, uid } from "@/lib/helpers";
 // Directo a la capa de datos, no al Server Action de @/lib/serverActions: este flujo
 // corre dentro del webhook de Meta (protegido por firma, ver
 // /api/whatsapp/route.ts), no hay perfil logueado que pase el chequeo de
@@ -16,13 +16,13 @@ import {
   upsertClientes,
   vincularClienteConversacion,
 } from "@/lib/dataAccess";
-import type { Cliente, ConversacionWhatsapp, FlowStateWhatsapp, Precios, TextosBotWhatsapp } from "@/types";
-import { PLAN_IMAGEN_PATH, SERVICIOS_IMAGEN_PATH, textoPrecios } from "./contenido";
+import { getPreciosPublicos } from "@/lib/preciosPublicos";
+import type { Cliente, ConversacionWhatsapp, FlowStateWhatsapp, TextosBotWhatsapp } from "@/types";
+import { parsearTamano, textoPedirTamano, textoPrecios } from "./contenido";
 import { estadoPlanPorPatente, iniciarCambioPatente, manejarPasoCambioPatente } from "./patente";
 
 export type RespuestaBot = {
   texto: string;
-  mediaPath?: string;
   // true solo cuando el mensaje matchea OPCIONES_HUMANO — el webhook
   // (@/app/api/whatsapp/route.ts) lo usa para avisar a Gerencia por push
   // (ver enviarPushAGerencia en @/lib/push/enviar), sin acoplar este router
@@ -42,6 +42,30 @@ const PALABRAS_SALIDA_FLUJO = new Set(["cancelar", "salir"]);
 function textoConfirmacionDescuento(textos: TextosBotWhatsapp, codigo: string, fechaCaducidadISO: string, valor: number): string {
   const fecha = new Date(fechaCaducidadISO).toLocaleDateString("es-CL");
   return aplicarVariables(textos.textoDescuentoConfirmacion, { codigo, fecha, monto: fmtCLP(valor) });
+}
+
+// Opción 1, paso 1: no se cotiza nada hasta saber el tamaño del vehículo.
+// Mismo criterio que DetailingTab en la web — si ningún servicio del catálogo
+// tiene precio diferenciado por tamaño, preguntarlo sería fricción inútil y
+// se entrega la lista directo (con "m" como tamaño nominal, que en ese caso
+// no afecta ningún precio porque todos caen al valor plano).
+async function iniciarPrecios(conversacion: ConversacionWhatsapp, textos: TextosBotWhatsapp): Promise<RespuestaBot> {
+  const precios = await getPreciosPublicos();
+  if (!precios.servicios.some((s) => s.preciosTamano)) {
+    return { texto: textoPrecios(precios, "m", textos.textoPreciosIntro) };
+  }
+  await actualizarFlowStateConversacion(conversacion.id, { tipo: "precios_tamano", paso: "tamano" });
+  return { texto: textoPedirTamano(textos.textoPreciosPedirTamano) };
+}
+
+// Opción 1, paso 2: con el tamaño en mano se entrega la lista y se cierra el
+// flujo. Una respuesta que no calza repregunta sin avanzar (el flowState
+// queda igual), como los pasos del flujo de descuento.
+async function manejarPasoPreciosTamano(texto: string, conversacion: ConversacionWhatsapp, textos: TextosBotWhatsapp): Promise<RespuestaBot> {
+  const tamano = parsearTamano(texto);
+  if (!tamano) return { texto: textos.textoPreciosTamanoInvalido };
+  await actualizarFlowStateConversacion(conversacion.id, null);
+  return { texto: textoPrecios(await getPreciosPublicos(), tamano, textos.textoPreciosIntro) };
 }
 
 async function existeClienteConPatente(patente: string): Promise<boolean> {
@@ -167,13 +191,7 @@ async function manejarPasoRegistroDescuento(
 export async function responderMensaje(textoCrudo: string, telefono: string, conversacion: ConversacionWhatsapp): Promise<RespuestaBot> {
   const texto = (textoCrudo || "").trim();
   const normalizado = texto.toLowerCase();
-  const {
-    textosBotWhatsapp: textos,
-    imagenPreciosWhatsapp,
-    imagenPlanWhatsapp,
-    descuentoPrimeraVezValor,
-    descuentoPrimeraVezDiasValidez,
-  } = await getConfig();
+  const { textosBotWhatsapp: textos, descuentoPrimeraVezValor, descuentoPrimeraVezDiasValidez } = await getConfig();
 
   // El registro + descuento (Opción 5) y el cambio de patente son las únicas
   // ramas con estado entre mensajes: mientras alguna esté activa, cualquier
@@ -185,6 +203,9 @@ export async function responderMensaje(textoCrudo: string, telefono: string, con
     if (flujoActivo === "registro_descuento") {
       return manejarPasoRegistroDescuento(texto, conversacion, telefono, textos, descuentoPrimeraVezValor, descuentoPrimeraVezDiasValidez);
     }
+    if (flujoActivo === "precios_tamano") {
+      return manejarPasoPreciosTamano(texto, conversacion, textos);
+    }
     return manejarPasoCambioPatente(texto, conversacion, textos);
   }
   if (flujoActivo && quiereSalirDelFlujo) {
@@ -193,19 +214,8 @@ export async function responderMensaje(textoCrudo: string, telefono: string, con
 
   if (!texto || SALUDOS.has(normalizado)) return { texto: textos.menuPrincipal };
   if (isValidPatente(texto)) return estadoPlanPorPatente(texto, textos, telefono, conversacion);
-  if (OPCIONES_PRECIOS.has(normalizado)) {
-    const db = getDb();
-    const [preciosRows, serviciosRows] = await Promise.all([
-      db.select().from(preciosTabla),
-      db.select().from(serviciosTabla),
-    ]);
-    const precios: Precios = Object.fromEntries(preciosRows.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
-    const servicios = serviciosRows.length
-      ? serviciosRows.map((s) => ({ ...s, categoria: s.categoria ?? undefined }))
-      : SERVICIOS_DEFAULT;
-    return { texto: textoPrecios(precios, servicios, textos.textoPreciosIntro), mediaPath: imagenPreciosWhatsapp || SERVICIOS_IMAGEN_PATH };
-  }
-  if (OPCIONES_CONTRATAR_PLAN.has(normalizado)) return { texto: textos.textoContratarPlan, mediaPath: imagenPlanWhatsapp || PLAN_IMAGEN_PATH };
+  if (OPCIONES_PRECIOS.has(normalizado)) return iniciarPrecios(conversacion, textos);
+  if (OPCIONES_CONTRATAR_PLAN.has(normalizado)) return { texto: textos.textoContratarPlan };
   if (OPCIONES_HORARIO.has(normalizado)) return { texto: textos.horarioUbicacion };
   if (OPCIONES_HUMANO.has(normalizado)) return { texto: textos.contactoHumano, solicitaHumano: true };
   if (OPCIONES_DESCUENTO.has(normalizado)) {

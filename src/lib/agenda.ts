@@ -1,3 +1,4 @@
+import { sumarDias } from "@/lib/helpers";
 import type { BloqueoAgenda, Cita, HorarioAgenda } from "@/types";
 
 // Circuito interno del vehículo, en el orden en que normalmente ocurre;
@@ -47,7 +48,7 @@ export function puedeIngresarTunelDetailing(estado: Cita["estado"]): boolean {
   return ESTADOS_INGRESO_TUNEL_DETAILING.includes(estado);
 }
 
-function minutosDesdeMedianoche(hhmm: string): number {
+export function minutosDesdeMedianoche(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
@@ -55,6 +56,12 @@ function minutosDesdeMedianoche(hhmm: string): number {
 /** 0=domingo … 6=sábado, calculado sin desfase de timezone sobre una fecha "YYYY-MM-DD". */
 export function diaSemanaDe(fecha: string): number {
   return new Date(`${fecha}T00:00:00`).getDay();
+}
+
+/** Lunes de la semana que contiene `fecha` (la vista semanal parte en lunes, no en domingo). */
+export function lunesDe(fecha: string): string {
+  const dia = diaSemanaDe(fecha);
+  return sumarDias(fecha, dia === 0 ? -6 : 1 - dia);
 }
 
 export function seSuperponen(aInicio: number, aFin: number, bInicio: number, bFin: number): boolean {

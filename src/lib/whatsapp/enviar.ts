@@ -68,11 +68,6 @@ export async function enviarMensajeTexto(telefono: string, texto: string, enviad
   return registrarSalida(telefono, texto, "texto", resultado, enviadoPor);
 }
 
-export async function enviarMensajeImagen(telefono: string, urlPublica: string, enviadoPor?: string): Promise<MensajeWhatsapp> {
-  const resultado = await llamarGraphApi({ to: telefono, type: "image", image: { link: urlPublica } });
-  return registrarSalida(telefono, urlPublica, "imagen", resultado, enviadoPor);
-}
-
 // Mensaje iniciado por el negocio usando una plantilla pre-aprobada en Meta
 // Business Manager (no se gestionan plantillas desde esta app). `parametros`
 // son los valores posicionales de las variables {{1}}, {{2}}, ... del cuerpo

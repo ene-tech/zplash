@@ -4,7 +4,7 @@ import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje } fr
 import { uid } from "@/lib/helpers";
 import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
-import { enviarMensajeImagen, enviarMensajeTexto } from "@/lib/whatsapp/enviar";
+import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
 import { responderMensaje } from "@/lib/whatsapp/router";
 import type { EstadoMensajeWhatsapp } from "@/types";
 
@@ -66,7 +66,7 @@ function firmaValida(rawBody: string, firma: string | null, secreto: string): bo
   return crypto.timingSafeEqual(a, b);
 }
 
-async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string | undefined, origen: string) {
+async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string | undefined) {
   const telefono = "+" + msg.from;
 
   if (rateLimited(`whatsapp:${telefono}`, LIMITE_MENSAJES, VENTANA_MS)) return;
@@ -110,15 +110,6 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
   }
 
   await enviarMensajeTexto(telefono, respuesta.texto);
-  if (respuesta.mediaPath) {
-    // mediaPath puede ser una ruta estática de /public (estas se sirven desde
-    // el propio dominio, ej. "/servicios-precios.jpg") o una URL pública ya
-    // absoluta de Supabase Storage cuando el admin subió su propia imagen
-    // desde Web Settings (ver subirImagenBotWhatsapp) — solo la primera
-    // necesita el prefijo de origen.
-    const url = /^https?:\/\//.test(respuesta.mediaPath) ? respuesta.mediaPath : `${origen}${respuesta.mediaPath}`;
-    await enviarMensajeImagen(telefono, url);
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -134,10 +125,6 @@ export async function POST(request: NextRequest) {
     console.error("Firma inválida en webhook de Meta WhatsApp", { tieneFirma: !!firma });
     return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
   }
-
-  const proto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? request.nextUrl.host;
-  const origen = `${proto}://${host}`;
 
   let payload: {
     entry?: Array<{ changes?: Array<{ value?: { messages?: MetaMensaje[]; statuses?: MetaStatus[]; contacts?: MetaContacto[] } }> }>;
@@ -156,7 +143,7 @@ export async function POST(request: NextRequest) {
       const nombresPorWaId = new Map((value.contacts || []).map((c) => [c.wa_id, c.profile?.name]));
       for (const msg of value.messages || []) {
         try {
-          await manejarMensajeEntrante(msg, nombresPorWaId.get(msg.from), origen);
+          await manejarMensajeEntrante(msg, nombresPorWaId.get(msg.from));
         } catch (error) {
           console.error("Error procesando mensaje entrante de WhatsApp", error);
         }

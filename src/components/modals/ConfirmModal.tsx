@@ -31,7 +31,11 @@ export default function ConfirmModal({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmar</AlertDialogTitle>
-          <AlertDialogDescription>{mensaje || "¿Confirmas esta acción?"}</AlertDialogDescription>
+          {/* pre-line: hay confirmaciones que llegan con un resumen de varias
+              líneas (ver resumenCierreTexto en @/lib/helpers/cierre). */}
+          <AlertDialogDescription className="whitespace-pre-line">
+            {mensaje || "¿Confirmas esta acción?"}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={cerrar}>Cancelar</AlertDialogCancel>

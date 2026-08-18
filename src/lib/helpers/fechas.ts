@@ -68,17 +68,25 @@ export function esFinDeSemanaOFestivo(fecha: Date, festivos: string[]): boolean 
  * sobre el resultado devuelven la hora de pared de Chile para esa fecha —
  * separada de ahoraEnSantiago (el caso "ahora mismo") para que mesKey pueda
  * convertir una fecha arbitraria sin duplicar el Intl.DateTimeFormat. */
+// Construido una sola vez a nivel de módulo, no por llamada: `new
+// Intl.DateTimeFormat` es de lo más caro que hay en JS (carga y resuelve los
+// datos de locale/zona horaria), y esta función está en el camino caliente de
+// planStatus(), que la lista de Clientes llama decenas de miles de veces por
+// tecla tipeada al ordenar por estado. El formateador no tiene estado, así
+// que reusarlo es seguro.
+const FORMATO_SANTIAGO = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Santiago",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
 function fechaEnSantiago(fecha: Date): Date {
-  const partes = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Santiago",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(fecha);
+  const partes = FORMATO_SANTIAGO.formatToParts(fecha);
   const get = (tipo: string) => Number(partes.find((p) => p.type === tipo)!.value);
   // La hora "24" de Intl para medianoche se mapea a 0 en el constructor de Date.
   return new Date(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"), get("second"));
@@ -89,6 +97,16 @@ function fechaEnSantiago(fecha: Date): Date {
  * local y no contra la hora UTC del servidor. */
 export function ahoraEnSantiago(): Date {
   return fechaEnSantiago(new Date());
+}
+
+/** Día de caja ("YYYY-MM-DD") al que pertenece una fecha ISO, en hora de
+ * Chile y no en la del proceso: en producción el server corre en UTC, así que
+ * una venta de las 22:00 de Santiago caería "al día siguiente" usando los
+ * componentes locales. Es la clave con la que se cierra un día y con la que
+ * los guards de cierre deciden si una fila ya quedó congelada (ver
+ * CierreCaja en @/types y @/lib/dataAccess/cierre). */
+export function diaCaja(iso: string): string {
+  return ymd(fechaEnSantiago(new Date(iso)));
 }
 
 /** Primer día del mes actual, en formato YYYY-MM-DD. */
@@ -129,4 +147,23 @@ export function fmtFecha(d: string): string {
 
 export function fmtHora(d: string): string {
   return new Date(d).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Claves "YYYY-MM" entre dos meses (inclusive), para el EERR comparativo.
+ * Acepta el rango invertido y corta en 36 columnas.
+ * ponytail: tope duro; si alguien necesita más años, paginar por año. */
+export function mesesEntre(desde: string, hasta: string): string[] {
+  const idx = (k: string) => {
+    const [y, m] = k.split("-").map(Number);
+    return y * 12 + (m - 1);
+  };
+  let a = idx(desde);
+  let b = idx(hasta);
+  if (Number.isNaN(a) || Number.isNaN(b)) return [mesActualKey()];
+  if (b < a) [a, b] = [b, a];
+  const out: string[] = [];
+  for (let n = a; n <= b && out.length < 36; n++) {
+    out.push(Math.floor(n / 12) + "-" + String((n % 12) + 1).padStart(2, "0"));
+  }
+  return out;
 }

@@ -14,6 +14,7 @@ export type Modulo =
   | "config"
   | "contabilidad"
   | "permisos"
+  | "arqueo"
   | "agenda"
   | "web_settings"
   | "inventario"

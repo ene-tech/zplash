@@ -75,10 +75,16 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
             <h3>Plan Mensual Ilimitado</h3>
           </div>
           <p className="desc">Lavados ilimitados por el túnel durante 1 mes, desde la contratación.</p>
-          <div className="price-row">
-            <span className="new">{precios ? fmtCLP(precios.planOneclick.precio) : "..."}</span>
+          <div className="price-row price-row--deal">
+            {precios && precios.plan.precio > precios.planPrimera.precio && (
+              <span className="old">{fmtCLP(precios.plan.precio)}</span>
+            )}
+            <span className="new">{precios ? fmtCLP(precios.planPrimera.precio) : "..."}</span>
             <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
           </div>
+          <p style={{ color: "var(--gray)", fontSize: 12, marginBottom: 14 }}>
+            Precio de 1ra contratación o renovando antes del vencimiento.
+          </p>
           <ul className="pricing-card-features">
             <li>
               <Check /> Renovación automática, más barata

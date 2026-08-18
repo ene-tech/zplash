@@ -6,6 +6,7 @@
 // Barrel para que los callers existentes (`import { X } from "@/lib/helpers"`)
 // no necesiten cambiar.
 
+export * from "./cierre";
 export * from "./clientes";
 export * from "./config";
 export * from "./contabilidad";

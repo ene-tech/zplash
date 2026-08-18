@@ -40,12 +40,13 @@ export const reglasCorreo = pgTable("reglas_correo", {
   // vencimiento se dispara.
   condicionDiasAntesVencimiento: integer("condicion_dias_antes_vencimiento"),
   // Solo aplica a tipoEvento="plan_proximo_vencer": si true, no dispara para
-  // un cliente origen="WEB" que ya tiene una suscripción Oneclick "activa"
-  // (ver procesarVencimientosCorreo) — a ese cliente el cobro automático ya
-  // lo va a renovar solo, avisarle "tu plan vence" es ruido/confunde. Los
-  // clientes origen="LOCAL" siempre reciben el aviso pase lo que pase (hoy no
-  // tienen cobro automático propio), y un cliente WEB sin tarjeta activa
-  // también lo recibe siempre, porque a él sí le sirve el recordatorio.
+  // un cliente que ya tiene una suscripción Oneclick "activa" (ver
+  // procesarVencimientosCorreo) — a ese cliente el cobro automático ya lo va
+  // a renovar solo, avisarle "tu plan vence" es ruido/confunde. El origen no
+  // entra en el filtro: la inscripción de tarjeta es por patente (Mi Cuenta →
+  // "Mis tarjetas", ver /api/pagos/oneclick/inscribir), así que un cliente
+  // origen="LOCAL" también puede tener cobro automático. Sin tarjeta inscrita
+  // —local o web— el recordatorio sí le sirve y lo recibe.
   condicionSoloSinAutopago: boolean("condicion_solo_sin_autopago").notNull().default(false),
   // Solo aplica a tipoEvento="plan_proximo_vencer": si true, no dispara para un
   // cliente que no tenga promoción de renovación anticipada vigente por el

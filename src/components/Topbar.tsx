@@ -17,7 +17,7 @@ export default function Topbar({
   return (
     <div className="topbar">
       <div className="title">
-        <Image src="/logo.png" alt="ZPlash" width={30} height={30} className="topbar-logo" unoptimized />
+        <Image src="/logo.png" alt="ZPlash" width={79} height={30} className="topbar-logo" unoptimized />
         <span className="mode">{mode}</span>
       </div>
       <div className="topbar-right">

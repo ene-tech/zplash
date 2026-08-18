@@ -8,6 +8,7 @@ import {
   esExentoBloqueoReingreso,
   esExentoValidacionRegistroOperador,
   esNombreVacio,
+  enPlazoDePagoPlan,
   esServicioTunelLibre,
   estadoReingresoPlan,
   isValidTelefono,
@@ -19,6 +20,7 @@ import {
   precioContratacion,
   precioLavadoUnico,
   precioNormal,
+  precioPagoAtrasado,
   precioReactivacionVencido,
   precioRenovacionLocal,
   precioUpgradePlan,
@@ -146,6 +148,28 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     diasVenc !== null ? precioReactivacionVencido(data.config, c.plan || "", diasVenc, visitasUltPeriodo, "WEB") : undefined;
   const showReactivacionSoloWeb = !showReactivacion && precioReactivacionWeb !== undefined;
 
+  // Pago atrasado: el plan venció hace poco y sigue dentro de los días de
+  // gracia configurados, así que el operador puede cobrarlo como la
+  // renovación de siempre — al mismo precio que si hubiera pagado a tiempo
+  // (ver precioPagoAtrasado: el preferencial del plan con su heredado, NO el
+  // precio de lista) y sin moverle la fecha de vencimiento (ver renovarPlan).
+  //
+  // No se muestra cuando el operador ya tiene otra forma de cobrarle el mismo
+  // plan vencido —la reactivación promocional cobrable acá, o la oferta al
+  // cliente Web cuyo pago automático falló—: dos precios cobrables por lo
+  // mismo en la misma pantalla se leen como error (mismo criterio que
+  // calcularOfertasPlan para Mi Cuenta). Sí convive con la reactivación
+  // marcada "solo Web": esa el operador no la puede cobrar, y sin esta
+  // tarjeta se quedaría sin ninguna forma de cobrar el atraso en el mesón.
+  const precioAtrasado = precioPagoAtrasado(data.precios, c.plan || PLANES[0], c, data.config.diasGraciaPagoAtrasado);
+  const showPagoAtrasado =
+    st.cls === "bad" &&
+    !!c.vencimiento &&
+    enPlazoDePagoPlan(c, data.config.diasGraciaPagoAtrasado) &&
+    precioAtrasado > 0 &&
+    !showReactivacion &&
+    !esWebVencido;
+
   // Promoción: si al cliente se le acaba de cobrar un lavado único (dentro de
   // la ventana configurada, ver ventaUpgradeElegible) y sigue sin plan
   // vigente, se le puede ofrecer quedar con el Plan Ilimitado Mensual pagando
@@ -214,6 +238,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   });
   const plan = usePlanActions(c, setGuardarErr, updateResult, {
     pPromo,
+    precioAtrasado,
     precioReactivacion,
     precioOfertaWeb,
     precioUpgrade,
@@ -267,6 +292,8 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     precioReactivacion,
     showReactivacionSoloWeb,
     precioReactivacionWeb,
+    showPagoAtrasado,
+    precioAtrasado,
     esWebVencido,
     precioOfertaWeb,
     ventaUpgrade,
@@ -286,6 +313,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     registrarLavadoWeb: conFichaCompleta(ingreso.registrarLavadoWeb),
     contratarPlan: conFichaCompleta(plan.contratarPlan),
     renovar: conFichaCompleta(plan.renovar),
+    pagarAtrasado: conFichaCompleta(plan.pagarAtrasado),
     reactivar: conFichaCompleta(plan.reactivar),
     renovarWeb: conFichaCompleta(plan.renovarWeb),
     upgradeAPlan: conFichaCompleta(plan.upgradeAPlan),

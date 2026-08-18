@@ -1,4 +1,5 @@
 import type { CanalPromo, CanalTramoPromo, Cliente, ConfigGlobal, Precios, PreciosTamano, TamanoVehiculo, Venta } from "@/types";
+import { diasVencido } from "./clientes";
 
 export const PLANES = ["Plan Ilimitado Mensual"];
 
@@ -241,11 +242,81 @@ export function precioNormal(precios: Precios, plan: string): number {
  * NO se aplica a una contratación nueva (`plan_nuevo`/contratarPlan) ni a la
  * reactivación de un plan ya vencido: ahí el cliente dejó de renovar a tiempo
  * y entra con el precio vigente o con la promoción de reactivación que
- * corresponda.
+ * corresponda. Quién sigue "a tiempo" lo decide enPlazoDePagoPlan (que además
+ * perdona los días de gracia de pago atrasado); esta función solo aplica el
+ * número.
  */
 export function precioConHeredado(precioVigente: number, cliente: Pick<Cliente, "precioPlanHeredado">): number {
   const heredado = cliente.precioPlanHeredado;
   return heredado != null && heredado > 0 && heredado < precioVigente ? heredado : precioVigente;
+}
+
+/**
+ * true mientras al cliente le corresponda pagar su plan como una renovación
+ * hecha a tiempo: plan todavía vigente, o vencido hace no más de `diasGracia`
+ * (ver ConfigGlobal.diasGraciaPagoAtrasado, editable en Configuración → Pago
+ * de plan atrasado). Dentro de esa ventana el pago atrasado conserva las dos
+ * cosas que el cliente pierde al vencerse: su precio de contratación (ver
+ * precioPagoAtrasado) y su fecha de vencimiento original (ver renovarPlan en
+ * @/lib/logic), que sigue corriendo desde donde estaba en vez de arrancar de
+ * cero hoy. Pasado el plazo entra por el precio vigente, como cualquier
+ * reactivación.
+ *
+ * Un cliente sin plan (`vencimiento` nulo) cuenta como "en plazo": no hay
+ * atraso que penalizar, y de todas formas no tiene precio heredado que
+ * respetar.
+ */
+export function enPlazoDePagoPlan(cliente: Pick<Cliente, "vencimiento">, diasGracia: number, ahora?: Date): boolean {
+  const dias = diasVencido(cliente, ahora);
+  return dias === null || dias <= diasGracia;
+}
+
+/**
+ * Precio de pagar el plan de una patente, único para la pantalla que lo
+ * anuncia y para el endpoint que lo cobra: con el plan vigente es la
+ * renovación de siempre (precio normal con su heredado) y con el plan ya
+ * vencido manda precioPagoAtrasado — dentro del plazo de gracia el precio que
+ * pagaría a tiempo, pasado el plazo el de lista.
+ *
+ * Existe porque tenerlo calculado en dos lados terminó en lo peor que puede
+ * pasar en un checkout: Mi Cuenta le mostraba al cliente vencido el precio
+ * preferencial y /api/pagos/webpay/crear le cobraba el de lista. Cualquier
+ * superficie nueva que muestre o cobre "renovación" tiene que llamar a esta
+ * función y no rearmar el cálculo.
+ */
+export function precioRenovacionCliente(
+  precios: Precios,
+  plan: string,
+  cliente: Pick<Cliente, "vencimiento" | "precioPlanHeredado">,
+  diasGracia: number
+): number {
+  return diasVencido(cliente) !== null
+    ? precioPagoAtrasado(precios, plan, cliente, diasGracia)
+    : precioConHeredado(precioNormal(precios, plan), cliente);
+}
+
+/**
+ * Precio de pagar un plan YA VENCIDO: dentro del plazo de gracia (ver
+ * enPlazoDePagoPlan) es lo mismo que le habría costado renovar a tiempo — el
+ * precio preferencial cargado del plan (Precios[plan].promo, que es lo que
+ * efectivamente paga hoy quien renueva; el `normal` funciona como precio de
+ * lista) con su precio heredado respetado. Pasado el plazo paga el normal:
+ * ahí sí perdió el precio de cliente al día.
+ *
+ * A propósito NO usa los tramos de renovación anticipada (ver
+ * precioRenovacionLocal): esos premian pagar ANTES de que venza, y este
+ * cliente ya pagó tarde — se le respeta su precio de siempre, no se le regala
+ * además el descuento por anticiparse.
+ */
+export function precioPagoAtrasado(
+  precios: Precios,
+  plan: string,
+  cliente: Pick<Cliente, "vencimiento" | "precioPlanHeredado">,
+  diasGracia: number
+): number {
+  const normal = precioNormal(precios, plan);
+  if (!enPlazoDePagoPlan(cliente, diasGracia)) return normal;
+  return precioConHeredado(precioPreferencial(precios, plan) || normal, cliente);
 }
 
 export function precioPreferencial(precios: Precios, plan: string): number {

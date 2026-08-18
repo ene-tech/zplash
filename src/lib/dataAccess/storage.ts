@@ -30,16 +30,3 @@ export async function subirBannerServicio(servicioId: string, file: File): Promi
   return data.publicUrl;
 }
 
-const CONTENIDO_WHATSAPP_BUCKET = "contenido-whatsapp";
-
-/** Sube la imagen adjunta de la Opción 1/2 del bot de WhatsApp (Web Settings) y devuelve su URL pública, o null si falló. */
-export async function subirImagenBotWhatsapp(clave: "precios" | "plan", file: File): Promise<string | null> {
-  const path = `${clave}-${file.name}`;
-  const { error } = await supabase.storage.from(CONTENIDO_WHATSAPP_BUCKET).upload(path, file, { upsert: true });
-  if (error) {
-    console.error("Error subiendo imagen del bot de WhatsApp", error);
-    return null;
-  }
-  const { data } = supabase.storage.from(CONTENIDO_WHATSAPP_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
-}

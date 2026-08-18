@@ -59,7 +59,7 @@ export function useMovimientosContablesList(tipo: MovimientoContable["tipo"]) {
 
   const toggleEstado = (m: MovimientoContable) => {
     if (m.estado === "pagado") {
-      const actualizado: MovimientoContable = { ...m, estado: "pendiente", metodoPago: undefined };
+      const actualizado: MovimientoContable = { ...m, estado: "pendiente", metodoPago: undefined, fechaPago: undefined };
       commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? actualizado : x)) });
       return;
     }
@@ -69,7 +69,14 @@ export function useMovimientosContablesList(tipo: MovimientoContable["tipo"]) {
         monto: m.monto,
         descripcion: m.descripcion,
         onConfirm: (pago: PagoInfo) => {
-          const actualizado: MovimientoContable = { ...m, estado: "pagado", metodoPago: pago.metodo };
+          // Ver fechaEfectiva: sin fechaPago el Flujo de Caja tendría que
+          // asumir que la plata entró el día de la venta.
+          const actualizado: MovimientoContable = {
+            ...m,
+            estado: "pagado",
+            metodoPago: pago.metodo,
+            fechaPago: new Date().toISOString(),
+          };
           commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? actualizado : x)) });
         },
       },

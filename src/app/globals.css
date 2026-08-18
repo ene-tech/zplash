@@ -1000,6 +1000,46 @@ tr:hover td {
 .table-scroll {
   overflow-x: auto;
 }
+/* Desplegables (hoy: los del arqueo de caja). Mismo lenguaje visual que las
+   filas expandibles de "Detalle de venta" —el ▸/▾ dorado de
+   FilaVentaExpandible— sobre el mismo panel que el resto de las tarjetas, en
+   vez del triangulito por defecto del navegador. */
+.disclosure {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  margin-bottom: 10px;
+}
+.disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure > summary::before {
+  content: "▸";
+  color: var(--gold);
+}
+.disclosure[open] > summary::before {
+  content: "▾";
+}
+.disclosure > summary:hover {
+  color: var(--gold);
+}
+.disclosure > summary .count {
+  color: var(--gray);
+  font-weight: 400;
+}
+.disclosure-body {
+  padding: 0 14px 14px;
+}
 .row-actions {
   display: flex;
   gap: 8px;
@@ -1148,7 +1188,7 @@ tr:hover td {
   height: 190px;
   background:
     linear-gradient(to bottom, rgba(38, 35, 32, 0.25) 0%, rgba(48, 44, 38, 0.85) 72%, var(--popover) 100%),
-    url("/tunel-bn.png") center 40% / cover no-repeat;
+    url("/tunel-bn.webp") center 40% / cover no-repeat;
   filter: grayscale(1) contrast(1.08);
 }
 .promo-popup-cuerpo {
@@ -1829,6 +1869,48 @@ tr:hover td {
 }
 .pricing-card--featured .price-row .new {
   font-size: 30px;
+}
+/* Precio del Plan Mensual con look de oferta: píldora oscura con el precio
+   grande y, pisándola arriba a la derecha, una píldora dorada con el precio
+   normal tachado en rojo. Solo cambia el envoltorio — el markup sigue siendo
+   .price-row con .old/.new, así que las demás cards no se tocan. */
+.price-row--deal {
+  position: relative;
+  align-self: flex-start;
+  max-width: 100%;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin: 24px 0 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #1a1815;
+  border: 1px solid rgba(255, 199, 44, 0.35);
+}
+.price-row--deal .old {
+  position: absolute;
+  top: -24px;
+  right: -18px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe28a 0%, var(--gold) 55%, #c98f12 100%);
+  color: #1a1815;
+  font-size: 19px;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  /* El line-through recto tapaba los dígitos: se reemplaza por una raya
+     diagonal (abajo-izquierda → arriba-derecha) que cruza menos glifo. */
+  text-decoration: none;
+}
+.price-row--deal .old::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 50%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--red);
+  transform: rotate(-9deg);
 }
 /* Botón "volver" (ver VolverBoton.tsx): imita un botón físico tipo iOS
    clásico — degradé vertical, bisel de luz arriba, sombra de contacto abajo

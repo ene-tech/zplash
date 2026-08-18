@@ -1,17 +1,22 @@
 import {
+  CORREO_RELLENO_MSG,
   RUT_FORMATO_MSG,
   TELEFONO_FORMATO_MSG,
+  esCorreoDeRelleno,
   formatRut,
   formatTelefono,
   isValidEmail,
   isValidRut,
   isValidTelefono,
+  telefonoTipeado,
 } from "@/lib/helpers";
 
 export interface DatosValidacionQuickAdd {
   nombreRaw: string;
   telefonoRaw: string;
   emailRaw: string;
+  /** El cliente se negó a dar el correo: se guarda vacío en vez de uno inventado. */
+  sinCorreo?: boolean;
   exentoValidacion: boolean;
   tipoCliente: "plan" | "unico";
   tipoDocumento: "Boleta" | "Factura";
@@ -39,15 +44,18 @@ export type ResultadoValidacionQuickAdd =
 // ejecutarAccionReglaCorreo en @/lib/mailing/reglas/motor.ts).
 export function validarQuickAddCliente(d: DatosValidacionQuickAdd): ResultadoValidacionQuickAdd {
   const nombre = d.nombreRaw.trim().toUpperCase();
-  const telefonoRaw = d.telefonoRaw.trim();
+  // telefonoTipeado descarta el "+569" precargado que el operador no tocó: sin
+  // eso se guardaba como si fuera un teléfono real.
+  const telefonoRaw = telefonoTipeado(d.telefonoRaw);
   const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
-  const email = d.emailRaw.trim();
+  const email = d.sinCorreo ? "" : d.emailRaw.trim();
   const requiereTelefono = d.tipoCliente === "plan" || !d.exentoValidacion;
   if (!nombre || (requiereTelefono && !telefonoRaw)) {
     return { ok: false, error: "Completa Nombre y Teléfono para registrar al cliente" };
   }
   if (requiereTelefono && !isValidTelefono(telefono)) return { ok: false, error: TELEFONO_FORMATO_MSG };
-  if (d.tipoCliente === "plan" && !isValidEmail(email)) {
+  if (esCorreoDeRelleno(email)) return { ok: false, error: CORREO_RELLENO_MSG };
+  if (d.tipoCliente === "plan" && !d.sinCorreo && !isValidEmail(email)) {
     return { ok: false, error: "Ingresa un email válido para contratar el plan (se usa para el aviso de contratación)" };
   }
   if (email && !isValidEmail(email)) return { ok: false, error: "Ingresa un email válido" };

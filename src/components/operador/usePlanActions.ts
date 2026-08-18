@@ -22,7 +22,8 @@ const MSG_FALTAN_DATOS_CONTACTO_PLAN =
   "Para contratar un plan, el cliente debe tener teléfono y correo válidos registrados (se usan para el aviso de contratación). Complétalos en la ficha antes de continuar.";
 
 // Acciones que cambian el plan del cliente: renovación anticipada a precio
-// preferencial, reactivación promocional de un plan vencido, renovación
+// preferencial, pago atrasado dentro de los días de gracia, reactivación
+// promocional de un plan vencido hace más tiempo, renovación
 // manual de un cliente Web cuyo cobro automático falló, contratación de un
 // plan nuevo, y el upgrade de un lavado único recién pagado a plan mensual.
 export function usePlanActions(
@@ -31,6 +32,7 @@ export function usePlanActions(
   updateResult: (updated: Cliente) => void,
   opts: {
     pPromo: number;
+    precioAtrasado: number;
     precioReactivacion: number | undefined;
     precioOfertaWeb: number;
     precioUpgrade: number;
@@ -38,7 +40,7 @@ export function usePlanActions(
   }
 ) {
   const { data, ui, commit, patchUi } = useApp();
-  const { pPromo, precioReactivacion, precioOfertaWeb, precioUpgrade, ventaUpgrade } = opts;
+  const { pPromo, precioAtrasado, precioReactivacion, precioOfertaWeb, precioUpgrade, ventaUpgrade } = opts;
 
   // Si el precio con descuento queda en $0, no corresponde pedir método de
   // pago (el cliente no está pagando nada) — mismo criterio que en
@@ -54,6 +56,26 @@ export function usePlanActions(
   const renovar = (cliente: Cliente = c) => {
     pedirPago(pPromo, `Renovación temprana del plan de ${cliente.nombre} a precio preferencial`, async (pago) => {
       const patch = renovarPlan(data, cliente, ui.perfilActual?.nombre, pPromo, pago);
+      const ok = await commit(patch);
+      if (!ok) {
+        setGuardarErr(ERROR_GUARDADO_INGRESO);
+        return;
+      }
+      setGuardarErr("");
+      const updated = patch.clientes?.find((x) => x.id === cliente.id);
+      if (updated) updateResult(updated);
+    });
+  };
+
+  // Pago de un plan que se venció hace poco, dentro de los días de gracia
+  // configurados (ver enPlazoDePagoPlan): no es una promoción ni una
+  // contratación nueva, es la renovación de siempre cobrada tarde — mismo
+  // precio (con su heredado, ver precioPlanCliente) y misma fecha de
+  // vencimiento, que renovarPlan ancla al vencimiento original en vez de
+  // arrancar un ciclo nuevo desde hoy.
+  const pagarAtrasado = (cliente: Cliente = c) => {
+    pedirPago(precioAtrasado, `Pago atrasado del plan de ${cliente.nombre} (mantiene su fecha de vencimiento)`, async (pago) => {
+      const patch = renovarPlan(data, cliente, ui.perfilActual?.nombre, precioAtrasado, pago, "Renovación atrasada", true);
       const ok = await commit(patch);
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
@@ -204,5 +226,5 @@ export function usePlanActions(
     });
   };
 
-  return { renovar, reactivar, renovarWeb, contratarPlan, upgradeAPlan };
+  return { renovar, pagarAtrasado, reactivar, renovarWeb, contratarPlan, upgradeAPlan };
 }

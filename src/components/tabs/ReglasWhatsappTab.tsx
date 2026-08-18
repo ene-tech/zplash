@@ -10,6 +10,7 @@ const TIPOS_VENTA_CONOCIDOS = [
   "Lavado único",
   "Plan nuevo",
   "Renovación preferencial",
+  "Renovación atrasada",
   "Reactivación promocional",
   "Plan nuevo (Web)",
   "Renovación (Web)",

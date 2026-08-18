@@ -71,6 +71,20 @@ export async function upsertMovimientosContables(rows: MovimientoContable[]): Pr
   }
 }
 
+/** true si TODAS esas filas son movimientos generados automáticamente desde
+ * una Venta (tienen ventaId) — lo que decide qué permiso exige borrarlas, ver
+ * deleteMovimientosContables en @/lib/serverActions. Se mira en la base y no
+ * en lo que manda el cliente: el id de un derivado es predecible
+ * ("mc-venta-…", ver idMovimientoContableDeVenta). */
+export async function sonMovimientosDerivadosDeVenta(ids: string[]): Promise<boolean> {
+  if (!ids.length) return false;
+  const filas = await getDb()
+    .select({ ventaId: movimientosContables.ventaId })
+    .from(movimientosContables)
+    .where(inArray(movimientosContables.id, ids));
+  return filas.length === ids.length && filas.every((f) => !!f.ventaId);
+}
+
 export async function deleteMovimientosContables(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {

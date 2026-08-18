@@ -25,6 +25,9 @@ type Props = Pick<
   | "reactivar"
   | "showReactivacionSoloWeb"
   | "precioReactivacionWeb"
+  | "showPagoAtrasado"
+  | "precioAtrasado"
+  | "pagarAtrasado"
   | "esWebVencido"
   | "precioOfertaWeb"
   | "renovarWeb"
@@ -177,6 +180,28 @@ export default function OperadorFoundOfertas(props: Props) {
             <span className="new">{fmtCLP(props.precioReactivacionWeb!)}</span>
             <span className="save">solo por la web</span>
           </div>
+        </div>
+      )}
+      {props.showPagoAtrasado && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Plan vencido</span>
+            <h4>
+              Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
+            </h4>
+          </div>
+          <div className="msg">
+            {c.nombre} todavía está dentro del plazo para pagarlo atrasado: se le cobra su {c.plan} al mismo precio que
+            si hubiera pagado a tiempo y mantiene su fecha de vencimiento — el ciclo sigue corriendo desde donde
+            estaba, no arranca de nuevo hoy.
+          </div>
+          <div className="price-row">
+            {props.pNormal > props.precioAtrasado && <span className="old">{fmtCLP(props.pNormal)}</span>}
+            <span className="new">{fmtCLP(props.precioAtrasado)}</span>
+          </div>
+          <button className="btn secondary" onClick={props.pagarAtrasado}>
+            Pagar plan atrasado ({fmtCLP(props.precioAtrasado)})
+          </button>
         </div>
       )}
       {props.esWebVencido && !props.showReactivacion && !props.showReactivacionSoloWeb && (

@@ -20,6 +20,9 @@ export function proveedorToRow(p: Proveedor): typeof proveedores.$inferInsert {
     emailVendedor: p.emailVendedor || null,
     telefonoVendedor: p.telefonoVendedor || null,
     emailComprobantes: p.emailComprobantes || null,
+    banco: p.banco || null,
+    cuentaCorriente: p.cuentaCorriente || null,
+    categoriaGasto: p.categoriaGasto || null,
     creadoEn: p.creadoEn,
     creadoPor: p.creadoPor || null,
   };
@@ -37,6 +40,9 @@ export function proveedorFromRow(r: ProveedorRow): Proveedor {
     emailVendedor: r.emailVendedor || undefined,
     telefonoVendedor: r.telefonoVendedor || undefined,
     emailComprobantes: r.emailComprobantes || undefined,
+    banco: r.banco || undefined,
+    cuentaCorriente: r.cuentaCorriente || undefined,
+    categoriaGasto: r.categoriaGasto || undefined,
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
   };

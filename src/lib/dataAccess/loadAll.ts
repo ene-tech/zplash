@@ -10,6 +10,7 @@ import {
   categoriasIngreso,
   categoriasInsumo,
   categoriasProducto,
+  cierresCaja,
   citaServicios,
   citas,
   clientes,
@@ -52,6 +53,7 @@ import {
 import type { AppData } from "@/types";
 import { bloqueoAgendaFromRow, citaFromRow, horarioAgendaFromRow } from "./agenda";
 import { cartolaMovimientoFromRow, categoriaGastoFromRow, categoriaIngresoFromRow, movimientoFromRow, reglaConciliacionFromRow } from "./contabilidad";
+import { cierreCajaFromRow } from "./cierre";
 import { clienteFromRow } from "./clientes";
 import { configFromRow } from "./config";
 import { cuponFromRow } from "./cupones";
@@ -137,6 +139,7 @@ export async function loadCore(): Promise<AppDataCore> {
     plantillasWhatsappRows,
     reglasCorreoRows,
     reglasWhatsappRows,
+    cierresCajaRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos, icono: perfiles.icono }).from(perfiles)),
@@ -168,6 +171,7 @@ export async function loadCore(): Promise<AppDataCore> {
     safe(db.select().from(plantillasWhatsapp).orderBy(asc(plantillasWhatsapp.nombre))),
     safe(db.select().from(reglasCorreo).orderBy(asc(reglasCorreo.nombre))),
     safe(db.select().from(reglasWhatsapp).orderBy(asc(reglasWhatsapp.nombre))),
+    safe(db.select().from(cierresCaja).orderBy(desc(cierresCaja.fecha))),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -223,6 +227,7 @@ export async function loadCore(): Promise<AppDataCore> {
     reglasCorreo: reglasCorreoRows.map(reglaCorreoFromRow),
     plantillasWhatsapp: plantillasWhatsappData,
     reglasWhatsapp: reglasWhatsappRows.map(reglaWhatsappFromRow),
+    cierresCaja: cierresCajaRows.map(cierreCajaFromRow),
   };
 }
 

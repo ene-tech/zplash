@@ -5,6 +5,13 @@ import { redirigirAWebpay } from "@/lib/webpayClient";
 
 export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "upgrade_plan";
 
+// "renovacion" no es una promoción de cuenta (es el tipo público de /pagar,
+// ver TIPOS_PROMO_CUENTA en /api/pagos/webpay/crear): se usa para pagar un
+// plan vencido que quedó fuera de todos los tramos de reactivación (ver
+// OfertaPlan.pagoVencido) y siempre va por Webpay — cobrar-oferta solo sabe
+// cobrar las 3 promos contra la tarjeta guardada.
+type TipoCobro = TipoOfertaPlan | "renovacion";
+
 export interface TarjetaGuardada {
   cardTipo: string | null;
   cardUltimosDigitos: string | null;
@@ -20,7 +27,7 @@ export interface TarjetaGuardada {
  * falta un paso de confirmación propio porque Webpay ya muestra el suyo.
  */
 export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, onCobrado: () => void) {
-  const [pagando, setPagando] = useState<TipoOfertaPlan | null>(null);
+  const [pagando, setPagando] = useState<TipoCobro | null>(null);
   const [confirmando, setConfirmando] = useState<TipoOfertaPlan | null>(null);
   const [err, setErr] = useState("");
   // Distingue "la tarjeta guardada fue rechazada" de cualquier otro error
@@ -31,7 +38,7 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
   // la promoción salvo recargar la página.
   const [rechazada, setRechazada] = useState(false);
 
-  async function pagarWebpay(tipo: TipoOfertaPlan) {
+  async function pagarWebpay(tipo: TipoCobro) {
     setErr("");
     setPagando(tipo);
     try {
@@ -114,5 +121,15 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
     pagarWebpay(confirmando);
   }
 
-  return { pagando, confirmando, err, rechazada, pedir, cancelarConfirmacion, confirmarConTarjeta, pagarPorWebpayEnCambio };
+  return {
+    pagando,
+    confirmando,
+    err,
+    rechazada,
+    pedir,
+    cancelarConfirmacion,
+    confirmarConTarjeta,
+    pagarPorWebpayEnCambio,
+    pagarPlanVencido: () => pagarWebpay("renovacion"),
+  };
 }

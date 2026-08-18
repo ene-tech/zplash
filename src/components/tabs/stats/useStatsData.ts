@@ -7,6 +7,7 @@ import type { Cliente } from "@/types";
 const TIPOS_VENTA_PLAN = new Set([
   "Plan nuevo",
   "Renovación preferencial",
+  "Renovación atrasada",
   "Reactivación promocional",
   "Plan nuevo (Web)",
   "Renovación (Web)",

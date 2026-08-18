@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   ArrowUpCircle,
+  CalendarClock,
   Clock,
   Droplets,
   Globe,
@@ -23,6 +24,7 @@ import {
   CuentaSection,
   HorarioSection,
   LavadoSection,
+  PagoAtrasadoSection,
   PagosWebSection,
   PlanesSection,
   ReactivacionSection,
@@ -35,6 +37,7 @@ const SECCIONES: { id: string; label: string; icon: LucideIcon; Componente: Reac
   { id: "horario", label: "Horario de operador", icon: Clock, Componente: HorarioSection },
   { id: "planes", label: "Precios de planes", icon: Tag, Componente: PlanesSection },
   { id: "reactivacion", label: "Reactivación de vencidos", icon: RefreshCw, Componente: ReactivacionSection },
+  { id: "pago-atrasado", label: "Pago de plan atrasado", icon: CalendarClock, Componente: PagoAtrasadoSection },
   { id: "lavado", label: "Lavado túnel", icon: Droplets, Componente: LavadoSection },
   { id: "bloqueo", label: "Bloqueo de reingreso", icon: Lock, Componente: BloqueoSection },
   { id: "aspirado", label: "Zona aspirado", icon: Wind, Componente: AspiradoSection },

@@ -27,6 +27,10 @@ Ejemplo: escribe *AB1234* para ver el estado de tu plan.`,
 
   textoPreciosIntro: `💰 *Precios*`,
 
+  textoPreciosPedirTamano: `Para cotizarte bien, primero dime el tamaño de tu vehículo 🚙`,
+
+  textoPreciosTamanoInvalido: `No reconocí ese tamaño 🤔 Responde con el número (1 a 4) o la letra (S, M, L, XL). También puedes escribir *menu* para volver.`,
+
   textoContratarPlan: `🚗 *Plan Full Túnel Ilimitado*
 
 Puedes contratarlo directamente en el local, o desde este link:

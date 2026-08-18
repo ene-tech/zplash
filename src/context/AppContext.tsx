@@ -85,6 +85,7 @@ const initialData: AppData = {
   reglasCorreo: [],
   plantillasWhatsapp: JSON.parse(JSON.stringify(PLANTILLAS_WHATSAPP_DEFAULT)),
   reglasWhatsapp: [],
+  cierresCaja: [],
 };
 
 const initialUI: UIState = {

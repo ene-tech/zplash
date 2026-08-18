@@ -93,7 +93,7 @@ function ServicioRow({ servicio }: { servicio: Servicio }) {
           >
             {servicio.imagen ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={servicio.imagen} alt={servicio.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={servicio.imagen} alt={servicio.nombre} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
               "Sin banner"
             )}

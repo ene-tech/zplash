@@ -48,6 +48,7 @@ function appDataVacia(): AppData {
     plantillasWhatsapp: [],
     reglasWhatsapp: [],
     reglasCorreo: [],
+    cierresCaja: [],
   };
 }
 
@@ -78,15 +79,14 @@ describe("registrarIngreso", () => {
     expect(clienteActualizado.visitas).toBe(3);
   });
 
-  it("marca esGarantia y glosa cuando corresponde", () => {
+  it("marca esGarantia cuando corresponde", () => {
     const data = appDataVacia();
     const cliente = clienteBase();
     data.clientes = [cliente];
 
-    const patch = registrarIngreso(data, cliente, null, true, "Reclamo");
+    const patch = registrarIngreso(data, cliente, null, true);
 
     expect(patch.ingresos![0].esGarantia).toBe(true);
-    expect(patch.ingresos![0].glosa).toBe("Reclamo");
   });
 });
 
@@ -433,6 +433,59 @@ describe("renovarPlan", () => {
     const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
     const esperado = new Date();
     esperado.setDate(esperado.getDate() + 30);
+    expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
+  });
+
+  it("vencido hace poco (dentro de los días de gracia): mantiene la fecha original de vencimiento", () => {
+    const data = appDataVacia();
+    data.config = { ...CONFIG_DEFAULT, diasGraciaPagoAtrasado: 4 };
+    const vencimientoOriginal = new Date();
+    vencimientoOriginal.setDate(vencimientoOriginal.getDate() - 3);
+    const cliente = clienteBase({ vencimiento: vencimientoOriginal.toISOString() });
+    data.clientes = [cliente];
+
+    const patch = renovarPlan(data, cliente, "Operador X", 21990, undefined, "Renovación atrasada", true);
+
+    // El ciclo sigue corriendo desde donde estaba: 30 días desde el
+    // vencimiento viejo, no desde hoy (que daría 3 días más).
+    const esperado = new Date(vencimientoOriginal);
+    esperado.setDate(esperado.getDate() + 30);
+    const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
+    expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
+  });
+
+  it("vencido pasados los días de gracia: el ciclo arranca de hoy", () => {
+    const data = appDataVacia();
+    data.config = { ...CONFIG_DEFAULT, diasGraciaPagoAtrasado: 4 };
+    const vencimientoOriginal = new Date();
+    vencimientoOriginal.setDate(vencimientoOriginal.getDate() - 5);
+    const cliente = clienteBase({ vencimiento: vencimientoOriginal.toISOString() });
+    data.clientes = [cliente];
+
+    const patch = renovarPlan(data, cliente, "Operador X", 21990, undefined, "Renovación atrasada", true);
+
+    const esperado = new Date();
+    esperado.setDate(esperado.getDate() + 30);
+    const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
+    expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
+  });
+
+  it("la reactivación promocional NO ancla la fecha aunque el cliente esté dentro del plazo de gracia", () => {
+    // El anclaje es exclusivo del pago atrasado: la reactivación es una
+    // oferta para recuperar al cliente y le da su mes completo desde hoy —
+    // sin esto le recortaba en silencio tantos días como llevara vencido.
+    const data = appDataVacia();
+    data.config = { ...CONFIG_DEFAULT, diasGraciaPagoAtrasado: 7 };
+    const vencimientoOriginal = new Date();
+    vencimientoOriginal.setDate(vencimientoOriginal.getDate() - 3);
+    const cliente = clienteBase({ vencimiento: vencimientoOriginal.toISOString() });
+    data.clientes = [cliente];
+
+    const patch = renovarPlan(data, cliente, "Operador X", 19990, undefined, "Reactivación promocional");
+
+    const esperado = new Date();
+    esperado.setDate(esperado.getDate() + 30);
+    const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
     expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
   });
 

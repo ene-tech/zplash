@@ -24,6 +24,11 @@ export const TODOS_LOS_MODULOS: Modulo[] = [
   ...MODULOS_ADMIN,
   "contabilidad",
   "permisos",
+  // Fuera de MODULOS_ADMIN a propósito, igual que "web_settings": cerrar la
+  // caja de un día es irreversible (ver CierreCaja en @/types), así que no lo
+  // hereda cualquier perfil administrativo — Gerencia se lo asigna a mano a
+  // quien haga el arqueo (típicamente "Administración") desde Perfiles.
+  "arqueo",
   "web_settings",
   "inventario",
   "mantencion",
@@ -45,6 +50,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   config: "Configuración",
   contabilidad: "Contabilidad",
   permisos: "Permisos (asignar módulos)",
+  arqueo: "Cerrar caja (arqueo diario, irreversible)",
   agenda: "Agenda",
   web_settings: "Web Settings (precios de venta web)",
   inventario: "Inventario",
@@ -68,13 +74,14 @@ export const PERFILES_DEFAULT: PerfilPublico[] = [
 ];
 
 /** Un perfil queda exento del bloqueo horario del módulo Operador (ver
- * dentroDeHorarioOperador) si tiene acceso a Configuración, o si es el
- * perfil "Administración" — que puede no tener módulos de administrador
- * asignados (solo Operador) y aun así necesita poder registrar ingresos
- * fuera de horario. No hay un campo de "rol" aparte, así que se matchea por
- * nombre exacto de perfil. */
+ * dentroDeHorarioOperador) si tiene acceso a Configuración, si tiene el
+ * módulo "arqueo" —cuadrar y cerrar la caja del día pasa justamente después
+ * de cerrado el local (ver ArqueoDia)— o si es el perfil "Administración",
+ * que puede no tener módulos de administrador asignados (solo Operador) y aun
+ * así necesita poder registrar ingresos fuera de horario. No hay un campo de
+ * "rol" aparte, así que eso último se matchea por nombre exacto de perfil. */
 export function esExentoHorarioOperador(modulos: Modulo[], nombre?: string): boolean {
-  return modulos.includes("config") || nombre === "Administración";
+  return modulos.includes("config") || modulos.includes("arqueo") || nombre === "Administración";
 }
 
 /** "Administración" y "Gerencia" pueden guardar un cliente sin que los
@@ -99,15 +106,25 @@ export function puedeBorrarCategoriaInventario(nombre?: string): boolean {
   return nombre === "Gerencia";
 }
 
-/** Solo el perfil "Gerencia" puede borrar una fila ya guardada de Historial
- * de Ingresos (ver botón "Eliminar" en IngresosTab y el backstop en
- * deleteIngresos en @/lib/serverActions) — el resto de los perfiles con acceso al
- * módulo "ingresos" solo puede consultarlo/exportarlo, nunca editarlo o
- * borrarlo, para no perder trazabilidad del historial real de pasadas por el
- * túnel. Se matchea por nombre exacto de perfil, mismo criterio que
- * esExentoFormatoCliente/puedeBorrarCategoriaInventario. */
-export function puedeBorrarIngreso(nombre?: string): boolean {
-  return nombre === "Gerencia";
+/** Borrar una fila ya guardada de Historial de Ingresos (ver botón
+ * "Eliminar" en IngresosTab y el backstop en deleteIngresos en
+ * @/lib/serverActions) queda reservado a "Gerencia" y a quien tenga el módulo
+ * "arqueo": el resto de los perfiles con acceso al módulo "ingresos" solo
+ * puede consultarlo/exportarlo, nunca editarlo o borrarlo, para no perder
+ * trazabilidad del historial real de pasadas por el túnel. El módulo "arqueo"
+ * entra por el mismo motivo que "Gerencia": es quien responde por el conteo
+ * del día. El arqueo en sí ya no borra ingresos — un conteo que no cuadra se
+ * corrige con el asiento de ajuste de ingreso a túnel (ver ArqueoDia). */
+export function puedeBorrarIngreso(nombre?: string, modulos?: Modulo[]): boolean {
+  return nombre === "Gerencia" || !!modulos?.includes("arqueo");
+}
+
+/** Quién puede cerrar (y por lo tanto congelar para siempre) la caja de un
+ * día. Módulo propio en vez de un nombre de perfil fijo: el requisito es
+ * "Administración o quien tenga el permiso", y Gerencia lo asigna desde
+ * Perfiles como cualquier otro módulo. */
+export function puedeCerrarCaja(modulos?: Modulo[]): boolean {
+  return !!modulos?.includes("arqueo");
 }
 
 /** "Administración" y "Gerencia" pueden dar ingreso a un cliente desde el

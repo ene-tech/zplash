@@ -3,8 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { CONFIG_DEFAULT, TEXTOS_BOT_WHATSAPP_DEFAULT } from "@/lib/helpers";
-import { subirImagenBotWhatsapp } from "@/lib/serverActions";
-import type { ConfigGlobal, TextosBotWhatsapp } from "@/types";
+import type { TextosBotWhatsapp } from "@/types";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,54 +12,6 @@ import { EmojiBar, VariableBar, insertarEnCursor } from "@/components/ui/mensaje
 import { MessageCircle } from "lucide-react";
 import ConfigSection from "@/components/tabs/config/ConfigSection";
 import SaveBar from "@/components/tabs/config/SaveBar";
-
-const IMAGEN_DEFAULT: Record<"precios" | "plan", string> = {
-  precios: "/servicios-precios.jpg",
-  plan: "/plan-mensual.jpg",
-};
-
-function ImagenBotWhatsapp({ clave, campo, label }: { clave: "precios" | "plan"; campo: keyof ConfigGlobal; label: string }) {
-  const { data, commit } = useApp();
-  const [subiendo, setSubiendo] = useState(false);
-  const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
-  const actual = (data.config[campo] as string | undefined) || IMAGEN_DEFAULT[clave];
-
-  const subir = async (file: File) => {
-    setSubiendo(true);
-    const url = await subirImagenBotWhatsapp(clave, file);
-    setSubiendo(false);
-    if (!url) {
-      setMsg({ texto: "No se pudo subir la imagen. Intenta de nuevo.", ok: false });
-      return;
-    }
-    const ok = await commit({ config: { ...data.config, [campo]: url } });
-    setMsg({ texto: ok ? "Imagen actualizada" : "Se subió la imagen pero no se pudo guardar. Intenta de nuevo.", ok });
-  };
-
-  const restablecer = async () => {
-    const ok = await commit({ config: { ...data.config, [campo]: undefined } });
-    setMsg({ texto: ok ? "Se restableció la imagen de fábrica" : "No se pudo guardar (sin conexión). Intenta de nuevo.", ok });
-  };
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label>{label}</Label>
-      <div className="flex items-center gap-3 flex-wrap">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={actual} alt={label} style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 8 }} />
-        <input type="file" accept="image/*" disabled={subiendo} onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) subir(file);
-        }} />
-        <Button type="button" variant="outline" size="sm" onClick={restablecer} disabled={subiendo || !data.config[campo]}>
-          Usar imagen de fábrica
-        </Button>
-        {subiendo && <span className="text-xs text-muted-foreground">Subiendo...</span>}
-        {msg && <span className={`text-xs ${msg.ok ? "text-green-600" : "text-destructive"}`}>{msg.texto}</span>}
-      </div>
-    </div>
-  );
-}
 
 type Campo = { key: keyof TextosBotWhatsapp; label: string; hint?: string; variables?: string[] };
 
@@ -72,9 +23,15 @@ const GRUPOS: Campo[][] = [
   [{ key: "menuPrincipal", label: "Menú principal (saludo)" }],
   [
     {
+      key: "textoPreciosPedirTamano",
+      label: "Opción 1 — Pregunta el tamaño del vehículo (paso 1)",
+      hint: "Antes de cotizar, el bot pregunta el tamaño del auto igual que la web. Solo el encabezado: las 4 opciones (S/M/L/XL con ejemplos) se generan solas.",
+    },
+    { key: "textoPreciosTamanoInvalido", label: "Opción 1 — repregunta si el tamaño no se entiende (paso 1)" },
+    {
       key: "textoPreciosIntro",
-      label: "Opción 1 — Precios y servicios (encabezado)",
-      hint: "Solo el encabezado del mensaje. La lista de precios y servicios que sigue siempre se genera desde los valores reales (pestaña Precios/Servicios), no se puede escribir a mano acá.",
+      label: "Opción 1 — Precios y servicios (encabezado, paso 2)",
+      hint: "Solo el encabezado del mensaje. La lista de precios y servicios que sigue siempre se genera desde los mismos valores que muestra la web, no se puede escribir a mano acá.",
     },
   ],
   [{ key: "textoContratarPlan", label: "Opción 2 — Quiero contratar el plan" }],
@@ -230,16 +187,6 @@ export default function WebSettingsWhatsappBotTab() {
                 value={valores[c.key]}
                 onChange={(e) => setCampo(c.key, e.target.value)}
               />
-              {c.key === "textoPreciosIntro" && (
-                <div className="mt-1">
-                  <ImagenBotWhatsapp clave="precios" campo="imagenPreciosWhatsapp" label="Opción 1 — Imagen adjunta" />
-                </div>
-              )}
-              {c.key === "textoContratarPlan" && (
-                <div className="mt-1">
-                  <ImagenBotWhatsapp clave="plan" campo="imagenPlanWhatsapp" label="Opción 2 — Imagen adjunta" />
-                </div>
-              )}
               {c.key === "textoDescuentoInstrucciones" && (
                 <div className="mt-1 flex flex-wrap items-end gap-4">
                   <div className="flex flex-col gap-1.5">

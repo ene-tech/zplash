@@ -27,7 +27,11 @@ export default function ProductoBanner({
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       ) : (
-        <Image src={imagen} alt={alt} fill unoptimized style={{ objectFit: "cover" }} />
+        /* `sizes` es obligatorio junto con `fill`: sin él Next sirve siempre la
+            variante más ancha del srcset (la fuente son 1920px para un banner
+            que nunca se pinta a más de ~700). Mobile ocupa el ancho completo;
+            en el hero de 2 columnas es media columna. */
+        <Image src={imagen} alt={alt} fill sizes="(max-width: 900px) 100vw, 700px" style={{ objectFit: "cover" }} />
       )}
     </div>
   );

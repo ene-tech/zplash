@@ -65,10 +65,12 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
   ) {
     for (const row of rows) {
       if (regla.condicionPlanes?.length && (!row.plan || !regla.condicionPlanes.includes(row.plan))) continue;
-      // Cliente WEB con cobro automático ya activo: el aviso de vencimiento es
-      // ruido (Oneclick lo va a renovar solo). LOCAL siempre recibe el aviso —
-      // ver comentario del campo en @/db/schema/mailReglas.
-      if (regla.condicionSoloSinAutopago && row.origen === "WEB" && row.patente && patentesConAutopago.has(row.patente)) continue;
+      // Cliente con tarjeta inscrita: el aviso de vencimiento es ruido
+      // (Oneclick lo va a renovar solo). Sin mirar el origen — Mi Cuenta →
+      // "Mis tarjetas" inscribe por patente, un cliente LOCAL también puede
+      // tener cobro automático. Ver comentario del campo en
+      // @/db/schema/mailReglas.
+      if (regla.condicionSoloSinAutopago && row.patente && patentesConAutopago.has(row.patente)) continue;
 
       let precioPromo: number | undefined;
       if (promo) {

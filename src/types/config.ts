@@ -98,6 +98,13 @@ export interface ConfigGlobal {
   // tramo puede además quedar restringido a un canal (ver canal en
   // TramoReactivacionVencido).
   tramosReactivacionVencido: Record<string, TramoReactivacionVencido[]>;
+  // Días de atraso que se le perdonan a un cliente para pagar su plan ya
+  // vencido como si hubiera renovado a tiempo (ver enPlazoDePagoPlan en
+  // @/lib/helpers): dentro de esa ventana conserva su precio de contratación
+  // (el heredado, ver precioPlanCliente) y su fecha de vencimiento original —
+  // el ciclo sigue corriendo desde donde estaba, no arranca de cero hoy.
+  // Pasado el plazo paga el precio vigente, como cualquier reactivación.
+  diasGraciaPagoAtrasado: number;
   // Horas mínimas entre dos ingresos por plan de un mismo vehículo antes de
   // volver a quedar "libre" para reingresar (ver estadoReingresoPlan en
   // helpers/ingresos.ts). Acepta decimales (ej: 24.5 = 24 horas 30 min).
@@ -110,12 +117,6 @@ export interface ConfigGlobal {
   // Contenido editable de las respuestas automáticas del bot de WhatsApp —
   // ver TextosBotWhatsapp.
   textosBotWhatsapp: TextosBotWhatsapp;
-  // URL pública (Supabase Storage) de la imagen adjunta en la Opción 1
-  // (precios) / Opción 2 (plan) del bot de WhatsApp. undefined/vacío usa el
-  // archivo estático de fábrica (ver SERVICIOS_IMAGEN_PATH/PLAN_IMAGEN_PATH
-  // en @/lib/whatsapp/contenido).
-  imagenPreciosWhatsapp?: string;
-  imagenPlanWhatsapp?: string;
   // Firma HTML del gestor de correo (ver @/types/buzon) — vacía por defecto.
   firmaCorreo: string;
 }

@@ -54,6 +54,20 @@ export function formatTelefono(tel: string | null | undefined): string {
   return original;
 }
 
+/**
+ * Devuelve el teléfono solo si el operador realmente tipeó algo. Los inputs
+ * precargan "+569" para que escriba únicamente los 8 dígitos (ver defaultValue
+ * en ClientModal / OperadorNotFoundResult / ServiciosAdicionalesForm); si lo
+ * deja intacto no hay teléfono, y guardarlo tal cual es peor que dejarlo vacío
+ * porque la ficha queda con pinta de completa y nadie se lo vuelve a pedir al
+ * cliente. Pasó de verdad: 358 fichas con telefono="+569" entre el 8 y el
+ * 19-jul-2026 (ver scripts/limpiar-datos-clientes.ts).
+ */
+export function telefonoTipeado(raw: string | null | undefined): string {
+  const t = (raw || "").trim();
+  return /\d/.test(t.replace(/^\+?569?/, "")) ? t : "";
+}
+
 const TELEFONO_REGEX = /^\+569\d{8}$/;
 
 export function isValidTelefono(tel: string | null | undefined): boolean {
@@ -78,6 +92,27 @@ export function fmtTelefono(tel: string | null | undefined): string {
   const resto = formateado.slice(4); // 8 dígitos tras "+569"
   return `+569 -${resto.slice(0, 4)} ${resto.slice(4)}`;
 }
+
+/**
+ * Raíces de las direcciones que el operador inventa cuando el cliente no
+ * quiere dar el correo pero el formulario lo exige: "noquieredarcorreo@",
+ * "invitado@", "notienw@", más las casillas del propio local. Se buscan solo
+ * en la parte local, y en forma de raíz para que aguanten los tipeos.
+ * scripts/calidadDatosClientes.ts extiende esta lista para el saneamiento
+ * histórico; acá está la que hace falta para no aceptar más.
+ */
+export const CORREO_RELLENO_RAICES = ["noquier", "noquis", "notien", "nosab", "noselo", "nomail", "nocorreo", "sincorreo", "sinmail", "invit", "limpiezaxx", "lavadoxx", "lavadotunel", "pasadotunel", "pasadatunel"];
+
+export function esCorreoDeRelleno(email: string | null | undefined): boolean {
+  const limpio = (email || "").trim().toLowerCase();
+  if (!limpio) return false;
+  const local = limpio.includes("@") ? limpio.slice(0, limpio.lastIndexOf("@")) : limpio;
+  const token = local.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  return CORREO_RELLENO_RAICES.some((r) => token.includes(r)) || limpio.endsWith("@zplash.cl");
+}
+
+export const CORREO_RELLENO_MSG =
+  "Ese correo es de relleno y el cliente nunca va a recibir nada. Si no quiere darlo, marca «El cliente no quiere dar correo».";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

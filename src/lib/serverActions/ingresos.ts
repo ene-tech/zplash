@@ -31,10 +31,13 @@ export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
     // ahoraEnSantiago) para comparar contra el horario configurado.
     if (!dentroDeHorarioOperador(config, ahoraEnSantiago())) return false;
   }
+  // Un día con la caja ya cerrada no recibe más pasadas por el túnel: su
+  // resumen quedó firmado y no se puede volver a mover (ver CierreCaja).
+  if (await dataAccess.altaEnDiaCerrado(rows.map((i) => i.fecha))) return false;
   return dataAccess.insertIngresos(rows);
 }
 
-// Gateada con puedeBorrarIngreso (perfil "Gerencia" exacto), a diferencia de
+// Gateada con puedeBorrarIngreso (perfil "Gerencia" o módulo "arqueo"), a diferencia de
 // insertIngresos: el Historial de Ingresos nace de solo alta (ver el
 // comentario en @/context/commit/ingresos.ts) y borrar una fila ya guardada
 // es la excepción deliberada a eso, así que queda igual de restringida que
@@ -43,6 +46,7 @@ export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
 // por POST directo.
 export async function deleteIngresos(ids: string[]): Promise<boolean> {
   const sesion = await sesionActual();
-  if (!sesion || !puedeBorrarIngreso(sesion.nombre)) return false;
+  if (!sesion || !puedeBorrarIngreso(sesion.nombre, sesion.modulos)) return false;
+  if (await dataAccess.bajaEnDiaCerrado("ingresos", ids)) return false;
   return dataAccess.deleteIngresos(ids);
 }

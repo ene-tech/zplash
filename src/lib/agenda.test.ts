@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diaSemanaDe, esRetrocesoInvalido, puedeIngresarTunelDetailing, seSuperponen, validarDisponibilidad } from "./agenda";
+import { diaSemanaDe, esRetrocesoInvalido, lunesDe, puedeIngresarTunelDetailing, seSuperponen, validarDisponibilidad } from "./agenda";
 import type { BloqueoAgenda, Cita, HorarioAgenda } from "@/types";
 
 function horario(diaSemana: number, horaInicio: string, horaFin: string): HorarioAgenda {
@@ -25,6 +25,15 @@ describe("diaSemanaDe", () => {
   it("calcula el día de semana sin desfase de timezone", () => {
     // 2026-07-14 es martes.
     expect(diaSemanaDe("2026-07-14")).toBe(2);
+  });
+});
+
+describe("lunesDe", () => {
+  it("ancla la semana en el lunes anterior o en el mismo día si ya es lunes", () => {
+    // 2026-07-14 martes, 2026-07-13 lunes, 2026-07-19 domingo (cierra esa semana).
+    expect(lunesDe("2026-07-14")).toBe("2026-07-13");
+    expect(lunesDe("2026-07-13")).toBe("2026-07-13");
+    expect(lunesDe("2026-07-19")).toBe("2026-07-13");
   });
 });
 

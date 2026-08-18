@@ -4,6 +4,7 @@ import { inArray } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
+import { esVentaAutomatica } from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Venta } from "@/types";
@@ -80,6 +81,32 @@ export function ventaFromRow(r: VentaRow): Venta {
     facturaEmitida: r.facturaEmitida || undefined,
     canjeadaEn: r.canjeadaEn || undefined,
   };
+}
+
+export async function ventasPorIds(ids: string[]): Promise<Venta[]> {
+  if (!ids.length) return [];
+  return (await getDb().select().from(ventas).where(inArray(ventas.id, ids))).map(ventaFromRow);
+}
+
+/** true si el upsert intenta reclasificar una venta que registró sola la
+ * plataforma (ver esVentaAutomatica en @/lib/helpers): cambiarle el tipo, el
+ * medio de pago o el monto a un cobro Webpay/Oneclick/WooCommerce, o a un lote
+ * de Venta Empresa. Ninguna de esas cosas puede ser la corrección de un error
+ * humano —nadie tipeó esa venta—, así que el bloqueo vive acá, en la base, y
+ * no depende de qué pantalla escriba. Lo que sí se sigue actualizando en una
+ * venta web:
+ * facturaEmitida y canjeadaEn. `creadoPor` entra en la comparación para que no
+ * se pueda "blanquear" una venta automática antes de reclasificarla, y siempre
+ * se compara contra la fila guardada, nunca contra lo que manda el cliente. */
+export async function reclasificaVentaAutomatica(rows: Venta[]): Promise<boolean> {
+  const previas = new Map((await ventasPorIds(rows.map((r) => r.id))).map((v) => [v.id, v]));
+  return rows.some((r) => {
+    const previa = previas.get(r.id);
+    if (!previa || !esVentaAutomatica(previa)) return false;
+    return (
+      r.tipo !== previa.tipo || r.metodoPago !== previa.metodoPago || r.precio !== previa.precio || r.creadoPor !== previa.creadoPor
+    );
+  });
 }
 
 export async function insertVentas(rows: Venta[]): Promise<boolean> {

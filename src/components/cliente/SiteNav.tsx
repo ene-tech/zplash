@@ -49,7 +49,7 @@ export default function SiteNav() {
         </button>
 
         <Link href="/" className="site-nav-logo" aria-label="Ir al inicio" onClick={() => setOpen(false)}>
-          <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
+          <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" priority />
         </Link>
 
         <div className="site-nav-links">

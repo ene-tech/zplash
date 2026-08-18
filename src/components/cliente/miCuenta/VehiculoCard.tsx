@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SolicitudCambioPatente } from "@/components/cliente/miCuenta/SolicitudCambioPatente";
 import { QuitarVehiculo } from "@/components/cliente/miCuenta/QuitarVehiculo";
+import { EliminarPlan } from "@/components/cliente/miCuenta/EliminarPlan";
 import { useOfertaPlan, type TarjetaGuardada, type TipoOfertaPlan } from "@/components/cliente/miCuenta/useOfertaPlan";
 import { redirigirAInscripcionOneclick } from "@/lib/webpayClient";
 
-type Accion = "cambio" | "quitar" | null;
+type Accion = "cambio" | "quitar" | "eliminar-plan" | null;
 
 const NOMBRE_OFERTA: Record<TipoOfertaPlan, string> = {
   renovacion_temprana: "Renovación anticipada",
@@ -47,6 +48,10 @@ export function VehiculoCard({
 }) {
   const [accion, setAccion] = useState<Accion>(null);
   const tieneCambioPatente = v.plan !== "Sin plan";
+  // Dar de baja el plan solo tiene sentido con el plan ya vencido: vigente, el
+  // cliente pagó por esos días (ver /api/cliente/mi-cuenta/eliminar-plan, que
+  // valida lo mismo del lado del servidor).
+  const puedeEliminarPlan = v.estado.cls === "bad" && !!v.vencimiento;
   const {
     pagando,
     confirmando,
@@ -56,6 +61,7 @@ export function VehiculoCard({
     cancelarConfirmacion,
     confirmarConTarjeta,
     pagarPorWebpayEnCambio,
+    pagarPlanVencido,
   } = useOfertaPlan(v.patente, tarjeta ?? null, onActualizado);
 
   const montoOferta = (tipo: TipoOfertaPlan): number | undefined =>
@@ -113,14 +119,19 @@ export function VehiculoCard({
               {tieneCambioPatente && (
                 <DropdownMenuItem onClick={() => setAccion("cambio")}>Solicitar cambio de patente</DropdownMenuItem>
               )}
+              {puedeEliminarPlan && (
+                <DropdownMenuItem variant="destructive" onClick={() => setAccion("eliminar-plan")}>
+                  Eliminar Plan
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem variant="destructive" onClick={() => setAccion("quitar")}>
-                Quitar de mi cuenta
+                Eliminar esta patente de mi cuenta
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
-      {v.vencimiento && <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>Vence el {fmtFecha(v.vencimiento)}</div>}
+      {v.vencimiento && <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>{v.estado.cls === "bad" ? "Venció" : "Vence"} el {fmtFecha(v.vencimiento)}</div>}
 
       {ra && !(sinOfertaReal && tarjeta) && (
         <div className="offer-card">
@@ -188,6 +199,26 @@ export function VehiculoCard({
           </button>
         </div>
       )}
+      {oferta?.pagoVencido && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Plan vencido</span>
+            <h4>
+              Tu plan venció hace {oferta.pagoVencido.diasVencido} día{oferta.pagoVencido.diasVencido === 1 ? "" : "s"}
+            </h4>
+          </div>
+          <div className="msg">Págalo cuando quieras y vuelves a pasar a lavar.</div>
+          <div className="price-row">
+            <span className="new">{fmtCLP(oferta.pagoVencido.precio)}</span>
+          </div>
+          <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+            Sigue siendo tu mismo plan, con los días de atraso ya corridos: no arranca un ciclo nuevo desde hoy.
+          </div>
+          <button className="btn secondary" onClick={pagarPlanVencido} disabled={pagando !== null}>
+            {pagando === "renovacion" ? "Procesando..." : `Pagar mi plan (${fmtCLP(oferta.pagoVencido.precio)})`}
+          </button>
+        </div>
+      )}
       {oferta?.upgrade && (
         <div className="offer-card">
           <div className="offer-head">
@@ -242,6 +273,15 @@ export function VehiculoCard({
           abierto={accion === "cambio"}
           onCerrar={() => setAccion(null)}
           onActualizado={onActualizado}
+        />
+      )}
+      {puedeEliminarPlan && (
+        <EliminarPlan
+          patente={v.patente}
+          plan={v.plan}
+          abierto={accion === "eliminar-plan"}
+          onCerrar={() => setAccion(null)}
+          onEliminado={onActualizado}
         />
       )}
       <QuitarVehiculo patente={v.patente} abierto={accion === "quitar"} onCerrar={() => setAccion(null)} onQuitado={onActualizado} />

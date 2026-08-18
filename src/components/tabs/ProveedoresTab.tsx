@@ -78,13 +78,16 @@ export default function ProveedoresTab() {
               <TableHead>Email</TableHead>
               <TableHead>Dirección</TableHead>
               <TableHead>Contacto</TableHead>
+              <TableHead>Banco</TableHead>
+              <TableHead>Cuenta corriente</TableHead>
+              <TableHead>Tipo de gasto</TableHead>
               <TableHead className="sticky right-0 z-10 w-0 bg-background" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtrados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={10}>
                   <div className="empty">No hay proveedores que coincidan</div>
                 </TableCell>
               </TableRow>
@@ -97,6 +100,9 @@ export default function ProveedoresTab() {
                   <TableCell>{p.email || "-"}</TableCell>
                   <TableCell>{p.direccion || "-"}</TableCell>
                   <TableCell>{p.contacto || "-"}</TableCell>
+                  <TableCell>{p.banco || "-"}</TableCell>
+                  <TableCell>{p.cuentaCorriente || "-"}</TableCell>
+                  <TableCell>{p.categoriaGasto || "-"}</TableCell>
                   <TableCell className="sticky right-0 z-10 bg-background">
                     <div className="flex items-center gap-1">
                       <Button

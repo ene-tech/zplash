@@ -1,4 +1,5 @@
 import type { DestinoInventario, MovimientoInventario, Producto } from "@/types";
+import { limpiarRut } from "./validadores";
 
 /** Cantidad de `producto` disponible en cada destino (Bodega + vending), a
  * partir de los traspasos registrados en `movimientos`. No hay una columna de
@@ -35,4 +36,15 @@ export function productoPermitidoEnDestino(
   destino: Pick<DestinoInventario, "id" | "esBodega">
 ): boolean {
   return destino.esBodega || !producto.destinosBloqueados?.includes(destino.id);
+}
+
+/** Busca un proveedor del directorio por RUT, comparando RUTs limpios (ver
+ * limpiarRut): el RUT guardado y el tipeado pueden venir con o sin puntos,
+ * y comparar los textos formateados dejaba fuera coincidencias válidas. Lo
+ * usa el formulario de Egresos para autocompletar el asiento (nombre y tipo
+ * de gasto) apenas se ingresa el RUT. */
+export function buscarProveedorPorRut<T extends { rut?: string }>(proveedores: T[], rut: string): T | undefined {
+  const buscado = limpiarRut(rut);
+  if (!buscado) return undefined;
+  return proveedores.find((p) => p.rut && limpiarRut(p.rut) === buscado);
 }

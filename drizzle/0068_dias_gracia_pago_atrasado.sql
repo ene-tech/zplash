@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "dias_gracia_pago_atrasado" integer DEFAULT 4 NOT NULL;

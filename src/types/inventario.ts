@@ -12,6 +12,12 @@ export interface Proveedor {
   emailVendedor?: string;
   telefonoVendedor?: string;
   emailComprobantes?: string;
+  banco?: string;
+  cuentaCorriente?: string;
+  // Glosa de gasto habitual — calza con un CategoriaGasto.nombre (ver
+  // MovimientoContable.categoria): el formulario de Egresos la precarga al
+  // reconocer el RUT del proveedor.
+  categoriaGasto?: string;
   creadoEn: string;
   creadoPor?: string;
 }

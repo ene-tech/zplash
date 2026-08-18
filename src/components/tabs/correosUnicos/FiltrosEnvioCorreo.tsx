@@ -4,10 +4,10 @@ export type FiltroEstadoCorreo = (typeof FILTROS_ESTADO_CORREO)[number];
 export const FILTROS_ORIGEN_CORREO = ["todos", "WEB", "LOCAL"] as const;
 export type FiltroOrigenCorreo = (typeof FILTROS_ORIGEN_CORREO)[number];
 
-// Segmentación por cobro automático (Oneclick). Solo distingue de verdad a
-// clientes origen="WEB": los LOCAL no tienen cobro automático propio, así que
-// para ellos "sin cobro automático" siempre da true (mismo criterio que
-// condicionSoloSinAutopago en @/db/schema/mailReglas).
+// Segmentación por cobro automático (Oneclick), sin mirar el origen del
+// cliente: la tarjeta se inscribe por patente (Mi Cuenta → "Mis tarjetas"),
+// así que un cliente LOCAL también puede tener cobro automático activo —
+// mismo criterio que condicionSoloSinAutopago en @/db/schema/mailReglas.
 export const FILTROS_AUTOPAGO = ["todos", "activo", "sin", "cobro_rechazado"] as const;
 export type FiltroAutopago = (typeof FILTROS_AUTOPAGO)[number];
 

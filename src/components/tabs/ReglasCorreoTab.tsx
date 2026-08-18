@@ -10,6 +10,7 @@ const TIPOS_VENTA_CONOCIDOS = [
   "Lavado único",
   "Plan nuevo",
   "Renovación preferencial",
+  "Renovación atrasada",
   "Reactivación promocional",
   "Plan nuevo (Web)",
   "Renovación (Web)",
@@ -40,7 +41,7 @@ function resumenCondicion(r: ReglaCorreo): string {
     return `No dispara sola — la crea "Correos Únicos" para poder registrar ahí sus envíos puntuales`;
   }
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
-  const soloSinAutopago = r.condicionSoloSinAutopago ? " · solo clientes sin pago automático activo" : "";
+  const soloSinAutopago = r.condicionSoloSinAutopago ? " · solo clientes sin tarjeta inscrita" : "";
   const soloConPromo = r.condicionSoloConPromoRenovacion ? " · solo con promoción de renovación vigente" : "";
   return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}${soloSinAutopago}${soloConPromo}`;
 }
@@ -232,11 +233,11 @@ export default function ReglasCorreoTab() {
           <div className="field" style={{ marginBottom: 10 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400 }}>
               <input type="checkbox" checked={soloSinAutopago} onChange={(e) => setSoloSinAutopago(e.target.checked)} />
-              Solo clientes sin pago automático activo
+              Solo clientes sin tarjeta inscrita (sin pago automático)
             </label>
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
-              No le avisa a un cliente Web que ya tiene tarjeta Oneclick registrada (a ese el cobro automático lo va a
-              renovar solo). Los clientes de local siempre reciben el aviso.
+              No le avisa a quien ya tenga tarjeta Oneclick registrada, sea de web o de local (a ese el cobro
+              automático lo va a renovar solo). El resto — web y local sin tarjeta — sí recibe el aviso.
             </div>
           </div>
         )}

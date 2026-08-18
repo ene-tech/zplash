@@ -9,6 +9,7 @@ import {
   isValidRut,
   isValidTelefono,
   normPlate,
+  telefonoTipeado,
 } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
@@ -54,7 +55,7 @@ export function validarClienteModal(d: DatosValidacionClienteModal): ResultadoVa
   const dup = d.clientes.find((x) => normPlate(x.patente) === patente && x.id !== d.clienteIdActual);
   if (dup) return { ok: false, error: "Ya existe un cliente con esa patente" };
 
-  const telefonoRaw = d.telefonoRaw.trim();
+  const telefonoRaw = telefonoTipeado(d.telefonoRaw);
   // El campo precarga "+569" como ayuda para tipear solo los 8 dígitos
   // restantes (ver defaultValue en el input); si el operador lo deja intacto
   // porque el cliente no tiene teléfono, no hay dígitos que validar — sin
@@ -62,7 +63,7 @@ export function validarClienteModal(d: DatosValidacionClienteModal): ResultadoVa
   // ningún caso de conversión) e isValidTelefono lo rechaza por formato,
   // bloqueando el guardado de un cliente que en realidad no quiso ingresar
   // teléfono.
-  const telefono = telefonoRaw && telefonoRaw !== "+569" ? formatTelefono(telefonoRaw) : "";
+  const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
   if (!d.exentoFormato && telefono && !isValidTelefono(telefono)) return { ok: false, error: TELEFONO_FORMATO_MSG };
 
   const email = d.emailRaw.trim();

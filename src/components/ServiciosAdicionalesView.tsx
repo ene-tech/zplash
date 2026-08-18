@@ -4,6 +4,7 @@ import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import ServiciosAdicionalesForm from "@/components/ServiciosAdicionalesForm";
 import ServiciosAdicionalesLog from "@/components/ServiciosAdicionalesLog";
+import { AgendaSemanal } from "@/components/tabs/agenda/AgendaSemanal";
 
 export default function ServiciosAdicionalesView() {
   const { ui, patchUi, logout, loadingHistorial } = useApp();
@@ -17,6 +18,10 @@ export default function ServiciosAdicionalesView() {
       />
       <div className="content">
         <ServiciosAdicionalesForm />
+        {/* La agenda semanal va entre el formulario y el log: se consulta
+            justo al elegir fecha/hora de inicio, y sale de data.citas, que
+            llega en la oleada "core" (no depende de loadingHistorial). */}
+        <AgendaSemanal />
         {/* El log lista ventas de tipo servicio adicional (`data.ventas`),
             que llega en la oleada "historial" — ver AppContext y el
             diagnóstico de performance 2026-08-10. El formulario de arriba no

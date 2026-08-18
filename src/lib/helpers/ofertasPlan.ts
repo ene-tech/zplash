@@ -5,6 +5,7 @@ import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
 import {
   precioConHeredado,
   precioNormal,
+  precioPagoAtrasado,
   precioRenovacionLocal,
   precioReactivacionVencido,
   precioUpgradePlan,
@@ -21,6 +22,19 @@ export interface OfertaPlan {
   // puede ver ese valor.
   reactivacion?: { precio: number; diasVencido: number; pNormal: number };
   upgrade?: { precio: number };
+  // Plan vencido SIN tramo de reactivación que le calce: no es una promoción,
+  // es el plan de siempre esperando que lo paguen. Existe para que un cliente
+  // vencido nunca se quede sin botón de pago en Mi Cuenta — antes, pasada la
+  // ventana de reactivación, la tarjeta del vehículo no le ofrecía nada y su
+  // única salida era volver a /pagar y reingresar la patente a mano.
+  //
+  // Se cobra como `renovacion` (mismo tipo público y mismo precio que /pagar,
+  // de ahí precioPlanCliente: con pocos días de atraso conserva su precio de
+  // contratación, pasado el plazo paga el vigente), no como una promo de
+  // cuenta. Pagarlo no reinicia el ciclo: aplicarPagoAprobado ancla el
+  // vencimiento a fechaContratacion (ver vencimientoAnclado), así que el
+  // cliente recupera SU plan con los días de atraso ya perdidos.
+  pagoVencido?: { precio: number; diasVencido: number };
 }
 
 /**
@@ -95,6 +109,16 @@ export function calcularOfertasPlan(
       // verdad en la renovación siguiente (ver el bloque de arriba), no el
       // precio de lista.
       oferta.reactivacion = { precio: precioReactivacion, diasVencido: diasVenc, pNormal: precioConHeredado(precioNormal(precios, plan), cliente) };
+    } else {
+      // Sin tramo que le calce el plan igual se puede pagar, al precio normal
+      // (ver pagoVencido). La promoción de reactivación, cuando existe, ya es
+      // este mismo pago más barato: no se ofrecen las dos juntas.
+      //
+      // Dentro de los días de gracia de pago atrasado paga lo mismo que si
+      // hubiera renovado a tiempo (ver precioPagoAtrasado: el preferencial del
+      // plan, con su heredado si tiene); pasado el plazo, el precio normal.
+      const precio = precioPagoAtrasado(precios, plan, cliente, config.diasGraciaPagoAtrasado);
+      if (precio > 0) oferta.pagoVencido = { precio, diasVencido: diasVenc };
     }
   }
 
@@ -109,6 +133,21 @@ export function calcularOfertasPlan(
     const precio = ventaUpgrade ? precioUpgradePlan(precios, ventaUpgrade, cliente) : 0;
     if (precio > 0) {
       oferta.upgrade = { precio };
+    }
+  }
+
+  // Un cliente vencido puede calificar a la vez para reactivación (o para el
+  // pago del plan vencido) y para el upgrade desde su lavado único: son dos
+  // caminos al mismo plan, así que se le ofrece solo el más barato. Dos
+  // precios distintos por lo mismo en la misma tarjeta se leen como error, y
+  // el cliente iba a elegir el barato igual.
+  const vencido = oferta.reactivacion ?? oferta.pagoVencido;
+  if (vencido && oferta.upgrade) {
+    if (oferta.upgrade.precio < vencido.precio) {
+      delete oferta.reactivacion;
+      delete oferta.pagoVencido;
+    } else {
+      delete oferta.upgrade;
     }
   }
 

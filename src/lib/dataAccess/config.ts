@@ -20,12 +20,11 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     tramosRenovacionLocal: c.tramosRenovacionLocal,
     horasVentanaUpgradePlan: c.horasVentanaUpgradePlan,
     tramosReactivacionVencido: c.tramosReactivacionVencido,
+    diasGraciaPagoAtrasado: c.diasGraciaPagoAtrasado,
     horasBloqueoReingresoPlan: c.horasBloqueoReingresoPlan,
     descuentoPrimeraVezValor: c.descuentoPrimeraVezValor,
     descuentoPrimeraVezDiasValidez: c.descuentoPrimeraVezDiasValidez,
     textosBotWhatsapp: c.textosBotWhatsapp as unknown as Record<string, string>,
-    imagenPreciosWhatsapp: c.imagenPreciosWhatsapp || null,
-    imagenPlanWhatsapp: c.imagenPlanWhatsapp || null,
     firmaCorreo: c.firmaCorreo,
   };
 }
@@ -41,12 +40,13 @@ export function configFromRow(r: ConfigRow): ConfigGlobal {
     tramosRenovacionLocal: r.tramosRenovacionLocal ?? {},
     horasVentanaUpgradePlan: r.horasVentanaUpgradePlan || 1,
     tramosReactivacionVencido: r.tramosReactivacionVencido ?? {},
+    // `??` y no `||`: 0 días de gracia es una configuración válida (se paga
+    // el precio vigente apenas vence), no "todavía sin configurar".
+    diasGraciaPagoAtrasado: r.diasGraciaPagoAtrasado ?? 4,
     horasBloqueoReingresoPlan: r.horasBloqueoReingresoPlan || 24.5,
     descuentoPrimeraVezValor: r.descuentoPrimeraVezValor || 1000,
     descuentoPrimeraVezDiasValidez: r.descuentoPrimeraVezDiasValidez || 7,
     textosBotWhatsapp: { ...TEXTOS_BOT_WHATSAPP_DEFAULT, ...(r.textosBotWhatsapp ?? {}) },
-    imagenPreciosWhatsapp: r.imagenPreciosWhatsapp || undefined,
-    imagenPlanWhatsapp: r.imagenPlanWhatsapp || undefined,
     firmaCorreo: r.firmaCorreo ?? "",
   };
 }

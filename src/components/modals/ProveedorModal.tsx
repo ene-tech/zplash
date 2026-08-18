@@ -8,6 +8,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const SIN_GLOSA = "__sin_glosa__";
 
 export default function ProveedorModal({ data: p }: { data: Proveedor | null }) {
   const { data, commit, patchUi, ui } = useApp();
@@ -22,7 +25,15 @@ export default function ProveedorModal({ data: p }: { data: Proveedor | null }) 
   const emailVendedorRef = useRef<HTMLInputElement>(null);
   const telefonoVendedorRef = useRef<HTMLInputElement>(null);
   const emailComprobantesRef = useRef<HTMLInputElement>(null);
+  const bancoRef = useRef<HTMLInputElement>(null);
+  const cuentaCorrienteRef = useRef<HTMLInputElement>(null);
+  // El tipo de gasto va en estado (no ref) porque el Select de shadcn es
+  // controlado. SIN_GLOSA es el centinela para "ninguna": SelectItem no
+  // acepta value="".
+  const [categoriaGasto, setCategoriaGasto] = useState(prov.categoriaGasto || SIN_GLOSA);
   const [err, setErr] = useState("");
+
+  const glosasGasto = data.categoriasGasto.filter((c) => c.activa || c.nombre === prov.categoriaGasto);
 
   const cerrar = () => patchUi({ modal: null });
 
@@ -68,6 +79,9 @@ export default function ProveedorModal({ data: p }: { data: Proveedor | null }) 
         emailVendedor: emailVendedorRef.current?.value.trim() || "",
         telefonoVendedor,
         emailComprobantes: emailComprobantesRef.current?.value.trim() || "",
+        banco: bancoRef.current?.value.trim() || "",
+        cuentaCorriente: cuentaCorrienteRef.current?.value.trim() || "",
+        categoriaGasto: categoriaGasto === SIN_GLOSA ? "" : categoriaGasto,
       };
       proveedores = data.proveedores.map((x) => (x.id === p.id ? actualizado : x));
     } else {
@@ -82,6 +96,9 @@ export default function ProveedorModal({ data: p }: { data: Proveedor | null }) 
         emailVendedor: emailVendedorRef.current?.value.trim() || "",
         telefonoVendedor,
         emailComprobantes: emailComprobantesRef.current?.value.trim() || "",
+        banco: bancoRef.current?.value.trim() || "",
+        cuentaCorriente: cuentaCorrienteRef.current?.value.trim() || "",
+        categoriaGasto: categoriaGasto === SIN_GLOSA ? "" : categoriaGasto,
         creadoEn: new Date().toISOString(),
         creadoPor: ui.perfilActual?.nombre || "Administrador",
       };
@@ -151,6 +168,34 @@ export default function ProveedorModal({ data: p }: { data: Proveedor | null }) 
           <div className="grid gap-1.5">
             <Label htmlFor="prov-email-comprobantes">Mail Comprobantes de Transferencia</Label>
             <Input id="prov-email-comprobantes" ref={emailComprobantesRef} type="email" defaultValue={prov.emailComprobantes || ""} />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-banco">Banco</Label>
+            <Input id="prov-banco" ref={bancoRef} defaultValue={prov.banco || ""} placeholder="Ej: Banco de Chile" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-cuenta">Cuenta corriente</Label>
+            <Input id="prov-cuenta" ref={cuentaCorrienteRef} defaultValue={prov.cuentaCorriente || ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="prov-categoria-gasto">Tipo de gasto habitual</Label>
+            <Select value={categoriaGasto} onValueChange={(v) => setCategoriaGasto(v ?? SIN_GLOSA)}>
+              <SelectTrigger id="prov-categoria-gasto">
+                <SelectValue placeholder="Sin tipo de gasto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_GLOSA}>Sin tipo de gasto</SelectItem>
+                {glosasGasto.map((c) => (
+                  <SelectItem key={c.id} value={c.nombre}>
+                    {c.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Se precarga automáticamente al registrar un egreso con el RUT de este proveedor.
+            </p>
           </div>
 
           {err && <p className="text-sm text-destructive">{err}</p>}

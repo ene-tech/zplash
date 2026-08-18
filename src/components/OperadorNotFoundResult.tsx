@@ -94,8 +94,12 @@ export default function OperadorNotFoundResult({
           <input ref={qTelefonoRef} defaultValue="+569" placeholder="+569 -1111 1111" onBlur={r.onTelefonoBlur} />
         </div>
         <div>
-          <label>Correo electrónico{r.tipoLavado === "plan" ? " *" : ""}</label>
-          <input ref={qEmailRef} type="email" placeholder="correo@ejemplo.com" />
+          <label>Correo electrónico{r.tipoLavado === "plan" && !r.sinCorreo ? " *" : ""}</label>
+          <input ref={qEmailRef} type="email" placeholder="correo@ejemplo.com" disabled={r.sinCorreo} />
+          <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontWeight: 400 }}>
+            <input type="checkbox" checked={r.sinCorreo} onChange={(e) => r.setSinCorreo(e.target.checked)} style={{ width: "auto" }} />
+            El cliente no quiere dar correo
+          </label>
         </div>
         <div>
           <label>Vehículo (Marca y Modelo)</label>

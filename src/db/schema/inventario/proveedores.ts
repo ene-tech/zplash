@@ -15,6 +15,13 @@ export const proveedores = pgTable("proveedores", {
   emailVendedor: text("email_vendedor"),
   telefonoVendedor: text("telefono_vendedor"),
   emailComprobantes: text("email_comprobantes"),
+  banco: text("banco"),
+  cuentaCorriente: text("cuenta_corriente"),
+  // Glosa de gasto habitual del proveedor: referencia por nombre a
+  // `categorias_gasto.nombre` (mismo criterio sin FK que
+  // `movimientos_contables.categoria`), para precargar el tipo de gasto al
+  // registrar un egreso desde su RUT.
+  categoriaGasto: text("categoria_gasto"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),
 });

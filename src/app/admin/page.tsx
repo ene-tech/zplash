@@ -27,7 +27,7 @@ function ZplashApp() {
     return (
       <div className="login-screen">
         <div className="brand">
-          <Image src="/logo.png" alt="ZPlash" width={200} height={76} className="brand-logo" unoptimized />
+          <Image src="/logo.png" alt="ZPlash" width={200} height={76} className="brand-logo" />
           <div className="sub" style={showError ? { color: "var(--red)", maxWidth: 340 } : undefined}>
             {showError
               ? "No se pudo conectar al almacenamiento permanente. Los datos que ingreses ahora podrían no guardarse. Intenta recargar la página."

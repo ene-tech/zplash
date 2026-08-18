@@ -40,7 +40,15 @@ export default function CuentasPorCobrarTab() {
         monto: m.monto,
         descripcion: m.descripcion,
         onConfirm: (pago: PagoInfo) => {
-          const actualizado: MovimientoContable = { ...m, estado: "pagado", metodoPago: pago.metodo };
+          // fechaPago = el día que entró la plata, que no es el día de la venta
+          // cuando se vendió a plazo — es lo que el Flujo de Caja usa para
+          // poner el ingreso en el mes correcto (ver fechaEfectiva).
+          const actualizado: MovimientoContable = {
+            ...m,
+            estado: "pagado",
+            metodoPago: pago.metodo,
+            fechaPago: new Date().toISOString(),
+          };
           commit({ movimientosContables: data.movimientosContables.map((x) => (x.id === m.id ? actualizado : x)) });
         },
       },

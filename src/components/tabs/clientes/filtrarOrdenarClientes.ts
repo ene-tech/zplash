@@ -22,12 +22,12 @@ function coincideNombre(c: Cliente, q: string): boolean {
 
 // Rango de relevancia: todo lo que coincide por patente se ordena antes que
 // lo que solo coincide por nombre, ya que patente es el campo de búsqueda
-// más específico (identifica un único vehículo/cliente).
-function relevancia(c: Cliente, query: string): number {
+// más específico (identifica un único vehículo/cliente). `q`/`qPatente` se
+// reciben ya normalizados: normalizar la query acá adentro significaba
+// rehacerlo una vez por cliente.
+function relevancia(c: Cliente, q: string, qPatente: string): number {
   const nombre = c.nombre.toLowerCase();
-  const q = query.toLowerCase().trim();
   const patente = normPlate(c.patente);
-  const qPatente = normPlate(query);
 
   if (qPatente && patente === qPatente) return 0;
   if (qPatente && patente.startsWith(qPatente)) return 1;
@@ -38,28 +38,23 @@ function relevancia(c: Cliente, query: string): number {
   return 6;
 }
 
-function ordenColumna(a: Cliente, b: Cliente, orden: string): number {
+// Clave numérica de orden, siempre ascendente (los órdenes "desc" invierten
+// el signo acá en vez de invertir el comparador). Cada orden tiene su propio
+// valor para el cliente sin dato, elegido para que esas filas queden al final
+// en ambas direcciones.
+function claveColumna(c: Cliente, orden: string): number {
   switch (orden) {
-    case "vencimiento_asc": {
-      const va = a.vencimiento ? new Date(a.vencimiento).getTime() : Infinity;
-      const vb = b.vencimiento ? new Date(b.vencimiento).getTime() : Infinity;
-      return va - vb;
-    }
-    case "vencimiento_desc": {
-      const va = a.vencimiento ? new Date(a.vencimiento).getTime() : -Infinity;
-      const vb = b.vencimiento ? new Date(b.vencimiento).getTime() : -Infinity;
-      return vb - va;
-    }
+    case "vencimiento_asc":
+      return c.vencimiento ? new Date(c.vencimiento).getTime() : Infinity;
+    case "vencimiento_desc":
+      return c.vencimiento ? -new Date(c.vencimiento).getTime() : Infinity;
     case "visitas_desc":
-      return (b.visitas || 0) - (a.visitas || 0);
+      return -(c.visitas || 0);
     case "visitas_asc":
-      return (a.visitas || 0) - (b.visitas || 0);
+      return c.visitas || 0;
     case "estado":
-    default: {
-      const pa = ESTADO_PRIORIDAD[planStatus(a).label] ?? 9;
-      const pb = ESTADO_PRIORIDAD[planStatus(b).label] ?? 9;
-      return pa - pb;
-    }
+    default:
+      return ESTADO_PRIORIDAD[planStatus(c).label] ?? 9;
   }
 }
 
@@ -92,12 +87,23 @@ export function filtrarYOrdenarClientes(
   if (desde !== -Infinity || hasta !== Infinity) {
     filtered = filtered.filter((c) => (c.visitas || 0) >= desde && (c.visitas || 0) <= hasta);
   }
-  return [...filtered].sort((a, b) => {
-    if (search) {
-      const ra = relevancia(a, search);
-      const rb = relevancia(b, search);
-      if (ra !== rb) return ra - rb;
-    }
-    return ordenColumna(a, b, orden);
+  // Decorate-sort-undecorate: la clave de cada cliente se calcula UNA vez, no
+  // una vez por comparación. Antes el comparador llamaba a relevancia() y a
+  // planStatus() en cada par — con ~2000 clientes son ~44.000 llamadas por
+  // tecla tipeada, y planStatus() termina en un Intl.DateTimeFormat (ver
+  // fechaEnSantiago en @/lib/helpers/fechas). Era el costo dominante de
+  // escribir en el buscador de Clientes.
+  const decorados = filtered.map((c) => ({
+    c,
+    rel: search ? relevancia(c, qNombre, qPatente) : 0,
+    col: claveColumna(c, orden),
+  }));
+  // Comparación por < / > en vez de restar: con vencimientos vacíos las claves
+  // son ±Infinity y la resta daba NaN, que deja el orden de esas filas
+  // indefinido según la especificación de Array.prototype.sort.
+  decorados.sort((a, b) => {
+    if (a.rel !== b.rel) return a.rel - b.rel;
+    return a.col < b.col ? -1 : a.col > b.col ? 1 : 0;
   });
+  return decorados.map((d) => d.c);
 }

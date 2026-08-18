@@ -12,7 +12,7 @@ export default function HubView() {
   return (
     <div className="login-screen">
       <div className="brand">
-        <Image src="/logo.png" alt="ZPlash" width={200} height={76} className="brand-logo" unoptimized />
+        <Image src="/logo.png" alt="ZPlash" width={200} height={76} className="brand-logo" />
         <div className="sub">Hola, {ui.perfilActual?.nombre}</div>
       </div>
       <div className="role-grid module-grid">

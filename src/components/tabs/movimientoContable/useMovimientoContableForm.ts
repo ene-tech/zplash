@@ -3,7 +3,16 @@
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
 import { subirComprobanteGasto } from "@/lib/serverActions";
-import { CANAL_INGRESO_OTROS, CANAL_INGRESO_TUNEL, RUT_FORMATO_MSG, esEstadoPagadoEgreso, formatRut, isValidRut, todayYMD } from "@/lib/helpers";
+import {
+  buscarProveedorPorRut,
+  CANAL_INGRESO_OTROS,
+  CANAL_INGRESO_TUNEL,
+  RUT_FORMATO_MSG,
+  esEstadoPagadoEgreso,
+  formatRut,
+  isValidRut,
+  todayYMD,
+} from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 
 export const CONTRAPARTE_LABEL: Record<MovimientoContable["tipo"], string> = {
@@ -41,8 +50,35 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
   const [archivo, setArchivo] = useState<File | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [proveedorHint, setProveedorHint] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const estadoBloqueadoPagado = tipo === "ingreso" && categoriaIngreso === CANAL_INGRESO_TUNEL;
+
+  /** Autocompleta el asiento desde el directorio de Proveedores (misma
+   * tabla que Inventario → Proveedores): al salir del campo RUT se busca por
+   * RUT limpio —no por el texto formateado— para que dé igual cómo se haya
+   * tipeado, y se rellenan nombre y tipo de gasto habitual. Sobrescribe lo
+   * que hubiera escrito: cambiar el RUT es cambiar de proveedor. Banco y
+   * cuenta corriente solo se muestran (el movimiento no los guarda: el dato
+   * de pago vive en el proveedor, no en cada asiento). */
+  const buscarProveedor = () => {
+    const input = rutProveedorRef.current;
+    const raw = input?.value.trim() || "";
+    if (!raw) {
+      setProveedorHint(null);
+      return;
+    }
+    if (input) input.value = formatRut(raw);
+    const prov = buscarProveedorPorRut(data.proveedores, raw);
+    if (!prov) {
+      setProveedorHint({ msg: "RUT no registrado — puedes darlo de alta en la pestaña Proveedores.", ok: false });
+      return;
+    }
+    if (contraparteRef.current) contraparteRef.current.value = prov.nombre;
+    if (prov.categoriaGasto) setCategoriaGasto(prov.categoriaGasto);
+    const datosPago = [prov.banco, prov.cuentaCorriente].filter(Boolean).join(" · ");
+    setProveedorHint({ msg: prov.nombre + (datosPago ? ` — ${datosPago}` : ""), ok: true });
+  };
 
   const onCategoriaIngresoChange = (v: string) => {
     setCategoriaIngreso(v);
@@ -153,6 +189,7 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
     if (archivoInputRef.current) archivoInputRef.current.value = "";
     setEstado(tipo === "egreso" ? "pagado_cc" : "pagado");
     setMetodoPago(null);
+    setProveedorHint(null);
   };
 
   return {
@@ -175,6 +212,8 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
     setArchivo,
     subiendo,
     err,
+    buscarProveedor,
+    proveedorHint,
     estadoBloqueadoPagado,
     agregar,
   };

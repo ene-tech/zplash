@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   alertaMantencionStatus,
+  buscarProveedorPorRut,
   calcularOfertasPlan,
   CATEGORIA_DETAILING,
   CONFIG_DEFAULT,
@@ -11,10 +12,18 @@ import {
   esExentoFormatoCliente,
   esExentoHorarioOperador,
   esExentoValidacionRegistroOperador,
+  esCorreoDeRelleno,
   esEmailEnviable,
   esFinDeSemanaOFestivo,
   esServicioTunelLibre,
+  esTarjetaWeb,
+  esAjusteCierre,
+  esVentaAutomatica,
+  esVentaNuevaWeb,
+  fechaEfectiva,
   fmtCLP,
+  idAjusteCierre,
+  resumenCierreTexto,
   formatRut,
   estadoReingresoPlan,
   fmtHora,
@@ -24,8 +33,11 @@ import {
   isValidPatente,
   isValidRut,
   isValidTelefono,
+
+  telefonoTipeado,
   keyPrimeraContratacion,
   mensajeBloqueoReingreso,
+  mesesEntre,
   mesKey,
   montoDescuento,
   normPlate,
@@ -33,16 +45,20 @@ import {
   patchDeCliente,
   planStatus,
   precioContratacion,
+  precioPagoAtrasado,
+  precioRenovacionCliente,
   precioReactivacionVencido,
   proximoIngresoPermitido,
   puedeBorrarCategoriaInventario,
   puedeBorrarIngreso,
+  soloCambiosSinPlata,
   resolverDescuento,
   resolverPatentePendiente,
   sumarMeses,
   vencimientoAnclado,
   ventaLavadoUnicoDeIngreso,
   ventaLavadoWebPendiente,
+  variacionPorcentual,
   ventaUpgradeElegible,
   visitasDesdeContratacion,
   visitasPeriodoPlan,
@@ -116,6 +132,41 @@ describe("formatTelefono / isValidTelefono", () => {
     expect(isValidTelefono(null)).toBe(true);
     expect(isValidTelefono("221234567")).toBe(false);
     expect(isValidTelefono("+56912345678")).toBe(true);
+  });
+});
+
+describe("telefonoTipeado", () => {
+  // El input precarga "+569": si el operador no escribió nada más, no hay
+  // teléfono. Guardarlo como si lo hubiera dejó 358 fichas con "+569" en julio
+  // de 2026.
+  it("descarta el prefijo precargado sin dígitos", () => {
+    expect(telefonoTipeado("+569")).toBe("");
+    expect(telefonoTipeado("+56")).toBe("");
+    expect(telefonoTipeado("  +569  ")).toBe("");
+    expect(telefonoTipeado("")).toBe("");
+  });
+
+  it("deja pasar cualquier cosa que traiga dígitos propios", () => {
+    expect(telefonoTipeado("+56968285363")).toBe("+56968285363");
+    expect(telefonoTipeado("+569 6828 5363")).toBe("+569 6828 5363");
+    expect(telefonoTipeado("68285363")).toBe("68285363");
+  });
+});
+
+describe("esCorreoDeRelleno", () => {
+  it("agarra las direcciones que se inventan para saltarse el campo", () => {
+    expect(esCorreoDeRelleno("noquieredarcorreo@gmail.com")).toBe(true);
+    expect(esCorreoDeRelleno("noquiere@darcorreo.gmsil.com")).toBe(true);
+    expect(esCorreoDeRelleno("invitado.cl@gmail.com")).toBe(true);
+    expect(esCorreoDeRelleno("notienw@gmail.com")).toBe(true); // con tipeo
+    expect(esCorreoDeRelleno("recepcion@zplash.cl")).toBe(true); // casilla del local
+  });
+
+  it("no toca direcciones reales que contienen las mismas letras", () => {
+    expect(esCorreoDeRelleno("juan.cortes@teleservise.cl")).toBe(false);
+    expect(esCorreoDeRelleno("nadiela_bp@hotmail.com")).toBe(false);
+    expect(esCorreoDeRelleno("bruno@mail.com")).toBe(false);
+    expect(esCorreoDeRelleno("")).toBe(false);
   });
 });
 
@@ -475,6 +526,66 @@ describe("precioContratacion", () => {
   });
 });
 
+describe("precioRenovacionCliente", () => {
+  // Mismo helper que usan /api/pagos/estado (lo que ve el cliente en /pagar) y
+  // /api/pagos/webpay/crear (lo que cobra Webpay): estos casos son el contrato
+  // que impide que pantalla y cobro se separen.
+  const precios = { plan1: { normal: 29990, promo: 21990 } };
+  const haceDias = (dias: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - dias);
+    return d.toISOString();
+  };
+
+  it("plan vigente -> precio normal, con su heredado si lo tiene", () => {
+    expect(precioRenovacionCliente(precios, "plan1", { vencimiento: haceDias(-20) }, 4)).toBe(29990);
+    expect(precioRenovacionCliente(precios, "plan1", { vencimiento: haceDias(-20), precioPlanHeredado: 19990 }, 4)).toBe(19990);
+  });
+
+  it("vencido dentro del plazo -> lo mismo que precioPagoAtrasado, no el precio de lista", () => {
+    const cliente = { vencimiento: haceDias(3) };
+    expect(precioRenovacionCliente(precios, "plan1", cliente, 4)).toBe(precioPagoAtrasado(precios, "plan1", cliente, 4));
+    expect(precioRenovacionCliente(precios, "plan1", cliente, 4)).toBe(21990);
+  });
+
+  it("vencido fuera del plazo -> precio de lista", () => {
+    expect(precioRenovacionCliente(precios, "plan1", { vencimiento: haceDias(9), precioPlanHeredado: 19990 }, 4)).toBe(29990);
+  });
+
+  it("patente sin plan -> precio normal", () => {
+    expect(precioRenovacionCliente(precios, "plan1", {}, 4)).toBe(29990);
+  });
+});
+
+describe("precioPagoAtrasado", () => {
+  // Mismo patrón de precios que producción: `normal` es el precio de lista
+  // (el que se muestra tachado) y `promo` el que realmente paga quien renueva
+  // a tiempo.
+  const precios = { plan1: { normal: 29990, promo: 21990 } };
+  const haceDias = (dias: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - dias);
+    return d.toISOString();
+  };
+
+  it("dentro del plazo paga lo mismo que renovando a tiempo, no el precio de lista", () => {
+    expect(precioPagoAtrasado(precios, "plan1", { vencimiento: haceDias(3) }, 4)).toBe(21990);
+  });
+
+  it("dentro del plazo con precio heredado, se le respeta el heredado", () => {
+    expect(precioPagoAtrasado(precios, "plan1", { vencimiento: haceDias(3), precioPlanHeredado: 19990 }, 4)).toBe(19990);
+  });
+
+  it("pasado el plazo paga el precio de lista, aunque tenga heredado", () => {
+    expect(precioPagoAtrasado(precios, "plan1", { vencimiento: haceDias(5) }, 4)).toBe(29990);
+    expect(precioPagoAtrasado(precios, "plan1", { vencimiento: haceDias(5), precioPlanHeredado: 19990 }, 4)).toBe(29990);
+  });
+
+  it("sin precio preferencial cargado cae al normal", () => {
+    expect(precioPagoAtrasado({ plan1: { normal: 29990, promo: 0 } }, "plan1", { vencimiento: haceDias(2) }, 4)).toBe(29990);
+  });
+});
+
 describe("precioReactivacionVencido", () => {
   const config: ConfigGlobal = {
     ...CONFIG_DEFAULT,
@@ -794,6 +905,10 @@ describe("esExentoHorarioOperador", () => {
     expect(esExentoHorarioOperador(["operador", "servicios"], "Administración")).toBe(true);
   });
 
+  it("un perfil con el módulo arqueo está exento: la caja se cuadra después de cerrado el local", () => {
+    expect(esExentoHorarioOperador(["operador", "cierre", "arqueo"])).toBe(true);
+  });
+
   it("un operador estándar sin acceso a Configuración no está exento", () => {
     expect(esExentoHorarioOperador(["operador", "servicios"])).toBe(false);
   });
@@ -830,6 +945,35 @@ describe("puedeBorrarIngreso", () => {
   it("otros perfiles, incluido Administración, no pueden", () => {
     expect(puedeBorrarIngreso("Administración")).toBe(false);
     expect(puedeBorrarIngreso(undefined)).toBe(false);
+  });
+
+  it("quien tiene el módulo arqueo puede: cuadrar la caja del día es borrar ingresos cargados por error", () => {
+    expect(puedeBorrarIngreso("Administración", ["ingresos", "arqueo"])).toBe(true);
+    expect(puedeBorrarIngreso("Administración", ["ingresos"])).toBe(false);
+  });
+});
+
+describe("soloCambiosSinPlata (guard de días cerrados)", () => {
+  const venta = { id: "v1", fecha: "2026-08-16T14:00:00Z", precio: 12000, metodoPago: "efectivo", facturaEmitida: false };
+
+  it("deja pasar marcar la factura como emitida y el canje de un lavado web", () => {
+    expect(soloCambiosSinPlata(venta, { ...venta, facturaEmitida: true })).toBe(true);
+    expect(soloCambiosSinPlata(venta, { ...venta, canjeadaEn: "2026-08-20T10:00:00Z" })).toBe(true);
+  });
+
+  it("bloquea cualquier cambio que mueva plata", () => {
+    expect(soloCambiosSinPlata(venta, { ...venta, precio: 15000 })).toBe(false);
+    expect(soloCambiosSinPlata(venta, { ...venta, metodoPago: "tarjeta" })).toBe(false);
+  });
+
+  it("bloquea las altas: en un día cerrado no se dan de alta filas nuevas", () => {
+    expect(soloCambiosSinPlata(undefined, venta)).toBe(false);
+  });
+
+  it("deja pasar el movimiento contable derivado, que se rearma con otro creadoEn en cada commit", () => {
+    const movimiento = { id: "m1", fecha: venta.fecha, monto: 12000, creadoEn: "2026-08-16T14:00:01Z" };
+    expect(soloCambiosSinPlata(movimiento, { ...movimiento, creadoEn: "2026-08-17T09:00:00Z" })).toBe(true);
+    expect(soloCambiosSinPlata(movimiento, { ...movimiento, monto: 9000 })).toBe(false);
   });
 });
 
@@ -1141,10 +1285,38 @@ describe("calcularOfertasPlan", () => {
     expect(oferta.reactivacion?.diasVencido).toBeLessThanOrEqual(11);
   });
 
-  it("plan vencido fuera de todos los tramos de reactivación -> no ofrece nada de eso", () => {
+  it("plan vencido fuera de todos los tramos de reactivación -> sin promoción, pero el plan sigue pagable al precio normal", () => {
     const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-60), visitas: 0 };
     const oferta = calcularOfertasPlan(cliente, [], [], config, precios);
     expect(oferta.reactivacion).toBeUndefined();
+    // Sin esto el cliente vencido hace mucho se queda sin ningún botón de pago
+    // en Mi Cuenta (ver pagoVencido en @/lib/helpers/ofertasPlan).
+    expect(oferta.pagoVencido?.precio).toBe(21990);
+    expect(oferta.pagoVencido?.diasVencido).toBeGreaterThanOrEqual(59);
+  });
+
+  it("pago de plan vencido: dentro de los días de gracia respeta el precio de contratación, pasado el plazo no", () => {
+    const sinReactivacion: ConfigGlobal = { ...config, tramosReactivacionVencido: {}, diasGraciaPagoAtrasado: 4 };
+    const heredado = { id: "c1", plan: PLAN, precioPlanHeredado: 19990 };
+    const enPlazo = calcularOfertasPlan({ ...heredado, vencimiento: diasDesdeHoy(-3) }, [], [], sinReactivacion, precios);
+    expect(enPlazo.pagoVencido?.precio).toBe(19990);
+    // Sin heredado, dentro del plazo igual paga el preferencial (lo que
+    // pagaría renovando a tiempo), no el precio de lista.
+    const sinHeredado = calcularOfertasPlan({ id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-3) }, [], [], sinReactivacion, precios);
+    expect(sinHeredado.pagoVencido?.precio).toBe(19990);
+    const fueraDePlazo = calcularOfertasPlan({ ...heredado, vencimiento: diasDesdeHoy(-10) }, [], [], sinReactivacion, precios);
+    expect(fueraDePlazo.pagoVencido?.precio).toBe(21990);
+  });
+
+  it("pagoVencido solo existe con el plan vencido y sin promoción de reactivación", () => {
+    const vigente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
+    expect(calcularOfertasPlan(vigente, [], [], config, precios).pagoVencido).toBeUndefined();
+    // Vencido hace 10 días cae en el tramo [0,20]: ahí la reactivación ya es
+    // este mismo pago más barato, no se ofrecen las dos juntas.
+    const conTramo = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-10), visitas: 0 };
+    expect(calcularOfertasPlan(conTramo, [], [], config, precios).pagoVencido).toBeUndefined();
+    // Sin plan (nunca contrató) tampoco: no hay nada vencido que pagar.
+    expect(calcularOfertasPlan({ id: "c1", plan: PLAN, vencimiento: null }, [], [], config, precios).pagoVencido).toBeUndefined();
   });
 
   it("tramo de reactivación restringido a un canal -> solo se ofrece por ese canal", () => {
@@ -1239,9 +1411,186 @@ describe("calcularOfertasPlan", () => {
     expect(oferta.upgrade).toBeUndefined();
   });
 
+  it("califica para reactivación y upgrade a la vez -> solo se le ofrece la más barata", () => {
+    const vencido = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-10), visitas: 0 };
+    const lavado = (precio: number): Venta => ({
+      id: "v1",
+      clienteId: "c1",
+      patente: "AB1234",
+      nombre: "Juan",
+      plan: "",
+      precio,
+      tipo: "Lavado único",
+      fecha: horasDesdeAhora(2),
+    });
+    // Reactivación $17.990 (tramo [0,20]) vs upgrade $21.990 - $2.990 = $19.000.
+    const ganaReactivacion = calcularOfertasPlan(vencido, [lavado(2990)], [], config, precios);
+    expect(ganaReactivacion.reactivacion?.precio).toBe(17990);
+    expect(ganaReactivacion.upgrade).toBeUndefined();
+    // Mismo cliente con un lavado más caro: el adicional baja a $12.000 y gana el upgrade.
+    const ganaUpgrade = calcularOfertasPlan(vencido, [lavado(9990)], [], config, precios);
+    expect(ganaUpgrade.upgrade).toEqual({ precio: 12000 });
+    expect(ganaUpgrade.reactivacion).toBeUndefined();
+    // Igual con el plan vencido fuera de todo tramo (pagoVencido $21.990).
+    const viejo = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-60), visitas: 0 };
+    const oferta = calcularOfertasPlan(viejo, [lavado(9990)], [], config, precios);
+    expect(oferta.upgrade).toEqual({ precio: 12000 });
+    expect(oferta.pagoVencido).toBeUndefined();
+  });
+
   it("plan vigente sin precio configurado -> no ofrece renovación anticipada (pNormal = 0)", () => {
     const cliente = { id: "c1", plan: "Plan Fantasma", vencimiento: diasDesdeHoy(20), visitas: 0 };
     const oferta = calcularOfertasPlan(cliente, [], [], config, precios);
     expect(oferta.renovacionAnticipada).toBeUndefined();
+  });
+});
+
+describe("buscarProveedorPorRut", () => {
+  const proveedores = [
+    { id: "pr1", nombre: "Insumos SpA", rut: "76.543.210-K" },
+    { id: "pr2", nombre: "Sin RUT Ltda" },
+  ];
+
+  it("encuentra al proveedor sin importar el formato tipeado", () => {
+    expect(buscarProveedorPorRut(proveedores, "765432 10k")?.id).toBe("pr1");
+    expect(buscarProveedorPorRut(proveedores, "76543210-K")?.id).toBe("pr1");
+    expect(buscarProveedorPorRut(proveedores, "76.543.210-K")?.id).toBe("pr1");
+  });
+
+  it("no matchea con RUT vacío ni con proveedores sin RUT", () => {
+    expect(buscarProveedorPorRut(proveedores, "")).toBeUndefined();
+    expect(buscarProveedorPorRut(proveedores, "  ")).toBeUndefined();
+    expect(buscarProveedorPorRut(proveedores, "11.111.111-1")).toBeUndefined();
+  });
+});
+
+describe("esTarjetaWeb / esVentaNuevaWeb", () => {
+  it("trata los cobros Oneclick del cliente como tarjeta Transbank, no GETNET", () => {
+    // Cobro que el cliente gatilla desde Mi Cuenta contra su tarjeta ya
+    // inscrita: upgrade a plan, renovación anticipada o reactivación.
+    expect(esTarjetaWeb("Cliente (Oneclick)")).toBe(true);
+    expect(esVentaNuevaWeb("Cliente (Oneclick)")).toBe(true);
+  });
+
+  it("mantiene el cron Oneclick y Webpay como venta nueva web, y WooCommerce fuera", () => {
+    expect(esVentaNuevaWeb("Automático (Oneclick)")).toBe(true);
+    expect(esVentaNuevaWeb("Automático (Webpay)")).toBe(true);
+    expect(esVentaNuevaWeb("Automático (Web)")).toBe(false);
+  });
+
+  it("deja el cobro presencial como tarjeta GETNET", () => {
+    expect(esTarjetaWeb("Juan Operador")).toBe(false);
+    expect(esTarjetaWeb("")).toBe(false);
+  });
+});
+
+describe("esVentaAutomatica (qué se puede corregir en el arqueo)", () => {
+  it("marca como automática toda venta cobrada por Transbank, venga de donde venga", () => {
+    expect(esVentaAutomatica({ creadoPor: "Automático (Webpay)", tipo: "Lavado único" })).toBe(true);
+    expect(esVentaAutomatica({ creadoPor: "Automático (Web)", tipo: "Plan nuevo (Web)" })).toBe(true);
+    expect(esVentaAutomatica({ creadoPor: "Cliente (Oneclick)", tipo: "Renovación (Web)" })).toBe(true);
+  });
+
+  it("marca como automáticos los tipos que nadie tipea, aunque la fila venga sin creadoPor", () => {
+    expect(esVentaAutomatica({ tipo: "Plan nuevo (Web)" })).toBe(true);
+    expect(esVentaAutomatica({ tipo: "Cupón Venta Empresa" })).toBe(true);
+  });
+
+  it("deja editable lo que sí tipeó una persona en el mesón", () => {
+    expect(esVentaAutomatica({ creadoPor: "Verónica", tipo: "Lavado único" })).toBe(false);
+    expect(esVentaAutomatica({ creadoPor: "Administración", tipo: "Plan nuevo" })).toBe(false);
+  });
+});
+
+describe("asiento de ajuste del cierre de caja", () => {
+  it("da un id por día, y solo ese id pasa como asiento de ajuste", () => {
+    expect(idAjusteCierre("2026-08-18")).toBe("mc-ajuste-cierre-2026-08-18");
+    // Determinístico: volver a inscribir el ajuste del mismo día reemplaza al
+    // anterior en vez de acumular ajustes sueltos.
+    expect(idAjusteCierre("2026-08-18")).toBe(idAjusteCierre("2026-08-18"));
+    expect(esAjusteCierre(idAjusteCierre("2026-08-18"))).toBe(true);
+    expect(esAjusteCierre("mc123456789")).toBe(false);
+    expect(esAjusteCierre("mc-venta-v123")).toBe(false);
+  });
+
+  it("deja el ajuste de ingreso a túnel y el total real en el texto que se firma", () => {
+    const base = { cantidadVentas: 3, totalVentas: 30000, metodosPago: [], efectivoEsperado: 30000 };
+    const conAjuste = resumenCierreTexto(
+      "2026-08-18",
+      { ...base, cantidadIngresos: 45, ajusteIngresos: { cantidad: 2, motivo: "pasaron sin registrar" } },
+      false
+    );
+    expect(conAjuste).toContain("Asiento de ajuste de ingreso a túnel: +2 — pasaron sin registrar");
+    expect(conAjuste).toContain("Total real de vehículos: 47");
+
+    const negativo = resumenCierreTexto(
+      "2026-08-18",
+      { ...base, cantidadIngresos: 45, ajusteIngresos: { cantidad: -1, motivo: "patente repetida" } },
+      false
+    );
+    expect(negativo).toContain("Asiento de ajuste de ingreso a túnel: -1 — patente repetida");
+    expect(negativo).toContain("Total real de vehículos: 44");
+
+    // Sin ajuste no se inventa ninguna línea de más.
+    expect(resumenCierreTexto("2026-08-18", { ...base, cantidadIngresos: 45 }, false)).not.toContain("ajuste");
+  });
+});
+
+describe("mesesEntre", () => {
+  it("enumera el rango inclusivo cruzando el cambio de año", () => {
+    expect(mesesEntre("2025-11", "2026-02")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
+  });
+
+  it("acepta el rango invertido y un solo mes", () => {
+    expect(mesesEntre("2026-02", "2025-11")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
+    expect(mesesEntre("2026-08", "2026-08")).toEqual(["2026-08"]);
+  });
+
+  it("corta en 36 columnas para no reventar la tabla del EERR", () => {
+    expect(mesesEntre("2000-01", "2026-08")).toHaveLength(36);
+  });
+});
+
+describe("variacionPorcentual", () => {
+  it("compara el primer con el último periodo, sobre el inicial", () => {
+    expect(variacionPorcentual([100, 999, 150])).toBe(50);
+    expect(variacionPorcentual([200, 150])).toBe(-25);
+  });
+
+  it("mide la caída completa aunque el resultado cambie de signo", () => {
+    expect(variacionPorcentual([-100, -150])).toBe(-50);
+    expect(variacionPorcentual([100, -50])).toBe(-150);
+  });
+
+  it("no inventa porcentaje sin base de comparación", () => {
+    expect(variacionPorcentual([500])).toBeNull();
+    expect(variacionPorcentual([0, 300])).toBeNull();
+  });
+});
+
+describe("fechaEfectiva", () => {
+  const base = {
+    id: "m1",
+    fecha: "2026-06-10T12:00:00.000Z",
+    descripcion: "Venta a 60 días",
+    monto: 100000,
+    creadoEn: "2026-06-10T12:00:00.000Z",
+  };
+
+  it("no considera plata movida lo que sigue pendiente de cobro o de pago", () => {
+    expect(fechaEfectiva({ ...base, tipo: "ingreso", estado: "pendiente" })).toBeNull();
+    expect(fechaEfectiva({ ...base, tipo: "egreso", estado: "pendiente_pago" })).toBeNull();
+    expect(fechaEfectiva({ ...base, tipo: "egreso", estado: "x_rendir" })).toBeNull();
+  });
+
+  it("usa la fecha de cobro/pago, no la de la operación", () => {
+    const cobrada = { ...base, tipo: "ingreso" as const, estado: "pagado" as const, fechaPago: "2026-08-09T12:00:00.000Z" };
+    expect(fechaEfectiva(cobrada)).toBe("2026-08-09T12:00:00.000Z");
+    expect(mesKey(fechaEfectiva(cobrada)!)).toBe("2026-08");
+  });
+
+  it("cae a la fecha del movimiento cuando se pagó al momento (sin fechaPago)", () => {
+    expect(fechaEfectiva({ ...base, tipo: "ingreso", estado: "pagado" })).toBe(base.fecha);
+    expect(fechaEfectiva({ ...base, tipo: "egreso", estado: "pagado_efectivo" })).toBe(base.fecha);
   });
 });

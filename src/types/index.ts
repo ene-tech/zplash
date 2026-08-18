@@ -5,6 +5,7 @@
 // entidad, es el snapshot completo que carga loadAll() (ver
 // @/lib/dataAccess/loadAll.ts).
 import type { Cita, BloqueoAgenda, HorarioAgenda } from "./agenda";
+import type { CierreCaja } from "./cierre";
 import type { Cliente } from "./clientes";
 import type { ConfigGlobal } from "./config";
 import type { CartolaMovimiento, CategoriaGasto, CategoriaIngreso, MovimientoContable, ReglaConciliacion } from "./contabilidad";
@@ -61,11 +62,13 @@ export interface AppData {
   reglasCorreo: ReglaCorreo[];
   plantillasWhatsapp: PlantillaWhatsapp[];
   reglasWhatsapp: ReglaWhatsapp[];
+  cierresCaja: CierreCaja[];
 }
 
 export * from "./agenda";
 export * from "./auditoria";
 export * from "./buzon";
+export * from "./cierre";
 export * from "./clientes";
 export * from "./config";
 export * from "./contabilidad";

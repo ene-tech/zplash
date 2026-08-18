@@ -9,6 +9,7 @@ import { FacturasPendientesTablas } from "@/components/tabs/cierre/FacturasPendi
 import { ServiciosAdicionalesPeriodoTabla } from "@/components/tabs/cierre/ServiciosAdicionalesPeriodoTabla";
 import { ClientesFacturaTabla } from "@/components/tabs/cierre/ClientesFacturaTabla";
 import { DetalleIngresosTabla } from "@/components/tabs/cierre/DetalleIngresosTabla";
+import { ArqueoDia } from "@/components/tabs/cierre/ArqueoDia";
 
 export default function CierreTab() {
   // useCierreData igual se llama siempre (reglas de hooks): con `ventas`/
@@ -75,6 +76,20 @@ export default function CierreTab() {
           <div className="lbl">Cantidad de Ventas</div>
         </div>
       </div>
+
+      {/* El arqueo/cierre es de a un día: solo aparece cuando el período
+          elegido arriba es un único día (botón "Hoy", o Desde = Hasta). */}
+      {r.desde === r.hasta && (
+        <ArqueoDia
+          dia={r.desde}
+          ventasDia={r.ventasPeriodo}
+          ingresosDia={r.ingresosPeriodo}
+          movimientosManualesDia={r.ingresosContablesPeriodo}
+          metodosPago={r.metodosPago}
+          cantidadVentas={r.totalCantidadVentas}
+          totalVentas={r.totalMontoVentas}
+        />
+      )}
 
       <DetalleVentaYMetodosPago
         filasVenta={r.filasVenta}

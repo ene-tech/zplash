@@ -11,8 +11,13 @@ export interface EstadoPlan {
   plan?: string;
   vencimiento?: string | null;
   estado?: { label: string; cls: "ok" | "warn" | "bad"; diasRestantes?: number };
-  // Ver precioConHeredado: precio de plan que se le respeta a esta patente al
-  // renovar antes de vencer, para mostrar el mismo monto que se va a cobrar.
+  // Precio ya resuelto de renovar el plan de esta patente (ver
+  // precioRenovacionCliente en @/lib/helpers), calculado por
+  // /api/pagos/estado con el mismo helper que usa el endpoint que cobra: la
+  // pantalla lo muestra tal cual, no lo recalcula.
+  precioRenovacion?: number;
+  // Solo para el precio de la renovación automática (Oneclick), que respeta
+  // el heredado sin depender del plazo de atraso.
   precioPlanHeredado?: number | null;
 }
 

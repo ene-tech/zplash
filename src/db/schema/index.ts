@@ -14,6 +14,7 @@
 export * from "./agenda";
 export * from "./auditoria";
 export * from "./buzon";
+export * from "./cierre";
 export * from "./clientes";
 export * from "./config";
 export * from "./contabilidad";

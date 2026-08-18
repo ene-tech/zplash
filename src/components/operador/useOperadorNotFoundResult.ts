@@ -33,6 +33,9 @@ export function useOperadorNotFoundResult(
   const { data, ui, commit, patchUi } = useApp();
   const { qNombreRef, qTelefonoRef, qEmailRef, qVehiculoRef, qRazonSocialRef, qRutRef, qDireccionRef, qGiroRef, qCuponRef } = refs;
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
+  // Salida honesta cuando el cliente no quiere dar el correo: sin esto el
+  // operador inventa uno para poder guardar (ver esCorreoDeRelleno).
+  const [sinCorreo, setSinCorreo] = useState(false);
   const [tipoLavado, setTipoLavado] = useState<"plan" | "unico">("plan");
   const [err, setErr] = useState("");
   const [codigoInput, setCodigoInput] = useState(codigoDescuento || "");
@@ -85,6 +88,7 @@ export function useOperadorNotFoundResult(
       nombreRaw: qNombreRef.current?.value || "",
       telefonoRaw: qTelefonoRef.current?.value || "",
       emailRaw: qEmailRef.current?.value || "",
+      sinCorreo,
       exentoValidacion,
       tipoCliente: tipoLavado,
       tipoDocumento: tipoDoc,
@@ -144,6 +148,8 @@ export function useOperadorNotFoundResult(
   return {
     tipoDoc,
     setTipoDoc,
+    sinCorreo,
+    setSinCorreo,
     tipoLavado,
     setTipoLavado,
     err,

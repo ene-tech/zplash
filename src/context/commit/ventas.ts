@@ -1,5 +1,5 @@
 import { deleteVentas, insertVentas, upsertVentas } from "@/lib/serverActions";
-import { movimientoContableDesdeVenta } from "@/lib/helpers";
+import { idMovimientoContableDeVenta, movimientoContableDesdeVenta } from "@/lib/helpers";
 import type { AppData, Venta } from "@/types";
 import { auditEntries, diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 
@@ -11,14 +11,19 @@ import { auditEntries, diffPorId, SIN_CAMBIOS, type CommitResult } from "./share
 // commit tanto en el estado local como en lo que se guarda.
 export function derivarMovimientosDesdeVentas(previous: AppData, patch: Partial<AppData>): Partial<AppData> {
   if (!patch.ventas) return patch;
-  const { cambiados: ventasCambiadas } = diffPorId<Venta>(previous.ventas, patch.ventas);
-  if (!ventasCambiadas.length) return patch;
+  const { cambiados: ventasCambiadas, eliminados: ventasEliminadas } = diffPorId<Venta>(previous.ventas, patch.ventas);
+  if (!ventasCambiadas.length && !ventasEliminadas.length) return patch;
   const derivados = ventasCambiadas.map(movimientoContableDesdeVenta);
   const baseMovimientos = patch.movimientosContables || previous.movimientosContables;
   const porId = new Map(baseMovimientos.map((m) => [m.id, m]));
   // null = venta en $0 (cupón de 100%), no genera movimiento (ver
   // movimientoContableDesdeVenta): no hay nada que registrar en Contabilidad.
   for (const d of derivados) if (d) porId.set(d.id, d);
+  // Y al revés: si se borró la Venta, su movimiento derivado se va con ella.
+  // Si no, Contabilidad y el EERR seguían mostrando para siempre un ingreso
+  // cuya venta ya no existe (se notó cuadrando la caja del día, ver ArqueoDia,
+  // pero pasaba igual borrando un servicio desde Servicios Adicionales).
+  for (const id of ventasEliminadas) porId.delete(idMovimientoContableDeVenta(id));
   return { ...patch, movimientosContables: Array.from(porId.values()) };
 }
 

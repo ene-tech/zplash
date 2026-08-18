@@ -49,7 +49,14 @@ export function ResultadoBusqueda(p: Props) {
   // Precios de esta patente: un cliente con precio heredado (ver
   // precioConHeredado) renueva a ese valor, tanto pagando el mes como
   // activando la renovación automática. Sin heredado son los precios públicos.
-  const precioRenovar = precioConHeredado(p.precios.plan.precio, r);
+  //
+  // El botón de renovar NO recalcula nada: muestra el precio que ya resolvió
+  // /api/pagos/estado con el mismo helper que cobra /api/pagos/webpay/crear
+  // (ver precioRenovacionCliente), porque con el plan vencido el monto
+  // depende del plazo de gracia y de los precios de la base, no solo del
+  // heredado. El precio público queda de respaldo por si el endpoint es de
+  // una versión anterior y no manda el campo.
+  const precioRenovar = r.precioRenovacion ?? precioConHeredado(p.precios.plan.precio, r);
   const precioAuto = precioConHeredado(p.precios.planOneclick.precio, r);
   const ahorroAuto = precioRenovar - precioAuto;
 

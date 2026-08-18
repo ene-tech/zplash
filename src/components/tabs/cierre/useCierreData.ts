@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { esTarjetaWeb, esVentaNuevaWeb, inRange, normPlate, todayYMD } from "@/lib/helpers";
+import { PRODUCTOS_CIERRE } from "./productos";
 
 // Los desgloses expandibles de cada fila (por medio de pago / por tipo de
 // venta) viven en ./desgloses.ts — dominio propio, importado directo por la
@@ -43,19 +44,19 @@ export function useCierreData() {
     // ANTES de armar el resto de las filas para que "Plan nuevo (Web)" /
     // "Renovación (Web)" / "Servicios adicionales" / "Otros" (más abajo) solo
     // reflejen WooCommerce y no dupliquen estas ventas en dos filas a la vez.
-    const ventaNuevaWebItems = ventasPeriodo.filter((v) => esVentaNuevaWeb(v.creadoPor) && !esNuevoClienteAdmin(v));
+    // Upgrade de un lavado único ya pagado a Plan Ilimitado, cobrado desde Mi
+    // Cuenta (Webpay u Oneclick, ver aplicarUpgradePlan): tiene fila propia más
+    // abajo. Antes quedaba escondido dentro de "Venta nueva web" y, si el cobro
+    // fue Oneclick, caía directo en "Otros" — fila que se dibuja bajo el Total
+    // y no suma en él, así que ese dinero aparecía en "Métodos de pago" pero no
+    // en "Detalle de venta". El upgrade del módulo Operador no entra acá: se
+    // registra con tipo "Plan nuevo" (ver usePlanActions.upgradeAPlan) y ya
+    // suma en "Contratación de plan".
+    const esUpgradePlan = (v: (typeof ventasPeriodo)[number]) => v.tipo.startsWith("Upgrade a Plan");
+    const ventaNuevaWebItems = ventasPeriodo.filter((v) => esVentaNuevaWeb(v.creadoPor) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v));
     const ventasPeriodoBase = ventasPeriodo.filter((v) => !esVentaNuevaWeb(v.creadoPor));
 
-    const PRODUCTOS = [
-      { tipo: "Lavado único", label: "Lavado único" },
-      { tipo: "Plan nuevo", label: "Contratación de plan" },
-      { tipo: "Renovación preferencial", label: "Renovación temprana" },
-      { tipo: "Reactivación promocional", label: "Reactivación promocional (plan vencido)" },
-      { tipo: "Plan nuevo (Web)", label: "Contratación de plan (Web automático)" },
-      { tipo: "Renovación (Web)", label: "Renovación de plan (Web automático)" },
-      { tipo: "Cupón Venta Empresa", label: "Cupón Venta Empresa" },
-    ];
-    const ventasPorTipo = PRODUCTOS.map((p) => {
+    const ventasPorTipo = PRODUCTOS_CIERRE.map((p) => {
       const items = ventasPeriodoBase.filter((v) => v.tipo === p.tipo && !esNuevoClienteAdmin(v));
       return { ...p, cantidad: items.length, monto: items.reduce((s, v) => s + (v.precio || 0), 0), items };
     });
@@ -108,7 +109,16 @@ export function useCierreData() {
       items: ventaNuevaWebItems,
     };
 
-    const filasVenta = [...ventasPorTipo, serviciosAdicionalesRow, ventaNuevaWebRow, ingresoModuloContabilidadRow];
+    const upgradePlanItems = ventasPeriodo.filter(esUpgradePlan);
+    const upgradePlanRow = {
+      tipo: "upgrade-plan",
+      label: "Upgrade a Plan Ilimitado (sobre lavado único ya pagado)",
+      cantidad: upgradePlanItems.length,
+      monto: upgradePlanItems.reduce((s, v) => s + (v.precio || 0), 0),
+      items: upgradePlanItems,
+    };
+
+    const filasVenta = [...ventasPorTipo, serviciosAdicionalesRow, ventaNuevaWebRow, upgradePlanRow, ingresoModuloContabilidadRow];
     const totalCantidadVentas = filasVenta.reduce((s, f) => s + f.cantidad, 0);
     const totalMontoVentas = filasVenta.reduce((s, f) => s + f.monto, 0);
 
@@ -121,8 +131,8 @@ export function useCierreData() {
       items: modificacionesAdminItems,
     };
 
-    const tiposConocidos = new Set(PRODUCTOS.map((p) => p.tipo));
-    const otrasVentas = ventasPeriodoBase.filter((v) => !tiposConocidos.has(v.tipo) && !v.esServicioAdicional);
+    const tiposConocidos = new Set(PRODUCTOS_CIERRE.map((p) => p.tipo));
+    const otrasVentas = ventasPeriodoBase.filter((v) => !tiposConocidos.has(v.tipo) && !v.esServicioAdicional && !esUpgradePlan(v));
 
     const cobrado = (v: (typeof ventasPeriodo)[number]) => v.montoCobrado ?? v.precio ?? 0;
     // Las modificaciones de plan desde el perfil de administrador no son una
@@ -244,6 +254,7 @@ export function useCierreData() {
       facturaPendientesPeriodo,
       facturasEmpresaPeriodo,
       serviciosAdicionalesItems,
+      ingresosContablesPeriodo,
     };
   }, [ingresos, clientes, ventas, movimientosContables, desde, hasta]);
 

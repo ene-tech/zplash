@@ -63,6 +63,10 @@ export const config = pgTable("config", {
   // Horas mínimas entre dos ingresos por plan de un mismo vehículo antes de
   // volver a quedar "libre" (ver estadoReingresoPlan/HORAS_MIN_ENTRE_INGRESOS_PLAN
   // en @/lib/helpers/ingresos). Acepta decimales (ej: 24.5 = 24 horas 30 min).
+  // Días de atraso dentro de los cuales un plan vencido se puede pagar como
+  // renovación normal: mismo precio de contratación (heredado) y misma fecha
+  // de vencimiento que si hubiera pagado a tiempo (ver enPlazoDePagoPlan).
+  diasGraciaPagoAtrasado: integer("dias_gracia_pago_atrasado").notNull().default(4),
   horasBloqueoReingresoPlan: numeric("horas_bloqueo_reingreso_plan", { mode: "number" }).notNull().default(24.5),
   // Monto y vigencia del cupón que arma el flujo de registro de primera vez
   // del bot de WhatsApp (Opción 5, ver manejarPasoRegistroDescuento en
@@ -80,10 +84,13 @@ export const config = pgTable("config", {
     .$type<Partial<Record<string, string>>>()
     .notNull()
     .default({}),
-  // URL pública (Supabase Storage) de la imagen que el bot adjunta en la
-  // Opción 1/2 del menú de WhatsApp (ver SERVICIOS_IMAGEN_PATH/PLAN_IMAGEN_PATH
-  // en @/lib/whatsapp/contenido) — null/vacío usa el archivo estático de
-  // fábrica en vez de uno subido por el admin desde Web Settings.
+  // OBSOLETAS: guardaban la URL de la imagen que el bot de WhatsApp adjuntaba
+  // en las Opciones 1 y 2. El bot ya no manda imágenes — la Opción 1 responde
+  // con la lista de precios en texto, generada desde getPreciosPublicos (ver
+  // @/lib/whatsapp/contenido). Ya no las lee ni las escribe nadie: salieron de
+  // ConfigGlobal y de configFromRow/configToRow. Se dejan en pie a propósito
+  // para no meter un DROP COLUMN encima de la migración 0066 que está en
+  // curso; borrarlas es una migración propia y no hay nada que la bloquee.
   imagenPreciosWhatsapp: text("imagen_precios_whatsapp"),
   imagenPlanWhatsapp: text("imagen_plan_whatsapp"),
   // Firma HTML que CorreoRedactarModal antepone al cuerpo de un correo nuevo

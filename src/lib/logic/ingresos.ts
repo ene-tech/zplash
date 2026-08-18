@@ -4,7 +4,9 @@ import {
   GLOSA_LAVADO_WEB,
   GLOSA_SERVICIO_DETAILING,
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
+  enPlazoDePagoPlan,
   planStatus,
+  sigueVigenteHoy,
   ventaLavadoUnicoDeIngreso,
 } from "@/lib/helpers";
 
@@ -12,25 +14,24 @@ export function registrarIngreso(
   data: AppData,
   cliente: Cliente,
   operadorActual: string | null | undefined,
-  esGarantia?: boolean,
-  glosa?: string
+  esGarantia?: boolean
 ): Partial<AppData> {
   const estadoPlan = planStatus(cliente).cls;
+  const fecha = new Date().toISOString();
   const ingreso: Ingreso = {
     id: "i" + Date.now(),
     clienteId: cliente.id,
     patente: cliente.patente,
     nombre: cliente.nombre,
-    fecha: new Date().toISOString(),
+    fecha,
     planEstadoAlIngreso: estadoPlan,
     creadoPor: operadorActual || "",
     esGarantia: esGarantia || undefined,
-    glosa: glosa || undefined,
   };
   const clienteActualizado: Cliente = {
     ...cliente,
     visitas: (cliente.visitas || 0) + 1,
-    ultimaVisita: new Date().toISOString(),
+    ultimaVisita: fecha,
   };
   return {
     ingresos: [ingreso, ...data.ingresos],
@@ -208,10 +209,35 @@ export function renovarPlan(
   operadorActual: string | null | undefined,
   precio: number,
   pago?: PagoInfo,
-  tipo: string = "Renovación preferencial"
+  tipo: string = "Renovación preferencial",
+  /**
+   * true solo en el pago de un plan atrasado (ver pagarAtrasado en
+   * usePlanActions): ahí un vencimiento ya pasado, pero dentro de los días de
+   * gracia, igual ancla el ciclo — el cliente pagó tarde y conserva su fecha.
+   * Las demás renovaciones del mesón NO lo piden a propósito: la reactivación
+   * promocional de un vencido es una oferta para recuperarlo y le da su mes
+   * completo desde hoy, así que anclarla le estaría recortando en silencio
+   * tantos días como llevara vencido.
+   */
+  anclarAtraso = false
 ): Partial<AppData> {
-  const base = cliente.vencimiento && new Date(cliente.vencimiento) > new Date() ? new Date(cliente.vencimiento) : new Date();
-  base.setDate(base.getDate() + 30);
+  // El nuevo ciclo se ancla al vencimiento que ya tenía siempre que el plan
+  // siga vigente hoy (renovar antes no le hace perder los días que le
+  // quedaban; día-granular vía sigueVigenteHoy, para que renovar el mismo día
+  // del vencimiento con la hora ya pasada tampoco los pierda), y además en el
+  // pago atrasado dentro del plazo de gracia (ver anclarAtraso). Si no, el
+  // ciclo parte de hoy.
+  const anclarAlVencimiento =
+    !!cliente.vencimiento &&
+    (sigueVigenteHoy(cliente.vencimiento) ||
+      (anclarAtraso && enPlazoDePagoPlan(cliente, data.config.diasGraciaPagoAtrasado)));
+  const base = anclarAlVencimiento ? new Date(cliente.vencimiento!) : new Date();
+  // Con un plazo de gracia largo, el vencimiento anclado podría nacer ya
+  // vencido (misma red de seguridad que vencimientoAnclado): en ese caso se
+  // suma otro ciclo hasta que quede en el futuro.
+  do {
+    base.setDate(base.getDate() + 30);
+  } while (base <= new Date());
   const clienteActualizado: Cliente = {
     ...cliente,
     vencimiento: base.toISOString(),

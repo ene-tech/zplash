@@ -9,7 +9,8 @@ import CuentasPorCobrarTab from "@/components/tabs/CuentasPorCobrarTab";
 import EERRTab from "@/components/tabs/EERRTab";
 import ContabilidadConfigTab from "@/components/tabs/ContabilidadConfigTab";
 import ConciliacionBancariaTab from "@/components/tabs/ConciliacionBancariaTab";
-import { ArrowDownCircle, Receipt, ArrowUpCircle, HandCoins, Wallet, Landmark, FileBarChart, Settings } from "lucide-react";
+import ProveedoresTab from "@/components/tabs/ProveedoresTab";
+import { ArrowDownCircle, Receipt, ArrowUpCircle, Banknote, HandCoins, Wallet, Landmark, FileBarChart, Settings, Truck } from "lucide-react";
 
 const TABS = [
   { id: "egreso", label: "Egresos / Gastos", icon: ArrowDownCircle },
@@ -18,7 +19,9 @@ const TABS = [
   { id: "cuenta_por_cobrar", label: "Cuentas por Cobrar", icon: HandCoins },
   { id: "cuenta_por_pagar", label: "Cuentas por Pagar", icon: Wallet },
   { id: "conciliacion", label: "Conciliación Bancaria", icon: Landmark },
+  { id: "proveedores", label: "Proveedores", icon: Truck },
   { id: "eerr", label: "EERR", icon: FileBarChart },
+  { id: "flujo_caja", label: "Flujo de Caja", icon: Banknote },
   { id: "config", label: "Configuración", icon: Settings },
 ] as const;
 
@@ -56,12 +59,17 @@ export default function ContabilidadView() {
                 mantener correcto y Contabilidad no es una vista de uso
                 instantáneo como Clientes u Operador. Ver diagnóstico de
                 performance 2026-08-10. */}
-            {loadingHistorial && tabActual.id !== "config" ? (
+            {loadingHistorial && tabActual.id !== "config" && tabActual.id !== "proveedores" ? (
               <div className="empty">Cargando historial contable…</div>
             ) : tabActual.id === "config" ? (
               <ContabilidadConfigTab />
+            ) : tabActual.id === "proveedores" ? (
+              <ProveedoresTab />
             ) : tabActual.id === "eerr" ? (
               <EERRTab />
+            ) : tabActual.id === "flujo_caja" ? (
+              // Mismo cuadro que el EERR pero en base caja — ver EERRTab.
+              <EERRTab caja />
             ) : tabActual.id === "rendiciones" ? (
               <GastoEstadoTab estado="x_rendir" titulo="Rendiciones" />
             ) : tabActual.id === "cuenta_por_pagar" ? (

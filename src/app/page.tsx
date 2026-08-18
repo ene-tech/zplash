@@ -6,21 +6,22 @@ import TiposLavadoTab from "@/components/cliente/TiposLavadoTab";
 import DetailingTab from "@/components/cliente/DetailingTab";
 import FaqTab from "@/components/cliente/FaqTab";
 import UbicacionTab from "@/components/cliente/UbicacionTab";
-import { getConfig } from "@/lib/dataAccess";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 
 // Única puerta pública del sitio (reemplazo del home de WordPress): todo el
 // contenido de venta en un layout de scroll. /cliente ya no duplica esto —
-// quedó reducida a la cuenta del cliente logueado. Precios en vivo porque
-// deben coincidir siempre con lo que /api/pagos/webpay/crear cobra.
+// quedó reducida a la cuenta del cliente logueado. Los precios tienen que
+// coincidir siempre con lo que /api/pagos/webpay/crear cobra; eso ahora lo
+// garantiza la invalidación por tag de getPreciosPublicos (ver
+// TAG_CONTENIDO_PUBLICO) y no una lectura a la base por visitante.
 export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {
-  const [precios, config] = await Promise.all([getPreciosPublicos(), getConfig()]);
+  const precios = await getPreciosPublicos();
 
   return (
     <div id="app">
-      <DescuentoBienvenidaModal valor={config.descuentoPrimeraVezValor} dias={config.descuentoPrimeraVezDiasValidez} />
+      <DescuentoBienvenidaModal valor={precios.descuentoBienvenida.valor} dias={precios.descuentoBienvenida.diasValidez} />
       <AnnounceBar />
       <SiteNav />
 

@@ -15,7 +15,7 @@ export default function ClienteHeader({ titulo, ocultarMiCuenta }: { titulo: str
     <div className="cliente-header">
       <div className="title">
         <Link href="/" aria-label="Ir al inicio">
-          <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" unoptimized />
+          <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" priority />
         </Link>
         <span className="mode">{titulo}</span>
       </div>

@@ -9,15 +9,15 @@ import {
   isValidPatente,
   isValidRut,
   normPlate,
-  precioConHeredado,
   precioContratacion,
   precioLavadoUnicoWeb,
-  precioNormal,
+  precioRenovacionCliente,
   precioServicio,
   precioZonaAspirado,
 } from "@/lib/helpers";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
+import { getConfig } from "@/lib/dataAccess/config";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { webpayTransaction } from "@/lib/transbank";
@@ -163,12 +163,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Plan desde /pagar (público, sin sesión): se busca al cliente para
-    // respetarle su precio heredado si renueva (ver precioConHeredado) y para
+    // respetarle su precio heredado si renueva (ver precioPlanCliente) y para
     // saber si contratar es su 1ra vez (ver precioContratacion) — una patente
     // que no existe es un cliente nuevo, y ahí `null` es la respuesta correcta.
-    const clientePlan = body.items.some((i) => i.tipo === "renovacion" || i.tipo === "plan_nuevo")
-      ? await buscarClientePorPatente(patente)
-      : undefined;
+    const hayPlanPublico = body.items.some((i) => i.tipo === "renovacion" || i.tipo === "plan_nuevo");
+    const clientePlan = hayPlanPublico ? await buscarClientePorPatente(patente) : undefined;
+    // Días de gracia para pagar atrasado (ver enPlazoDePagoPlan): dentro de
+    // ese plazo un plan ya vencido se cobra como renovación, con el precio de
+    // contratación del cliente respetado.
+    const configPlan = hayPlanPublico ? await getConfig() : undefined;
 
     const db = getDb();
     const filasPrecios = await db.select().from(precios);
@@ -210,11 +213,13 @@ export async function POST(request: NextRequest) {
         items.push({ tipo, servicioId: null, nombre: NOMBRE_PROMO[tipo], monto: precioPromo, ...doc });
       } else {
         // "plan_nuevo" paga el precio de contratación (el de 1ra contratación
-        // solo si nunca tuvo plan); "renovacion" respeta el precio heredado
-        // del cliente, que es la regla de renovar antes de vencer.
+        // solo si nunca tuvo plan); "renovacion" usa precioRenovacionCliente,
+        // el MISMO cálculo que muestran /pagar (vía /api/pagos/estado) y la
+        // tarjeta de plan vencido de Mi Cuenta — acá se recalcula con datos
+        // frescos, pero tiene que dar el mismo número que vio el cliente.
         const monto =
           tipo === "renovacion"
-            ? precioConHeredado(precioNormal(preciosMap, PLANES[0]), clientePlan ?? {})
+            ? precioRenovacionCliente(preciosMap, PLANES[0], clientePlan ?? {}, configPlan!.diasGraciaPagoAtrasado)
             : precioContratacion(preciosMap, PLANES[0], clientePlan);
         items.push({ tipo, servicioId: null, nombre: "Plan Ilimitado Mensual", monto, ...doc });
       }

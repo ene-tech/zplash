@@ -4,11 +4,12 @@ export type EstadoMensajeWhatsapp = "enviado" | "entregado" | "leido" | "fallido
 
 // Estado de un flujo conversacional de varios pasos en curso — ver
 // manejarPasoRegistroDescuento (registro + descuento de primera vez, Opción
-// 5) y manejarPasoCambioPatente (invitado tras una consulta de patente
-// exitosa) en @/lib/whatsapp/router.
+// 5), manejarPasoCambioPatente (invitado tras una consulta de patente
+// exitosa) y manejarPasoPreciosTamano (Opción 1, pregunta el tamaño del
+// vehículo antes de cotizar) en @/lib/whatsapp/router.
 export interface FlowStateWhatsapp {
-  tipo: "registro_descuento" | "cambio_patente";
-  paso: "nombre" | "patente" | "mail" | "nueva_patente";
+  tipo: "registro_descuento" | "cambio_patente" | "precios_tamano";
+  paso: "nombre" | "patente" | "mail" | "nueva_patente" | "tamano";
   nombre?: string;
   patente?: string;
 }
@@ -55,7 +56,14 @@ export interface MensajeWhatsapp {
 // reintento si el dato no pasa la validación, sin avanzar de paso.
 // textoPreciosIntro es solo el encabezado que
 // antecede a la lista de precios/servicios: la lista en sí siempre se
-// genera desde la tabla real, no es editable como texto libre. Los campos
+// genera desde la tabla real, no es editable como texto libre.
+// textoPreciosPedirTamano es el encabezado de la pregunta por el tamaño del
+// vehículo que ahora antecede a esa lista (la Opción 1 pasó a ser un flujo
+// de dos pasos, igual que DetailingTab en la web pide el tamaño antes de
+// mostrar precios); las 4 opciones S/M/L/XL se generan desde
+// TAMANOS_VEHICULO y tampoco son editables.
+// textoPreciosTamanoInvalido se repite si la respuesta no calza con ningún
+// tamaño, sin salir del flujo. Los campos
 // patenteEstado* arman, línea por línea, el mensaje de consulta de
 // patente (ver estadoPlanPorPatente en @/lib/whatsapp/router):
 // patenteEstadoEncabezado acepta {{patente}}/{{nombre}}; patenteEstadoPlan
@@ -76,6 +84,8 @@ export interface MensajeWhatsapp {
 export interface TextosBotWhatsapp {
   menuPrincipal: string;
   textoPreciosIntro: string;
+  textoPreciosPedirTamano: string;
+  textoPreciosTamanoInvalido: string;
   textoContratarPlan: string;
   horarioUbicacion: string;
   contactoHumano: string;

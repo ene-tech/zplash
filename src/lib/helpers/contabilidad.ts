@@ -87,6 +87,30 @@ export const CATEGORIAS_INGRESO_DEFAULT: { id: string; nombre: string; activa: b
   { id: "ci-otros", nombre: CANAL_INGRESO_OTROS, activa: true },
 ];
 
+/** Categoría (canal de ingreso) del asiento con que se cuadra la caja al
+ * cerrar el día — ver ArqueoDia. Texto fijo y no una CategoriaIngreso
+ * configurable: es un asiento del sistema, no un canal de venta que alguien
+ * pueda renombrar o desactivar desde Configuración. */
+export const CATEGORIA_AJUSTE_CIERRE = "Ajuste de cierre de caja";
+
+const PREFIJO_AJUSTE_CIERRE = "mc-ajuste-cierre-";
+
+/** Id determinístico del asiento de ajuste de ingreso monetario de un día
+ * ("YYYY-MM-DD"). Determinístico a propósito: como upsertMovimientosContables
+ * hace upsert por id, hay un solo asiento de ajuste por día —volver a
+ * inscribirlo reemplaza el anterior en vez de acumular ajustes sueltos— y
+ * reintentar un cierre que falló no duplica la fila. */
+export function idAjusteCierre(dia: string): string {
+  return PREFIJO_AJUSTE_CIERRE + dia;
+}
+
+/** true si ese id es el de un asiento de ajuste de cierre (ver
+ * idAjusteCierre). Lo usa upsertMovimientosContables para dejar que lo
+ * inscriba quien cierra la caja aunque no tenga el módulo "contabilidad". */
+export function esAjusteCierre(id: string): boolean {
+  return id.startsWith(PREFIJO_AJUSTE_CIERRE);
+}
+
 /** Id determinístico para el MovimientoContable derivado de una Venta: como
  * upsertMovimientosContables hace upsert por id, volver a llamar a esta
  * función para la misma venta (p. ej. al cobrar un saldo pendiente)
@@ -137,4 +161,27 @@ export function movimientoContableDesdeVenta(venta: {
 
 export function esEstadoPagadoEgreso(estado: string): boolean {
   return estado === "pagado_cc" || estado === "pagado_efectivo";
+}
+
+/** Variación porcentual del primer al último periodo de una serie del EERR,
+ * sobre el valor inicial. `null` cuando no hay base de comparación (un solo
+ * periodo, o el primero en $0: crecer desde cero no tiene porcentaje). */
+export function variacionPorcentual(serie: number[]): number | null {
+  const a = serie[0];
+  const b = serie[serie.length - 1];
+  if (serie.length < 2 || !a) return null;
+  return ((b - a) / Math.abs(a)) * 100;
+}
+
+/** Fecha en que la plata efectivamente se movió (base caja), o null si el
+ * movimiento sigue devengado pero sin cobrar/pagar — es lo que separa el
+ * Flujo de Caja del EERR (ver EERRTab con `caja`): una venta a 60 días ya
+ * está registrada como ingreso, pero recién entra al flujo el día que se
+ * cobra.
+ * Cae de vuelta a `fecha` cuando no hay `fechaPago`: pasa con lo que se
+ * registra pagado al momento (el túnel, que es la mayoría) y con las filas
+ * cobradas antes de que se empezara a guardar la fecha de cobro. */
+export function fechaEfectiva(m: MovimientoContable): string | null {
+  const pagado = m.tipo === "egreso" ? esEstadoPagadoEgreso(m.estado) : m.estado === "pagado";
+  return pagado ? m.fechaPago || m.fecha : null;
 }

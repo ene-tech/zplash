@@ -25,4 +25,9 @@ export interface PreciosPublicos {
   // el precio unitario para calcular el total de cualquier cantidad, y los
   // días de vigencia configurados (ConfigGlobal.vigenciaDiasPackEmpresa).
   tickets: { cantidadMinima: number; cantidadMaxima: number; precioBase: number; precioUnitario: number; vigenciaDias: number };
+  // Descuento de primera vez que ofrece el pop-up de bienvenida de la landing
+  // (ver DescuentoBienvenidaModal). Viaja acá y no por un getConfig() aparte
+  // porque getPreciosPublicos() ya lee la fila `config` para vigenciaDias:
+  // así la landing entera se sirve de una sola lectura cacheada.
+  descuentoBienvenida: { valor: number; diasValidez: number };
 }

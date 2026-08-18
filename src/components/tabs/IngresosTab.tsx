@@ -12,7 +12,7 @@ export default function IngresosTab() {
   const desde = ui.ingresosDesde;
   const hasta = ui.ingresosHasta;
   const search = ui.search || "";
-  const puedeBorrar = puedeBorrarIngreso(ui.perfilActual?.nombre);
+  const puedeBorrar = puedeBorrarIngreso(ui.perfilActual?.nombre, ui.perfilActual?.modulos);
   const [err, setErr] = useState("");
 
   const borrarIngreso = useCallback(
