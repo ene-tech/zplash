@@ -1,6 +1,6 @@
 "use client";
 
-import { sumarMeses, todayYMD } from "@/lib/helpers";
+import { maquinariasPorZona, sumarMeses, todayYMD } from "@/lib/helpers";
 import type { useAlertasMantencion } from "./useAlertasMantencion";
 
 const ATAJOS_MESES = [1, 3, 6, 12];
@@ -20,10 +20,14 @@ export function AgendarAlertaForm(p: Props) {
         <div className="field" style={{ minWidth: 220, flex: 1 }}>
           <label>Máquina</label>
           <select value={p.maquinariaId} onChange={(e) => p.setMaquinariaId(e.target.value)}>
-            {p.maquinariasActivas.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nombre}
-              </option>
+            {maquinariasPorZona(p.maquinariasActivas).map(([zona, deLaZona]) => (
+              <optgroup key={zona} label={zona}>
+                {deLaZona.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nombre}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

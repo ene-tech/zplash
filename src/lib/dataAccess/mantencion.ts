@@ -2,11 +2,12 @@ import "server-only";
 
 import { inArray } from "drizzle-orm";
 import { getDb } from "@/db";
-import { alertasMantencion, maquinarias, registrosMantencion } from "@/db/schema";
-import type { AlertaMantencion, Maquinaria, RegistroMantencion } from "@/types";
+import { alertasMantencion, maquinarias, planesMantencion, registrosMantencion } from "@/db/schema";
+import type { AlertaMantencion, Maquinaria, PlanMantencion, RegistroMantencion } from "@/types";
 import { upsertRows } from "./shared";
 
 type MaquinariaRow = typeof maquinarias.$inferSelect;
+type PlanMantencionRow = typeof planesMantencion.$inferSelect;
 type RegistroMantencionRow = typeof registrosMantencion.$inferSelect;
 type AlertaMantencionRow = typeof alertasMantencion.$inferSelect;
 
@@ -14,6 +15,7 @@ export function maquinariaToRow(m: Maquinaria): typeof maquinarias.$inferInsert 
   return {
     id: m.id,
     nombre: m.nombre,
+    zona: m.zona || null,
     tipo: m.tipo || null,
     activo: m.activo,
     periodicidadTipo: m.periodicidadTipo || null,
@@ -28,6 +30,7 @@ export function maquinariaFromRow(r: MaquinariaRow): Maquinaria {
   return {
     id: r.id,
     nombre: r.nombre,
+    zona: r.zona || undefined,
     tipo: r.tipo || undefined,
     activo: r.activo,
     periodicidadTipo: (r.periodicidadTipo as Maquinaria["periodicidadTipo"]) || undefined,
@@ -69,10 +72,73 @@ export async function deleteMaquinarias(ids: string[]): Promise<boolean> {
   }
 }
 
+export function planMantencionToRow(p: PlanMantencion): typeof planesMantencion.$inferInsert {
+  return {
+    id: p.id,
+    maquinariaId: p.maquinariaId,
+    descripcion: p.descripcion,
+    repuestos: p.repuestos || null,
+    periodicidadTipo: p.periodicidadTipo,
+    intervaloDias: p.intervaloDias ?? null,
+    intervaloLavados: p.intervaloLavados ?? null,
+    avisoDias: p.avisoDias ?? null,
+    avisoLavados: p.avisoLavados ?? null,
+    ultimaVezEn: p.ultimaVezEn || null,
+    lavadosPrevios: p.lavadosPrevios ?? null,
+    activo: p.activo,
+    creadoEn: p.creadoEn,
+    creadoPor: p.creadoPor || null,
+  };
+}
+
+export function planMantencionFromRow(r: PlanMantencionRow): PlanMantencion {
+  return {
+    id: r.id,
+    maquinariaId: r.maquinariaId,
+    descripcion: r.descripcion,
+    repuestos: r.repuestos || undefined,
+    periodicidadTipo: r.periodicidadTipo as PlanMantencion["periodicidadTipo"],
+    intervaloDias: r.intervaloDias ?? undefined,
+    intervaloLavados: r.intervaloLavados ?? undefined,
+    avisoDias: r.avisoDias ?? undefined,
+    avisoLavados: r.avisoLavados ?? undefined,
+    ultimaVezEn: r.ultimaVezEn || undefined,
+    lavadosPrevios: r.lavadosPrevios ?? undefined,
+    activo: r.activo,
+    creadoEn: r.creadoEn,
+    creadoPor: r.creadoPor || undefined,
+  };
+}
+
+export async function upsertPlanesMantencion(rows: PlanMantencion[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(planesMantencion, planesMantencion.id, rows.map(planMantencionToRow));
+    return true;
+  } catch (error) {
+    console.error("Error guardando planes de mantención", error);
+    return false;
+  }
+}
+
+// registros_mantencion.plan_id apunta acá con "set null": borrar una tarea
+// del plan deja su bitácora histórica intacta, solo desvinculada.
+export async function deletePlanesMantencion(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(planesMantencion).where(inArray(planesMantencion.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando planes de mantención", error);
+    return false;
+  }
+}
+
 export function registroMantencionToRow(r: RegistroMantencion): typeof registrosMantencion.$inferInsert {
   return {
     id: r.id,
     maquinariaId: r.maquinariaId,
+    planId: r.planId || null,
     fecha: r.fecha,
     descripcion: r.descripcion,
     responsable: r.responsable || null,
@@ -87,6 +153,7 @@ export function registroMantencionFromRow(r: RegistroMantencionRow): RegistroMan
   return {
     id: r.id,
     maquinariaId: r.maquinariaId,
+    planId: r.planId || undefined,
     fecha: r.fecha,
     descripcion: r.descripcion,
     responsable: r.responsable || undefined,

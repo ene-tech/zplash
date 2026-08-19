@@ -11,6 +11,13 @@ import type { ConfigGlobal } from "./config";
 import type { CartolaMovimiento, CategoriaGasto, CategoriaIngreso, MovimientoContable, ReglaConciliacion } from "./contabilidad";
 import type { Cupon } from "./cupones";
 import type { Empresa } from "./empresas";
+import type {
+  ContratoFuncionario,
+  MarcaAsistencia,
+  TareaTurno,
+  TareaTurnoHecha,
+  TurnoFuncionario,
+} from "./funcionario";
 import type { Ingreso } from "./ingresos";
 import type {
   CategoriaInsumo,
@@ -21,7 +28,7 @@ import type {
   Producto,
   Proveedor,
 } from "./inventario";
-import type { AlertaMantencion, Maquinaria, RegistroMantencion } from "./mantencion";
+import type { AlertaMantencion, Maquinaria, PlanMantencion, RegistroMantencion } from "./mantencion";
 import type { PlantillaCorreo, ReglaCorreo } from "./mail";
 import type { PerfilPublico } from "./perfiles";
 import type { Precios, PreciosTamano } from "./precios";
@@ -56,6 +63,7 @@ export interface AppData {
   destinosInventario: DestinoInventario[];
   movimientosInventario: MovimientoInventario[];
   maquinarias: Maquinaria[];
+  planesMantencion: PlanMantencion[];
   registrosMantencion: RegistroMantencion[];
   alertasMantencion: AlertaMantencion[];
   plantillasCorreo: PlantillaCorreo[];
@@ -63,6 +71,11 @@ export interface AppData {
   plantillasWhatsapp: PlantillaWhatsapp[];
   reglasWhatsapp: ReglaWhatsapp[];
   cierresCaja: CierreCaja[];
+  turnosFuncionario: TurnoFuncionario[];
+  tareasTurno: TareaTurno[];
+  tareasTurnoHechas: TareaTurnoHecha[];
+  marcasAsistencia: MarcaAsistencia[];
+  contratosFuncionario: ContratoFuncionario[];
 }
 
 export * from "./agenda";
@@ -74,6 +87,7 @@ export * from "./config";
 export * from "./contabilidad";
 export * from "./cupones";
 export * from "./empresas";
+export * from "./funcionario";
 export * from "./ingresos";
 export * from "./inventario";
 export * from "./mail";

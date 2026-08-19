@@ -26,6 +26,9 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     descuentoPrimeraVezDiasValidez: c.descuentoPrimeraVezDiasValidez,
     textosBotWhatsapp: c.textosBotWhatsapp as unknown as Record<string, string>,
     firmaCorreo: c.firmaCorreo,
+    localLat: c.localLat ?? null,
+    localLng: c.localLng ?? null,
+    radioAsistenciaMetros: c.radioAsistenciaMetros,
   };
 }
 
@@ -48,6 +51,9 @@ export function configFromRow(r: ConfigRow): ConfigGlobal {
     descuentoPrimeraVezDiasValidez: r.descuentoPrimeraVezDiasValidez || 7,
     textosBotWhatsapp: { ...TEXTOS_BOT_WHATSAPP_DEFAULT, ...(r.textosBotWhatsapp ?? {}) },
     firmaCorreo: r.firmaCorreo ?? "",
+    localLat: r.localLat ?? undefined,
+    localLng: r.localLng ?? undefined,
+    radioAsistenciaMetros: r.radioAsistenciaMetros || 150,
   };
 }
 

@@ -5,6 +5,7 @@ import { AgendarAlertaForm } from "@/components/tabs/alertasMantencion/AgendarAl
 import { CompletarMantencionForm } from "@/components/tabs/alertasMantencion/CompletarMantencionForm";
 import { AlertasPendientesTabla } from "@/components/tabs/alertasMantencion/AlertasPendientesTabla";
 import { HistorialAlertasTabla } from "@/components/tabs/alertasMantencion/HistorialAlertasTabla";
+import { PlanesPorVencerTabla } from "@/components/tabs/alertasMantencion/PlanesPorVencerTabla";
 
 export default function AlertasMantencionTab() {
   const r = useAlertasMantencion();
@@ -16,6 +17,8 @@ export default function AlertasMantencionTab() {
         general aire acondicionado&quot; en 8 meses). Cuando se realice, márcala como realizada para que quede en el
         historial de la máquina.
       </div>
+
+      <PlanesPorVencerTabla />
 
       <AgendarAlertaForm
         maquinariasActivas={r.maquinariasActivas}

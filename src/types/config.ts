@@ -119,4 +119,12 @@ export interface ConfigGlobal {
   textosBotWhatsapp: TextosBotWhatsapp;
   // Firma HTML del gestor de correo (ver @/types/buzon) — vacía por defecto.
   firmaCorreo: string;
+  // Ubicación del local (coordenadas) y radio en metros dentro del cual una
+  // marca del libro de asistencia se considera hecha "en el local" (ver
+  // MarcaAsistencia y distanciaMetros en @/lib/helpers/funcionario).
+  // undefined = sin configurar: las marcas se guardan con su posición pero
+  // sin veredicto.
+  localLat?: number;
+  localLng?: number;
+  radioAsistenciaMetros: number;
 }

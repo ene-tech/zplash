@@ -42,6 +42,7 @@ function appDataVacia(): AppData {
     destinosInventario: [],
     movimientosInventario: [],
     maquinarias: [],
+    planesMantencion: [],
     registrosMantencion: [],
     alertasMantencion: [],
     plantillasCorreo: [],
@@ -49,6 +50,11 @@ function appDataVacia(): AppData {
     reglasWhatsapp: [],
     reglasCorreo: [],
     cierresCaja: [],
+    turnosFuncionario: [],
+    tareasTurno: [],
+    tareasTurnoHechas: [],
+    marcasAsistencia: [],
+    contratosFuncionario: [],
   };
 }
 

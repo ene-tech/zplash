@@ -65,6 +65,13 @@ export default function HubView() {
             <div className="desc">Máquinas del túnel y bitácora de mantenciones</div>
           </button>
         )}
+        {modulos.includes("funcionario") && (
+          <button className="role-btn" onClick={() => patchUi({ view: "funcionario" })}>
+            <div className="icon">🧑‍🔧</div>
+            <div className="label">Mi Entorno</div>
+            <div className="desc">Asistencia, turno, tareas de apertura/cierre y contrato</div>
+          </button>
+        )}
         {modulos.includes("mensajes") && (
           <button className="role-btn" onClick={() => patchUi({ view: "mensajes" })}>
             <div className="icon">💬</div>

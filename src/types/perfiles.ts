@@ -20,7 +20,8 @@ export type Modulo =
   | "inventario"
   | "mantencion"
   | "mensajes"
-  | "correo";
+  | "correo"
+  | "funcionario";
 
 // Lo que el cliente sí puede cargar: nombre y módulos permitidos, nunca la
 // contraseña. La clave solo se consulta/valida server-side, dentro de las

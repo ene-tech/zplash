@@ -21,6 +21,7 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   descuentoPrimeraVezDiasValidez: 7,
   textosBotWhatsapp: TEXTOS_BOT_WHATSAPP_DEFAULT,
   firmaCorreo: "",
+  radioAsistenciaMetros: 150,
 };
 
 /** true si `ahora` cae dentro del horario configurado para registrar ingresos en el

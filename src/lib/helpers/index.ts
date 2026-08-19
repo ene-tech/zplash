@@ -12,6 +12,7 @@ export * from "./config";
 export * from "./contabilidad";
 export * from "./cupones";
 export * from "./fechas";
+export * from "./funcionario";
 export * from "./ids";
 export * from "./ingresos";
 export * from "./inventario";

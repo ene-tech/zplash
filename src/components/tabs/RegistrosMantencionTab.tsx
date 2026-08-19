@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { uid, vehiculosDesdeUltimaMantencion } from "@/lib/helpers";
+import { maquinariasPorZona, uid, vehiculosDesdeUltimaMantencion } from "@/lib/helpers";
 import type { RegistroMantencion } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,9 @@ export default function RegistrosMantencionTab() {
   const maquinariasActivas = data.maquinarias.filter((m) => m.activo);
 
   const [maquinariaId, setMaquinariaId] = useState(maquinariasActivas[0]?.id || "");
+  // Qué tarea del plan cumple este registro — "" = mantención suelta. Es lo
+  // que reinicia el contador de esa tarea (ver planMantencionStatus).
+  const [planId, setPlanId] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [responsable, setResponsable] = useState(ui.perfilActual?.nombre || "");
   const [costoTexto, setCostoTexto] = useState("");
@@ -35,7 +38,10 @@ export default function RegistrosMantencionTab() {
     [data.registrosMantencion]
   );
 
+  const planesDeLaMaquina = data.planesMantencion.filter((p) => p.maquinariaId === maquinariaId && p.activo);
+
   const limpiar = () => {
+    setPlanId("");
     setDescripcion("");
     setCostoTexto("");
     setNotas("");
@@ -65,6 +71,7 @@ export default function RegistrosMantencionTab() {
     const nuevo: RegistroMantencion = {
       id: uid(),
       maquinariaId,
+      planId: planId || undefined,
       fecha,
       descripcion: descripcion.trim(),
       responsable: responsable.trim() || undefined,
@@ -110,10 +117,38 @@ export default function RegistrosMantencionTab() {
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             <div className="field" style={{ minWidth: 220, flex: 1 }}>
               <label>Máquina</label>
-              <select value={maquinariaId} onChange={(e) => setMaquinariaId(e.target.value)}>
-                {maquinariasActivas.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nombre}
+              <select
+                value={maquinariaId}
+                onChange={(e) => {
+                  setMaquinariaId(e.target.value);
+                  setPlanId("");
+                }}
+              >
+                {maquinariasPorZona(maquinariasActivas).map(([zona, deLaZona]) => (
+                  <optgroup key={zona} label={zona}>
+                    {deLaZona.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.nombre}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            <div className="field" style={{ minWidth: 220, flex: 1 }}>
+              <label>Mantención del plan (opcional)</label>
+              <select
+                value={planId}
+                onChange={(e) => {
+                  setPlanId(e.target.value);
+                  const plan = planesDeLaMaquina.find((p) => p.id === e.target.value);
+                  if (plan && !descripcion.trim()) setDescripcion(plan.descripcion);
+                }}
+              >
+                <option value="">Mantención suelta (fuera del plan)</option>
+                {planesDeLaMaquina.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.descripcion}
                   </option>
                 ))}
               </select>

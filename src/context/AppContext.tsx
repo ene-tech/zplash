@@ -25,6 +25,7 @@ import {
   commitCategoriasProducto,
   commitCitas,
   commitClientes,
+  commitContratosFuncionario,
   commitConfig,
   commitCupones,
   commitDestinosInventario,
@@ -32,7 +33,9 @@ import {
   commitHorariosAgenda,
   commitIngresos,
   commitInsumos,
+  commitMarcasAsistencia,
   commitMaquinarias,
+  commitPlanesMantencion,
   commitMovimientosContables,
   commitMovimientosInventario,
   commitPerfiles,
@@ -47,6 +50,9 @@ import {
   commitReglasCorreo,
   commitReglasWhatsapp,
   commitServicios,
+  commitTareasTurno,
+  commitTareasTurnoHechas,
+  commitTurnosFuncionario,
   commitVentas,
   derivarMovimientosDesdeVentas,
   type CommitResult,
@@ -79,6 +85,7 @@ const initialData: AppData = {
   destinosInventario: [],
   movimientosInventario: [],
   maquinarias: [],
+  planesMantencion: [],
   registrosMantencion: [],
   alertasMantencion: [],
   plantillasCorreo: JSON.parse(JSON.stringify(PLANTILLAS_CORREO_DEFAULT)),
@@ -86,6 +93,11 @@ const initialData: AppData = {
   plantillasWhatsapp: JSON.parse(JSON.stringify(PLANTILLAS_WHATSAPP_DEFAULT)),
   reglasWhatsapp: [],
   cierresCaja: [],
+  turnosFuncionario: [],
+  tareasTurno: [],
+  tareasTurnoHechas: [],
+  marcasAsistencia: [],
+  contratosFuncionario: [],
 };
 
 const initialUI: UIState = {
@@ -96,6 +108,7 @@ const initialUI: UIState = {
   webSettingsTab: "precios",
   inventarioTab: "productos",
   mantencionTab: "maquinas",
+  funcionarioTab: "asistencia",
   search: "",
   modal: null,
   loginErr: "",
@@ -250,12 +263,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     agregar(commitDestinosInventario(previous.destinosInventario, patch.destinosInventario));
     agregar(commitMovimientosInventario(previous.movimientosInventario, patch.movimientosInventario));
     agregar(commitMaquinarias(previous.maquinarias, patch.maquinarias));
+    agregar(commitPlanesMantencion(previous.planesMantencion, patch.planesMantencion));
     agregar(commitRegistrosMantencion(previous.registrosMantencion, patch.registrosMantencion));
     agregar(commitAlertasMantencion(previous.alertasMantencion, patch.alertasMantencion));
     agregar(commitPlantillasCorreo(previous.plantillasCorreo, patch.plantillasCorreo));
     agregar(commitReglasCorreo(previous.reglasCorreo, patch.reglasCorreo));
     agregar(commitPlantillasWhatsapp(previous.plantillasWhatsapp, patch.plantillasWhatsapp));
     agregar(commitReglasWhatsapp(previous.reglasWhatsapp, patch.reglasWhatsapp));
+    agregar(commitTurnosFuncionario(previous.turnosFuncionario, patch.turnosFuncionario));
+    agregar(commitTareasTurno(previous.tareasTurno, patch.tareasTurno));
+    agregar(commitTareasTurnoHechas(previous.tareasTurnoHechas, patch.tareasTurnoHechas));
+    agregar(commitMarcasAsistencia(previous.marcasAsistencia, patch.marcasAsistencia));
+    agregar(commitContratosFuncionario(previous.contratosFuncionario, patch.contratosFuncionario));
 
     let results: boolean[];
     try {

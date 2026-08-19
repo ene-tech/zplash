@@ -97,4 +97,12 @@ export const config = pgTable("config", {
   // o respuesta (ver @/types/buzon y @/components/modals/CorreoRedactarModal)
   // — editable en Web Settings, vacío por defecto (no se agrega nada).
   firmaCorreo: text("firma_correo").notNull().default(""),
+  // Ubicación del local y radio tolerado, para validar la geolocalización de
+  // las marcas del libro de asistencia (ver marcas_asistencia y
+  // distanciaMetros en @/lib/helpers/funcionario). null = todavía sin
+  // configurar: la marca se guarda con su posición pero sin veredicto de
+  // "estaba en el local". Se configura desde el módulo Funcionario → Asistencia.
+  localLat: numeric("local_lat", { mode: "number" }),
+  localLng: numeric("local_lng", { mode: "number" }),
+  radioAsistenciaMetros: integer("radio_asistencia_metros").notNull().default(150),
 });

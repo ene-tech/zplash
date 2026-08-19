@@ -34,6 +34,7 @@ export const TODOS_LOS_MODULOS: Modulo[] = [
   "mantencion",
   "mensajes",
   "correo",
+  "funcionario",
 ];
 
 export const MODULO_LABELS: Record<Modulo, string> = {
@@ -57,6 +58,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   mantencion: "Libro de Mantención Maquinaria",
   mensajes: "Mensajes WhatsApp",
   correo: "Correo (info@zplash.cl)",
+  funcionario: "Mi Entorno (asistencia, turno, contrato)",
 };
 
 /** Identidades por defecto para un entorno nuevo sin filas en `perfiles`
@@ -64,12 +66,12 @@ export const MODULO_LABELS: Record<Modulo, string> = {
  * el perfil). Gerencia es el único con "permisos": puede asignar módulos y
  * resetear la clave de cualquiera. */
 export const PERFILES_DEFAULT: PerfilPublico[] = [
-  { id: "p1", nombre: "Christian", modulos: ["operador", "servicios"] },
-  { id: "p2", nombre: "Verónica", modulos: ["operador", "servicios"] },
-  { id: "p3", nombre: "Patricio", modulos: ["operador", "servicios"] },
-  { id: "p4", nombre: "Emilio", modulos: ["operador", "servicios"] },
-  { id: "p5", nombre: "Evelyn", modulos: ["operador", "servicios", ...MODULOS_ADMIN] },
-  { id: "p6", nombre: "Jota", modulos: ["operador", "servicios"] },
+  { id: "p1", nombre: "Christian", modulos: ["operador", "servicios", "funcionario"] },
+  { id: "p2", nombre: "Verónica", modulos: ["operador", "servicios", "funcionario"] },
+  { id: "p3", nombre: "Patricio", modulos: ["operador", "servicios", "funcionario"] },
+  { id: "p4", nombre: "Emilio", modulos: ["operador", "servicios", "funcionario"] },
+  { id: "p5", nombre: "Evelyn", modulos: ["operador", "servicios", "funcionario", ...MODULOS_ADMIN] },
+  { id: "p6", nombre: "Jota", modulos: ["operador", "servicios", "funcionario"] },
   { id: "p7", nombre: "Gerencia", modulos: TODOS_LOS_MODULOS },
 ];
 

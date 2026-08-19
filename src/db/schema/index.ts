@@ -31,6 +31,8 @@ export * from "./mantencion";
 export * from "./otpCliente";
 export * from "./pagos";
 export * from "./perfiles";
+// Después de ./perfiles: turnos_funcionario y contratos_funcionario tienen FK a perfiles.id.
+export * from "./funcionario";
 export * from "./precios";
 export * from "./pushSubscriptions";
 export * from "./servicios";

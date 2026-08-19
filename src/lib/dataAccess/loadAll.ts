@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, desc } from "drizzle-orm";
+import { asc, desc, gte } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   alertasMantencion,
@@ -17,11 +17,13 @@ import {
   config,
   cupones,
   destinosInventario,
+  contratosFuncionario,
   empresas,
   horariosAgenda,
   ingresos,
   insumos,
   maquinarias,
+  planesMantencion,
   movimientosContables,
   movimientosInventario,
   perfiles,
@@ -34,14 +36,19 @@ import {
   registrosMantencion,
   reglasConciliacion,
   reglasCorreo,
+  marcasAsistencia,
   reglasWhatsapp,
   servicios,
+  tareasTurno,
+  tareasTurnoHechas,
+  turnosFuncionario,
   ventas,
 } from "@/db/schema";
 import {
   CATEGORIAS_GASTO_DEFAULT,
   CATEGORIAS_INGRESO_DEFAULT,
   CONFIG_DEFAULT,
+  diaCaja,
   PERFILES_DEFAULT,
   PLANTILLAS_CORREO_DEFAULT,
   PLANTILLAS_WHATSAPP_DEFAULT,
@@ -49,6 +56,7 @@ import {
   PRECIOS_TAMANO_DEFAULT,
   recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
+  sumarDias,
 } from "@/lib/helpers";
 import type { AppData } from "@/types";
 import { bloqueoAgendaFromRow, citaFromRow, horarioAgendaFromRow } from "./agenda";
@@ -58,12 +66,19 @@ import { clienteFromRow } from "./clientes";
 import { configFromRow } from "./config";
 import { cuponFromRow } from "./cupones";
 import { empresaFromRow } from "./empresas";
+import {
+  contratoFuncionarioFromRow,
+  marcaAsistenciaFromRow,
+  tareaTurnoFromRow,
+  tareaTurnoHechaFromRow,
+  turnoFuncionarioFromRow,
+} from "./funcionario";
 import { ingresoFromRow } from "./ingresos";
 import { categoriaInsumoFromRow, insumoFromRow } from "./inventario/insumos";
 import { destinoInventarioFromRow, movimientoInventarioFromRow } from "./inventario/destinos";
 import { categoriaProductoFromRow, productoFromRow } from "./inventario/productos";
 import { proveedorFromRow } from "./inventario/proveedores";
-import { alertaMantencionFromRow, maquinariaFromRow, registroMantencionFromRow } from "./mantencion";
+import { alertaMantencionFromRow, maquinariaFromRow, planMantencionFromRow, registroMantencionFromRow } from "./mantencion";
 import { plantillaCorreoFromRow, reglaCorreoFromRow } from "./mail";
 import { perfilPublicoFromRow } from "./perfiles";
 import { preciosFromRows, preciosTamanoFromRows } from "./precios";
@@ -108,6 +123,7 @@ export type AppDataHistorial = Pick<AppData, "ventas" | "ingresos" | "movimiento
  */
 export async function loadCore(): Promise<AppDataCore> {
   const db = getDb();
+  const desdeFuncionario = sumarDias(diaCaja(new Date().toISOString()), -90);
   const [
     clientesRows,
     perfilesRows,
@@ -133,6 +149,7 @@ export async function loadCore(): Promise<AppDataCore> {
     destinosInventarioRows,
     movimientosInventarioRows,
     maquinariasRows,
+    planesMantencionRows,
     registrosMantencionRows,
     alertasMantencionRows,
     plantillasCorreoRows,
@@ -140,6 +157,11 @@ export async function loadCore(): Promise<AppDataCore> {
     reglasCorreoRows,
     reglasWhatsappRows,
     cierresCajaRows,
+    turnosFuncionarioRows,
+    tareasTurnoRows,
+    tareasTurnoHechasRows,
+    marcasAsistenciaRows,
+    contratosFuncionarioRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos, icono: perfiles.icono }).from(perfiles)),
@@ -165,6 +187,7 @@ export async function loadCore(): Promise<AppDataCore> {
     safe(db.select().from(destinosInventario).orderBy(asc(destinosInventario.nombre))),
     safe(db.select().from(movimientosInventario).orderBy(desc(movimientosInventario.fecha))),
     safe(db.select().from(maquinarias).orderBy(asc(maquinarias.nombre))),
+    safe(db.select().from(planesMantencion).orderBy(asc(planesMantencion.descripcion))),
     safe(db.select().from(registrosMantencion).orderBy(desc(registrosMantencion.fecha))),
     safe(db.select().from(alertasMantencion).orderBy(asc(alertasMantencion.fechaObjetivo))),
     safe(db.select().from(plantillasCorreo).orderBy(asc(plantillasCorreo.nombre))),
@@ -172,6 +195,15 @@ export async function loadCore(): Promise<AppDataCore> {
     safe(db.select().from(reglasCorreo).orderBy(asc(reglasCorreo.nombre))),
     safe(db.select().from(reglasWhatsapp).orderBy(asc(reglasWhatsapp.nombre))),
     safe(db.select().from(cierresCaja).orderBy(desc(cierresCaja.fecha))),
+    safe(db.select().from(turnosFuncionario).orderBy(asc(turnosFuncionario.diaSemana))),
+    safe(db.select().from(tareasTurno).orderBy(asc(tareasTurno.orden))),
+    // Estas dos crecen una fila por día trabajado y por tarea marcada: se
+    // traen solo los últimos meses (alcanza para el mes en curso y el
+    // anterior, que es lo que se revisa para sueldos/auditoría) en vez de
+    // sumarse enteras al peso de AppData como pasó con ingresos/ventas.
+    safe(db.select().from(tareasTurnoHechas).where(gte(tareasTurnoHechas.fecha, desdeFuncionario))),
+    safe(db.select().from(marcasAsistencia).where(gte(marcasAsistencia.fecha, desdeFuncionario))),
+    safe(db.select().from(contratosFuncionario)),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -221,6 +253,7 @@ export async function loadCore(): Promise<AppDataCore> {
     destinosInventario: destinosInventarioRows.map(destinoInventarioFromRow),
     movimientosInventario: movimientosInventarioRows.map(movimientoInventarioFromRow),
     maquinarias: maquinariasRows.map(maquinariaFromRow),
+    planesMantencion: planesMantencionRows.map(planMantencionFromRow),
     registrosMantencion: registrosMantencionRows.map(registroMantencionFromRow),
     alertasMantencion: alertasMantencionRows.map(alertaMantencionFromRow),
     plantillasCorreo: plantillasCorreoData,
@@ -228,6 +261,11 @@ export async function loadCore(): Promise<AppDataCore> {
     plantillasWhatsapp: plantillasWhatsappData,
     reglasWhatsapp: reglasWhatsappRows.map(reglaWhatsappFromRow),
     cierresCaja: cierresCajaRows.map(cierreCajaFromRow),
+    turnosFuncionario: turnosFuncionarioRows.map(turnoFuncionarioFromRow),
+    tareasTurno: tareasTurnoRows.map(tareaTurnoFromRow),
+    tareasTurnoHechas: tareasTurnoHechasRows.map(tareaTurnoHechaFromRow),
+    marcasAsistencia: marcasAsistenciaRows.map(marcaAsistenciaFromRow),
+    contratosFuncionario: contratosFuncionarioRows.map(contratoFuncionarioFromRow),
   };
 }
 

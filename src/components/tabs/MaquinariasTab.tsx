@@ -2,13 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { mantencionStatus, uid } from "@/lib/helpers";
+import { mantencionStatus, maquinariasPorZona, uid } from "@/lib/helpers";
 import type { Maquinaria } from "@/types";
 
 export default function MaquinariasTab() {
   const { data, ui, patchUi, commit } = useApp();
   const nombreRef = useRef<HTMLInputElement>(null);
+  const zonaRef = useRef<HTMLInputElement>(null);
   const tipoRef = useRef<HTMLInputElement>(null);
+  const zonas = [...new Set(data.maquinarias.map((m) => m.zona?.trim()).filter(Boolean))].sort() as string[];
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const puedeBorrar = ui.perfilActual?.modulos.includes("permisos") || false;
 
@@ -25,6 +27,7 @@ export default function MaquinariasTab() {
     const nueva: Maquinaria = {
       id: uid(),
       nombre,
+      zona: zonaRef.current?.value.trim() || undefined,
       tipo: tipoRef.current?.value.trim() || undefined,
       activo: true,
       creadoEn: new Date().toISOString(),
@@ -37,6 +40,7 @@ export default function MaquinariasTab() {
     }
     setErr({ msg: "Máquina agregada correctamente", ok: true });
     if (nombreRef.current) nombreRef.current.value = "";
+    if (zonaRef.current) zonaRef.current.value = "";
     if (tipoRef.current) tipoRef.current.value = "";
   };
 
@@ -70,6 +74,17 @@ export default function MaquinariasTab() {
           <input ref={nombreRef} placeholder="Ej: Cepillo lateral 1" />
         </div>
         <div className="field" style={{ flex: 1, minWidth: 180 }}>
+          <label>Zona</label>
+          {/* datalist nativo: sugiere las zonas ya usadas sin obligar a
+              elegir de una lista fija — crear una zona nueva es escribirla. */}
+          <input ref={zonaRef} list="zonas-maquinaria" placeholder="Ej: Túnel, Aspirado" />
+          <datalist id="zonas-maquinaria">
+            {zonas.map((z) => (
+              <option key={z} value={z} />
+            ))}
+          </datalist>
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 180 }}>
           <label>Tipo (opcional)</label>
           <input ref={tipoRef} placeholder="Ej: Cepillo, secador, bomba" />
         </div>
@@ -82,10 +97,22 @@ export default function MaquinariasTab() {
       </button>
 
       <div style={{ marginTop: 22 }}>
-        {data.maquinarias
-          .slice()
-          .sort((a, b) => a.nombre.localeCompare(b.nombre))
-          .map((m) => (
+        {maquinariasPorZona(data.maquinarias).map(([zona, deLaZona]) => (
+          <div key={zona}>
+            <div
+              style={{
+                marginTop: 14,
+                marginBottom: 4,
+                fontSize: 12,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "var(--gray)",
+              }}
+            >
+              {zona}
+            </div>
+            {deLaZona.map((m) => (
             <div
               key={m.id}
               style={{
@@ -101,7 +128,7 @@ export default function MaquinariasTab() {
                 {m.nombre}
                 {m.tipo && <span style={{ color: "var(--gray)", fontSize: 13 }}> — {m.tipo}</span>}
                 {(() => {
-                  const status = mantencionStatus(m, data.registrosMantencion, data.ingresos);
+                  const status = mantencionStatus(m, data.planesMantencion, data.registrosMantencion, data.ingresos);
                   return status ? <span className={`status-pill ${status.cls}`} style={{ marginLeft: 10 }}>{status.label}</span> : null;
                 })()}
               </div>
@@ -117,7 +144,9 @@ export default function MaquinariasTab() {
                 </button>
               )}
             </div>
-          ))}
+            ))}
+          </div>
+        ))}
         {data.maquinarias.length === 0 && <div className="empty">Todavía no hay máquinas registradas</div>}
       </div>
     </div>
