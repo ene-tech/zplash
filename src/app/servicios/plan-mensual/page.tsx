@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Car, CreditCard, Bell, Repeat, Check } from "lucide-react";
-import { fmtCLP } from "@/lib/helpers";
+import { PLAN_X5, fmtCLP } from "@/lib/helpers";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoHero from "@/components/cliente/ProductoHero";
@@ -10,9 +10,9 @@ import VolverBoton from "@/components/cliente/VolverBoton";
 
 const PREGUNTAS_PLAN_MENSUAL = [
   {
-    q: "¿Qué incluye el Plan Ilimitado Mensual?",
+    q: "¿Qué incluye el Plan X5?",
     a: [
-      "Lavados Full Tunel ilimitados durante 30 días desde la contratación.",
+      "5 lavados Full Túnel durante los 30 días desde la contratación.",
       "Máximo 1 ingreso cada 24 horas.",
       "Uso ilimitado de las máquinas aspiradoras autoservicio.",
       "Válido para una patente; puede cambiarse al término del período.",
@@ -60,18 +60,18 @@ export default async function PlanMensualPage() {
 
   return (
     <div id="app">
-      <ClienteHeader titulo="Plan Mensual Ilimitado" />
+      <ClienteHeader titulo="Plan X5" />
 
       <div className="content">
         <VolverBoton href="/#lavados" label="Volver a Tipos de Lavados" />
 
         <ProductoHero
           eyebrow="Plan mensual"
-          titulo="Plan Full Túnel Ilimitado"
-          descripcion="Lavados ilimitados por el túnel durante todo el mes (un ingreso al día). Ideal para quienes usan el auto a diario y quieren mantenerlo siempre limpio sin pensar en pagar cada vez."
+          titulo="Plan X5 Full Túnel"
+          descripcion="5 lavados por el túnel al mes (un ingreso al día). Ideal para quienes usan el auto a diario y quieren mantenerlo siempre limpio sin pensar en pagar cada vez."
           imagen="/fondo-producto.jpg"
           features={[
-            { icon: <Car />, titulo: "Lavados ilimitados", detalle: "Un ingreso al día por el túnel, durante 30 días desde la contratación." },
+            { icon: <Car />, titulo: "5 lavados al mes", detalle: "Un ingreso al día por el túnel, durante los 30 días desde la contratación." },
             { icon: <CreditCard />, titulo: "Dos formas de pagar", detalle: "Mes a mes con tarjeta, o renovación automática más barata." },
             { icon: <Bell />, titulo: "Te avisamos antes de que venza", detalle: "Para que no te quedes sin plan sin darte cuenta." },
           ]}
@@ -102,7 +102,7 @@ export default async function PlanMensualPage() {
               <Link href="/pagar?item=plan" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
                 Comprar
               </Link>
-              <AgregarCarritoButton item={{ key: "plan", tipo: "plan_nuevo", nombre: "Plan Ilimitado Mensual", precio: precios.plan.precio }} />
+              <AgregarCarritoButton item={{ key: "plan", tipo: "plan_nuevo", nombre: PLAN_X5, precio: precios.plan.precio }} />
             </div>
           </div>
 

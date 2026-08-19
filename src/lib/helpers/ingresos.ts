@@ -1,7 +1,7 @@
 import type { Cliente, Ingreso } from "@/types";
 import { inicioPeriodoPlan } from "./clientes";
-import { fmtCLP, PRECIO_LAVADO_UNICO } from "./precios";
-import { ahoraEnSantiago, fmtHora, todayStr } from "./fechas";
+import { fmtCLP, pasesIncluidos, PLAN_ILIMITADO_LEGACY, PLAN_X5, PRECIO_LAVADO_UNICO } from "./precios";
+import { ahoraEnSantiago, fmtFecha, fmtHora, todayStr } from "./fechas";
 
 /** Si el cliente ya registró un ingreso hoy (para limitar a 1 pasada diaria por plan vigente). */
 export function yaIngresoHoy(ingresos: Ingreso[], clienteId: string): boolean {
@@ -17,7 +17,7 @@ export function ultimoIngresoCliente(ingresos: Ingreso[], clienteId: string): In
 
 const HORAS_VENTANA_GARANTIA = 1;
 
-export type EstadoReingresoPlan = "libre" | "garantia" | "bloqueado";
+export type EstadoReingresoPlan = "libre" | "garantia" | "bloqueado" | "sin_pases";
 
 /** Texto legible de horasBloqueoReingresoPlan, ej: 24.5 -> "24:30 horas". */
 function fmtHorasBloqueo(horas: number): string {
@@ -60,6 +60,62 @@ export function mensajeBloqueoReingreso(ingresos: Ingreso[], clienteId: string, 
   const proximo = proximoIngresoPermitido(ingresos, clienteId, horasBloqueo);
   const hora = proximo ? fmtHora(proximo.toISOString()) : "";
   return `VEHICULO HIZO USO DEL SERVICIO TUNEL HACE MENOS DE ${fmtHorasBloqueo(horasBloqueo).toUpperCase()}. PUEDE REINGRESAR A PARTIR DE LAS ${hora} HRS.`;
+}
+
+/**
+ * Pasadas que le quedan al cliente dentro de su ciclo de plan vigente.
+ * null = sin tope, que es el caso de todos los que contrataron el plan
+ * ilimitado antes del X5 (ver pasesIncluidos en ./precios: el nombre del plan
+ * guardado en el cliente es la marca) y de los que no tienen plan.
+ */
+export function pasesRestantes(
+  ingresos: Ingreso[],
+  cliente: Pick<Cliente, "id" | "plan" | "fechaContratacion">,
+  ahora: Date = ahoraEnSantiago()
+): number | null {
+  const incluidos = pasesIncluidos(cliente.plan);
+  if (incluidos === null) return null;
+  return Math.max(0, incluidos - visitasPeriodoPlan(ingresos, cliente, ahora));
+}
+
+/** Día en que arranca el próximo ciclo del plan (fin del vigente + 1), que es
+ * cuando se le reponen las pasadas al cliente con tope. */
+export function inicioProximoPeriodoPlan(
+  cliente: Pick<Cliente, "fechaContratacion">,
+  ahora: Date = ahoraEnSantiago()
+): Date {
+  const fin = inicioPeriodoPlan(cliente.fechaContratacion, ahora);
+  fin.setDate(fin.getDate() + 30);
+  return fin;
+}
+
+export function mensajeSinPases(
+  cliente: Pick<Cliente, "plan" | "fechaContratacion">,
+  ahora: Date = ahoraEnSantiago()
+): string {
+  const incluidos = pasesIncluidos(cliente.plan) ?? 0;
+  const proximo = inicioProximoPeriodoPlan(cliente, ahora);
+  return `VEHICULO YA USO LAS ${incluidos} PASADAS DE SU ${(cliente.plan || "").toUpperCase()} EN ESTE PERIODO. LE TOCAN ${incluidos} NUEVAS EL ${fmtFecha(proximo.toISOString())}.`;
+}
+
+/**
+ * Pasadas del período recién cerrado desde las cuales una renovación migra al
+ * cliente del plan ilimitado viejo al X5: los que más lavan migran primero,
+ * y bajar este número va migrando al resto sin tocar un solo dato (el plan de
+ * cada cliente se reescribe solo al renovar, ver planAlRenovar).
+ */
+export const UMBRAL_MIGRACION_X5 = 6;
+
+/**
+ * Plan con el que queda el cliente después de renovar. El ilimitado viejo se
+ * respeta mientras el cliente pase menos de UMBRAL_MIGRACION_X5 veces por
+ * período; de ahí para arriba, la renovación lo pasa al X5 (y con eso al tope
+ * de 5). Contratar de nuevo NO pasa por acá: eso es una venta nueva y siempre
+ * es X5 (ver contratarPlan en usePlanActions).
+ */
+export function planAlRenovar(plan: string | null | undefined, visitasPeriodo: number): string {
+  if (plan === PLAN_ILIMITADO_LEGACY && visitasPeriodo >= UMBRAL_MIGRACION_X5) return PLAN_X5;
+  return plan || PLAN_X5;
 }
 
 /**

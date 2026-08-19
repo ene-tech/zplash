@@ -111,7 +111,7 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
 // Monto a facturar a un cliente: si tuvo ventas en el período, esa suma (caso
 // de clientes que facturan por visita/lavado único). Si no tuvo ninguna pero
 // su plan sigue Vigente o Por vencer, el precio del plan (caso de empresas
-// con flota en Plan Ilimitado Mensual, que se factura mes a mes aunque el
+// con flota en Plan X5, que se factura mes a mes aunque el
 // ciclo de renovación no haya caído dentro del período seleccionado). Sin
 // ventas y sin plan activo, no hay nada que facturar.
 export function montoAFacturar(c: Cliente, montoVentas: number, precios: AppData["precios"]): number {

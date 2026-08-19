@@ -51,11 +51,11 @@ export function textoPrecios(p: PreciosPublicos, tamano: TamanoVehiculo, intro: 
   lineas.push(`🚗 *Lavado Full Túnel*`);
   lineas.push(`${fmtCLP(p.lavadoUnico.precio)} — pago único, sin plan`, ``);
 
-  lineas.push(`⭐ *Plan Mensual Ilimitado*`);
+  lineas.push(`⭐ *Plan X5*`);
   // Mismo criterio que la card de la landing: el precio que se muestra grande
   // es el de 1ra contratación, y el normal solo aparece cuando es más caro.
   const normal = p.plan.precio > p.planPrimera.precio ? ` (normal ${fmtCLP(p.plan.precio)})` : "";
-  lineas.push(`${fmtCLP(p.planPrimera.precio)} / mes${normal}`);
+  lineas.push(`${fmtCLP(p.planPrimera.precio)} / mes${normal} — 5 lavados al mes`);
   lineas.push(`_Precio de 1ra contratación o renovando antes del vencimiento._`, ``);
 
   lineas.push(`💨 *Zona Aspirado Autoservicio*`);

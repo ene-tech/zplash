@@ -31,7 +31,7 @@ Ejemplo: escribe *AB1234* para ver el estado de tu plan.`,
 
   textoPreciosTamanoInvalido: `No reconocí ese tamaño 🤔 Responde con el número (1 a 4) o la letra (S, M, L, XL). También puedes escribir *menu* para volver.`,
 
-  textoContratarPlan: `🚗 *Plan Full Túnel Ilimitado*
+  textoContratarPlan: `🚗 *Plan X5 Full Túnel*
 
 Puedes contratarlo directamente en el local, o desde este link:
 https://zplash.cl/servicios/plan-mensual`,

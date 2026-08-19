@@ -49,7 +49,7 @@ const TIPOS_PROMO_CUENTA = new Set<TipoPago>(["renovacion_temprana", "reactivaci
 const NOMBRE_PROMO: Record<string, string> = {
   renovacion_temprana: "Renovación anticipada",
   reactivacion: "Reactivación de plan",
-  upgrade_plan: "Upgrade a Plan Ilimitado",
+  upgrade_plan: "Upgrade a Plan X5",
 };
 
 function generarBuyOrder(): string {
@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
           tipo === "renovacion"
             ? precioRenovacionCliente(preciosMap, PLANES[0], clientePlan ?? {}, configPlan!.diasGraciaPagoAtrasado)
             : precioContratacion(preciosMap, PLANES[0], clientePlan);
-        items.push({ tipo, servicioId: null, nombre: "Plan Ilimitado Mensual", monto, ...doc });
+        items.push({ tipo, servicioId: null, nombre: PLANES[0], monto, ...doc });
       }
     }
 

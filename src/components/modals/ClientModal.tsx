@@ -94,7 +94,7 @@ export default function ClientModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="plan">Con Plan Ilimitado Mensual</SelectItem>
+                  <SelectItem value="plan">Con Plan X5</SelectItem>
                   <SelectItem value="unico">Lavado Full Túnel (sin plan)</SelectItem>
                 </SelectContent>
               </Select>

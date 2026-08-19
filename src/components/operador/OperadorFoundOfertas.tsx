@@ -226,7 +226,7 @@ export default function OperadorFoundOfertas(props: Props) {
         <div className="offer-card">
           <div className="offer-head">
             <span className="badge">Promoción</span>
-            <h4>¿Lo pasamos a Plan Ilimitado?</h4>
+            <h4>¿Lo pasamos al Plan X5?</h4>
           </div>
           <div className="msg">
             {c.nombre} pagó un lavado único hace menos de {fmtHorasVentanaUpgradePlan(props.horasVentanaUpgrade)}. Ofrécele

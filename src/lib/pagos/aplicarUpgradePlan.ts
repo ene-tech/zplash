@@ -23,7 +23,7 @@ interface AplicarUpgradeParams {
 }
 
 /**
- * Aplica la promoción de upgrade a Plan Ilimitado Mensual pagada desde Mi
+ * Aplica la promoción de upgrade a Plan X5 pagada desde Mi
  * Cuenta (ver calcularOfertasPlan) — equivalente Web de
  * usePlanActions.upgradeAPlan en el módulo Operador: convierte el "Lavado
  * único" ya pagado en la contratación del plan, cobrando solo el adicional
@@ -60,7 +60,7 @@ export async function aplicarUpgradePlan(p: AplicarUpgradeParams, db: DbOrTx = g
   const nuevoVencimiento = vencimientoPorDefectoISO(fechaAnclaje);
   await db.update(clientes).set({ plan, vencimiento: nuevoVencimiento, origen: cliente.origen || "LOCAL" }).where(eq(clientes.id, cliente.id));
 
-  const tipoVenta = p.tipoVenta || "Upgrade a Plan Ilimitado (Web)";
+  const tipoVenta = p.tipoVenta || "Upgrade a Plan X5 (Web)";
   const fecha = new Date().toISOString();
   await db.insert(ventas).values({
     id: p.ventaId,

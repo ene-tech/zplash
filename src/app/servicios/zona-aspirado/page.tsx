@@ -18,7 +18,7 @@ const PREGUNTAS_ZONA_ASPIRADO = [
     a: "No. Puedes llegar directamente a la zona de aspirado, sin reserva previa.",
   },
   {
-    q: "¿Puedo usarla si no tengo el Plan Mensual Ilimitado?",
+    q: "¿Puedo usarla si no tengo el Plan X5?",
     a: "Sí, cualquier cliente puede pagar el uso puntual de la zona de aspirado, tenga o no plan vigente.",
   },
   {

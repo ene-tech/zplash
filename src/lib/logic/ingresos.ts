@@ -5,9 +5,11 @@ import {
   GLOSA_SERVICIO_DETAILING,
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   enPlazoDePagoPlan,
+  planAlRenovar,
   planStatus,
   sigueVigenteHoy,
   ventaLavadoUnicoDeIngreso,
+  visitasPeriodoPlan,
 } from "@/lib/helpers";
 
 export function registrarIngreso(
@@ -238,8 +240,14 @@ export function renovarPlan(
   do {
     base.setDate(base.getDate() + 30);
   } while (base <= new Date());
+  // La renovación es el momento en que un cliente del plan ilimitado viejo
+  // pasa al X5, y solo si viene lavando seguido (ver planAlRenovar): al que
+  // pasa 5 veces o menos no le cambia nada — el tope no lo afecta, así que no
+  // hay por qué tocarle el plan ni avisarle nada a mitad de su ciclo de pago.
+  const plan = planAlRenovar(cliente.plan, visitasPeriodoPlan(data.ingresos, cliente));
   const clienteActualizado: Cliente = {
     ...cliente,
+    plan,
     vencimiento: base.toISOString(),
     ultimaRenovacion: new Date().toISOString(),
   };
@@ -248,7 +256,7 @@ export function renovarPlan(
     clienteId: cliente.id,
     patente: cliente.patente,
     nombre: cliente.nombre,
-    plan: cliente.plan || "",
+    plan,
     precio,
     tipo,
     fecha: new Date().toISOString(),

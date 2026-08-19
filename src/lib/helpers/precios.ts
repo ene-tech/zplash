@@ -1,10 +1,31 @@
 import type { CanalPromo, CanalTramoPromo, Cliente, ConfigGlobal, Precios, PreciosTamano, TamanoVehiculo, Venta } from "@/types";
 import { diasVencido } from "./clientes";
 
-export const PLANES = ["Plan Ilimitado Mensual"];
+/** Plan que se vende hoy: 5 pasadas por túnel dentro del ciclo (ver pasesIncluidos). */
+export const PLAN_X5 = "Plan X5";
+
+/** Plan ilimitado, vendido hasta que apareció el X5. Sigue siendo el valor de
+ * `clientes.plan` de los 1.072 que lo contrataron antes, y esa string ES la
+ * marca de que no tienen tope — por eso no se borra ni de acá ni de la tabla
+ * `precios` (ver pasesIncluidos). Un cliente migra al tope recién el día que
+ * su `plan` pasa a decir PLAN_X5, no antes. */
+export const PLAN_ILIMITADO_LEGACY = "Plan Ilimitado Mensual";
+
+export const PLANES = [PLAN_X5];
+
+/** Pasadas por túnel incluidas en el ciclo de 30 días del plan vigente (las
+ * cuenta visitasPeriodoPlan en ./ingresos). */
+export const PASES_INCLUIDOS_X5 = 5;
+
+/** Pasadas incluidas en el ciclo según el plan del cliente; null = sin tope
+ * (PLAN_ILIMITADO_LEGACY y cualquier plan anterior al X5). */
+export function pasesIncluidos(plan: string | null | undefined): number | null {
+  return plan === PLAN_X5 ? PASES_INCLUIDOS_X5 : null;
+}
 
 export const PRECIOS_DEFAULT: Precios = {
-  "Plan Ilimitado Mensual": { normal: 21990, promo: 19990 },
+  [PLAN_X5]: { normal: 21990, promo: 19990 },
+  [PLAN_ILIMITADO_LEGACY]: { normal: 21990, promo: 19990 },
   tapiz: { normal: 39990, promo: 0 },
   alfombra: { normal: 19990, promo: 0 },
   techo: { normal: 19990, promo: 0 },
@@ -66,7 +87,7 @@ export function ventaLavadoWebPendiente(ventas: Venta[], clienteId: string): Ven
 export const PRECIO_PLAN_ONECLICK_DEFAULT = 19990;
 
 /** Clave usada dentro de Precios para guardar el valor editable del plan con renovación automática. */
-export const PLAN_ONECLICK_KEY = "Plan Ilimitado Mensual (Renovación Automática)";
+export const PLAN_ONECLICK_KEY = `${PLAN_X5} (Renovación Automática)`;
 
 export function precioPlanOneclick(precios: Precios): number {
   return (precios[PLAN_ONECLICK_KEY] && precios[PLAN_ONECLICK_KEY].normal) || PRECIO_PLAN_ONECLICK_DEFAULT;
@@ -85,7 +106,7 @@ export function precioZonaAspirado(precios: Precios): number {
 
 /**
  * Monto adicional (sobre el lavado único ya pagado) para convertir la visita
- * de hoy en la contratación del Plan Ilimitado Mensual — promoción ofrecida
+ * de hoy en la contratación del Plan X5 — promoción ofrecida
  * dentro de la ventana configurada (ver ConfigGlobal.horasVentanaUpgradePlan),
  * tanto en el módulo Operador como en Mi Cuenta.
  *
@@ -109,7 +130,7 @@ export function precioUpgradePlan(precios: Precios, ventaUpgrade: Venta, cliente
 
 /**
  * Venta de "Lavado único" del cliente elegible para convertirse en
- * contratación del Plan Ilimitado Mensual vía la promoción de upgrade: la más
+ * contratación del Plan X5 vía la promoción de upgrade: la más
  * reciente, y solo si ocurrió hace menos de `horasVentana` (ver
  * ConfigGlobal.horasVentanaUpgradePlan) — pasada esa ventana el lavado ya se
  * disfrutó sin plan y la promoción deja de tener sentido.

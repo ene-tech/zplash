@@ -72,9 +72,9 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
             <span className="icon-chip">
               <Car />
             </span>
-            <h3>Plan Mensual Ilimitado</h3>
+            <h3>Plan X5</h3>
           </div>
-          <p className="desc">Lavados ilimitados por el túnel durante 1 mes, desde la contratación.</p>
+          <p className="desc">5 lavados por el túnel durante 1 mes, desde la contratación.</p>
           <div className="price-row price-row--deal">
             {precios && precios.plan.precio > precios.planPrimera.precio && (
               <span className="old">{fmtCLP(precios.plan.precio)}</span>

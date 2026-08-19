@@ -11,6 +11,8 @@ import {
   enPlazoDePagoPlan,
   esServicioTunelLibre,
   estadoReingresoPlan,
+  pasesRestantes,
+  type EstadoReingresoPlan,
   isValidTelefono,
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   montoDescuento,
@@ -116,7 +118,17 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const exentoBloqueoReingreso = esExentoBloqueoReingreso(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
   const horasBloqueoReingreso = data.config.horasBloqueoReingresoPlan;
   const estadoIngresoBruto = estadoReingresoPlan(data.ingresos, c.id, new Date(), horasBloqueoReingreso);
-  const estadoIngreso = estadoIngresoBruto === "bloqueado" && exentoBloqueoReingreso ? "garantia" : estadoIngresoBruto;
+  // Pasadas que le quedan en el ciclo (null = plan sin tope, o sea el
+  // ilimitado viejo y los que no tienen plan — ver pasesIncluidos). Agotadas,
+  // pesa más que el bloqueo por horas: da lo mismo cuándo pasó la última vez
+  // si ya no le quedan.
+  const pasesQueQuedan = pasesRestantes(data.ingresos, c);
+  const estadoIngreso: EstadoReingresoPlan =
+    pasesQueQuedan === 0 && estadoIngresoBruto !== "garantia"
+      ? "sin_pases"
+      : estadoIngresoBruto === "bloqueado" && exentoBloqueoReingreso
+        ? "garantia"
+        : estadoIngresoBruto;
 
   const esWebVencido = c.origen === "WEB" && st.cls === "bad";
   const ventasCliente = data.ventas
@@ -172,7 +184,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
 
   // Promoción: si al cliente se le acaba de cobrar un lavado único (dentro de
   // la ventana configurada, ver ventaUpgradeElegible) y sigue sin plan
-  // vigente, se le puede ofrecer quedar con el Plan Ilimitado Mensual pagando
+  // vigente, se le puede ofrecer quedar con el Plan X5 pagando
   // solo el adicional — ver usePlanActions.upgradeAPlan.
   //
   // Un adicional de $0 (precio de 1ra contratación igual o menor al lavado que
@@ -278,6 +290,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     registroIncompleto,
     planVigente,
     estadoIngreso,
+    pasesQueQuedan,
     horasBloqueoReingreso,
     showOffer,
     pNormal,

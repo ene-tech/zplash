@@ -18,7 +18,7 @@ type Accion = "cambio" | "quitar" | "eliminar-plan" | null;
 const NOMBRE_OFERTA: Record<TipoOfertaPlan, string> = {
   renovacion_temprana: "Renovación anticipada",
   reactivacion: "Reactivación de plan",
-  upgrade_plan: "Upgrade a Plan Ilimitado",
+  upgrade_plan: "Upgrade a Plan X5",
 };
 
 // "Tu plan vence en X días/hoy" — compartido entre el banner de oferta real y
@@ -223,7 +223,7 @@ export function VehiculoCard({
         <div className="offer-card">
           <div className="offer-head">
             <span className="badge">Promoción</span>
-            <h4>¿Pasarte a Plan Ilimitado?</h4>
+            <h4>¿Pasarte al Plan X5?</h4>
           </div>
           <div className="msg">Pagaste un lavado único hace poco. Quédate con el plan pagando solo el adicional.</div>
           <div className="price-row">

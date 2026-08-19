@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   alertaMantencionStatus,
+  mantencionStatus,
+  planMantencionStatus,
   buscarProveedorPorRut,
   calcularOfertasPlan,
+  PLAN_X5,
+  PLAN_ILIMITADO_LEGACY,
+  pasesIncluidos,
+  pasesRestantes,
+  planAlRenovar,
   CATEGORIA_DETAILING,
   CONFIG_DEFAULT,
   cuponDelLoteUsadoPorPatente,
@@ -244,6 +251,90 @@ describe("sumarMeses", () => {
 
   it("cruza de año", () => {
     expect(sumarMeses("2026-11-01", 3)).toBe("2027-02-01");
+  });
+});
+
+describe("planMantencionStatus", () => {
+  const AHORA = new Date("2026-08-18T12:00:00.000Z");
+  const base = {
+    id: "p1",
+    maquinariaId: "m1",
+    descripcion: "Cambio de escobillas",
+    activo: true,
+    creadoEn: "2026-01-01T00:00:00.000Z",
+  };
+  const ingresos = (n: number, fecha = "2026-06-01T00:00:00.000Z") => Array.from({ length: n }, () => ({ fecha }));
+
+  it("por fecha: usa la anticipación de la tarea, no el default de 7 días", () => {
+    // Última vez el 2026-01-01 + 240 días = 2026-08-29, faltan 11 días.
+    const plan = { ...base, periodicidadTipo: "fecha" as const, intervaloDias: 240 };
+    expect(planMantencionStatus(plan, [], [], AHORA)!.label).toBe("Al día");
+    expect(planMantencionStatus({ ...plan, avisoDias: 15 }, [], [], AHORA)!.label).toBe("Por vencer");
+  });
+
+  it("por fecha: vencida cuando pasó el intervalo", () => {
+    const plan = { ...base, periodicidadTipo: "fecha" as const, intervaloDias: 30 };
+    expect(planMantencionStatus(plan, [], [], AHORA)!.label).toBe("Vencida");
+  });
+
+  it("por lavados: cuenta los ingresos posteriores a la última vez que se hizo ESTA tarea", () => {
+    const plan = { ...base, periodicidadTipo: "conteo" as const, intervaloLavados: 100, avisoLavados: 20 };
+    expect(planMantencionStatus(plan, [], ingresos(50), AHORA)!.label).toBe("Al día");
+    expect(planMantencionStatus(plan, [], ingresos(85), AHORA)!.label).toBe("Por vencer");
+    expect(planMantencionStatus(plan, [], ingresos(100), AHORA)!.label).toBe("Vencida");
+  });
+
+  it("un registro de otra tarea no reinicia el contador", () => {
+    const plan = { ...base, periodicidadTipo: "conteo" as const, intervaloLavados: 100 };
+    const registro = {
+      id: "r1",
+      maquinariaId: "m1",
+      planId: "otro-plan",
+      fecha: "2026-07-01T00:00:00.000Z",
+      descripcion: "otra cosa",
+      vehiculosDesdeUltima: 0,
+    };
+    expect(planMantencionStatus(plan, [registro], ingresos(120), AHORA)!.label).toBe("Vencida");
+    expect(planMantencionStatus(plan, [{ ...registro, planId: "p1" }], ingresos(120), AHORA)!.label).toBe("Al día");
+  });
+
+  it("arranque con la máquina ya andando: lavadosPrevios cuenta como acumulado", () => {
+    const plan = { ...base, periodicidadTipo: "conteo" as const, intervaloLavados: 10000, avisoLavados: 500 };
+    expect(planMantencionStatus({ ...plan, lavadosPrevios: 8000 }, [], [], AHORA)!.conteoActual).toBe(8000);
+    expect(planMantencionStatus({ ...plan, lavadosPrevios: 8000 }, [], [], AHORA)!.label).toBe("Al día");
+    expect(planMantencionStatus({ ...plan, lavadosPrevios: 9600 }, [], [], AHORA)!.label).toBe("Por vencer");
+    // los previos se suman a los lavados posteriores, no los reemplazan
+    expect(planMantencionStatus({ ...plan, lavadosPrevios: 9000 }, [], ingresos(1200), AHORA)!.label).toBe("Vencida");
+  });
+
+  it("arranque: ultimaVezEn ancla el cálculo por fecha", () => {
+    const plan = { ...base, periodicidadTipo: "fecha" as const, intervaloDias: 90 };
+    // creadoEn es 2026-01-01 (vencida a la fecha del test); declarar que se
+    // hizo el 2026-08-01 la deja al día.
+    expect(planMantencionStatus(plan, [], [], AHORA)!.label).toBe("Vencida");
+    expect(planMantencionStatus({ ...plan, ultimaVezEn: "2026-08-01" }, [], [], AHORA)!.label).toBe("Al día");
+  });
+
+  it("arranque: la primera mantención registrada deja sin efecto el punto de partida", () => {
+    const plan = { ...base, periodicidadTipo: "conteo" as const, intervaloLavados: 10000, lavadosPrevios: 9900 };
+    const registro = {
+      id: "r1",
+      maquinariaId: "m1",
+      planId: "p1",
+      fecha: "2026-07-01T00:00:00.000Z",
+      descripcion: "hecha",
+      vehiculosDesdeUltima: 0,
+    };
+    expect(planMantencionStatus(plan, [], [], AHORA)!.label).toBe("Por vencer");
+    expect(planMantencionStatus(plan, [registro], [], AHORA)!.conteoActual).toBe(0);
+  });
+
+  it("mantencionStatus de la máquina = la tarea más urgente de su plan", () => {
+    const alDia = { ...base, id: "p1", periodicidadTipo: "fecha" as const, intervaloDias: 240 };
+    const vencida = { ...base, id: "p2", periodicidadTipo: "fecha" as const, intervaloDias: 10 };
+    expect(mantencionStatus({ id: "m1" }, [alDia], [], [], AHORA)!.label).toBe("Al día");
+    expect(mantencionStatus({ id: "m1" }, [alDia, vencida], [], [], AHORA)!.label).toBe("Vencida");
+    expect(mantencionStatus({ id: "m1" }, [], [], [], AHORA)).toBeNull();
   });
 });
 
@@ -1151,7 +1242,7 @@ describe("ventaUpgradeElegible", () => {
 });
 
 describe("calcularOfertasPlan", () => {
-  const PLAN = "Plan Ilimitado Mensual";
+  const PLAN = PLAN_X5;
   const precios: Precios = { [PLAN]: { normal: 21990, promo: 19990 } };
   const config: ConfigGlobal = {
     ...CONFIG_DEFAULT,
@@ -1592,5 +1683,51 @@ describe("fechaEfectiva", () => {
   it("cae a la fecha del movimiento cuando se pagó al momento (sin fechaPago)", () => {
     expect(fechaEfectiva({ ...base, tipo: "ingreso", estado: "pagado" })).toBe(base.fecha);
     expect(fechaEfectiva({ ...base, tipo: "egreso", estado: "pagado_efectivo" })).toBe(base.fecha);
+  });
+});
+
+describe("pasesIncluidos", () => {
+  it("el X5 trae 5 pasadas por ciclo", () => {
+    expect(pasesIncluidos(PLAN_X5)).toBe(5);
+  });
+
+  it("el plan viejo sigue sin tope: su nombre es la marca de grandfathering", () => {
+    expect(pasesIncluidos(PLAN_ILIMITADO_LEGACY)).toBeNull();
+    expect(pasesIncluidos(null)).toBeNull();
+  });
+});
+
+describe("pasesRestantes / planAlRenovar", () => {
+  const ingreso = (clienteId: string, fecha: string): Ingreso => ({
+    id: "i" + fecha,
+    clienteId,
+    patente: "AB1234",
+    nombre: "Cliente",
+    fecha,
+    planEstadoAlIngreso: "ok",
+  });
+  const ahora = new Date("2026-07-05T12:00:00Z");
+  const base = { id: "c1", fechaContratacion: "2026-06-12T00:00:00Z" };
+  const pasadas = (n: number) =>
+    Array.from({ length: n }, (_, i) => ingreso("c1", `2026-06-${String(13 + i).padStart(2, "0")}T09:00:00Z`));
+
+  it("al X5 se le descuentan las pasadas del período y no baja de 0", () => {
+    expect(pasesRestantes(pasadas(2), { ...base, plan: PLAN_X5 }, ahora)).toBe(3);
+    expect(pasesRestantes(pasadas(5), { ...base, plan: PLAN_X5 }, ahora)).toBe(0);
+    expect(pasesRestantes(pasadas(7), { ...base, plan: PLAN_X5 }, ahora)).toBe(0);
+  });
+
+  it("el plan viejo y el cliente sin plan no tienen tope que contar", () => {
+    expect(pasesRestantes(pasadas(9), { ...base, plan: PLAN_ILIMITADO_LEGACY }, ahora)).toBeNull();
+    expect(pasesRestantes(pasadas(9), { ...base, plan: undefined }, ahora)).toBeNull();
+  });
+
+  it("renovar migra al X5 solo al del plan viejo que lava 6+ veces por período", () => {
+    expect(planAlRenovar(PLAN_ILIMITADO_LEGACY, 6)).toBe(PLAN_X5);
+    expect(planAlRenovar(PLAN_ILIMITADO_LEGACY, 12)).toBe(PLAN_X5);
+    // Los que pasan 5 o menos siguen igual: no se les toca el plan ni el ciclo.
+    expect(planAlRenovar(PLAN_ILIMITADO_LEGACY, 5)).toBe(PLAN_ILIMITADO_LEGACY);
+    expect(planAlRenovar(PLAN_ILIMITADO_LEGACY, 0)).toBe(PLAN_ILIMITADO_LEGACY);
+    expect(planAlRenovar(PLAN_X5, 0)).toBe(PLAN_X5);
   });
 });

@@ -8,7 +8,7 @@
 // aparecer y se pide aceptar la versión nueva, sin borrar el registro de
 // haber aceptado la anterior. Súbela cuando cambie algo que le importe al
 // cliente (plazos, garantía, cobros), no por una corrección de redacción.
-export const POLITICAS_VERSION = "2026-08-17";
+export const POLITICAS_VERSION = "2026-08-18";
 
 // A propósito sin cifras que sean configurables desde Configuración
 // (horasBloqueoReingresoPlan, vigenciaDiasPackEmpresa, tramos de promoción):
@@ -17,10 +17,11 @@ export const POLITICAS_VERSION = "2026-08-17";
 // horas" y no el 24:30 exacto del default.
 export const POLITICAS: { titulo: string; puntos: string[] }[] = [
   {
-    titulo: "1. Plan Ilimitado Mensual",
+    titulo: "1. Plan X5",
     puntos: [
       "Tiene una vigencia de 30 días corridos contados desde la fecha de contratación.",
-      "Incluye lavados Full Túnel ilimitados durante ese período, con un máximo de un ingreso cada 24 horas.",
+      "Incluye 5 lavados Full Túnel dentro de ese período, con un máximo de un ingreso cada 24 horas. Usadas las 5 pasadas, puedes seguir lavando pagando un Lavado Único hasta que empiece el período siguiente.",
+      "Los planes contratados antes del Plan X5 mantienen los lavados ilimitados que se les ofrecieron, y pasan al Plan X5 cuando renuevan.",
       "Incluye el uso ilimitado de las máquinas aspiradoras de autoservicio.",
       "Es válido para una sola patente y es personal e intransferible: no puede usarse para lavar otro vehículo.",
       "El cambio de patente se solicita desde Mi Cuenta y se aplica al inicio del período siguiente, no durante el período vigente.",

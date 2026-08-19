@@ -63,7 +63,7 @@ export function construirVariables(opts: {
   // renovaría al precio normal — para no invitarlo a un "precio preferencial"
   // que no existe está condicionSoloConPromoRenovacion en la regla.
   precioRenovacion?: number;
-  // Precio de upgrade a Plan Ilimitado (ver precioUpgradePlan en
+  // Precio de upgrade a Plan X5 (ver precioUpgradePlan en
   // @/lib/helpers/precios) — hoy solo lo pasa evaluarReglasCorreoPorVenta
   // (@/lib/mailing/reglas/disparadores) cuando la venta es "Lavado único",
   // mismo cálculo (calcularOfertasPlanDeCliente) que usa el Operador para

@@ -35,8 +35,8 @@ const PREGUNTAS_FULL_TUNNEL = [
     ],
   },
   {
-    q: "Si lavo seguido, ¿me conviene más el Plan Mensual Ilimitado?",
-    a: "Si vienes 3 o más veces al mes, sí: pagas una vez y puedes lavar todos los días que quieras. Revisa el Plan Mensual Ilimitado para comparar precios.",
+    q: "Si lavo seguido, ¿me conviene más el Plan X5?",
+    a: "Si vienes 3 o más veces al mes, sí: pagas una vez y puedes lavar todos los días que quieras. Revisa el Plan X5 para comparar precios.",
   },
 ];
 

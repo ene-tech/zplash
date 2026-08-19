@@ -28,7 +28,7 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
       {r.item === "plan" && (
         <div className="card" style={{ marginBottom: 18 }}>
           <p style={{ color: "var(--gray)", fontSize: 13.5 }}>Vas a contratar:</p>
-          <h3>🚗 Plan Ilimitado Mensual</h3>
+          <h3>🚗 Plan X5</h3>
         </div>
       )}
 

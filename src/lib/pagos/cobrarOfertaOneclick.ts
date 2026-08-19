@@ -109,7 +109,7 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
                   metodoPago: "tarjeta",
                   creadoPor: "Cliente (Oneclick)",
                   horasVentanaUpgrade: config.horasVentanaUpgradePlan,
-                  tipoVenta: "Upgrade a Plan Ilimitado (Oneclick)",
+                  tipoVenta: "Upgrade a Plan X5 (Oneclick)",
                 },
                 tx2
               );

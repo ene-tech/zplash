@@ -1,10 +1,19 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
-import { clientes, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
+import { clientes, ingresos, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
-import { PLANES, movimientoContableDesdeVenta, resolverPatentePendiente, sigueVigenteHoy, uid, vencimientoAnclado } from "@/lib/helpers";
+import {
+  PLANES,
+  inicioPeriodoPlan,
+  movimientoContableDesdeVenta,
+  planAlRenovar,
+  resolverPatentePendiente,
+  sigueVigenteHoy,
+  uid,
+  vencimientoAnclado,
+} from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorCambioPatente, evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Cliente, Venta } from "@/types";
@@ -13,6 +22,18 @@ export function addDaysISO(iso: string, dias: number): string {
   const d = new Date(iso);
   d.setDate(d.getDate() + dias);
   return d.toISOString();
+}
+
+/** Pasadas del cliente en su ciclo de plan vigente, contadas en la base (acá
+ * no hay un AppData cargado como en el módulo Operador). Solo se usa para
+ * decidir la migración al X5 al renovar, ver planAlRenovar. */
+export async function visitasPeriodoActual(db: DbOrTx, cliente: { id: string; fechaContratacion: string | null }): Promise<number> {
+  const inicio = inicioPeriodoPlan(cliente.fechaContratacion, new Date());
+  const filas = await db
+    .select({ id: ingresos.id })
+    .from(ingresos)
+    .where(and(eq(ingresos.clienteId, cliente.id), gte(ingresos.fecha, inicio.toISOString())));
+  return filas.length;
 }
 
 interface AplicarPagoParams {
@@ -113,7 +134,11 @@ export async function aplicarPagoAprobado(
         patentePendiente: fila.patentePendiente || null,
         patentePendienteDesde: fila.patentePendienteDesde || null,
         vencimiento: nuevoVencimiento,
-        plan: existente.plan || PLANES[0],
+        // Misma migración al X5 que en el mesón (ver planAlRenovar): renovar
+        // pasa al plan nuevo solo al cliente del ilimitado viejo que viene
+        // lavando UMBRAL_MIGRACION_X5 veces o más por período. Al resto no le
+        // cambia nada — el tope no los afecta.
+        plan: planAlRenovar(existente.plan, await visitasPeriodoActual(db, existente)),
         origen: "WEB",
       })
       .where(eq(clientes.id, clienteId));

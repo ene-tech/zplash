@@ -44,7 +44,7 @@ export function useCierreData() {
     // ANTES de armar el resto de las filas para que "Plan nuevo (Web)" /
     // "Renovación (Web)" / "Servicios adicionales" / "Otros" (más abajo) solo
     // reflejen WooCommerce y no dupliquen estas ventas en dos filas a la vez.
-    // Upgrade de un lavado único ya pagado a Plan Ilimitado, cobrado desde Mi
+    // Upgrade de un lavado único ya pagado a Plan X5, cobrado desde Mi
     // Cuenta (Webpay u Oneclick, ver aplicarUpgradePlan): tiene fila propia más
     // abajo. Antes quedaba escondido dentro de "Venta nueva web" y, si el cobro
     // fue Oneclick, caía directo en "Otros" — fila que se dibuja bajo el Total
@@ -112,7 +112,7 @@ export function useCierreData() {
     const upgradePlanItems = ventasPeriodo.filter(esUpgradePlan);
     const upgradePlanRow = {
       tipo: "upgrade-plan",
-      label: "Upgrade a Plan Ilimitado (sobre lavado único ya pagado)",
+      label: "Upgrade a Plan X5 (sobre lavado único ya pagado)",
       cantidad: upgradePlanItems.length,
       monto: upgradePlanItems.reduce((s, v) => s + (v.precio || 0), 0),
       items: upgradePlanItems,

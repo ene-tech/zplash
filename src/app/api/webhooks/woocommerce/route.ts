@@ -3,7 +3,16 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
-import { PLANES, formatTelefono, movimientoContableDesdeVenta, resolverPatentePendiente, sigueVigenteHoy, vencimientoAnclado } from "@/lib/helpers";
+import {
+  PLANES,
+  formatTelefono,
+  movimientoContableDesdeVenta,
+  planAlRenovar,
+  resolverPatentePendiente,
+  sigueVigenteHoy,
+  vencimientoAnclado,
+} from "@/lib/helpers";
+import { visitasPeriodoActual } from "@/lib/pagos";
 import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
 import { addDaysISO, buscarClienteExistente, extraerPatente, huboRenovacionWebReciente, verificarFirma } from "./shared";
 
@@ -94,6 +103,12 @@ export async function POST(request: NextRequest) {
   }
 
   let clienteId: string;
+  // Plan con el que queda el cliente tras este pedido: X5 salvo que sea la
+  // renovación de alguien que todavía anda con el ilimitado viejo y lava poco
+  // (ver planAlRenovar). Se decide dentro de la rama de cliente existente y se
+  // reusa en la venta, para que la boleta no diga un plan distinto al que le
+  // queda al cliente.
+  let planResultante: string = PLANES[0];
   // Si el webhook de suscripción (ver ./suscripcion/route.ts) marcó que la
   // suscripción anterior de este cliente se canceló/venció, este pedido no es
   // una renovación del ciclo viejo — es una recontratación. Se reinicia
@@ -143,6 +158,23 @@ export async function POST(request: NextRequest) {
     // tocar `patente`/`patentePendiente`.
     const anterior = clienteFromRow(existente);
     const { fila, patenteAnterior } = resolverPatentePendiente(anterior, { ...anterior, vencimiento: nuevoVencimiento });
+    // Recontratar es una venta nueva (siempre X5); renovar respeta el plan
+    // viejo mientras el cliente pase menos de UMBRAL_MIGRACION_X5 veces.
+    //
+    // Excepción: al cliente de WooCommerce que no pasó NI UNA VEZ en su
+    // período no se le toca el plan, ni siquiera recontratando. Su cobro lo
+    // sigue haciendo el sistema viejo (ver renovacionAutoWooDesde), así que
+    // un cambio de plan de este lado no lo podemos gestionar con él; y el
+    // tope de pasadas no le cambia nada a alguien que no viene. Solo aplica
+    // acá, en el webhook: en el mesón y en la web propia el cambio se hace
+    // con el cliente delante.
+    const visitasPeriodo = await visitasPeriodoActual(db, existente);
+    planResultante =
+      visitasPeriodo === 0
+        ? existente.plan || PLANES[0]
+        : recontratacion
+          ? PLANES[0]
+          : planAlRenovar(existente.plan, visitasPeriodo);
     try {
       await db
         .update(clientes)
@@ -151,7 +183,7 @@ export async function POST(request: NextRequest) {
           telefono: telefono || existente.telefono,
           email: email || existente.email,
           vencimiento: nuevoVencimiento,
-          plan: recontratacion ? PLANES[0] : existente.plan || PLANES[0],
+          plan: planResultante,
           patente: fila.patente ?? anterior.patente,
           patentePendiente: fila.patentePendiente || null,
           patentePendienteDesde: fila.patentePendienteDesde || null,
@@ -207,7 +239,7 @@ export async function POST(request: NextRequest) {
     clienteId,
     patente: patente || "",
     nombre,
-    plan: PLANES[0],
+    plan: planResultante,
     precio: monto,
     tipo: tipoVenta,
     fecha: fechaOrden,

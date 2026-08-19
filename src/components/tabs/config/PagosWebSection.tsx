@@ -35,7 +35,7 @@ export default function PagosWebSection() {
       description="Precios del canal web, separados de los que cobra el módulo Operador en el local — permite tener una promoción online distinta a la presencial sin que una afecte a la otra."
     >
       <div className="field" style={{ margin: 0 }}>
-        <label>Precio Plan Ilimitado con renovación automática</label>
+        <label>Precio Plan X5 con renovación automática</label>
         <PriceInput value={planOneclickVal} onChange={setPlanOneclickVal} />
       </div>
       <div className="field">

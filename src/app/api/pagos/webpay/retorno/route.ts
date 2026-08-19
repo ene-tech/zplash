@@ -201,7 +201,7 @@ async function procesarRetorno(
         }
 
         if (item.tipo === "upgrade_plan") {
-          // Upgrade a Plan Ilimitado (ver calcularOfertasPlan/aplicarUpgradePlan):
+          // Upgrade a Plan X5 (ver calcularOfertasPlan/aplicarUpgradePlan):
           // no es una renovación normal — ancla el vencimiento a la fecha del
           // "Lavado único" ya pagado, no a hoy, así que tiene su propio efecto
           // en vez de pasar por aplicarPagoAprobado.

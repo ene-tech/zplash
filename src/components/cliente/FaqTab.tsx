@@ -2,9 +2,9 @@ import FaqAccordion from "./FaqAccordion";
 
 export const PREGUNTAS: { q: string; a: string | string[] }[] = [
   {
-    q: "¿Qué incluye el Plan Ilimitado Mensual?",
+    q: "¿Qué incluye el Plan X5?",
     a: [
-      "Lavados Full Tunel ilimitados durante 30 días desde la contratación.",
+      "5 lavados Full Túnel durante los 30 días desde la contratación.",
       "Máximo 1 ingreso cada 24 horas.",
       "Uso ilimitado de las máquinas aspiradoras autoservicio.",
       "Válido para una patente; puede cambiarse al término del período.",

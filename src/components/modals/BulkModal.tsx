@@ -59,7 +59,7 @@ export default function BulkModal() {
             <strong>Nombre, Patente, Telefono, Email, Vehiculo, Fecha Contratacion, Tipo Documento, Razon Social, RUT, Direccion, Giro, Origen</strong>
             <br />
             <br />
-            Todos los clientes quedan asignados automáticamente al &quot;Plan Ilimitado Mensual&quot;.
+            Todos los clientes quedan asignados automáticamente al &quot;Plan X5&quot;.
             <br />
             El vencimiento del plan se calcula automáticamente: 1 mes desde la Fecha de Contratación.
             <br />

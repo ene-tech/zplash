@@ -13,7 +13,7 @@ const outfit = Outfit({ weight: "500", subsets: ["latin"], variable: "--font-out
 export const metadata: Metadata = {
   metadataBase: new URL("https://zplash.cl"),
   title: "ZPlash · Lavado de autos",
-  description: "Lavado de autos sin rallas, planes mensuales ilimitados y servicios de detailing en ZPlash.",
+  description: "Lavado de autos sin rallas, el Plan X5 (5 lavados al mes) y servicios de detailing en ZPlash.",
   appleWebApp: {
     title: "ZPlash",
     statusBarStyle: "black-translucent",

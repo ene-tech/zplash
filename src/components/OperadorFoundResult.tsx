@@ -1,7 +1,16 @@
 "use client";
 
 import { useRef } from "react";
-import { esNombreVacio, fmtCLP, fmtTelefono, isValidTelefono, mensajeBloqueoReingreso, plateEstadoCls } from "@/lib/helpers";
+import {
+  esNombreVacio,
+  fmtCLP,
+  fmtTelefono,
+  isValidTelefono,
+  mensajeBloqueoReingreso,
+  mensajeSinPases,
+  PASES_INCLUIDOS_X5,
+  plateEstadoCls,
+} from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { DetailList, DetailRow } from "@/components/DetailList";
 import { useOperadorFoundResult } from "@/components/operador/useOperadorFoundResult";
@@ -85,6 +94,10 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
           <DetailRow label="Plan" value={c.plan || "-"} />
           <DetailRow label="Vence" value={c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"} />
           <DetailRow label="Visitas totales" value={c.visitas || 0} />
+          {/* Solo para planes con tope (X5): el ilimitado viejo no tiene qué contar. */}
+          {r.pasesQueQuedan !== null && (
+            <DetailRow label="Pasadas del período" value={`${r.pasesQueQuedan} disponibles de ${PASES_INCLUIDOS_X5}`} />
+          )}
           <DetailRow
             label="Teléfono"
             value={
@@ -143,7 +156,16 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
             }
           />
         </DetailList>
-        {r.planVigente && r.estadoIngreso === "bloqueado" ? (
+        {r.planVigente && r.estadoIngreso === "sin_pases" ? (
+          <>
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
+              {mensajeSinPases(c)}
+            </div>
+            <button className="btn secondary" style={{ marginTop: 8 }} onClick={r.cobrarLavadoUnico}>
+              Comprar lavado por {fmtCLP(r.precioLavadoUnicoFinal)} e ingresar de todas formas
+            </button>
+          </>
+        ) : r.planVigente && r.estadoIngreso === "bloqueado" ? (
           <>
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
               {mensajeBloqueoReingreso(data.ingresos, c.id, r.horasBloqueoReingreso)}

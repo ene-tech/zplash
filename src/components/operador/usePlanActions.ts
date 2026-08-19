@@ -2,7 +2,16 @@
 
 import { useApp } from "@/context/AppContext";
 import { registrarIngreso, renovarPlan } from "@/lib/logic";
-import { PLANES, isValidEmail, isValidTelefono, precioContratacion, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
+import {
+  PLANES,
+  isValidEmail,
+  isValidTelefono,
+  planAlRenovar,
+  precioContratacion,
+  vencimientoAnclado,
+  vencimientoPorDefectoISO,
+  visitasPeriodoPlan,
+} from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
@@ -105,13 +114,15 @@ export function usePlanActions(
   const renovarWeb = (cliente: Cliente = c) => {
     pedirPago(precioOfertaWeb, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
       const nuevoVencimiento = vencimientoAnclado(cliente.fechaContratacion || cliente.vencimiento);
-      const updated: Cliente = { ...cliente, vencimiento: nuevoVencimiento, ultimaRenovacion: new Date().toISOString() };
+      // Misma migración al X5 que hace renovarPlan en el mesón (ver planAlRenovar).
+      const plan = planAlRenovar(cliente.plan, visitasPeriodoPlan(data.ingresos, cliente));
+      const updated: Cliente = { ...cliente, plan, vencimiento: nuevoVencimiento, ultimaRenovacion: new Date().toISOString() };
       const venta: Venta = {
         id: "v" + Date.now(),
         clienteId: cliente.id,
         patente: cliente.patente,
         nombre: cliente.nombre,
-        plan: cliente.plan || PLANES[0],
+        plan,
         precio: precioOfertaWeb,
         tipo: "Renovación Web (manual)",
         fecha: new Date().toISOString(),
@@ -137,7 +148,11 @@ export function usePlanActions(
       setGuardarErr(MSG_FALTAN_DATOS_CONTACTO_PLAN);
       return;
     }
-    const plan = cliente.plan || PLANES[0];
+    // Siempre el plan que se vende hoy (X5), aunque el cliente tenga guardado
+    // el ilimitado viejo: contratar de nuevo es una venta nueva, no la
+    // renovación de un ciclo que venía corriendo (ver planAlRenovar, que es la
+    // que sí respeta el plan viejo).
+    const plan = PLANES[0];
     // Mismo cálculo que muestra el botón (ver pContratacion en
     // useOperadorFoundResult): valor de 1ra contratación si nunca tuvo plan.
     const precio = precioContratacion(data.precios, plan, cliente);
@@ -170,7 +185,7 @@ export function usePlanActions(
   };
 
   // Convierte el lavado único recién pagado (ventaUpgrade) en la
-  // contratación del Plan Ilimitado Mensual, cobrando solo el adicional. La
+  // contratación del Plan X5, cobrando solo el adicional. La
   // venta original del lavado único NO se toca: pudo quedar dentro de un
   // Cierre de Caja de un día ya reportado, y ese reporte no debe cambiar
   // retroactivamente (Cierre de Caja se calcula en vivo filtrando `ventas`
