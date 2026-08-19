@@ -31,7 +31,7 @@ export const POLITICAS: { titulo: string; puntos: string[] }[] = [
     puntos: [
       "Tiene una vigencia de 30 días corridos contados desde la fecha de contratación.",
       "Incluye 5 lavados Full Túnel dentro de ese período, con un máximo de un ingreso cada 24 horas.",
-      "Usadas las 5 pasadas, el lavado Full Túnel adicional te vale $3.990 por lo que queda del período. Ese valor es exclusivo para el vehículo que tiene el plan.",
+      "Usadas las 5 pasadas, el lavado Full Túnel adicional tiene un precio preferencial de $3.990 por lo que queda del período. Ese valor es exclusivo para el vehículo que tiene el plan.",
       "Los planes contratados antes del Plan X5 mantienen los lavados ilimitados que se les ofrecieron, y pasan al Plan X5 cuando renuevan.",
       "Incluye el uso de las máquinas aspiradoras de autoservicio sin límite de tiempo, después de cada uno de los 5 lavados del plan. El aspirado va asociado a la pasada por el túnel, no es un acceso libre aparte.",
       "Es válido para una sola patente y es personal e intransferible: no puede usarse para lavar otro vehículo.",
