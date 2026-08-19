@@ -8,19 +8,30 @@
 // aparecer y se pide aceptar la versión nueva, sin borrar el registro de
 // haber aceptado la anterior. Súbela cuando cambie algo que le importe al
 // cliente (plazos, garantía, cobros), no por una corrección de redacción.
-export const POLITICAS_VERSION = "2026-08-18";
+export const POLITICAS_VERSION = "2026-08-19";
 
 // A propósito sin cifras que sean configurables desde Configuración
 // (horasBloqueoReingresoPlan, vigenciaDiasPackEmpresa, tramos de promoción):
 // un documento que el cliente acepta no puede quedar desfasado de la base
 // sin que nadie se entere. Mismo criterio que la FAQ, que dice "cada 24
 // horas" y no el 24:30 exacto del default.
+//
+// Las dos excepciones son promesas de plata que el cliente necesita ver
+// escritas, y por eso van con su número acá aunque también vivan en la base:
+//   - "15 días" para renovar conservando el precio = ConfigGlobal
+//     .diasGraciaPagoAtrasado (Configuración → Pago de plan atrasado).
+//   - "$3.990" del lavado adicional = Precios[LAVADO_ADICIONAL_KEY]
+//     (Configuración → Lavado túnel suelto).
+// Si cambias cualquiera de esos dos valores, cambia también este texto y
+// sube POLITICAS_VERSION: si no, el documento que el cliente aceptó promete
+// una cosa y el sistema le cobra otra.
 export const POLITICAS: { titulo: string; puntos: string[] }[] = [
   {
     titulo: "1. Plan X5",
     puntos: [
       "Tiene una vigencia de 30 días corridos contados desde la fecha de contratación.",
-      "Incluye 5 lavados Full Túnel dentro de ese período, con un máximo de un ingreso cada 24 horas. Usadas las 5 pasadas, puedes seguir lavando pagando un Lavado Único hasta que empiece el período siguiente.",
+      "Incluye 5 lavados Full Túnel dentro de ese período, con un máximo de un ingreso cada 24 horas.",
+      "Usadas las 5 pasadas, el lavado Full Túnel adicional te vale $3.990 por lo que queda del período. Ese valor es exclusivo para el vehículo que tiene el plan.",
       "Los planes contratados antes del Plan X5 mantienen los lavados ilimitados que se les ofrecieron, y pasan al Plan X5 cuando renuevan.",
       "Incluye el uso de las máquinas aspiradoras de autoservicio sin límite de tiempo, después de cada uno de los 5 lavados del plan. El aspirado va asociado a la pasada por el túnel, no es un acceso libre aparte.",
       "Es válido para una sola patente y es personal e intransferible: no puede usarse para lavar otro vehículo.",
@@ -70,7 +81,8 @@ export const POLITICAS: { titulo: string; puntos: string[] }[] = [
       "En el local aceptamos efectivo, tarjeta y transferencia bancaria. Por la web, tarjetas de crédito o débito a través de Webpay Plus.",
       "Al inscribir una tarjeta con Oneclick autorizas el cobro automático del plan al vencimiento de cada período, al precio vigente en ese momento.",
       "El plan es mensual y puedes darlo de baja cuando quieras, eliminando la tarjeta inscrita desde Mi Cuenta o simplemente no renovando. El cobro automático se detiene desde el período siguiente y el plan que ya pagaste sigue vigente hasta su fecha de vencimiento.",
-      "El precio promocional del plan es solo para quienes pagan su renovación antes del vencimiento, o dentro de los 3 días siguientes a la fecha de vencimiento. Pasado ese plazo, la renovación se cobra al precio vigente.",
+      "Puedes renovar hasta 15 días después del vencimiento conservando tu precio. El período nuevo se cuenta desde tu fecha de contratación y no desde el día en que pagas: los días que estuviste sin pagar quedan bloqueados, no se recuperan, y para lavar durante ese tiempo tienes que pagar un Lavado Único.",
+      "Pasados los 15 días el plan se da de baja automáticamente. Volver a tenerlo es una contratación nueva: se cobra al precio vigente y el período parte desde ese día.",
       "Si das de baja tu plan, al volver a contratarlo no recuperas el precio promocional: se cobra el precio vigente en ese momento.",
       "Las promociones que te correspondan se muestran en Mi Cuenta solo mientras están disponibles, cada una con su vigencia.",
       "Los lavados ya realizados no son reembolsables. Si contrataste por error y aún no has usado el plan, escríbenos y lo revisamos caso a caso.",
