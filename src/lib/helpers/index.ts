@@ -11,6 +11,7 @@ export * from "./clientes";
 export * from "./config";
 export * from "./contabilidad";
 export * from "./cupones";
+export * from "./estanques";
 export * from "./fechas";
 export * from "./funcionario";
 export * from "./ids";

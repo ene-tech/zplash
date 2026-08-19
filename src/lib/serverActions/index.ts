@@ -23,6 +23,7 @@ export * from "./config";
 export * from "./contabilidad";
 export * from "./cupones";
 export * from "./empresas";
+export * from "./estanques";
 export * from "./funcionario";
 export * from "./ingresos";
 export * from "./inventario/destinos";

@@ -19,6 +19,7 @@ export type Modulo =
   | "web_settings"
   | "inventario"
   | "mantencion"
+  | "estanques"
   | "mensajes"
   | "correo"
   | "funcionario";

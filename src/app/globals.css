@@ -2272,3 +2272,61 @@ tr:hover td {
   color: var(--primary);
   text-decoration: underline;
 }
+/* Estanques y válvulas. La barra de nivel es un medidor contra un máximo
+   conocido, no un gráfico: una sola serie por tarjeta, así que no lleva
+   leyenda — el valor va escrito al lado y el estado (Normal/Bajo/Crítico/Sin
+   señal) va en un .status-pill, para que el color nunca sea la única forma de
+   leerlo. Usa los mismos ok/warn/bad de .status-pill: verde, dorado de marca
+   y rojo son la semántica de estado ya establecida en la app. */
+.nivel-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+.nivel-card {
+  max-width: 320px;
+  min-width: 240px;
+  margin: 0;
+  padding: 18px;
+  flex: 1 1 260px;
+}
+.nivel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.nivel-nombre {
+  font-weight: 600;
+}
+.nivel-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.nivel-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.4s ease;
+}
+.nivel-fill.ok {
+  background: var(--green);
+}
+.nivel-fill.warn {
+  background: var(--gold);
+}
+.nivel-fill.bad {
+  background: var(--red);
+}
+.nivel-datos {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--gray);
+}
+.nivel-datos strong {
+  color: var(--white);
+  font-size: 15px;
+}
