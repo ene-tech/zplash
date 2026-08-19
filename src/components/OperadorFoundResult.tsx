@@ -162,7 +162,7 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
               {mensajeSinPases(c)}
             </div>
             <button className="btn secondary" style={{ marginTop: 8 }} onClick={r.cobrarLavadoUnico}>
-              Comprar lavado por {fmtCLP(r.precioLavadoUnicoFinal)} e ingresar de todas formas
+              Comprar lavado adicional por {fmtCLP(r.precioLavadoUnicoFinal)} e ingresar de todas formas
             </button>
           </>
         ) : r.planVigente && r.estadoIngreso === "bloqueado" ? (

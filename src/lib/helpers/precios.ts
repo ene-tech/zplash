@@ -45,6 +45,23 @@ export const PRECIOS_TAMANO_DEFAULT: PreciosTamano = {
 /** Precio de un lavado único para clientes sin plan vigente (vencido o sin plan). */
 export const PRECIO_LAVADO_UNICO = 9990;
 
+/**
+ * Precio del lavado full túnel ADICIONAL: lo que paga un cliente con plan con
+ * tope vigente (Plan X5, ver pasesIncluidos) que ya gastó las
+ * PASES_INCLUIDOS_X5 pasadas de su ciclo y quiere pasar igual dentro del mes.
+ * Más barato que el lavado único de lista (PRECIO_LAVADO_UNICO), que sigue
+ * siendo el precio de quien NO tiene plan vigente.
+ */
+export const PRECIO_LAVADO_ADICIONAL = 3990;
+
+/** Clave usada dentro de Precios para guardar el valor editable del lavado adicional. */
+export const LAVADO_ADICIONAL_KEY = "Lavado adicional (con plan vigente)";
+
+/** Precio vigente del lavado full túnel adicional, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */
+export function precioLavadoAdicional(precios: Precios): number {
+  return (precios[LAVADO_ADICIONAL_KEY] && precios[LAVADO_ADICIONAL_KEY].normal) || PRECIO_LAVADO_ADICIONAL;
+}
+
 /** Clave usada dentro de Precios para guardar el valor editable del lavado
  * único PRESENCIAL (módulo Operador, ficha de cliente, ingreso sin registro)
  * — ver LAVADO_UNICO_WEB_KEY para el mismo servicio comprado por /pagar,
@@ -311,8 +328,14 @@ export function precioRenovacionCliente(
   cliente: Pick<Cliente, "vencimiento" | "precioPlanHeredado">,
   diasGracia: number
 ): number {
-  return diasVencido(cliente) !== null
-    ? precioPagoAtrasado(precios, plan, cliente, diasGracia)
+  if (diasVencido(cliente) !== null) return precioPagoAtrasado(precios, plan, cliente, diasGracia);
+  // Con plan vigente esto es renovar a tiempo, que vale el preferencial (ver
+  // precioRenovacionATiempo) — no el de lista. Una patente sin plan no está
+  // renovando nada: ahí se queda en el normal, que es el respaldo defensivo
+  // de un "renovacion" pedido sobre alguien que en realidad tiene que
+  // contratar (ver precioContratacion).
+  return cliente.vencimiento
+    ? precioRenovacionATiempo(precios, plan, cliente)
     : precioConHeredado(precioNormal(precios, plan), cliente);
 }
 
@@ -335,9 +358,30 @@ export function precioPagoAtrasado(
   cliente: Pick<Cliente, "vencimiento" | "precioPlanHeredado">,
   diasGracia: number
 ): number {
-  const normal = precioNormal(precios, plan);
-  if (!enPlazoDePagoPlan(cliente, diasGracia)) return normal;
-  return precioConHeredado(precioPreferencial(precios, plan) || normal, cliente);
+  if (!enPlazoDePagoPlan(cliente, diasGracia)) return precioNormal(precios, plan);
+  return precioRenovacionATiempo(precios, plan, cliente);
+}
+
+/**
+ * Lo que paga por renovar quien llega a tiempo: el precio preferencial del
+ * plan (Precios[plan].promo, el mismo respaldo que usa precioRenovacionLocal
+ * cuando el canal no tiene tramos cargados), con su precio heredado
+ * respetado.
+ *
+ * El `normal` NO es este precio: es el de lista, y lo paga solo quien perdió
+ * el plazo — el vencido fuera de los días de gracia (precioPagoAtrasado) y el
+ * que vuelve a contratar después de dejarlo vencer (precioContratacion). Que
+ * "renovar a tiempo" se calculara con el normal en unos lados y con el
+ * preferencial en otros hacía que pagar tarde saliera MÁS BARATO que pagar
+ * antes de vencer, y que Mi Cuenta le anunciara al cliente un precio de
+ * renovación que no era el que después se le cobraba.
+ */
+export function precioRenovacionATiempo(
+  precios: Precios,
+  plan: string,
+  cliente: Pick<Cliente, "precioPlanHeredado">
+): number {
+  return precioConHeredado(precioPreferencial(precios, plan) || precioNormal(precios, plan), cliente);
 }
 
 export function precioPreferencial(precios: Precios, plan: string): number {

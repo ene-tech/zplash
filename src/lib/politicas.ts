@@ -22,7 +22,7 @@ export const POLITICAS: { titulo: string; puntos: string[] }[] = [
       "Tiene una vigencia de 30 días corridos contados desde la fecha de contratación.",
       "Incluye 5 lavados Full Túnel dentro de ese período, con un máximo de un ingreso cada 24 horas. Usadas las 5 pasadas, puedes seguir lavando pagando un Lavado Único hasta que empiece el período siguiente.",
       "Los planes contratados antes del Plan X5 mantienen los lavados ilimitados que se les ofrecieron, y pasan al Plan X5 cuando renuevan.",
-      "Incluye el uso ilimitado de las máquinas aspiradoras de autoservicio.",
+      "Incluye el uso de las máquinas aspiradoras de autoservicio sin límite de tiempo, después de cada uno de los 5 lavados del plan. El aspirado va asociado a la pasada por el túnel, no es un acceso libre aparte.",
       "Es válido para una sola patente y es personal e intransferible: no puede usarse para lavar otro vehículo.",
       "El cambio de patente se solicita desde Mi Cuenta y se aplica al inicio del período siguiente, no durante el período vigente.",
       "Está destinado a vehículos de uso particular o de empresa. No aplica a taxis, colectivos, transporte público ni vehículos de aplicaciones de transporte.",

@@ -20,8 +20,9 @@ import {
   planStatus,
   precioConHeredado,
   precioContratacion,
+  precioLavadoAdicional,
   precioLavadoUnico,
-  precioNormal,
+  precioRenovacionATiempo,
   precioPagoAtrasado,
   precioReactivacionVencido,
   precioRenovacionLocal,
@@ -73,7 +74,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // mesón antes del vencimiento es la misma renovación anticipada que por la
   // web, así que al que venía pagando menos se le respeta ese valor acá
   // también — si no, el mismo cliente pagaba distinto según por dónde entrara.
-  const pNormal = precioConHeredado(precioNormal(data.precios, c.plan || PLANES[0]), c);
+  const pNormal = precioRenovacionATiempo(data.precios, c.plan || PLANES[0], c);
   // Contratar un plan nuevo es su propio precio (ver precioContratacion): al
   // que nunca tuvo plan se le cobra el valor de 1ra contratación, al que dejó
   // vencer el suyo el normal. Sin precio heredado: contratar de nuevo no es
@@ -83,7 +84,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // cliente durante su período de plan vigente (ver tramosRenovacionLocal /
   // precioRenovacionLocal): undefined = ningún tramo del canal Local le calza
   // (típicamente porque viene mucho), así que no hay promoción y renueva al
-  // precio normal.
+  // precio de renovar a tiempo (ver precioRenovacionATiempo).
   //
   // Mismo fallback que pNormal: si c.plan viniera vacío con un plan igual
   // vigente (no debería pasar por convención, pero el esquema no lo obliga),
@@ -205,7 +206,11 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const cuponDescuentoVigente = data.cupones.find(
     (cup) => cup.tipo === "descuento" && !cup.usado && cup.patenteAsignada === c.patente && new Date(cup.fechaCaducidad) > new Date()
   );
-  const precioBaseLavadoUnico = precioLavadoUnico(data.precios);
+  // Al cliente con plan vigente que ya gastó las pasadas de su ciclo (ver
+  // pasesRestantes) el paso extra le sale al precio de lavado adicional, no al
+  // lavado único de lista: ese sigue siendo el precio de quien no tiene plan.
+  const precioBaseLavadoUnico =
+    estadoIngreso === "sin_pases" ? precioLavadoAdicional(data.precios) : precioLavadoUnico(data.precios);
   const precioLavadoUnicoFinal = cuponDescuentoVigente
     ? Math.max(0, precioBaseLavadoUnico - montoDescuento(cuponDescuentoVigente, precioBaseLavadoUnico))
     : precioBaseLavadoUnico;

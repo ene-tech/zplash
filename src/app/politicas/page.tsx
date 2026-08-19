@@ -19,7 +19,7 @@ export default function PoliticasPage() {
       <div className="content" style={{ maxWidth: 760 }}>
         <h2 className="section-title">Políticas de Funcionamiento y Garantía</h2>
         <p style={{ color: "var(--gray)", fontSize: 13, textAlign: "center", marginBottom: 22 }}>
-          Versión {POLITICAS_VERSION}
+          Versión {POLITICAS_VERSION.split('-').reverse().join('/')}
         </p>
 
         {POLITICAS.map((seccion) => (

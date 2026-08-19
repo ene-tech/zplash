@@ -4,7 +4,7 @@ import { diasVencido, planStatus } from "./clientes";
 import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
 import {
   precioConHeredado,
-  precioNormal,
+  precioRenovacionATiempo,
   precioPagoAtrasado,
   precioRenovacionLocal,
   precioReactivacionVencido,
@@ -16,8 +16,9 @@ import {
 export interface OfertaPlan {
   renovacionAnticipada?: { pNormal: number; pPromo: number; ahorro: number; diasRestantes?: number; tramoVigente: boolean };
   // `pNormal` = lo que va a pagar DESPUÉS: la promoción de reactivación es
-  // solo por ese primer mes, la renovación siguiente vale el precio normal
-  // (pagándola antes del vencimiento). Va acá porque en un cliente vencido
+  // solo por ese primer mes, y la renovación siguiente vale lo que cuesta
+  // renovar a tiempo (ver precioRenovacionATiempo: el preferencial del plan,
+  // no el de lista). Va acá porque en un cliente vencido
   // `renovacionAnticipada` no existe y es el único lugar donde el cliente Web
   // puede ver ese valor.
   reactivacion?: { precio: number; diasVencido: number; pNormal: number };
@@ -76,14 +77,14 @@ export function calcularOfertasPlan(
   // temprano no le hace perder días.
   //
   // Sin tramo que le calce por canal + pasadas del período vigente no hay
-  // promoción y el precio de renovar es el normal (ahorro 0): la oferta igual
+  // promoción por tramo y el precio es el de renovar a tiempo (ahorro 0): la oferta igual
   // se arma, para que Mi Cuenta pueda mostrar su recordatorio de vencimiento y
   // cobrar la renovación (ver sinOfertaReal en VehiculoCard).
   if (st.cls !== "bad") {
     // El precio heredado se aplica sobre AMBOS (ver precioConHeredado): quien
     // venía pagando menos renueva a ese valor, y la tarjeta no le inventa un
     // "ahorro" contra un precio de lista que a él nunca le tocó.
-    const pNormal = precioConHeredado(precioNormal(precios, plan), cliente);
+    const pNormal = precioRenovacionATiempo(precios, plan, cliente);
     if (pNormal > 0) {
       const visitasPeriodo = visitasPeriodoPlan(ingresosCliente, cliente);
       const pPromo = precioConHeredado(precioRenovacionLocal(config, precios, plan, visitasPeriodo, canal) ?? pNormal, cliente);
@@ -108,7 +109,7 @@ export function calcularOfertasPlan(
       // pNormal con el heredado aplicado: es lo que se le va a cobrar de
       // verdad en la renovación siguiente (ver el bloque de arriba), no el
       // precio de lista.
-      oferta.reactivacion = { precio: precioReactivacion, diasVencido: diasVenc, pNormal: precioConHeredado(precioNormal(precios, plan), cliente) };
+      oferta.reactivacion = { precio: precioReactivacion, diasVencido: diasVenc, pNormal: precioRenovacionATiempo(precios, plan, cliente) };
     } else {
       // Sin tramo que le calce el plan igual se puede pagar, al precio normal
       // (ver pagoVencido). La promoción de reactivación, cuando existe, ya es

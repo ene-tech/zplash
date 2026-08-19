@@ -14,7 +14,7 @@ const PREGUNTAS_PLAN_MENSUAL = [
     a: [
       "5 lavados Full Túnel durante los 30 días desde la contratación.",
       "Máximo 1 ingreso cada 24 horas.",
-      "Uso ilimitado de las máquinas aspiradoras autoservicio.",
+      "Aspirado autoservicio sin límite de tiempo, en cada uno de los 5 lavados, después de pasar por el túnel.",
       "Válido para una patente; puede cambiarse al término del período.",
       "Para vehículos de uso particular o empresa; prohibido para transporte público, taxi, Uber o colectivos.",
     ],

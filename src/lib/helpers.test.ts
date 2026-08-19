@@ -29,6 +29,12 @@ import {
   esVentaNuevaWeb,
   fechaEfectiva,
   fmtCLP,
+  LAVADO_ADICIONAL_KEY,
+  LAVADO_UNICO_KEY,
+  precioLavadoAdicional,
+  precioLavadoUnico,
+  PRECIO_LAVADO_ADICIONAL,
+  PRECIO_LAVADO_UNICO,
   idAjusteCierre,
   resumenCierreTexto,
   formatRut,
@@ -599,6 +605,19 @@ describe("fmtCLP", () => {
   });
 });
 
+describe("precioLavadoAdicional", () => {
+  it("sin precio cargado -> el valor por defecto, aparte del lavado único", () => {
+    expect(precioLavadoAdicional({})).toBe(PRECIO_LAVADO_ADICIONAL);
+    expect(precioLavadoUnico({})).toBe(PRECIO_LAVADO_UNICO);
+  });
+
+  it("cada uno lee su propia clave: editar uno no mueve al otro", () => {
+    const precios = { [LAVADO_ADICIONAL_KEY]: { normal: 2990, promo: 0 }, [LAVADO_UNICO_KEY]: { normal: 12990, promo: 0 } };
+    expect(precioLavadoAdicional(precios)).toBe(2990);
+    expect(precioLavadoUnico(precios)).toBe(12990);
+  });
+});
+
 describe("precioContratacion", () => {
   const conPrimera = { plan1: { normal: 21990, promo: 19990 }, [keyPrimeraContratacion("plan1")]: { normal: 14990, promo: 0 } };
 
@@ -628,8 +647,11 @@ describe("precioRenovacionCliente", () => {
     return d.toISOString();
   };
 
-  it("plan vigente -> precio normal, con su heredado si lo tiene", () => {
-    expect(precioRenovacionCliente(precios, "plan1", { vencimiento: haceDias(-20) }, 4)).toBe(29990);
+  it("plan vigente -> el preferencial de renovar a tiempo, con su heredado si lo tiene", () => {
+    // NO el normal (29990): ese es precio de lista, y cobrarlo acá hacía que
+    // renovar antes de vencer saliera más caro que pagar tarde dentro de la
+    // gracia (ver precioRenovacionATiempo).
+    expect(precioRenovacionCliente(precios, "plan1", { vencimiento: haceDias(-20) }, 4)).toBe(21990);
     expect(precioRenovacionCliente(precios, "plan1", { vencimiento: haceDias(-20), precioPlanHeredado: 19990 }, 4)).toBe(19990);
   });
 
@@ -1277,7 +1299,9 @@ describe("calcularOfertasPlan", () => {
   it("plan vigente -> ofrece renovación anticipada al precio del tramo, sin reactivación ni upgrade", () => {
     const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
     const oferta = calcularOfertasPlan(cliente, [], [], config, precios);
-    expect(oferta.renovacionAnticipada).toEqual({ pNormal: 21990, pPromo: 15990, ahorro: 6000, diasRestantes: undefined, tramoVigente: true });
+    // pNormal = lo que paga renovando a tiempo sin tramo (el preferencial,
+    // ver precioRenovacionATiempo), no el precio de lista.
+    expect(oferta.renovacionAnticipada).toEqual({ pNormal: 19990, pPromo: 15990, ahorro: 4000, diasRestantes: undefined, tramoVigente: true });
     expect(oferta.reactivacion).toBeUndefined();
     expect(oferta.upgrade).toBeUndefined();
   });
@@ -1301,10 +1325,11 @@ describe("calcularOfertasPlan", () => {
     expect(calcularOfertasPlan(caro, [], [], sinTramos, precios).renovacionAnticipada?.pPromo).toBe(19990);
   });
 
-  it("pasadas del período vigente por sobre el último tramo -> sin promoción, renueva al precio normal", () => {
+  it("pasadas del período vigente por sobre el último tramo -> sin promoción, renueva al precio de siempre", () => {
     // El tramo llega hasta 1 pasada: con 2 en el período vigente el cliente
-    // "viene mucho" y queda fuera de la promoción — no cae al precio
-    // preferencial general, paga el normal (ahorro 0).
+    // "viene mucho" y queda fuera del descuento por tramo (ahorro 0). Paga
+    // la renovación de siempre — el preferencial del plan, no el de lista:
+    // ese último es de quien deja vencer su plan (ver precioRenovacionATiempo).
     const soloPocasPasadas: ConfigGlobal = {
       ...config,
       tramosRenovacionLocal: { [PLAN]: [{ id: "r1", visitasMin: 0, visitasMax: 1, precio: 15990 }] },
@@ -1312,8 +1337,8 @@ describe("calcularOfertasPlan", () => {
     const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
     const dosPasadas = [ingresoAyer(), { ...ingresoAyer(), id: "i2", fecha: diasDesdeHoy(-2) }];
     expect(calcularOfertasPlan(cliente, [], dosPasadas, soloPocasPasadas, precios).renovacionAnticipada).toEqual({
-      pNormal: 21990,
-      pPromo: 21990,
+      pNormal: 19990,
+      pPromo: 19990,
       ahorro: 0,
       diasRestantes: undefined,
       tramoVigente: false,
