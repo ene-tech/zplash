@@ -1,6 +1,6 @@
 import "server-only";
 
-import { desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { estanques, lecturasEstanque, valvulas } from "@/db/schema";
 import type { Estanque, EstanqueConLectura, Valvula } from "@/types";
@@ -19,6 +19,7 @@ function estanqueToRow(e: Estanque): typeof estanques.$inferInsert {
     litrosPorUnidad: e.litrosPorUnidad,
     umbralBajoLitros: e.umbralBajoLitros ?? null,
     activo: e.activo,
+    orden: e.orden,
     creadoEn: e.creadoEn,
     creadoPor: e.creadoPor || null,
   };
@@ -34,6 +35,7 @@ function estanqueFromRow(r: EstanqueRow): Estanque {
     litrosPorUnidad: r.litrosPorUnidad,
     umbralBajoLitros: r.umbralBajoLitros ?? undefined,
     activo: r.activo,
+    orden: r.orden,
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
   };
@@ -71,7 +73,9 @@ function valvulaFromRow(r: ValvulaRow): Valvula {
 export async function cargarEstanques(): Promise<{ estanques: EstanqueConLectura[]; valvulas: Valvula[] }> {
   const db = getDb();
   const [filas, ultimas, valvulasFilas] = await Promise.all([
-    safe(db.select().from(estanques)),
+    // creadoEn desempata: los estanques que existían antes de la columna
+    // `orden` tienen todos 0, y sin desempate volverían a barajarse solos.
+    safe(db.select().from(estanques).orderBy(asc(estanques.orden), asc(estanques.creadoEn))),
     // DISTINCT ON: una fila por estanque, la más reciente. Barato con el
     // índice (estanque_id, medido_en) — no recorre la serie completa.
     safe(

@@ -1,0 +1,1 @@
+ALTER TABLE "estanques" ADD COLUMN "orden" integer DEFAULT 0 NOT NULL;

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { otpsCliente } from "@/db/schema";
-import { buscarClientePorPatente, buscarClientesPorEmail } from "@/lib/dataAccess/clientes";
+import { PATENTE_CON_DUENO_MSG, buscarClientePorPatente, buscarClientesPorEmail } from "@/lib/dataAccess/clientes";
 import { enviarCodigoOtpCliente } from "@/lib/buzon/otp";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { origenValido } from "@/lib/csrf";
-import { normPlate, isValidPatente, isValidEmail, uid } from "@/lib/helpers";
+import { PATENTE_FORMATO_MSG, normPlate, isValidPatente, isValidEmail, sigueVigenteHoy, uid } from "@/lib/helpers";
 import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 
-  let body: { patente?: unknown; email?: unknown };
+  let body: { patente?: unknown; email?: unknown; nombre?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -41,13 +41,34 @@ export async function POST(request: NextRequest) {
 
   const patente = typeof body.patente === "string" ? body.patente.trim() : "";
   const emailIngresado = typeof body.email === "string" ? body.email.trim() : "";
+  // Con `nombre` esto es un registro de cliente nuevo (nombre + correo +
+  // patente), no un login: el correo todavía no existe en `clientes`, así que
+  // el código se manda al que la persona escribió y la ficha recién se crea
+  // cuando lo verifica (ver otp/verificar). Sin nombre, todo igual que antes.
+  const nombre = typeof body.nombre === "string" ? body.nombre.trim() : "";
   if (!patente && !emailIngresado) {
     return NextResponse.json({ ok: false, error: "Ingresa tu patente o tu correo" }, { status: 400 });
   }
 
   let email: string;
   try {
-    if (patente) {
+    if (nombre) {
+      if (!isValidEmail(emailIngresado.toLowerCase())) {
+        return NextResponse.json({ ok: false, error: "Correo inválido" }, { status: 400 });
+      }
+      if (!isValidPatente(patente)) {
+        return NextResponse.json({ ok: false, error: PATENTE_FORMATO_MSG }, { status: 400 });
+      }
+      // Chequeo temprano, solo para no mandar un código que después no va a
+      // servir de nada: el definitivo (que además descarta huérfanas con
+      // tarjeta viva o ventas) corre dentro del lock de vincularPatenteACuenta
+      // al verificar el código.
+      const dueno = await buscarClientePorPatente(normPlate(patente));
+      if (dueno && (dueno.email || sigueVigenteHoy(dueno.vencimiento))) {
+        return NextResponse.json({ ok: false, error: PATENTE_CON_DUENO_MSG }, { status: 409 });
+      }
+      email = emailIngresado.toLowerCase();
+    } else if (patente) {
       if (!isValidPatente(patente)) {
         return NextResponse.json({ ok: false, error: "Patente inválida" }, { status: 400 });
       }

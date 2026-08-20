@@ -8,7 +8,11 @@ import ClienteHeader from "@/components/cliente/ClienteHeader";
 // sumó ahí); /cliente quedó reducida a lo único que de verdad requiere una
 // sesión: la cuenta del cliente. Ya no hay datos vivos que traer server-side
 // (MiCuentaTab pide todo por su cuenta), así que no necesita force-dynamic.
-export default function ClientePage() {
+export default async function ClientePage({ searchParams }: { searchParams: Promise<{ registro?: string }> }) {
+  // ?registro=1 lo manda el botón "Registrarme" del header (ver SiteNav):
+  // salta el paso de elegir "Soy nuevo" a mano en el login.
+  const registro = (await searchParams).registro === "1";
+
   return (
     <div id="app">
       <ClienteHeader titulo="Mi Cuenta" ocultarMiCuenta />
@@ -19,7 +23,7 @@ export default function ClientePage() {
         <Link href="/" className="btn" style={{ textDecoration: "none", display: "inline-block", marginBottom: 18 }}>
           Volver al inicio
         </Link>
-        <MiCuentaTab />
+        <MiCuentaTab registro={registro} />
       </div>
     </div>
   );

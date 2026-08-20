@@ -13,6 +13,9 @@ export interface Estanque {
   litrosPorUnidad: number;
   umbralBajoLitros?: number;
   activo: boolean;
+  /** Posición en la lista, a mano desde la configuración. Ver el comentario
+   *  en @/db/schema/estanques. */
+  orden: number;
   creadoEn: string;
   creadoPor?: string;
 }

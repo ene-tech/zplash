@@ -1,5 +1,5 @@
 import { desc } from "drizzle-orm";
-import { boolean, index, numeric, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, index, integer, numeric, pgTable, text } from "drizzle-orm/pg-core";
 import { timestamptz } from "./shared";
 
 // Estanque físico del local (agua cruda, agua tratada, shampoo, cera) con
@@ -27,6 +27,12 @@ export const estanques = pgTable("estanques", {
   // (ver umbralBajo en @/lib/helpers/estanques).
   umbralBajoLitros: numeric("umbral_bajo_litros", { mode: "number" }),
   activo: boolean("activo").notNull().default(true),
+  // Orden en que se listan, elegido a mano con las flechas de la pestaña de
+  // configuración. Antes salían en el orden natural de la tabla, que Postgres
+  // no garantiza: editar un estanque reescribe la fila y la manda al final,
+  // así que la lista se barajaba sola. El orden útil acá es el físico (cuál
+  // estanque está al lado de cuál en el local) y eso no lo sabe la base.
+  orden: integer("orden").notNull().default(0),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),
 });

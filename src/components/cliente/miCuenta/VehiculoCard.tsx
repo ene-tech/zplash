@@ -36,12 +36,14 @@ function fraseVenceEn(diasRestantes: number): string {
 export function VehiculoCard({
   v,
   oferta,
+  lavados,
   tarjeta,
   email,
   onActualizado,
 }: {
   v: VehiculoSesion;
   oferta?: OfertaPlan;
+  lavados?: { usados: number; incluidos: number; reponeEl: string };
   tarjeta?: TarjetaGuardada;
   email: string;
   onActualizado: () => void;
@@ -132,6 +134,15 @@ export function VehiculoCard({
         </div>
       </div>
       {v.vencimiento && <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>{v.estado.cls === "bad" ? "Venció" : "Vence"} el {fmtFecha(v.vencimiento)}</div>}
+      {/* Solo planes con tope (X5): el server manda `lavados` únicamente para
+          esos (ver pasesIncluidos). Con el plan vencido el ciclo ya no corre,
+          así que el contador confunde más de lo que informa. */}
+      {lavados && v.estado.cls !== "bad" && (
+        <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 4 }}>
+          Llevas <strong style={{ color: "var(--white)" }}>{lavados.usados} de {lavados.incluidos}</strong> lavados de este período
+          {lavados.usados >= lavados.incluidos ? ` — vuelves a tener ${lavados.incluidos} el ${fmtFecha(lavados.reponeEl)}` : ` (se reponen el ${fmtFecha(lavados.reponeEl)})`}
+        </div>
+      )}
 
       {ra && !(sinOfertaReal && tarjeta) && (
         <div className="offer-card">

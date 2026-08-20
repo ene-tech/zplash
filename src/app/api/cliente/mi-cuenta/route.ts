@@ -6,7 +6,7 @@ import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { aceptoPoliticas, getClientesByIds } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
 import { preciosFromRows } from "@/lib/dataAccess/precios";
-import { calcularOfertasPlan, type OfertaPlan } from "@/lib/helpers";
+import { calcularOfertasPlan, inicioProximoPeriodoPlan, pasesIncluidos, visitasPeriodoPlan, type OfertaPlan } from "@/lib/helpers";
 import { ingresoFromRow } from "@/lib/dataAccess/ingresos";
 import { ventaFromRow } from "@/lib/dataAccess/ventas";
 
@@ -32,6 +32,7 @@ export async function GET() {
       compras: [],
       renovacionesLegacy: [],
       ofertas: {},
+      lavados: {},
       politicasAceptadas: politicasOk,
     });
   }
@@ -72,7 +73,18 @@ export async function GET() {
   const ventasPorCliente = ventasClienteRows.map(ventaFromRow);
   const ingresosPorCliente = ingresosClienteRows.map(ingresoFromRow);
   const ofertas: Record<string, OfertaPlan> = {};
+  // Pasadas usadas en el ciclo vigente, solo para planes con tope (X5 —
+  // pasesIncluidos devuelve null para el ilimitado viejo y para sin plan).
+  const lavados: Record<string, { usados: number; incluidos: number; reponeEl: string }> = {};
   for (const c of clientesEncontrados) {
+    const incluidos = pasesIncluidos(c.plan);
+    if (incluidos !== null) {
+      lavados[c.patente] = {
+        usados: visitasPeriodoPlan(ingresosPorCliente, c),
+        incluidos,
+        reponeEl: inicioProximoPeriodoPlan(c).toISOString(),
+      };
+    }
     const oferta = calcularOfertasPlan(
       c,
       ventasPorCliente.filter((v) => v.clienteId === c.id),
@@ -128,6 +140,7 @@ export async function GET() {
     // Promociones de plan por patente (renovación anticipada, reactivación,
     // upgrade) — mismas que ve el Operador, ver @/lib/helpers/ofertasPlan.
     ofertas,
+    lavados,
     politicasAceptadas: politicasOk,
   });
 }

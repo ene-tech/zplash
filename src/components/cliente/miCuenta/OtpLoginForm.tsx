@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { PATENTE_FORMATO_MSG, isValidPatente, normPlate } from "@/lib/helpers";
 
 // Login del Portal Cliente: código de un solo uso por correo (ver
 // @/app/api/cliente/otp), en vez de la cuenta de Google que mostraba antes
 // esta pantalla (nunca llegó a conectarse de verdad) o del WhatsApp que se
 // usó después (plantilla paga). Dos pasos: pedir el código (por patente o
 // correo) y verificarlo.
+//
+// El modo "registro" reusa esos MISMOS dos pasos para un cliente que todavía
+// no existe: manda nombre + correo + patente, el código se envía al correo que
+// declaró y la ficha se crea recién al verificarlo (ver otp/verificar).
 
 // Oculta parte del correo antes de mostrarlo en pantalla (el correo completo
 // sigue viajando al backend para verificar el código, esto es solo display).
@@ -21,24 +26,52 @@ function ocultarEmail(email: string): string {
   return `${visible}${"*".repeat(Math.max(usuario.length - visible.length, 3))}@${dominio}`;
 }
 
-export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
+export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () => void; registro?: boolean }) {
   const [paso, setPaso] = useState<"pedir" | "verificar">("pedir");
-  const [modo, setModo] = useState<"patente" | "email">("patente");
+  const [modo, setModo] = useState<"patente" | "email" | "registro">(registro ? "registro" : "patente");
   const [valor, setValor] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [patenteNueva, setPatenteNueva] = useState("");
   const [emailDestino, setEmailDestino] = useState("");
   const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
 
+  const esRegistro = modo === "registro";
+
+  function cambiarModo(nuevo: "patente" | "email" | "registro") {
+    setModo(nuevo);
+    setValor("");
+    setNombre("");
+    setPatenteNueva("");
+    setError("");
+  }
+
   async function pedirCodigo() {
     if (!valor.trim()) return;
+    if (esRegistro) {
+      if (!nombre.trim()) {
+        setError("Ingresa tu nombre.");
+        return;
+      }
+      if (!isValidPatente(patenteNueva)) {
+        setError(PATENTE_FORMATO_MSG);
+        return;
+      }
+    }
     setEnviando(true);
     setError("");
     try {
       const res = await fetch("/api/cliente/otp/solicitar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(modo === "patente" ? { patente: valor.trim() } : { email: valor.trim() }),
+        body: JSON.stringify(
+          esRegistro
+            ? { nombre: nombre.trim(), email: valor.trim(), patente: normPlate(patenteNueva) }
+            : modo === "patente"
+              ? { patente: valor.trim() }
+              : { email: valor.trim() }
+        ),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -65,7 +98,12 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
       const res = await fetch("/api/cliente/otp/verificar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailDestino, codigo }),
+        body: JSON.stringify({
+          email: emailDestino,
+          codigo,
+          // El backend crea la ficha solo si vienen estos dos (ver verificar).
+          ...(esRegistro ? { nombre: nombre.trim(), patente: normPlate(patenteNueva) } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -100,7 +138,7 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
         {error && <div className="err">{error}</div>}
         <button type="button" className="btn" onClick={verificarCodigo} disabled={enviando}>
-          {enviando ? "Verificando..." : "Verificar código"}
+          {enviando ? "Verificando..." : esRegistro ? "Crear mi cuenta" : "Verificar código"}
         </button>
         <p style={{ marginTop: 14 }}>
           <a
@@ -122,20 +160,18 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="card" style={{ maxWidth: 420, margin: "0 auto", textAlign: "center" }}>
-      <h3>Mi Cuenta</h3>
+      <h3>{esRegistro ? "Crear mi cuenta" : "Mi Cuenta"}</h3>
       <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
-        Ingresa con tu patente o tu correo y te mandamos un código por correo para verificar que eres tú.
+        {esRegistro
+          ? "Déjanos tu nombre, correo y patente. Te mandamos un código por correo para confirmar que es tuyo."
+          : "Ingresa con tu patente o tu correo y te mandamos un código por correo para verificar que eres tú."}
       </p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, justifyContent: "center", flexWrap: "wrap" }}>
         <button
           type="button"
           className={modo === "patente" ? "btn" : "btn ghost"}
           style={{ marginTop: 0, padding: "6px 14px", fontSize: 12.5 }}
-          onClick={() => {
-            setModo("patente");
-            setValor("");
-            setError("");
-          }}
+          onClick={() => cambiarModo("patente")}
         >
           Por patente
         </button>
@@ -143,15 +179,34 @@ export function OtpLoginForm({ onSuccess }: { onSuccess: () => void }) {
           type="button"
           className={modo === "email" ? "btn" : "btn ghost"}
           style={{ marginTop: 0, padding: "6px 14px", fontSize: 12.5 }}
-          onClick={() => {
-            setModo("email");
-            setValor("");
-            setError("");
-          }}
+          onClick={() => cambiarModo("email")}
         >
           Por correo
         </button>
+        <button
+          type="button"
+          className={esRegistro ? "btn" : "btn ghost"}
+          style={{ marginTop: 0, padding: "6px 14px", fontSize: 12.5 }}
+          onClick={() => cambiarModo("registro")}
+        >
+          Soy nuevo
+        </button>
       </div>
+      {esRegistro && (
+        <>
+          <div className="field" style={{ marginBottom: 12 }}>
+            <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre" />
+          </div>
+          <div className="field" style={{ marginBottom: 12 }}>
+            <input
+              value={patenteNueva}
+              onChange={(e) => setPatenteNueva(e.target.value.toUpperCase())}
+              placeholder="Patente (AB1234)"
+              style={{ textTransform: "uppercase" }}
+            />
+          </div>
+        </>
+      )}
       <div className="field" style={{ marginBottom: 12 }}>
         <input
           value={valor}

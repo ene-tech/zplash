@@ -2,6 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
+import { eliminarBorradorGasto, guardarBorradorGasto, leerBorradoresGasto, type BorradorGasto } from "@/lib/borradoresGasto";
 import { subirComprobanteGasto } from "@/lib/serverActions";
 import {
   buscarProveedorPorRut,
@@ -51,6 +52,13 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
   const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [proveedorHint, setProveedorHint] = useState<{ msg: string; ok: boolean } | null>(null);
+  // Borradores de Egresos/Gastos (ver @/lib/borradoresGasto). Se leen en el
+  // inicializador del useState y no en un efecto: Contabilidad se monta con
+  // next/dynamic recién después del login (ver app/admin/page.tsx), o sea
+  // nunca en el render del servidor, así que no hay mismatch de hidratación
+  // que evitar.
+  const [borradores, setBorradores] = useState<BorradorGasto[]>(() => (tipo === "egreso" ? leerBorradoresGasto() : []));
+  const [borradorId, setBorradorId] = useState<string | null>(null);
 
   const estadoBloqueadoPagado = tipo === "ingreso" && categoriaIngreso === CANAL_INGRESO_TUNEL;
 
@@ -78,6 +86,69 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
     if (prov.categoriaGasto) setCategoriaGasto(prov.categoriaGasto);
     const datosPago = [prov.banco, prov.cuentaCorriente].filter(Boolean).join(" · ");
     setProveedorHint({ msg: prov.nombre + (datosPago ? ` — ${datosPago}` : ""), ok: true });
+  };
+
+  /** Deja el formulario con los campos de `b`, o vacío si `b` es null
+   * (mismo bloque para limpiar tras registrar y para retomar un borrador).
+   * El adjunto nunca se restaura: el File no sobrevive a localStorage. */
+  const cargarFormulario = (b: BorradorGasto | null) => {
+    if (fechaRef.current) fechaRef.current.value = b?.fecha || "";
+    if (descripcionRef.current) descripcionRef.current.value = b?.descripcion || "";
+    setCategoriaGasto(b?.categoriaGasto || "");
+    setCategoriaIngreso("");
+    setComentarioOtros("");
+    if (contraparteRef.current) contraparteRef.current.value = b?.contraparte || "";
+    if (rutProveedorRef.current) rutProveedorRef.current.value = b?.rutProveedor || "";
+    if (numeroFacturaRef.current) numeroFacturaRef.current.value = b?.numeroFactura || "";
+    setMontoTexto(b?.montoTexto || "");
+    if (notasRef.current) notasRef.current.value = b?.notas || "";
+    setTipoDocumento(b?.tipoDocumento || null);
+    setArchivo(null);
+    if (archivoInputRef.current) archivoInputRef.current.value = "";
+    setEstado(b?.estado || (tipo === "egreso" ? "pagado_cc" : "pagado"));
+    setMetodoPago(null);
+    setProveedorHint(null);
+  };
+
+  /** Guarda el asiento a medias sin validar nada. Si se estaba editando un
+   * borrador lo actualiza (upsert por id), no crea otro. */
+  const guardarBorrador = () => {
+    const b: BorradorGasto = {
+      id: borradorId || "bg" + Date.now(),
+      guardadoEn: new Date().toISOString(),
+      fecha: fechaRef.current?.value || "",
+      descripcion: descripcionRef.current?.value.trim() || "",
+      categoriaGasto: categoriaGasto.trim(),
+      contraparte: contraparteRef.current?.value.trim() || "",
+      rutProveedor: rutProveedorRef.current?.value.trim() || "",
+      numeroFactura: numeroFacturaRef.current?.value.trim() || "",
+      tipoDocumento,
+      montoTexto,
+      estado,
+      notas: notasRef.current?.value.trim() || "",
+      archivoNombre: archivo?.name,
+    };
+    if (!b.descripcion && !b.categoriaGasto && !b.contraparte && !b.rutProveedor && !b.numeroFactura && !b.montoTexto && !b.notas) {
+      setErr({ msg: "El borrador está vacío: completa al menos un campo", ok: false });
+      return;
+    }
+    setBorradores(guardarBorradorGasto(b));
+    setBorradorId(b.id);
+    setErr({ msg: "Borrador guardado. Puedes retomarlo más tarde desde esta misma pantalla.", ok: true });
+  };
+
+  const retomarBorrador = (b: BorradorGasto) => {
+    cargarFormulario(b);
+    setBorradorId(b.id);
+    setErr({
+      msg: b.archivoNombre ? `Borrador retomado — vuelve a adjuntar el documento (${b.archivoNombre}).` : "Borrador retomado",
+      ok: true,
+    });
+  };
+
+  const descartarBorrador = (id: string) => {
+    setBorradores(eliminarBorradorGasto(id));
+    if (borradorId === id) setBorradorId(null);
   };
 
   const onCategoriaIngresoChange = (v: string) => {
@@ -174,22 +245,12 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
       return;
     }
     setErr({ msg: "Movimiento registrado correctamente", ok: true });
-    if (fechaRef.current) fechaRef.current.value = "";
-    if (descripcionRef.current) descripcionRef.current.value = "";
-    setCategoriaGasto("");
-    setCategoriaIngreso("");
-    setComentarioOtros("");
-    if (contraparteRef.current) contraparteRef.current.value = "";
-    if (rutProveedorRef.current) rutProveedorRef.current.value = "";
-    if (numeroFacturaRef.current) numeroFacturaRef.current.value = "";
-    setMontoTexto("");
-    if (notasRef.current) notasRef.current.value = "";
-    setTipoDocumento(null);
-    setArchivo(null);
-    if (archivoInputRef.current) archivoInputRef.current.value = "";
-    setEstado(tipo === "egreso" ? "pagado_cc" : "pagado");
-    setMetodoPago(null);
-    setProveedorHint(null);
+    // El borrador dejó de ser un pendiente: se convirtió en asiento.
+    if (borradorId) {
+      setBorradores(eliminarBorradorGasto(borradorId));
+      setBorradorId(null);
+    }
+    cargarFormulario(null);
   };
 
   return {
@@ -216,5 +277,10 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
     proveedorHint,
     estadoBloqueadoPagado,
     agregar,
+    borradores,
+    borradorId,
+    guardarBorrador,
+    retomarBorrador,
+    descartarBorrador,
   };
 }

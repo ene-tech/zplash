@@ -71,8 +71,14 @@ export function debeCerrarPorLleno(e: Estanque, crudo: number | null): boolean {
   return litrosDesdeCrudo(e, crudo) >= e.capacidadLitros;
 }
 
-/** Cuánto dura una orden de apertura antes de caducar sola. */
-export const MAX_APERTURA_MS = 60 * 60 * 1000;
+/** Cuánto dura una orden de apertura antes de caducar sola.
+ *
+ *  Tiene que ser holgadamente mayor que el llenado más largo legítimo, o el
+ *  servidor corta el agua a mitad de un llenado normal. Un estanque de
+ *  2.000 L por una válvula de 1" desde la matriz de 2" tarda unos 45 minutos:
+ *  hora y media deja el doble de margen. Si alguna vez se instala una válvula
+ *  más chica (una de 3/4" pasa de los 70 minutos), este número sube con ella. */
+export const MAX_APERTURA_MS = 90 * 60 * 1000;
 
 /** Una apertura pedida hace mucho se considera caducada y la ruta cierra la
  *  válvula.
@@ -80,9 +86,8 @@ export const MAX_APERTURA_MS = 60 * 60 * 1000;
  *  Cubre la otra mitad del riesgo que el firmware cubre de su lado: el
  *  controlador cierra si se queda sin servidor, pero el servidor guardaba
  *  `abierta=true` para siempre — al reconectar horas después, la primera
- *  respuesta volvía a abrir el agua sin nadie en el local. Una hora alcanza
- *  de sobra para llenar cualquier estanque; si no alcanzó, el operador
- *  reabre.
+ *  respuesta volvía a abrir el agua sin nadie en el local. Si el estanque no
+ *  se llenó en ese plazo, el operador reabre.
  *
  *  ponytail: tope fijo para todos. Si algún estanque necesita llenados más
  *  largos, esto pasa a ser una columna de `estanques`. */

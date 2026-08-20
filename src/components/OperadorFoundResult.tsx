@@ -96,7 +96,14 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
           <DetailRow label="Visitas totales" value={c.visitas || 0} />
           {/* Solo para planes con tope (X5): el ilimitado viejo no tiene qué contar. */}
           {r.pasesQueQuedan !== null && (
-            <DetailRow label="Pasadas del período" value={`${r.pasesQueQuedan} disponibles de ${PASES_INCLUIDOS_X5}`} />
+            <DetailRow
+              label="Lavado del período"
+              value={
+                r.pasesQueQuedan > 0
+                  ? `Va por el N°${r.visitasPeriodo + 1} de ${PASES_INCLUIDOS_X5} (quedan ${r.pasesQueQuedan})`
+                  : `Ya usó los ${PASES_INCLUIDOS_X5} del período`
+              }
+            />
           )}
           <DetailRow
             label="Teléfono"

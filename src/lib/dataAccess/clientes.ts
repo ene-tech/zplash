@@ -2,8 +2,9 @@ import "server-only";
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, politicasAceptadas } from "@/db/schema";
+import { clientes, politicasAceptadas, suscripcionesOneclick, ventas } from "@/db/schema";
 import { POLITICAS_VERSION } from "@/lib/politicas";
+import { sigueVigenteHoy, uid } from "@/lib/helpers";
 import type { Cliente, ClientePatch } from "@/types";
 import { insertAuditoria } from "./auditoria";
 import { upsertRows } from "./shared";
@@ -252,4 +253,93 @@ export async function registrarAceptacionPoliticas(email: string): Promise<void>
     .insert(politicasAceptadas)
     .values({ email: email.toLowerCase(), version: POLITICAS_VERSION })
     .onConflictDoNothing();
+}
+
+// Mismo texto para el rechazo por dueño activo en los dos caminos (Mi Cuenta
+// y registro nuevo), para no describir la misma regla de dos formas.
+export const PATENTE_CON_DUENO_MSG =
+  "Esa patente ya está registrada. Si es tuya, contáctanos para vincularla a tu cuenta.";
+
+// Vincula una patente a la cuenta de `email`: la crea de cero (sin plan, igual
+// que un alta por WhatsApp — ver nuevoCliente en @/lib/whatsapp/router.ts) si
+// no existe todavía, o reclama la fila existente si está huérfana. Con dueño
+// activo se rechaza: dejar que cualquiera la sume a su cuenta filtraría su
+// historial de compras y su tarjeta guardada a quien solo conoce la patente
+// (visible en el auto).
+//
+// Lo usan los dos caminos por los que un correo se queda con una patente:
+// "Agregar vehículo" desde Mi Cuenta (con sesión) y el registro de un cliente
+// nuevo desde el login (ver /api/cliente/otp/verificar), que crea su primera
+// ficha recién después de verificar el código.
+//
+// El chequeo de "¿está huérfana?" y la escritura que la reclama corren dentro
+// de una sola transacción con un advisory lock por patente (mismo mecanismo
+// que cobrarSuscripcion/cobrarOfertaOneclick en @/lib/pagos): sin esto, dos
+// cuentas que reclaman la misma patente huérfana casi al mismo tiempo pasaban
+// el chequeo antes de que cualquiera terminara de escribir, y las dos
+// terminaban con `crearSesionCliente` firmando una cookie válida por 30 días
+// sobre el mismo vehículo. El caso de patente nueva (sin fila existente)
+// también queda serializado acá: la segunda llamada concurrente espera el
+// lock, ve la fila que la primera ya insertó y cae al mismo camino de "ya está
+// registrada" en vez de arriesgar el choque de la restricción única de
+// `clientes.patente`.
+export async function vincularPatenteACuenta(
+  patente: string,
+  nombre: string,
+  email: string,
+  creadoPor: string
+): Promise<{ ok: true; clienteId: string } | { ok: false; error: string }> {
+  return getDb().transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${patente}))`);
+
+    const [existenteRow] = await tx.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
+    const existente = existenteRow ? clienteFromRow(existenteRow) : null;
+
+    // Sin correo vinculado y sin plan vigente: a primera vista nadie tiene esta
+    // ficha controlada hoy (p.ej. un alta por WhatsApp que nunca tuvo cuenta, o
+    // un vehículo que su dueño anterior sacó de su cuenta con "Quitar de mi
+    // cuenta", que solo limpia el email — ver quitar-vehiculo/route.ts). Pero
+    // "Quitar de mi cuenta" deja la tarjeta Oneclick intacta a propósito (sigue
+    // cobrándose sola), así que sin este chequeo cualquiera que solo conociera
+    // la patente podía reclamar la ficha y luego cobrar la tarjeta guardada del
+    // dueño anterior vía /cobrar-oferta (cobrarOfertaOneclick busca la
+    // suscripción solo por patente) — y de paso heredar su historial de compras
+    // (ver `compras` en /api/cliente/mi-cuenta). Por eso además de "sin dueño
+    // activo" se exige que no quede ninguna tarjeta viva ni venta asociada:
+    // si hay algo de eso, se cae al mismo camino de "contáctanos" que un dueño
+    // activo, aunque el email/plan ya no lo delate.
+    let huerfana = !!existente && !existente.email && !sigueVigenteHoy(existente.vencimiento);
+    if (huerfana && existente) {
+      const [tarjetaViva] = await tx
+        .select({ id: suscripcionesOneclick.id })
+        .from(suscripcionesOneclick)
+        .where(and(eq(suscripcionesOneclick.patente, patente), inArray(suscripcionesOneclick.estado, ["activa", "suspendida"])))
+        .limit(1);
+      const [ventaPrevia] = await tx.select({ id: ventas.id }).from(ventas).where(eq(ventas.clienteId, existente.id)).limit(1);
+      huerfana = !tarjetaViva && !ventaPrevia;
+    }
+    if (existente && !huerfana) {
+      return { ok: false as const, error: PATENTE_CON_DUENO_MSG };
+    }
+
+    if (existente) {
+      await tx.update(clientes).set({ nombre, email, creadoPor }).where(eq(clientes.id, existente.id));
+      return { ok: true as const, clienteId: existente.id };
+    }
+
+    const clienteId = uid();
+    await tx.insert(clientes).values({
+      id: clienteId,
+      nombre,
+      patente,
+      email,
+      plan: "",
+      vencimiento: null,
+      origen: "LOCAL",
+      visitas: 0,
+      creadoEn: new Date().toISOString(),
+      creadoPor,
+    });
+    return { ok: true as const, clienteId };
+  });
 }

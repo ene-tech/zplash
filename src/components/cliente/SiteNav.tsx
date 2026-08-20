@@ -65,6 +65,9 @@ export default function SiteNav() {
           <Link href="/cliente" className="site-nav-account-link" aria-label="Mi cuenta" onClick={() => setOpen(false)}>
             <User />
           </Link>
+          <Link href="/cliente?registro=1" className={`btn ghost btn-mi-cuenta site-nav-btn ${navFont.className}`}>
+            Registrarme
+          </Link>
           <Link href="/cliente" className={`btn secondary btn-mi-cuenta site-nav-btn ${navFont.className}`}>
             Mi cuenta
           </Link>
@@ -78,6 +81,9 @@ export default function SiteNav() {
               {s.label}
             </a>
           ))}
+          <Link href="/cliente?registro=1" className="site-nav-mobile-link" onClick={() => setOpen(false)}>
+            Registrarme
+          </Link>
         </div>
       )}
     </nav>

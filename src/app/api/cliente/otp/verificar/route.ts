@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { otpsCliente } from "@/db/schema";
-import { buscarClientesPorEmail } from "@/lib/dataAccess/clientes";
+import { buscarClientesPorEmail, vincularPatenteACuenta } from "@/lib/dataAccess/clientes";
 import { crearSesionCliente } from "@/lib/auth/clienteSession";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { origenValido } from "@/lib/csrf";
-import { isValidEmail } from "@/lib/helpers";
+import { PATENTE_FORMATO_MSG, isValidEmail, isValidPatente, normPlate } from "@/lib/helpers";
 import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 
-  let body: { email?: unknown; codigo?: unknown };
+  let body: { email?: unknown; codigo?: unknown; nombre?: unknown; patente?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -34,6 +34,16 @@ export async function POST(request: NextRequest) {
   const codigo = typeof body.codigo === "string" ? body.codigo.trim() : "";
   if (!isValidEmail(email) || !/^\d{6}$/.test(codigo)) {
     return NextResponse.json({ ok: false, error: "Datos inválidos" }, { status: 400 });
+  }
+
+  // Registro de cliente nuevo (ver otp/solicitar): la ficha se crea recién acá,
+  // después de comprobar que el código llegó al correo que la persona declaró
+  // — antes de eso no hay nada verificado que justifique escribir en la base.
+  const nombre = typeof body.nombre === "string" ? body.nombre.trim() : "";
+  const patente = normPlate(typeof body.patente === "string" ? body.patente : "");
+  const esRegistro = !!nombre;
+  if (esRegistro && !isValidPatente(patente)) {
+    return NextResponse.json({ ok: false, error: PATENTE_FORMATO_MSG }, { status: 400 });
   }
 
   const db = getDb();
@@ -63,13 +73,21 @@ export async function POST(request: NextRequest) {
   await db.update(otpsCliente).set({ usadoEn: new Date().toISOString() }).where(eq(otpsCliente.id, fila.id));
 
   const clientesEncontrados = await buscarClientesPorEmail(email);
-  if (!clientesEncontrados.length) {
+  const ids = clientesEncontrados.map((c) => c.id);
+
+  if (esRegistro) {
+    // vincularPatenteACuenta crea la ficha o reclama una huérfana (un alta por
+    // WhatsApp o del mostrador que nunca tuvo correo, que es justamente el
+    // cliente que llega acá a registrarse); con dueño activo devuelve error.
+    const vinculo = await vincularPatenteACuenta(patente, nombre, email, "Portal Cliente (Registro)");
+    if (!vinculo.ok) {
+      return NextResponse.json({ ok: false, error: vinculo.error }, { status: 409 });
+    }
+    if (!ids.includes(vinculo.clienteId)) ids.push(vinculo.clienteId);
+  } else if (!ids.length) {
     return NextResponse.json({ ok: false, error: "Este correo ya no está asociado a ningún vehículo" }, { status: 404 });
   }
 
-  await crearSesionCliente(
-    clientesEncontrados.map((c) => c.id),
-    email
-  );
+  await crearSesionCliente(ids, email);
   return NextResponse.json({ ok: true });
 }

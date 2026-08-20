@@ -3,7 +3,7 @@
 import type { RefObject } from "react";
 import { Buscador } from "@/components/Buscador";
 import PriceInput from "@/components/PriceInput";
-import { CANAL_INGRESO_OTROS, todayYMD } from "@/lib/helpers";
+import { CANAL_INGRESO_OTROS, fmtCLP, todayYMD } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 import { CONTRAPARTE_LABEL, type useMovimientoContableForm } from "./useMovimientoContableForm";
 
@@ -40,6 +40,41 @@ export default function MovimientoContableForm({
   return (
     <div className="modal" style={{ maxWidth: 520, margin: "0 0 24px 0" }}>
       <h3>Registrar {p.titulo.toLowerCase()}</h3>
+      {/* Borradores: asientos guardados a medias (ver @/lib/borradoresGasto).
+          Van arriba de todo porque lo primero que hace quien vuelve a esta
+          pantalla es retomar el que dejó pendiente. */}
+      {tipo === "egreso" && p.borradores.length > 0 && (
+        <div className="field">
+          <label>Borradores sin terminar</label>
+          {p.borradores.map((b) => (
+            <div key={b.id} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+              <button
+                type="button"
+                className={p.borradorId === b.id ? "btn" : "btn ghost"}
+                style={{ flex: 1, marginTop: 0, padding: "10px 14px", fontSize: 13, fontWeight: 500, textAlign: "left" }}
+                onClick={() => p.retomarBorrador(b)}
+              >
+                {[
+                  b.descripcion || b.categoriaGasto || "Sin descripción",
+                  b.montoTexto ? fmtCLP(Number(b.montoTexto)) : null,
+                  new Date(b.guardadoEn).toLocaleDateString("es-CL"),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                style={{ marginTop: 0, padding: "10px 14px" }}
+                onClick={() => p.descartarBorrador(b.id)}
+                title="Descartar borrador"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {tipo === "egreso" && (
         <div className="field">
           <label>Rut proveedor</label>
@@ -243,9 +278,16 @@ export default function MovimientoContableForm({
       <div className="err" style={{ color: p.err?.ok ? "var(--green)" : undefined }}>
         {p.err?.msg || ""}
       </div>
-      <button className="btn" onClick={p.agregar} disabled={p.subiendo}>
-        {p.subiendo ? "Subiendo documento..." : "Registrar"}
-      </button>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button className="btn" style={{ flex: 1 }} onClick={p.agregar} disabled={p.subiendo}>
+          {p.subiendo ? "Subiendo documento..." : "Registrar"}
+        </button>
+        {tipo === "egreso" && (
+          <button type="button" className="btn ghost" style={{ flex: 1 }} onClick={p.guardarBorrador} disabled={p.subiendo}>
+            Borrador
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -283,6 +283,18 @@ function Configuracion({
       true
     );
 
+  /** Sube o baja un estanque una posición. Reescribe todos los que quedan con
+   *  un `orden` distinto al que tenían y no solo los dos que se permutan: los
+   *  estanques anteriores a esta columna traen todos orden 0, y permutar dos
+   *  ceros no mueve nada. */
+  const mover = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= estanques.length) return;
+    const copia = [...estanques];
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+    guardar(upsertEstanques(copia.flatMap((e, idx) => (e.orden === idx ? [] : [{ ...e, orden: idx }]))));
+  };
+
   const borrarValvula = (v: Valvula) =>
     onConfirmar(`Borrar la válvula "${v.nombre}". ¿Confirmas?`, "Borrar", () => guardar(deleteValvulas([v.id])), true);
 
@@ -301,6 +313,7 @@ function Configuracion({
         <table>
           <thead>
             <tr>
+              <th>Orden</th>
               <th>Nombre</th>
               <th>Contenido</th>
               <th>Capacidad (L)</th>
@@ -314,8 +327,23 @@ function Configuracion({
             </tr>
           </thead>
           <tbody>
-            {estanques.map((e) => (
+            {estanques.map((e, i) => (
               <tr key={e.id}>
+                <td>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button className="icon-btn" title="Subir" disabled={i === 0} onClick={() => mover(i, -1)}>
+                      ↑
+                    </button>
+                    <button
+                      className="icon-btn"
+                      title="Bajar"
+                      disabled={i === estanques.length - 1}
+                      onClick={() => mover(i, 1)}
+                    >
+                      ↓
+                    </button>
+                  </div>
+                </td>
                 <td>
                   <input
                     defaultValue={e.nombre}
@@ -402,6 +430,7 @@ function Configuracion({
                   offsetCrudo: 0,
                   litrosPorUnidad: 1,
                   activo: true,
+                  orden: estanques.length,
                   creadoEn: new Date().toISOString(),
                 },
               ])
@@ -416,7 +445,7 @@ function Configuracion({
         <h3>Válvulas</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, margin: "6px 0 14px" }}>
           Asociar la válvula a un estanque hace que el servidor la cierre cuando ese estanque llega a su capacidad, y
-          también si queda abierta más de una hora. Los dos son respaldos: la protección real contra rebalse sigue
+          también si queda abierta más de hora y media. Los dos son respaldos: la protección real contra rebalse sigue
           siendo la boya mecánica.
         </div>
         <table>

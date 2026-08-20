@@ -14,6 +14,7 @@ const base: EstanqueConLectura = {
   offsetCrudo: 5,
   litrosPorUnidad: 10,
   activo: true,
+  orden: 0,
   creadoEn: haceMs(0),
   ultima: null,
 };

@@ -9,6 +9,7 @@ import { VehiculoCard } from "@/components/cliente/miCuenta/VehiculoCard";
 import { AgregarPatente } from "@/components/cliente/miCuenta/AgregarPatente";
 import { OtpLoginForm } from "@/components/cliente/miCuenta/OtpLoginForm";
 import { ActivarNotificaciones } from "@/components/cliente/miCuenta/ActivarNotificaciones";
+import { FilaEnVivo } from "@/components/cliente/miCuenta/FilaEnVivo";
 import { RenovacionLegacyCard } from "@/components/cliente/miCuenta/RenovacionLegacyCard";
 import { AgregarTarjeta } from "@/components/cliente/miCuenta/AgregarTarjeta";
 import { EliminarTarjeta } from "@/components/cliente/miCuenta/EliminarTarjeta";
@@ -34,6 +35,11 @@ interface Detailing {
   estado: string;
   servicios: string[];
 }
+interface LavadosPeriodo {
+  usados: number;
+  incluidos: number;
+  reponeEl: string;
+}
 interface Compra {
   fecha: string;
   tipo: string;
@@ -52,13 +58,14 @@ function CuentaBar({ email, onLogout }: { email: string; onLogout: () => void })
   );
 }
 
-export default function MiCuentaTab() {
+export default function MiCuentaTab({ registro = false }: { registro?: boolean }) {
   const { sesion, cargando, refrescar, cerrar } = useSesionCliente();
   const [tarjetas, setTarjetas] = useState<Tarjeta[]>([]);
   const [detailing, setDetailing] = useState<Detailing[]>([]);
   const [compras, setCompras] = useState<Compra[]>([]);
   const [renovacionesLegacy, setRenovacionesLegacy] = useState<RenovacionLegacy[]>([]);
   const [ofertas, setOfertas] = useState<Record<string, OfertaPlan>>({});
+  const [lavados, setLavados] = useState<Record<string, LavadosPeriodo>>({});
   // undefined = todavía no llega la respuesta de /api/cliente/mi-cuenta. Sin
   // ese tercer estado el aviso de políticas parpadea en cada carga para quien
   // ya aceptó.
@@ -75,6 +82,7 @@ export default function MiCuentaTab() {
             compras: Compra[];
             renovacionesLegacy: RenovacionLegacy[];
             ofertas: Record<string, OfertaPlan>;
+            lavados: Record<string, LavadosPeriodo>;
             politicasAceptadas: boolean;
           } | null
         ) => {
@@ -84,6 +92,7 @@ export default function MiCuentaTab() {
           setCompras(data.compras);
           setRenovacionesLegacy(data.renovacionesLegacy || []);
           setOfertas(data.ofertas || {});
+          setLavados(data.lavados || {});
           setPoliticasAceptadas(data.politicasAceptadas);
         }
       );
@@ -97,7 +106,7 @@ export default function MiCuentaTab() {
   if (cargando) return null;
 
   if (!sesion) {
-    return <OtpLoginForm onSuccess={refrescar} />;
+    return <OtpLoginForm onSuccess={refrescar} registro={registro} />;
   }
 
   return (
@@ -106,6 +115,7 @@ export default function MiCuentaTab() {
       <CuentaBar email={sesion.email} onLogout={cerrar} />
       {politicasAceptadas === false && <AvisoPoliticas onAceptado={() => setPoliticasAceptadas(true)} />}
       <ActivarNotificaciones />
+      <FilaEnVivo />
       <TicketsEmpresaSection key={sesion.email} email={sesion.email} />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
@@ -126,6 +136,7 @@ export default function MiCuentaTab() {
                 key={v.patente}
                 v={v}
                 oferta={ofertas[v.patente]}
+                lavados={lavados[v.patente]}
                 tarjeta={tarjetaActiva ? { cardTipo: tarjetaActiva.cardTipo, cardUltimosDigitos: tarjetaActiva.cardUltimosDigitos } : undefined}
                 email={sesion.email}
                 onActualizado={refrescar}
