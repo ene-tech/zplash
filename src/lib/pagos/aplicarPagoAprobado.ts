@@ -8,7 +8,6 @@ import {
   PLANES,
   inicioPeriodoPlan,
   movimientoContableDesdeVenta,
-  planAlRenovar,
   resolverPatentePendiente,
   sigueVigenteHoy,
   uid,
@@ -25,8 +24,9 @@ export function addDaysISO(iso: string, dias: number): string {
 }
 
 /** Pasadas del cliente en su ciclo de plan vigente, contadas en la base (acá
- * no hay un AppData cargado como en el módulo Operador). Solo se usa para
- * decidir la migración al X5 al renovar, ver planAlRenovar. */
+ * no hay un AppData cargado como en el módulo Operador). Solo se usa en el
+ * webhook de WooCommerce, para no tocarle el plan al cliente que no pasó ni
+ * una vez (ver planResultante en /api/webhooks/woocommerce). */
 export async function visitasPeriodoActual(db: DbOrTx, cliente: { id: string; fechaContratacion: string | null }): Promise<number> {
   const inicio = inicioPeriodoPlan(cliente.fechaContratacion, new Date());
   const filas = await db
@@ -134,11 +134,9 @@ export async function aplicarPagoAprobado(
         patentePendiente: fila.patentePendiente || null,
         patentePendienteDesde: fila.patentePendienteDesde || null,
         vencimiento: nuevoVencimiento,
-        // Misma migración al X5 que en el mesón (ver planAlRenovar): renovar
-        // pasa al plan nuevo solo al cliente del ilimitado viejo que viene
-        // lavando UMBRAL_MIGRACION_X5 veces o más por período. Al resto no le
-        // cambia nada — el tope no los afecta.
-        plan: planAlRenovar(existente.plan, await visitasPeriodoActual(db, existente)),
+        // Misma migración al X5 que en el mesón: el ilimitado viejo dejó de
+        // ofrecerse, así que renovar deja al cliente en el plan vigente.
+        plan: PLANES[0],
         origen: "WEB",
       })
       .where(eq(clientes.id, clienteId));

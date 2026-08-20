@@ -320,6 +320,9 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     horasVentanaUpgrade,
     cuponDescuentoVigente,
     precioLavadoUnicoFinal,
+    // Para contarle al cliente que todavía anda con el ilimitado viejo cómo
+    // le queda el X5 al renovar (ver AvisoPasaAX5 en OperadorFoundOfertas).
+    precioAdicional: precioLavadoAdicional(data.precios),
     citaDetailingPendiente,
     lavadoWebPendiente,
     ...ingreso,

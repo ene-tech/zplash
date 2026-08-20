@@ -9,7 +9,6 @@ import {
   PLAN_ILIMITADO_LEGACY,
   pasesIncluidos,
   pasesRestantes,
-  planAlRenovar,
   CATEGORIA_DETAILING,
   CONFIG_DEFAULT,
   cuponDelLoteUsadoPorPatente,
@@ -1722,7 +1721,7 @@ describe("pasesIncluidos", () => {
   });
 });
 
-describe("pasesRestantes / planAlRenovar", () => {
+describe("pasesRestantes", () => {
   const ingreso = (clienteId: string, fecha: string): Ingreso => ({
     id: "i" + fecha,
     clienteId,
@@ -1745,14 +1744,5 @@ describe("pasesRestantes / planAlRenovar", () => {
   it("el plan viejo y el cliente sin plan no tienen tope que contar", () => {
     expect(pasesRestantes(pasadas(9), { ...base, plan: PLAN_ILIMITADO_LEGACY }, ahora)).toBeNull();
     expect(pasesRestantes(pasadas(9), { ...base, plan: undefined }, ahora)).toBeNull();
-  });
-
-  it("renovar migra al X5 solo al del plan viejo que lava 6+ veces por período", () => {
-    expect(planAlRenovar(PLAN_ILIMITADO_LEGACY, 6)).toBe(PLAN_X5);
-    expect(planAlRenovar(PLAN_ILIMITADO_LEGACY, 12)).toBe(PLAN_X5);
-    // Los que pasan 5 o menos siguen igual: no se les toca el plan ni el ciclo.
-    expect(planAlRenovar(PLAN_ILIMITADO_LEGACY, 5)).toBe(PLAN_ILIMITADO_LEGACY);
-    expect(planAlRenovar(PLAN_ILIMITADO_LEGACY, 0)).toBe(PLAN_ILIMITADO_LEGACY);
-    expect(planAlRenovar(PLAN_X5, 0)).toBe(PLAN_X5);
   });
 });

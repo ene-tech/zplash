@@ -4,12 +4,11 @@ import {
   GLOSA_LAVADO_WEB,
   GLOSA_SERVICIO_DETAILING,
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
+  PLAN_X5,
   enPlazoDePagoPlan,
-  planAlRenovar,
   planStatus,
   sigueVigenteHoy,
   ventaLavadoUnicoDeIngreso,
-  visitasPeriodoPlan,
 } from "@/lib/helpers";
 
 export function registrarIngreso(
@@ -241,10 +240,9 @@ export function renovarPlan(
     base.setDate(base.getDate() + 30);
   } while (base <= new Date());
   // La renovación es el momento en que un cliente del plan ilimitado viejo
-  // pasa al X5, y solo si viene lavando seguido (ver planAlRenovar): al que
-  // pasa 5 veces o menos no le cambia nada — el tope no lo afecta, así que no
-  // hay por qué tocarle el plan ni avisarle nada a mitad de su ciclo de pago.
-  const plan = planAlRenovar(cliente.plan, visitasPeriodoPlan(data.ingresos, cliente));
+  // pasa al X5: el ilimitado dejó de ofrecerse, así que renovar deja a
+  // cualquier cliente en el plan que se vende hoy, lave mucho o poco.
+  const plan = PLAN_X5;
   const clienteActualizado: Cliente = {
     ...cliente,
     plan,

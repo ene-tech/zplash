@@ -10,7 +10,7 @@ import {
   registrarIngresoLavadoWeb,
   renovarPlan,
 } from "./logic";
-import { CONFIG_DEFAULT, PRECIOS_DEFAULT } from "./helpers";
+import { CONFIG_DEFAULT, PLAN_X5, PRECIOS_DEFAULT } from "./helpers";
 import type { ParsedMovimiento } from "./cartolaParser";
 import type { AppData, Cita, Cliente, Cupon, Ingreso, Venta } from "@/types";
 
@@ -413,6 +413,18 @@ describe("registrarIngresoCupon", () => {
 });
 
 describe("renovarPlan", () => {
+  it("deja al cliente del ilimitado viejo en el X5, aunque no haya pasado ni una vez", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ vencimiento: new Date().toISOString() });
+    data.clientes = [cliente];
+
+    const patch = renovarPlan(data, cliente, "Operador X", PRECIOS_DEFAULT[PLAN_X5].promo);
+
+    expect(patch.clientes!.find((c) => c.id === cliente.id)!.plan).toBe(PLAN_X5);
+    // La venta tiene que decir el mismo plan que le queda al cliente.
+    expect(patch.ventas![0].plan).toBe(PLAN_X5);
+  });
+
   it("si el plan está vigente, extiende 30 días desde el vencimiento actual (no desde hoy)", () => {
     const data = appDataVacia();
     const vencimientoActual = new Date();

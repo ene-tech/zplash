@@ -1,6 +1,6 @@
 import type { Cliente, Ingreso } from "@/types";
 import { inicioPeriodoPlan } from "./clientes";
-import { fmtCLP, pasesIncluidos, PLAN_ILIMITADO_LEGACY, PLAN_X5, PRECIO_LAVADO_UNICO } from "./precios";
+import { fmtCLP, pasesIncluidos, PRECIO_LAVADO_UNICO } from "./precios";
 import { ahoraEnSantiago, fmtFecha, fmtHora, todayStr } from "./fechas";
 
 /** Si el cliente ya registró un ingreso hoy (para limitar a 1 pasada diaria por plan vigente). */
@@ -96,26 +96,6 @@ export function mensajeSinPases(
   const incluidos = pasesIncluidos(cliente.plan) ?? 0;
   const proximo = inicioProximoPeriodoPlan(cliente, ahora);
   return `VEHICULO YA USO LAS ${incluidos} PASADAS DE SU ${(cliente.plan || "").toUpperCase()} EN ESTE PERIODO. LE TOCAN ${incluidos} NUEVAS EL ${fmtFecha(proximo.toISOString())}.`;
-}
-
-/**
- * Pasadas del período recién cerrado desde las cuales una renovación migra al
- * cliente del plan ilimitado viejo al X5: los que más lavan migran primero,
- * y bajar este número va migrando al resto sin tocar un solo dato (el plan de
- * cada cliente se reescribe solo al renovar, ver planAlRenovar).
- */
-export const UMBRAL_MIGRACION_X5 = 6;
-
-/**
- * Plan con el que queda el cliente después de renovar. El ilimitado viejo se
- * respeta mientras el cliente pase menos de UMBRAL_MIGRACION_X5 veces por
- * período; de ahí para arriba, la renovación lo pasa al X5 (y con eso al tope
- * de 5). Contratar de nuevo NO pasa por acá: eso es una venta nueva y siempre
- * es X5 (ver contratarPlan en usePlanActions).
- */
-export function planAlRenovar(plan: string | null | undefined, visitasPeriodo: number): string {
-  if (plan === PLAN_ILIMITADO_LEGACY && visitasPeriodo >= UMBRAL_MIGRACION_X5) return PLAN_X5;
-  return plan || PLAN_X5;
 }
 
 /**

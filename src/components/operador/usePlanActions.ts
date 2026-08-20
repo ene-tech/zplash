@@ -6,11 +6,9 @@ import {
   PLANES,
   isValidEmail,
   isValidTelefono,
-  planAlRenovar,
   precioContratacion,
   vencimientoAnclado,
   vencimientoPorDefectoISO,
-  visitasPeriodoPlan,
 } from "@/lib/helpers";
 import type { Cliente, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -114,8 +112,9 @@ export function usePlanActions(
   const renovarWeb = (cliente: Cliente = c) => {
     pedirPago(precioOfertaWeb, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
       const nuevoVencimiento = vencimientoAnclado(cliente.fechaContratacion || cliente.vencimiento);
-      // Misma migración al X5 que hace renovarPlan en el mesón (ver planAlRenovar).
-      const plan = planAlRenovar(cliente.plan, visitasPeriodoPlan(data.ingresos, cliente));
+      // Misma migración al X5 que hace renovarPlan en el mesón: renovar deja
+      // al cliente en el plan que se vende hoy, traiga el que traiga.
+      const plan = PLANES[0];
       const updated: Cliente = { ...cliente, plan, vencimiento: nuevoVencimiento, ultimaRenovacion: new Date().toISOString() };
       const venta: Venta = {
         id: "v" + Date.now(),
@@ -149,9 +148,8 @@ export function usePlanActions(
       return;
     }
     // Siempre el plan que se vende hoy (X5), aunque el cliente tenga guardado
-    // el ilimitado viejo: contratar de nuevo es una venta nueva, no la
-    // renovación de un ciclo que venía corriendo (ver planAlRenovar, que es la
-    // que sí respeta el plan viejo).
+    // el ilimitado viejo: ese plan ya no se ofrece ni contratando ni
+    // renovando.
     const plan = PLANES[0];
     // Mismo cálculo que muestra el botón (ver pContratacion en
     // useOperadorFoundResult): valor de 1ra contratación si nunca tuvo plan.

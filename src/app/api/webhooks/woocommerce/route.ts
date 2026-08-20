@@ -7,7 +7,6 @@ import {
   PLANES,
   formatTelefono,
   movimientoContableDesdeVenta,
-  planAlRenovar,
   resolverPatentePendiente,
   sigueVigenteHoy,
   vencimientoAnclado,
@@ -103,9 +102,9 @@ export async function POST(request: NextRequest) {
   }
 
   let clienteId: string;
-  // Plan con el que queda el cliente tras este pedido: X5 salvo que sea la
-  // renovación de alguien que todavía anda con el ilimitado viejo y lava poco
-  // (ver planAlRenovar). Se decide dentro de la rama de cliente existente y se
+  // Plan con el que queda el cliente tras este pedido: X5 salvo el cliente
+  // del ilimitado viejo que no pasó ni una vez en su período (ver la
+  // excepción más abajo). Se decide dentro de la rama de cliente existente y se
   // reusa en la venta, para que la boleta no diga un plan distinto al que le
   // queda al cliente.
   let planResultante: string = PLANES[0];
@@ -158,8 +157,8 @@ export async function POST(request: NextRequest) {
     // tocar `patente`/`patentePendiente`.
     const anterior = clienteFromRow(existente);
     const { fila, patenteAnterior } = resolverPatentePendiente(anterior, { ...anterior, vencimiento: nuevoVencimiento });
-    // Recontratar es una venta nueva (siempre X5); renovar respeta el plan
-    // viejo mientras el cliente pase menos de UMBRAL_MIGRACION_X5 veces.
+    // Contratar y renovar dejan al cliente en el plan que se vende hoy: el
+    // ilimitado viejo dejó de ofrecerse.
     //
     // Excepción: al cliente de WooCommerce que no pasó NI UNA VEZ en su
     // período no se le toca el plan, ni siquiera recontratando. Su cobro lo
@@ -169,12 +168,7 @@ export async function POST(request: NextRequest) {
     // acá, en el webhook: en el mesón y en la web propia el cambio se hace
     // con el cliente delante.
     const visitasPeriodo = await visitasPeriodoActual(db, existente);
-    planResultante =
-      visitasPeriodo === 0
-        ? existente.plan || PLANES[0]
-        : recontratacion
-          ? PLANES[0]
-          : planAlRenovar(existente.plan, visitasPeriodo);
+    planResultante = visitasPeriodo === 0 ? existente.plan || PLANES[0] : PLANES[0];
     try {
       await db
         .update(clientes)

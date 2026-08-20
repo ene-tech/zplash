@@ -1,7 +1,24 @@
 "use client";
 
-import { PLANES, fmtCLP, fmtHorasVentanaUpgradePlan } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtHorasVentanaUpgradePlan } from "@/lib/helpers";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
+
+// Lo que el operador tiene que contarle al cliente que todavía anda con el
+// ilimitado viejo cada vez que se le ofrece pagar el plan: ese plan dejó de
+// ofrecerse y cualquier pago lo deja en el X5 (ver renovarPlan en
+// @/lib/logic), así que el cliente no puede enterarse del tope después de
+// haber pagado. Se muestra solo si el plan guardado no es el que se vende hoy.
+function AvisoPasaAX5({ plan, precioAdicional }: { plan: string | null | undefined; precioAdicional: number }) {
+  if (!plan || plan === PLANES[0]) return null;
+  return (
+    <div style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+      <b>Cuéntale antes de cobrarle:</b> su {plan} deja de ofrecerse y al pagar queda en el {PLANES[0]} —{" "}
+      {PASES_INCLUIDOS_X5} lavados Full Túnel en el mes (uno cada 24 horas, con aspirado incluido después de cada uno)
+      y, si necesita más, el lavado adicional a {fmtCLP(precioAdicional)}. Renovando antes de que se le venza mantiene
+      su precio.
+    </div>
+  );
+}
 
 type Props = Pick<
   ReturnType<typeof useOperadorFoundResult>,
@@ -36,6 +53,7 @@ type Props = Pick<
   | "precioUpgrade"
   | "upgradeAPlan"
   | "cuponDescuentoVigente"
+  | "precioAdicional"
 >;
 
 // Las distintas "ofertas" que el Operador puede ver sobre un cliente
@@ -94,6 +112,7 @@ export default function OperadorFoundOfertas(props: Props) {
               <div className="msg">
                 Ofrécele a {c.nombre} renovar su {c.plan} ahora mismo a precio preferencial.
               </div>
+              <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
               <div className="price-row">
                 <span className="old">{fmtCLP(props.pNormal)}</span>
                 <span className="new">{fmtCLP(props.pPromo)}</span>
@@ -109,6 +128,7 @@ export default function OperadorFoundOfertas(props: Props) {
                 {c.nombre} no tiene promoción de renovación vigente (ver Configuración → Precios de planes), pero
                 igual puedes renovarle su {c.plan} ahora al precio normal.
               </div>
+              <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
               <div className="price-row">
                 <span className="new">{fmtCLP(props.pNormal)}</span>
               </div>
@@ -148,6 +168,7 @@ export default function OperadorFoundOfertas(props: Props) {
           <div className="msg">
             Ofrécele a {c.nombre} reactivar su {c.plan} ahora mismo a precio preferencial.
           </div>
+          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
           <div className="price-row">
             <span className="new">{fmtCLP(props.precioReactivacion!)}</span>
           </div>
@@ -195,6 +216,7 @@ export default function OperadorFoundOfertas(props: Props) {
             si hubiera pagado a tiempo y mantiene su fecha de vencimiento — el ciclo sigue corriendo desde donde
             estaba, no arranca de nuevo hoy.
           </div>
+          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
           <div className="price-row">
             {props.pNormal > props.precioAtrasado && <span className="old">{fmtCLP(props.pNormal)}</span>}
             <span className="new">{fmtCLP(props.precioAtrasado)}</span>
