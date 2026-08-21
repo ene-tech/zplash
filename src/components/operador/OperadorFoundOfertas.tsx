@@ -46,7 +46,6 @@ type Props = Pick<
   | "precioAtrasado"
   | "pagarAtrasado"
   | "esWebVencido"
-  | "precioOfertaWeb"
   | "renovarWeb"
   | "ventaUpgrade"
   | "horasVentanaUpgrade"
@@ -226,21 +225,22 @@ export default function OperadorFoundOfertas(props: Props) {
           </button>
         </div>
       )}
-      {props.esWebVencido && !props.showReactivacion && !props.showReactivacionSoloWeb && (
+      {props.esWebVencido && props.precioAtrasado > 0 && !props.showReactivacion && !props.showReactivacionSoloWeb && (
         <div className="offer-card">
           <div className="offer-head">
             <span className="badge">Cliente Web</span>
             <h4>No renovó automáticamente</h4>
           </div>
           <div className="msg">
-            El pago automático de {c.nombre} falló y su plan quedó vencido. Puedes renovárselo ahora al mismo valor
-            de su último pedido.
+            El pago automático de {c.nombre} falló y su plan quedó vencido. Puedes cobrarle el {PLANES[0]} acá mismo,
+            al mismo precio que le sale pagándolo por la web.
           </div>
+          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
           <div className="price-row">
-            <span className="new">{fmtCLP(props.precioOfertaWeb)}</span>
+            <span className="new">{fmtCLP(props.precioAtrasado)}</span>
           </div>
           <button className="btn secondary" onClick={props.renovarWeb}>
-            Renovar plan Web ({fmtCLP(props.precioOfertaWeb)})
+            Cobrar {PLANES[0]} ({fmtCLP(props.precioAtrasado)})
           </button>
         </div>
       )}

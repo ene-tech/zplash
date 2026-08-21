@@ -41,13 +41,12 @@ export function usePlanActions(
     pPromo: number;
     precioAtrasado: number;
     precioReactivacion: number | undefined;
-    precioOfertaWeb: number;
     precioUpgrade: number;
     ventaUpgrade: Venta | undefined;
   }
 ) {
   const { data, ui, commit, patchUi } = useApp();
-  const { pPromo, precioAtrasado, precioReactivacion, precioOfertaWeb, precioUpgrade, ventaUpgrade } = opts;
+  const { pPromo, precioAtrasado, precioReactivacion, precioUpgrade, ventaUpgrade } = opts;
 
   // Si el precio con descuento queda en $0, no corresponde pedir método de
   // pago (el cliente no está pagando nada) — mismo criterio que en
@@ -109,8 +108,13 @@ export function usePlanActions(
     });
   };
 
+  // Cliente Web vencido porque le falló el cobro automático: el operador le
+  // cobra el plan acá, al mismo precio que la web (precioAtrasado). Un precio
+  // en $0 no se cobra —sería regalar el plan, mismo criterio que el upgrade
+  // en useOperadorFoundResult—; la tarjeta tampoco se muestra en ese caso.
   const renovarWeb = (cliente: Cliente = c) => {
-    pedirPago(precioOfertaWeb, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
+    if (precioAtrasado <= 0) return;
+    pedirPago(precioAtrasado, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
       const nuevoVencimiento = vencimientoAnclado(cliente.fechaContratacion || cliente.vencimiento);
       // Misma migración al X5 que hace renovarPlan en el mesón: renovar deja
       // al cliente en el plan que se vende hoy, traiga el que traiga.
@@ -122,7 +126,7 @@ export function usePlanActions(
         patente: cliente.patente,
         nombre: cliente.nombre,
         plan,
-        precio: precioOfertaWeb,
+        precio: precioAtrasado,
         tipo: "Renovación Web (manual)",
         fecha: new Date().toISOString(),
         creadoPor: ui.perfilActual?.nombre || "",

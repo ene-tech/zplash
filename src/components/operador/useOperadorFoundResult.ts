@@ -131,11 +131,13 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
         ? "garantia"
         : estadoIngresoBruto;
 
+  // Se le cobra el plan al mismo precio que le cobra la web al mismo cliente
+  // vencido (precioAtrasado, ver pagoVencido en calcularOfertasPlan). Antes
+  // esta tarjeta cobraba el precio de su ÚLTIMA venta, fuera del tipo que
+  // fuera —un lavado único, un servicio, una venta de $0—, así que al
+  // operador le aparecía "Renovar plan Web ($0)" y ese botón regalaba el
+  // plan.
   const esWebVencido = c.origen === "WEB" && st.cls === "bad";
-  const ventasCliente = data.ventas
-    .filter((v) => v.clienteId === c.id)
-    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  const precioOfertaWeb = ventasCliente.length ? ventasCliente[0].precio : pNormal;
 
   // Promoción: reactivación preferencial para un cliente (Local o Web) con
   // el plan vencido hace poco, escalonada por hace cuánto venció y cuántas
@@ -257,7 +259,6 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     pPromo,
     precioAtrasado,
     precioReactivacion,
-    precioOfertaWeb,
     precioUpgrade,
     ventaUpgrade,
   });
@@ -314,7 +315,6 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     showPagoAtrasado,
     precioAtrasado,
     esWebVencido,
-    precioOfertaWeb,
     ventaUpgrade,
     precioUpgrade,
     horasVentanaUpgrade,
