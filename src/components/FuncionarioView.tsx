@@ -2,16 +2,16 @@
 
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
-import AsistenciaTab from "@/components/tabs/funcionario/AsistenciaTab";
 import TurnosFuncionarioTab from "@/components/tabs/funcionario/TurnosFuncionarioTab";
 import TareasTurnoTab from "@/components/tabs/funcionario/TareasTurnoTab";
 import ContratoTab from "@/components/tabs/funcionario/ContratoTab";
-import { CalendarDays, ClipboardCheck, FileText, MapPin } from "lucide-react";
+import { CalendarDays, ClipboardCheck, FileText } from "lucide-react";
 
+// Todo acá es de solo lectura salvo marcar las tareas del día: lo que se ve lo
+// asigna Administración desde Gestión de Equipo (ver EquipoView).
 const TABS = [
-  { id: "asistencia", label: "Libro de Asistencia", icon: MapPin },
-  { id: "turnos", label: "Horario y Turnos", icon: CalendarDays },
-  { id: "tareas", label: "Apertura y Cierre", icon: ClipboardCheck },
+  { id: "turnos", label: "Mi Horario", icon: CalendarDays },
+  { id: "tareas", label: "Mis Tareas", icon: ClipboardCheck },
   { id: "contrato", label: "Mi Contrato", icon: FileText },
 ] as const;
 
@@ -42,7 +42,6 @@ export default function FuncionarioView() {
             ))}
           </div>
           <div className="sidebar-content">
-            {tabActual.id === "asistencia" && <AsistenciaTab />}
             {tabActual.id === "turnos" && <TurnosFuncionarioTab />}
             {tabActual.id === "tareas" && <TareasTurnoTab />}
             {tabActual.id === "contrato" && <ContratoTab />}

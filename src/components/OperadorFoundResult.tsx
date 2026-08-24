@@ -8,6 +8,7 @@ import {
   isValidTelefono,
   mensajeBloqueoReingreso,
   mensajeSinPases,
+  planVigente,
   PASES_INCLUIDOS_X5,
   plateEstadoCls,
 } from "@/lib/helpers";
@@ -91,7 +92,10 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
               )
             }
           />
-          <DetailRow label="Plan" value={c.plan || "-"} />
+          {/* planVigente y no c.plan: al que renovó anticipado le queda el X5
+              guardado, pero hasta que termine el mes que ya tenía comprado
+              sigue sin tope — es lo que tiene que leer el operador. */}
+          <DetailRow label="Plan" value={planVigente(c) || "-"} />
           <DetailRow label="Vence" value={c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"} />
           <DetailRow label="Visitas totales" value={c.visitas || 0} />
           {/* Solo para planes con tope (X5): el ilimitado viejo no tiene qué contar. */}

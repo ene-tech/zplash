@@ -1,7 +1,7 @@
 import type { Cliente, Ingreso } from "@/types";
-import { inicioPeriodoPlan } from "./clientes";
-import { fmtCLP, pasesIncluidos, PRECIO_LAVADO_UNICO } from "./precios";
-import { ahoraEnSantiago, fmtFecha, fmtHora, todayStr } from "./fechas";
+import { periodoPlan } from "./clientes";
+import { fmtCLP, pasesIncluidos, planVigente, PRECIO_LAVADO_UNICO } from "./precios";
+import { ahoraEnSantiago, fmtFecha, fmtHora, sumarMesesFecha, todayStr } from "./fechas";
 
 /** Si el cliente ya registró un ingreso hoy (para limitar a 1 pasada diaria por plan vigente). */
 export function yaIngresoHoy(ingresos: Ingreso[], clienteId: string): boolean {
@@ -65,15 +65,15 @@ export function mensajeBloqueoReingreso(ingresos: Ingreso[], clienteId: string, 
 /**
  * Pasadas que le quedan al cliente dentro de su ciclo de plan vigente.
  * null = sin tope, que es el caso de todos los que contrataron el plan
- * ilimitado antes del X5 (ver pasesIncluidos en ./precios: el nombre del plan
- * guardado en el cliente es la marca) y de los que no tienen plan.
+ * ilimitado antes del X5 (ver planVigente en ./precios: el nombre del plan que
+ * le rige hoy es la marca) y de los que no tienen plan.
  */
 export function pasesRestantes(
   ingresos: Ingreso[],
-  cliente: Pick<Cliente, "id" | "plan" | "fechaContratacion">,
+  cliente: Pick<Cliente, "id" | "plan" | "ilimitadoHasta" | "fechaContratacion">,
   ahora: Date = ahoraEnSantiago()
 ): number | null {
-  const incluidos = pasesIncluidos(cliente.plan);
+  const incluidos = pasesIncluidos(planVigente(cliente));
   if (incluidos === null) return null;
   return Math.max(0, incluidos - visitasPeriodoPlan(ingresos, cliente, ahora));
 }
@@ -84,23 +84,22 @@ export function inicioProximoPeriodoPlan(
   cliente: Pick<Cliente, "fechaContratacion">,
   ahora: Date = ahoraEnSantiago()
 ): Date {
-  const fin = inicioPeriodoPlan(cliente.fechaContratacion, ahora);
-  fin.setDate(fin.getDate() + 30);
-  return fin;
+  return periodoPlan(cliente.fechaContratacion, ahora).fin;
 }
 
 export function mensajeSinPases(
-  cliente: Pick<Cliente, "plan" | "fechaContratacion">,
+  cliente: Pick<Cliente, "plan" | "ilimitadoHasta" | "fechaContratacion">,
   ahora: Date = ahoraEnSantiago()
 ): string {
-  const incluidos = pasesIncluidos(cliente.plan) ?? 0;
+  const plan = planVigente(cliente);
+  const incluidos = pasesIncluidos(plan) ?? 0;
   const proximo = inicioProximoPeriodoPlan(cliente, ahora);
-  return `VEHICULO YA USO LAS ${incluidos} PASADAS DE SU ${(cliente.plan || "").toUpperCase()} EN ESTE PERIODO. LE TOCAN ${incluidos} NUEVAS EL ${fmtFecha(proximo.toISOString())}.`;
+  return `VEHICULO YA USO LAS ${incluidos} PASADAS DE SU ${plan.toUpperCase()} EN ESTE PERIODO. LE TOCAN ${incluidos} NUEVAS EL ${fmtFecha(proximo.toISOString())}.`;
 }
 
 /**
- * Cantidad de ingresos del cliente dentro del período de plan vigente (30
- * días anclados a fechaContratacion, ver inicioPeriodoPlan) — no mes
+ * Cantidad de ingresos del cliente dentro del período de plan vigente (ciclo
+ * mensual anclado a fechaContratacion, ver periodoPlan) — no el mes
  * calendario ni el total histórico acumulado en `cliente.visitas`.
  */
 export function visitasPeriodoPlan(
@@ -108,15 +107,13 @@ export function visitasPeriodoPlan(
   cliente: Pick<Cliente, "id" | "fechaContratacion">,
   ahora: Date = ahoraEnSantiago()
 ): number {
-  const inicio = inicioPeriodoPlan(cliente.fechaContratacion, ahora);
-  const fin = new Date(inicio);
-  fin.setDate(fin.getDate() + 30);
+  const { inicio, fin } = periodoPlan(cliente.fechaContratacion, ahora);
   return ingresos.filter((i) => i.clienteId === cliente.id && new Date(i.fecha) >= inicio && new Date(i.fecha) < fin).length;
 }
 
 /**
  * Cantidad de ingresos del cliente durante su último período de plan pagado,
- * es decir los 30 días que terminan en `vencimiento` — a diferencia de
+ * es decir el mes que termina en `vencimiento` — a diferencia de
  * visitasPeriodoPlan (que usa `ahora` para ubicar el período vigente), acá el
  * cliente ya está vencido y el período relevante es el último que sí pagó,
  * no uno posterior sin pago. Eje "veces" de la promoción de reactivación de
@@ -125,14 +122,13 @@ export function visitasPeriodoPlan(
 export function visitasUltimoPeriodoVencido(ingresos: Ingreso[], cliente: Pick<Cliente, "id" | "vencimiento">): number {
   if (!cliente.vencimiento) return 0;
   const fin = new Date(cliente.vencimiento);
-  const inicio = new Date(fin);
-  inicio.setDate(inicio.getDate() - 30);
+  const inicio = sumarMesesFecha(fin, -1);
   return ingresos.filter((i) => i.clienteId === cliente.id && new Date(i.fecha) >= inicio && new Date(i.fecha) < fin).length;
 }
 
 /**
  * Cantidad de ingresos del cliente desde que contrató su plan actual
- * (fechaContratacion), sin acotar al ciclo de 30 días vigente — a diferencia
+ * (fechaContratacion), sin acotar al ciclo mensual vigente — a diferencia
  * de visitasPeriodoPlan, que solo cuenta el período vigente. Puede abarcar
  * varias renovaciones, ya que fechaContratacion no se actualiza en cada
  * renovación (ver renovarPlan en @/lib/logic).

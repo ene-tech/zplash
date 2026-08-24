@@ -41,6 +41,7 @@ import {
   servicios,
   tareasTurno,
   tareasTurnoHechas,
+  reglasOperador,
   turnosFuncionario,
   ventas,
 } from "@/db/schema";
@@ -68,6 +69,7 @@ import { cuponFromRow } from "./cupones";
 import { empresaFromRow } from "./empresas";
 import {
   contratoFuncionarioFromRow,
+  reglaOperadorFromRow,
   marcaAsistenciaFromRow,
   tareaTurnoFromRow,
   tareaTurnoHechaFromRow,
@@ -162,6 +164,7 @@ export async function loadCore(): Promise<AppDataCore> {
     tareasTurnoHechasRows,
     marcasAsistenciaRows,
     contratosFuncionarioRows,
+    reglasOperadorRows,
   ] = await Promise.all([
     safe(db.select().from(clientes)),
     safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos, icono: perfiles.icono }).from(perfiles)),
@@ -204,6 +207,7 @@ export async function loadCore(): Promise<AppDataCore> {
     safe(db.select().from(tareasTurnoHechas).where(gte(tareasTurnoHechas.fecha, desdeFuncionario))),
     safe(db.select().from(marcasAsistencia).where(gte(marcasAsistencia.fecha, desdeFuncionario))),
     safe(db.select().from(contratosFuncionario)),
+    safe(db.select().from(reglasOperador)),
   ]);
 
   const perfilesData = perfilesRows.length ? perfilesRows.map(perfilPublicoFromRow) : PERFILES_DEFAULT;
@@ -266,6 +270,7 @@ export async function loadCore(): Promise<AppDataCore> {
     tareasTurnoHechas: tareasTurnoHechasRows.map(tareaTurnoHechaFromRow),
     marcasAsistencia: marcasAsistenciaRows.map(marcaAsistenciaFromRow),
     contratosFuncionario: contratosFuncionarioRows.map(contratoFuncionarioFromRow),
+    reglasOperador: reglasOperadorRows.map(reglaOperadorFromRow),
   };
 }
 

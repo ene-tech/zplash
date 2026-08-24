@@ -89,7 +89,6 @@ export interface TextosBotWhatsapp {
   textoContratarPlan: string;
   horarioUbicacion: string;
   contactoHumano: string;
-  mensajeNoEntendido: string;
   patenteNoEncontrada: string;
   textoDescuentoInstrucciones: string;
   textoDescuentoPedirNombre: string;

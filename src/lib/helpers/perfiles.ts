@@ -60,7 +60,7 @@ export const MODULO_LABELS: Record<Modulo, string> = {
   estanques: "Estanques y Válvulas (nivel + apertura remota)",
   mensajes: "Mensajes WhatsApp",
   correo: "Correo (info@zplash.cl)",
-  funcionario: "Mi Entorno (asistencia, turno, contrato)",
+  funcionario: "Mi Entorno (turno, tareas, contrato)",
 };
 
 /** Identidades por defecto para un entorno nuevo sin filas en `perfiles`
@@ -98,6 +98,15 @@ export function esExentoHorarioOperador(modulos: Modulo[], nombre?: string): boo
  * base de datos. Se matchea por nombre exacto de perfil, mismo criterio que
  * esExentoHorarioOperador. */
 export function esExentoFormatoCliente(nombre?: string): boolean {
+  return esAdministracionOGerencia(nombre);
+}
+
+/** Los dos perfiles de gestión del local. Se matchea por nombre exacto de
+ * perfil, mismo criterio que esExentoHorarioOperador: no hay un campo de
+ * "rol" aparte. Es lo que gatea el configurador de Apertura y Cierre —
+ * repartir los puestos de adelante/atrás y su horario es decisión de quien
+ * administra al equipo, no de cualquier perfil con acceso a Perfiles. */
+export function esAdministracionOGerencia(nombre?: string): boolean {
   return nombre === "Gerencia" || nombre === "Administración";
 }
 
@@ -159,6 +168,18 @@ const ORDEN_ESPECIAL_PERFIL: Record<string, number> = {
   Administración: 1,
   Gerencia: 2,
 };
+
+/** El equipo del local, ya ordenado: todos los que tienen Operador (los que
+ * trabajan en el túnel) más los que tengan Mi Entorno. Es a quienes se les
+ * asigna horario, puesto de apertura/cierre y contrato — el módulo
+ * "funcionario" es el acceso de cada uno a SU entorno (marcar asistencia, ver
+ * su turno), no el requisito para aparecer en las listas de quien administra:
+ * un operador sin ese módulo igual abre y cierra el local. */
+export function perfilesDelEquipo(perfiles: PerfilPublico[]): PerfilPublico[] {
+  return ordenarPerfiles(
+    perfiles.filter((p) => p.modulos.includes("operador") || p.modulos.includes("funcionario"))
+  );
+}
 
 export function ordenarPerfiles(perfiles: PerfilPublico[]): PerfilPublico[] {
   return [...perfiles].sort((a, b) => {

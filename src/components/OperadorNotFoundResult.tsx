@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP } from "@/lib/helpers";
+import { beneficioCupon, fmtCLP } from "@/lib/helpers";
 import { useOperadorNotFoundResult } from "@/components/operador/useOperadorNotFoundResult";
 
 export default function OperadorNotFoundResult({
@@ -77,7 +77,7 @@ export default function OperadorNotFoundResult({
       </div>
       {r.cuponPrevio && (
         <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginBottom: 14 }}>
-          Beneficio: {r.cuponPrevio.esPorcentaje ? `${r.cuponPrevio.valor}% de descuento` : `${fmtCLP(r.cuponPrevio.valor)} de descuento`}.
+          Beneficio: {beneficioCupon(r.cuponPrevio)}.
           Lavado Full Túnel queda en {fmtCLP(r.precioConDescuento!)} (antes {fmtCLP(r.precioBaseLavado)}).
         </div>
       )}

@@ -2,15 +2,8 @@
 
 import { useApp } from "@/context/AppContext";
 import { registrarIngreso, renovarPlan } from "@/lib/logic";
-import {
-  PLANES,
-  isValidEmail,
-  isValidTelefono,
-  precioContratacion,
-  vencimientoAnclado,
-  vencimientoPorDefectoISO,
-} from "@/lib/helpers";
-import type { Cliente, PagoInfo, Venta } from "@/types";
+import { PLANES, isValidEmail, isValidTelefono, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
+import type { AppData, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
 // Sin correo no hay a quién mandarle el aviso automático de contratación (ver
@@ -38,15 +31,40 @@ export function usePlanActions(
   setGuardarErr: (msg: string) => void,
   updateResult: (updated: Cliente) => void,
   opts: {
+    // Todos estos precios llegan CON el cupón de descuento ya restado (ver
+    // conCupon en useOperadorFoundResult): son los mismos números que muestran
+    // los botones, así que acá no se recalcula ninguno.
     pPromo: number;
+    pContratacion: number;
     precioAtrasado: number;
     precioReactivacion: number | undefined;
     precioUpgrade: number;
     ventaUpgrade: Venta | undefined;
+    cuponDescuento: Cupon | undefined;
   }
 ) {
   const { data, ui, commit, patchUi } = useApp();
-  const { pPromo, precioAtrasado, precioReactivacion, precioUpgrade, ventaUpgrade } = opts;
+  const { pPromo, pContratacion, precioAtrasado, precioReactivacion, precioUpgrade, ventaUpgrade, cuponDescuento } = opts;
+
+  // Quema el cupón ya restado del precio y le pone el sello a la venta que la
+  // acción acaba de crear (siempre la primera de patch.ventas). Todo viaja en
+  // el mismo commit que el resto del patch —igual que en
+  // useIngresoActions.cobrarLavadoUnico—: si el guardado falla, el cupón no
+  // queda quemado por una venta que no existe.
+  const conDescuento = (patch: Partial<AppData>, cliente: Cliente): Partial<AppData> => {
+    if (!cuponDescuento) return patch;
+    const [venta, ...resto] = patch.ventas ?? [];
+    const ahora = new Date().toISOString();
+    return {
+      ...patch,
+      ...(venta ? { ventas: [{ ...venta, viaCupon: true, cuponCodigo: cuponDescuento.codigo }, ...resto] } : {}),
+      cupones: data.cupones.map((x) =>
+        x.id === cuponDescuento.id
+          ? { ...x, usado: true, patenteUso: cliente.patente, fechaUso: ahora, operadorUso: ui.perfilActual?.nombre || "" }
+          : x
+      ),
+    };
+  };
 
   // Si el precio con descuento queda en $0, no corresponde pedir método de
   // pago (el cliente no está pagando nada) — mismo criterio que en
@@ -61,7 +79,7 @@ export function usePlanActions(
 
   const renovar = (cliente: Cliente = c) => {
     pedirPago(pPromo, `Renovación temprana del plan de ${cliente.nombre} a precio preferencial`, async (pago) => {
-      const patch = renovarPlan(data, cliente, ui.perfilActual?.nombre, pPromo, pago);
+      const patch = conDescuento(renovarPlan(data, cliente, ui.perfilActual?.nombre, pPromo, pago), cliente);
       const ok = await commit(patch);
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
@@ -81,7 +99,7 @@ export function usePlanActions(
   // arrancar un ciclo nuevo desde hoy.
   const pagarAtrasado = (cliente: Cliente = c) => {
     pedirPago(precioAtrasado, `Pago atrasado del plan de ${cliente.nombre} (mantiene su fecha de vencimiento)`, async (pago) => {
-      const patch = renovarPlan(data, cliente, ui.perfilActual?.nombre, precioAtrasado, pago, "Renovación atrasada", true);
+      const patch = conDescuento(renovarPlan(data, cliente, ui.perfilActual?.nombre, precioAtrasado, pago, "Renovación atrasada", true), cliente);
       const ok = await commit(patch);
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
@@ -96,7 +114,7 @@ export function usePlanActions(
   const reactivar = (cliente: Cliente = c) => {
     if (precioReactivacion === undefined) return;
     pedirPago(precioReactivacion, `Reactivación promocional del plan de ${cliente.nombre} a precio preferencial`, async (pago) => {
-      const patch = renovarPlan(data, cliente, ui.perfilActual?.nombre, precioReactivacion, pago, "Reactivación promocional");
+      const patch = conDescuento(renovarPlan(data, cliente, ui.perfilActual?.nombre, precioReactivacion, pago, "Reactivación promocional"), cliente);
       const ok = await commit(patch);
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
@@ -133,10 +151,9 @@ export function usePlanActions(
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
-      const ok = await commit({
-        clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)),
-        ventas: [venta, ...data.ventas],
-      });
+      const ok = await commit(
+        conDescuento({ clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)), ventas: [venta, ...data.ventas] }, cliente)
+      );
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
         return;
@@ -155,9 +172,10 @@ export function usePlanActions(
     // el ilimitado viejo: ese plan ya no se ofrece ni contratando ni
     // renovando.
     const plan = PLANES[0];
-    // Mismo cálculo que muestra el botón (ver pContratacion en
-    // useOperadorFoundResult): valor de 1ra contratación si nunca tuvo plan.
-    const precio = precioContratacion(data.precios, plan, cliente);
+    // El mismo número que muestra el botón (ver pContratacion en
+    // useOperadorFoundResult): valor de 1ra contratación si nunca tuvo plan, ya
+    // con el cupón de descuento restado.
+    const precio = pContratacion;
     pedirPago(precio, `Contratación de plan (${plan}) para ${cliente.nombre}`, async (pago) => {
       const updated = { ...cliente, vencimiento: vencimientoPorDefectoISO(), plan };
       const venta: Venta = {
@@ -173,10 +191,9 @@ export function usePlanActions(
         metodoPago: pago.metodo,
         voucher: pago.voucher,
       };
-      const ok = await commit({
-        clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)),
-        ventas: [venta, ...data.ventas],
-      });
+      const ok = await commit(
+        conDescuento({ clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)), ventas: [venta, ...data.ventas] }, cliente)
+      );
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
         return;
@@ -229,11 +246,12 @@ export function usePlanActions(
         voucher: pago.voucher,
       };
       const patchIngreso = distintoDia ? registrarIngreso(data, updated, ui.perfilActual?.nombre) : {};
-      const ok = await commit({
-        clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)),
-        ventas: [ventaAdicional, ...data.ventas],
-        ...patchIngreso,
-      });
+      const ok = await commit(
+        conDescuento(
+          { clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)), ventas: [ventaAdicional, ...data.ventas], ...patchIngreso },
+          cliente
+        )
+      );
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
         return;

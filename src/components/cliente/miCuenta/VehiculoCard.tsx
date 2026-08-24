@@ -38,6 +38,7 @@ export function VehiculoCard({
   oferta,
   lavados,
   tarjeta,
+  descuento,
   email,
   onActualizado,
 }: {
@@ -45,6 +46,10 @@ export function VehiculoCard({
   oferta?: OfertaPlan;
   lavados?: { usados: number; incluidos: number; reponeEl: string };
   tarjeta?: TarjetaGuardada;
+  // Cupón que el server ya restó de los precios de `oferta` (ver
+  // ofertaConCupon): acá solo se anuncia, para que el precio más bajo no se
+  // lea como un error.
+  descuento?: { codigo: string; beneficio: string };
   email: string;
   onActualizado: () => void;
 }) {
@@ -144,6 +149,12 @@ export function VehiculoCard({
         </div>
       )}
 
+      {descuento && (
+        <div style={{ color: "var(--green)", fontSize: 12.5, marginTop: 6 }}>
+          Cupón {descuento.codigo} ({descuento.beneficio}) — ya aplicado en los precios de abajo.
+        </div>
+      )}
+
       {ra && !(sinOfertaReal && tarjeta) && (
         <div className="offer-card">
           {sinOfertaReal ? (
@@ -178,7 +189,7 @@ export function VehiculoCard({
                 <span className="save">Ahorras {fmtCLP(ra.ahorro)}</span>
               </div>
               <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-                Renovar ahora suma 30 días a la fecha de vencimiento de tu plan actual: no pierdes los días que ya tienes.
+                Renovar ahora suma un mes a la fecha de vencimiento de tu plan actual: no pierdes los días que ya tienes.
               </div>
               <button className="btn secondary" onClick={() => pedir("renovacion_temprana")} disabled={pagando !== null}>
                 {pagando === "renovacion_temprana" ? "Procesando..." : "Renovar a precio preferencial"}

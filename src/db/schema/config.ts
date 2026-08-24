@@ -13,6 +13,12 @@ export const config = pgTable("config", {
   horarioOperadorFindeInicio: text("horario_operador_finde_inicio").notNull().default("09:55"),
   horarioOperadorFindeFin: text("horario_operador_finde_fin").notNull().default("19:15"),
   festivos: jsonb("festivos").$type<string[]>().notNull().default([]),
+  // Dotación requerida por franja horaria y día (ver TramoDotacion): "los
+  // sábados de 12:00 a 16:00, 4 operadores". La respeta el creador de horario.
+  dotacion: jsonb("dotacion")
+    .$type<{ id: string; dias: number[]; desde: string; hasta: string; cantidad: number }[]>()
+    .notNull()
+    .default([]),
   // Días de vigencia de los tickets del Pack de Tickets (ver TICKETS_KEY en
   // helpers/precios.ts) desde su fecha de compra/generación — editable en Web
   // Settings, a propósito NO amarrado a los 90 días fijos de otros productos.

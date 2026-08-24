@@ -10,7 +10,7 @@ import {
   registrarIngresoLavadoWeb,
   renovarPlan,
 } from "./logic";
-import { CONFIG_DEFAULT, PLAN_X5, PRECIOS_DEFAULT } from "./helpers";
+import { CONFIG_DEFAULT, PLAN_X5, PRECIOS_DEFAULT, finCicloPlan, pasesRestantes, sumarMesesFecha } from "./helpers";
 import type { ParsedMovimiento } from "./cartolaParser";
 import type { AppData, Cita, Cliente, Cupon, Ingreso, Venta } from "@/types";
 
@@ -51,6 +51,7 @@ function appDataVacia(): AppData {
     reglasCorreo: [],
     cierresCaja: [],
     turnosFuncionario: [],
+    reglasOperador: [],
     tareasTurno: [],
     tareasTurnoHechas: [],
     marcasAsistencia: [],
@@ -425,7 +426,38 @@ describe("renovarPlan", () => {
     expect(patch.ventas![0].plan).toBe(PLAN_X5);
   });
 
-  it("si el plan está vigente, extiende 30 días desde el vencimiento actual (no desde hoy)", () => {
+  it("renovar antes de vencer no le corta el mes sin tope que el cliente viejo ya tenía pagado", () => {
+    const data = appDataVacia();
+    const vencimientoActual = new Date();
+    vencimientoActual.setDate(vencimientoActual.getDate() + 10);
+    const cliente = clienteBase({ vencimiento: vencimientoActual.toISOString() });
+    data.clientes = [cliente];
+
+    const renovado = renovarPlan(data, cliente, "Operador X", PRECIOS_DEFAULT[PLAN_X5].promo).clientes!.find((c) => c.id === cliente.id)!;
+
+    expect(renovado.plan).toBe(PLAN_X5);
+    expect(renovado.ilimitadoHasta).toBe(vencimientoActual.toISOString());
+    expect(pasesRestantes([], renovado)).toBeNull();
+
+    // Renovar de nuevo dentro de ese mes de arrastre no lo estira: sigue
+    // terminando en el vencimiento original, si no nunca migraría al X5.
+    data.clientes = [renovado];
+    const otraVez = renovarPlan(data, renovado, "Operador X", PRECIOS_DEFAULT[PLAN_X5].promo).clientes!.find((c) => c.id === cliente.id)!;
+    expect(otraVez.ilimitadoHasta).toBe(vencimientoActual.toISOString());
+  });
+
+  it("al que ya está vencido la renovación lo deja en el X5 al tiro, sin arrastre", () => {
+    const data = appDataVacia();
+    const cliente = clienteBase({ vencimiento: "2000-01-01T00:00:00.000Z" });
+    data.clientes = [cliente];
+
+    const renovado = renovarPlan(data, cliente, "Operador X", PRECIOS_DEFAULT[PLAN_X5].promo).clientes!.find((c) => c.id === cliente.id)!;
+
+    expect(renovado.ilimitadoHasta).toBeNull();
+    expect(pasesRestantes([], renovado)).toBe(5);
+  });
+
+  it("si el plan está vigente, extiende un mes desde el vencimiento actual (no desde hoy)", () => {
     const data = appDataVacia();
     const vencimientoActual = new Date();
     vencimientoActual.setDate(vencimientoActual.getDate() + 10);
@@ -436,12 +468,11 @@ describe("renovarPlan", () => {
 
     const clienteActualizado = patch.clientes!.find((c) => c.id === cliente.id)!;
     const nuevoVencimiento = new Date(clienteActualizado.vencimiento!);
-    const esperado = new Date(vencimientoActual);
-    esperado.setDate(esperado.getDate() + 30);
+    const esperado = sumarMesesFecha(vencimientoActual, 1);
     expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
   });
 
-  it("si el plan está vencido, cuenta los 30 días desde hoy", () => {
+  it("si el plan está vencido, el ciclo va desde hoy hasta el día anterior del mes que viene", () => {
     const data = appDataVacia();
     const cliente = clienteBase({ vencimiento: "2000-01-01T00:00:00.000Z" });
     data.clientes = [cliente];
@@ -449,8 +480,7 @@ describe("renovarPlan", () => {
     const patch = renovarPlan(data, cliente, "Operador X", PRECIOS_DEFAULT["Plan Ilimitado Mensual"].promo);
 
     const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
-    const esperado = new Date();
-    esperado.setDate(esperado.getDate() + 30);
+    const esperado = finCicloPlan(new Date());
     expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
   });
 
@@ -464,10 +494,9 @@ describe("renovarPlan", () => {
 
     const patch = renovarPlan(data, cliente, "Operador X", 21990, undefined, "Renovación atrasada", true);
 
-    // El ciclo sigue corriendo desde donde estaba: 30 días desde el
+    // El ciclo sigue corriendo desde donde estaba: un mes desde el
     // vencimiento viejo, no desde hoy (que daría 3 días más).
-    const esperado = new Date(vencimientoOriginal);
-    esperado.setDate(esperado.getDate() + 30);
+    const esperado = sumarMesesFecha(vencimientoOriginal, 1);
     const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
     expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
   });
@@ -482,8 +511,7 @@ describe("renovarPlan", () => {
 
     const patch = renovarPlan(data, cliente, "Operador X", 21990, undefined, "Renovación atrasada", true);
 
-    const esperado = new Date();
-    esperado.setDate(esperado.getDate() + 30);
+    const esperado = finCicloPlan(new Date());
     const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
     expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
   });
@@ -501,8 +529,7 @@ describe("renovarPlan", () => {
 
     const patch = renovarPlan(data, cliente, "Operador X", 19990, undefined, "Reactivación promocional");
 
-    const esperado = new Date();
-    esperado.setDate(esperado.getDate() + 30);
+    const esperado = finCicloPlan(new Date());
     const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
     expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
   });

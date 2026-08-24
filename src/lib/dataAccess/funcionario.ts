@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import {
   contratosFuncionario,
   marcasAsistencia,
+  reglasOperador,
   tareasTurno,
   tareasTurnoHechas,
   turnosFuncionario,
@@ -12,11 +13,13 @@ import {
 import type {
   ContratoFuncionario,
   MarcaAsistencia,
+  ReglaOperador,
   TareaTurno,
   TareaTurnoHecha,
   TurnoConTareas,
   TurnoFuncionario,
   TurnoTipo,
+  ZonaTurno,
 } from "@/types";
 import { upsertRows } from "./shared";
 
@@ -25,6 +28,7 @@ type TareaTurnoRow = typeof tareasTurno.$inferSelect;
 type TareaHechaRow = typeof tareasTurnoHechas.$inferSelect;
 type MarcaRow = typeof marcasAsistencia.$inferSelect;
 type ContratoRow = typeof contratosFuncionario.$inferSelect;
+type ReglaOperadorRow = typeof reglasOperador.$inferSelect;
 
 export function turnoFuncionarioFromRow(r: TurnoRow): TurnoFuncionario {
   return {
@@ -32,6 +36,7 @@ export function turnoFuncionarioFromRow(r: TurnoRow): TurnoFuncionario {
     perfilId: r.perfilId,
     diaSemana: r.diaSemana,
     turno: r.turno as TurnoTipo,
+    zona: r.zona as ZonaTurno | null,
     horaInicio: r.horaInicio,
     horaFin: r.horaFin,
     activo: r.activo,
@@ -60,10 +65,48 @@ export async function deleteTurnosFuncionario(ids: string[]): Promise<boolean> {
   }
 }
 
+export function reglaOperadorFromRow(r: ReglaOperadorRow): ReglaOperador {
+  return {
+    id: r.id,
+    dias: r.dias.split(",").filter(Boolean).map(Number),
+    horaDesde: r.horaDesde,
+    horaHasta: r.horaHasta,
+    vetados: r.vetados?.split(",").filter(Boolean) ?? [],
+    notas: r.notas || undefined,
+  };
+}
+
+export async function upsertReglasOperador(rows: ReglaOperador[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await upsertRows(
+      reglasOperador,
+      reglasOperador.id,
+      rows.map((r) => ({ ...r, dias: r.dias.join(","), vetados: r.vetados?.join(",") || null, notas: r.notas || null }))
+    );
+    return true;
+  } catch (error) {
+    console.error("Error guardando reglas de operador", error);
+    return false;
+  }
+}
+
+export async function deleteReglasOperador(ids: string[]): Promise<boolean> {
+  if (!ids.length) return true;
+  try {
+    await getDb().delete(reglasOperador).where(inArray(reglasOperador.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error eliminando reglas de operador", error);
+    return false;
+  }
+}
+
 export function tareaTurnoFromRow(r: TareaTurnoRow): TareaTurno {
   return {
     id: r.id,
     turno: r.turno as TurnoConTareas,
+    zona: r.zona as ZonaTurno,
     descripcion: r.descripcion,
     orden: r.orden,
     activo: r.activo,
@@ -101,6 +144,7 @@ export function tareaTurnoHechaFromRow(r: TareaHechaRow): TareaTurnoHecha {
     id: r.id,
     fecha: r.fecha,
     turno: r.turno as TurnoConTareas,
+    zona: r.zona as ZonaTurno,
     tareaId: r.tareaId,
     perfilId: r.perfilId,
     perfilNombre: r.perfilNombre,

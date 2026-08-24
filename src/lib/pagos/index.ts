@@ -4,3 +4,4 @@ export * from "./aplicarUpgradePlan";
 export * from "./cancelarSuscripcionWooCommerceLegacy";
 export * from "./cobrarOfertaOneclick";
 export * from "./cobrarSuscripcion";
+export * from "./cuponPlan";

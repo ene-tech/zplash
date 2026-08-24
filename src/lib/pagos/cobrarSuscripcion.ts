@@ -4,7 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
-import { PLAN_ONECLICK_KEY, mesActualKey, precioConHeredado, precioPlanOneclick } from "@/lib/helpers";
+import { PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, precioConHeredado, precioPlanOneclick, sumarMesesFecha } from "@/lib/helpers";
 import { evaluarReglasCorreoPorCobroFallido } from "@/lib/mailing/reglas";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
@@ -18,11 +18,12 @@ import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
  * desde hoy en vez de desde el ciclo anterior. */
 export function proximoCicloISO(base: string | null): string {
   const hoy = new Date();
-  let d = base ? new Date(base) : new Date(hoy);
-  if (isNaN(d.getTime())) d = new Date(hoy);
-  while (d <= hoy) {
-    d.setDate(d.getDate() + 30);
-  }
+  let d = base ? new Date(base) : null;
+  // Sin base, el ciclo se cuenta desde hoy con el mismo criterio que un plan
+  // recién contratado (ver finCicloPlan): hasta el día anterior del mes que
+  // viene, no "hoy + 30".
+  if (!d || isNaN(d.getTime())) d = finCicloPlan(hoy);
+  while (d <= hoy) d = sumarMesesFecha(d, 1);
   return d.toISOString();
 }
 

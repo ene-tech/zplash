@@ -62,6 +62,7 @@ export interface TramoReactivacionVencido {
 }
 
 import type { TextosBotWhatsapp } from "./whatsapp";
+import type { TramoDotacion } from "./funcionario";
 
 export interface ConfigGlobal {
   horarioOperadorSemanaInicio: string;
@@ -127,4 +128,9 @@ export interface ConfigGlobal {
   localLat?: number;
   localLng?: number;
   radioAsistenciaMetros: number;
+  // Dotación: cuántos operadores necesita el local por franja horaria y día
+  // (ver TramoDotacion). Se edita en Horarios y Turnos y la respeta el creador
+  // de horario. Vacía = sin requerimiento, el horario se arma solo con los
+  // cuatro encargados de apertura y cierre.
+  dotacion: TramoDotacion[];
 }

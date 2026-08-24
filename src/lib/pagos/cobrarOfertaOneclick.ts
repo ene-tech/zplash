@@ -3,11 +3,12 @@ import { TransactionDetail } from "transbank-sdk";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { cobrosOneclick, suscripcionesOneclick } from "@/db/schema";
-import { mesActualKey } from "@/lib/helpers";
+import { mesActualKey, precioConCupon } from "@/lib/helpers";
 import { getConfig } from "@/lib/dataAccess/config";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
 import { aplicarUpgradePlan } from "./aplicarUpgradePlan";
+import { buscarCuponDescuentoPlan } from "./cuponPlan";
 import { proximoCicloISO } from "./cobrarSuscripcion";
 
 export type TipoOfertaCuenta = "renovacion_temprana" | "reactivacion" | "upgrade_plan";
@@ -29,7 +30,7 @@ const TIPO_VENTA_ONECLICK: Record<"renovacion_temprana" | "reactivacion", string
  * authorize() contra tbkUser/username), pero con el monto de la promo en vez
  * del precio fijo del plan, y sin acoplarse al concepto de "ciclo" mensual:
  * agenda `proximoCobro` justo en el vencimiento real que dejó la promo
- * (aplicarPagoAprobado/aplicarUpgradePlan), no en "hoy + 30 días", para que
+ * (aplicarPagoAprobado/aplicarUpgradePlan), no en "hoy + un mes", para que
  * el cron de mañana no vuelva a cobrar la tarjeta mientras el cliente
  * todavía tenga días ya pagados por este cobro manual.
  *
@@ -66,25 +67,37 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
       throw new Error("Ya se registró un cobro aprobado este mes con esta tarjeta");
     }
 
+    // Cupón de descuento atado a la patente: el mismo que rebaja el plan en
+    // Webpay y en el mesón (ver buscarCuponDescuentoPlan). Se resuelve DENTRO
+    // de la transacción, justo antes de autorizar, para que el monto que se le
+    // manda a Transbank y el cupón que se quema al aplicar el pago sean el
+    // mismo dato — el llamador calcula el precio de la promoción, pero el
+    // descuento se aplica acá y no allá por eso.
+    const cupon = await buscarCuponDescuentoPlan(patente, tx);
+    const montoFinal = precioConCupon(monto, cupon);
+    if (montoFinal <= 0) {
+      throw new Error("El descuento cubre el total del plan: pídelo en el local para que te lo apliquemos");
+    }
+
     const buyOrder = "oc" + Date.now().toString(36) + Math.floor(Math.random() * 36).toString(36);
     const commerceCode = oneclickChildCommerceCode();
 
-    await tx.insert(cobrosOneclick).values({ id: buyOrder, suscripcionId: suscripcion.id, cicloYm, monto, estado: "rechazada" });
+    await tx.insert(cobrosOneclick).values({ id: buyOrder, suscripcionId: suscripcion.id, cicloYm, monto: montoFinal, estado: "rechazada" });
 
     let estado: "aprobada" | "rechazada" = "rechazada";
     let responseCode: number | null = null;
     let authorizationCode: string | null = null;
     let ventaId: string | null = null;
     // Vencimiento real que dejó aplicarUpgradePlan/aplicarPagoAprobado — se
-    // usa para agendar `proximoCobro` (ver más abajo) en vez de un "hoy + 30
-    // días" a ciegas, que desincroniza el cron de cobros automáticos cuando
+    // usa para agendar `proximoCobro` (ver más abajo) en vez de un "hoy + un
+    // mes" a ciegas, que desincroniza el cron de cobros automáticos cuando
     // el vencimiento nuevo queda más lejos que eso (ej. renovación anticipada
     // apilada sobre un plan que todavía tenía días vigentes).
     let vencimientoResultante: string | null = null;
 
     try {
       const resultadoTbk = await oneclickTransaction().authorize(suscripcion.username, tbkUser, buyOrder, [
-        new TransactionDetail(monto, commerceCode, buyOrder),
+        new TransactionDetail(montoFinal, commerceCode, buyOrder),
       ]);
       const detalle = resultadoTbk.details?.[0];
       responseCode = detalle?.response_code ?? null;
@@ -104,12 +117,13 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
               const r = await aplicarUpgradePlan(
                 {
                   patente,
-                  monto,
+                  monto: montoFinal,
                   ventaId: ventaId as string,
                   metodoPago: "tarjeta",
                   creadoPor: "Cliente (Oneclick)",
                   horasVentanaUpgrade: config.horasVentanaUpgradePlan,
                   tipoVenta: "Upgrade a Plan X5 (Oneclick)",
+                  cuponCodigo: cupon?.codigo,
                 },
                 tx2
               );
@@ -118,13 +132,14 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
               const r = await aplicarPagoAprobado(
                 {
                   patente,
-                  monto,
+                  monto: montoFinal,
                   ventaId: ventaId as string,
                   metodoPago: "tarjeta",
                   creadoPor: "Cliente (Oneclick)",
                   esServicioAdicional: false,
                   tipoVentaNuevo: TIPO_VENTA_ONECLICK[tipo],
                   tipoVentaExistente: TIPO_VENTA_ONECLICK[tipo],
+                  cuponCodigo: cupon?.codigo,
                 },
                 tx2
               );
@@ -153,10 +168,10 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
       // quedó tras aplicar este pago (mismo principio que documenta
       // /api/pagos/oneclick/inscripcion/retorno: "nunca antes, para no
       // duplicar lo que el cliente ya pagó por otro medio"). Antes usaba
-      // proximoCicloISO(null) ("hoy + 30 días" fijo): para una renovación
+      // proximoCicloISO(null) ("hoy + un mes" fijo): para una renovación
       // anticipada el nuevo vencimiento se apila sobre el que ya tenía
-      // vigente (puede quedar a más de 30 días de hoy), así que agendar el
-      // próximo cobro a 30 días fijos lo dejaba ANTES de esa fecha — el cron
+      // vigente (puede quedar a más de un mes de hoy), así que agendar el
+      // próximo cobro a un mes fijo lo dejaba ANTES de esa fecha — el cron
       // diario volvía a cobrar la tarjeta mientras el cliente todavía tenía
       // días ya pagados, un doble cobro real. vencimientoResultante siempre
       // queda seteado acá (las 3 promociones de esta función extienden

@@ -4,7 +4,7 @@ export const PREGUNTAS: { q: string; a: string | string[] }[] = [
   {
     q: "¿Qué incluye el Plan X5?",
     a: [
-      "5 lavados Full Túnel durante los 30 días desde la contratación.",
+      "5 lavados Full Túnel durante el mes que va desde la contratación.",
       "Máximo 1 ingreso cada 24 horas.",
       "Aspirado autoservicio sin límite de tiempo, en cada uno de los 5 lavados, después de pasar por el túnel.",
       "Válido para una patente; puede cambiarse al término del período.",

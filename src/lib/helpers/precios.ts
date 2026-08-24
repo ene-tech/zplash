@@ -1,5 +1,5 @@
 import type { CanalPromo, CanalTramoPromo, Cliente, ConfigGlobal, Precios, PreciosTamano, TamanoVehiculo, Venta } from "@/types";
-import { diasVencido } from "./clientes";
+import { diasVencido, sigueVigenteHoy } from "./clientes";
 
 /** Plan que se vende hoy: 5 pasadas por túnel dentro del ciclo (ver pasesIncluidos). */
 export const PLAN_X5 = "Plan X5";
@@ -13,7 +13,7 @@ export const PLAN_ILIMITADO_LEGACY = "Plan Ilimitado Mensual";
 
 export const PLANES = [PLAN_X5];
 
-/** Pasadas por túnel incluidas en el ciclo de 30 días del plan vigente (las
+/** Pasadas por túnel incluidas en el ciclo mensual del plan vigente (las
  * cuenta visitasPeriodoPlan en ./ingresos). */
 export const PASES_INCLUIDOS_X5 = 5;
 
@@ -21,6 +21,36 @@ export const PASES_INCLUIDOS_X5 = 5;
  * (PLAN_ILIMITADO_LEGACY y cualquier plan anterior al X5). */
 export function pasesIncluidos(plan: string | null | undefined): number | null {
   return plan === PLAN_X5 ? PASES_INCLUIDOS_X5 : null;
+}
+
+/**
+ * Plan que le rige HOY al cliente — lo que hay que mirar para el tope de
+ * pasadas, no `cliente.plan` a secas.
+ *
+ * Los dos coinciden salvo en un caso: el cliente del ilimitado viejo que
+ * renovó ANTES de vencer. Esa renovación le vende el X5 (ver renovarPlan) pero
+ * el mes que ya tenía comprado se lo vendimos sin tope, así que se le respeta
+ * como se lo ofrecimos hasta que termine — `ilimitadoHasta`, la fecha de su
+ * vencimiento anterior. Recién ahí empieza a regir el X5 que pagó.
+ */
+export function planVigente(cliente: Pick<Cliente, "plan" | "ilimitadoHasta">): string {
+  if (cliente.ilimitadoHasta && sigueVigenteHoy(cliente.ilimitadoHasta)) return PLAN_ILIMITADO_LEGACY;
+  return cliente.plan || "";
+}
+
+/**
+ * `ilimitadoHasta` con el que queda un cliente al que se le renueva el plan
+ * hoy (ver planVigente): la fecha del mes sin tope que ya tenía pagado, si
+ * venía del ilimitado viejo y renovó antes de vencer. null = queda derecho en
+ * el plan que se vende hoy.
+ *
+ * Renovar de nuevo dentro de ese mes de arrastre NO lo estira: se devuelve el
+ * `ilimitadoHasta` que ya tenía, no el vencimiento nuevo — si no, un cliente
+ * que renueva temprano todos los meses nunca terminaría de migrar al X5.
+ */
+export function ilimitadoHastaAlRenovar(cliente: Pick<Cliente, "plan" | "vencimiento" | "ilimitadoHasta">): string | null {
+  if (!cliente.plan || planVigente(cliente) === PLAN_X5) return null;
+  return cliente.ilimitadoHasta || (sigueVigenteHoy(cliente.vencimiento) ? cliente.vencimiento || null : null);
 }
 
 export const PRECIOS_DEFAULT: Precios = {

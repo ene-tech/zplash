@@ -20,6 +20,9 @@ export interface Cliente extends DatosFacturacion {
   email?: string;
   vehiculo?: string;
   plan?: string;
+  // Ver ilimitadoHasta en db/schema/clientes.ts — hasta cuándo se le respetan
+  // los lavados sin tope del ilimitado viejo a un cliente que ya pagó el X5.
+  ilimitadoHasta?: string | null;
   vencimiento?: string | null;
   patentePendiente?: string | null;
   patentePendienteDesde?: string | null;

@@ -9,6 +9,8 @@ import {
   PLAN_ILIMITADO_LEGACY,
   pasesIncluidos,
   pasesRestantes,
+  planVigente,
+  ilimitadoHastaAlRenovar,
   CATEGORIA_DETAILING,
   CONFIG_DEFAULT,
   cuponDelLoteUsadoPorPatente,
@@ -41,7 +43,8 @@ import {
   fmtHora,
   fmtTelefono,
   formatTelefono,
-  inicioPeriodoPlan,
+  finCicloPlan,
+  periodoPlan,
   isValidPatente,
   isValidRut,
   isValidTelefono,
@@ -64,9 +67,14 @@ import {
   puedeBorrarCategoriaInventario,
   puedeBorrarIngreso,
   soloCambiosSinPlata,
+  beneficioCupon,
+  cuponDescuentoDePatente,
+  ofertaConCupon,
+  precioConCupon,
   resolverDescuento,
   resolverPatentePendiente,
   sumarMeses,
+  sumarMesesFecha,
   vencimientoAnclado,
   ventaLavadoUnicoDeIngreso,
   ventaLavadoWebPendiente,
@@ -451,44 +459,60 @@ describe("proximoIngresoPermitido / mensajeBloqueoReingreso", () => {
   });
 });
 
-describe("vencimientoAnclado", () => {
-  it("mantiene el ciclo de 30 días anclado a la fecha de contratación original", () => {
-    const contratacion = new Date();
-    contratacion.setDate(contratacion.getDate() - 65); // 2 ciclos vencidos, dentro del 3ro
-    const resultado = new Date(vencimientoAnclado(contratacion.toISOString()));
-    const esperado = new Date(contratacion);
-    esperado.setDate(esperado.getDate() + 90); // 3 ciclos de 30 días
-    expect(resultado.toDateString()).toBe(esperado.toDateString());
+describe("finCicloPlan", () => {
+  it("contratado el 23, vence el 22 del mes siguiente", () => {
+    expect(finCicloPlan(new Date(2026, 7, 23)).toDateString()).toBe(new Date(2026, 8, 22).toDateString());
   });
 
-  it("sin fecha de contratación, usa hoy + 30 días", () => {
-    const resultado = new Date(vencimientoAnclado(null));
-    const esperado = new Date();
-    esperado.setDate(esperado.getDate() + 30);
-    expect(resultado.toDateString()).toBe(esperado.toDateString());
+  it("contratado el 1, vence el último día del mes", () => {
+    expect(finCicloPlan(new Date(2026, 1, 1)).toDateString()).toBe(new Date(2026, 1, 28).toDateString());
+  });
+
+  it("contratado un 31, cae en el último día del mes corto sin desbordarse al siguiente", () => {
+    expect(finCicloPlan(new Date(2026, 0, 31)).toDateString()).toBe(new Date(2026, 1, 28).toDateString());
+  });
+
+  it("varios ciclos se cuentan desde la contratación, sin ir perdiendo días en los meses cortos", () => {
+    // 31 ene: el ciclo 1 se recorta a febrero, pero el 2 vuelve al 30 de marzo.
+    expect(finCicloPlan(new Date(2026, 0, 31), 2).toDateString()).toBe(new Date(2026, 2, 30).toDateString());
   });
 });
 
-describe("inicioPeriodoPlan", () => {
+describe("vencimientoAnclado", () => {
+  it("mantiene el ciclo mensual anclado a la fecha de contratación original", () => {
+    const contratacion = sumarMesesFecha(new Date(), -2);
+    contratacion.setDate(contratacion.getDate() - 5); // 2 ciclos vencidos, dentro del 3ro
+    const resultado = new Date(vencimientoAnclado(contratacion.toISOString()));
+    expect(resultado.toDateString()).toBe(finCicloPlan(contratacion, 3).toDateString());
+  });
+
+  it("sin fecha de contratación, cuenta el mes desde hoy", () => {
+    const resultado = new Date(vencimientoAnclado(null));
+    expect(resultado.toDateString()).toBe(finCicloPlan(new Date()).toDateString());
+  });
+});
+
+describe("periodoPlan", () => {
   it("contratado el 12 de junio, el período vigente el 5 de julio es 12 jun - 11 jul", () => {
     const ahora = new Date("2026-07-05T12:00:00Z");
-    const resultado = inicioPeriodoPlan("2026-06-12T00:00:00Z", ahora);
-    expect(resultado.toDateString()).toBe(new Date("2026-06-12T00:00:00Z").toDateString());
+    const { inicio, fin } = periodoPlan("2026-06-12T00:00:00Z", ahora);
+    expect(inicio.toDateString()).toBe(new Date("2026-06-12T00:00:00Z").toDateString());
+    // `fin` es exclusivo: el último día vigente es el anterior (11 de julio).
+    expect(fin.toDateString()).toBe(new Date("2026-07-12T00:00:00Z").toDateString());
   });
 
-  it("el día del vencimiento (día 30) ya pertenece al período siguiente", () => {
+  it("el día en que arranca el ciclo siguiente ya pertenece al período siguiente", () => {
     const ahora = new Date("2026-07-12T12:00:00Z");
-    const resultado = inicioPeriodoPlan("2026-06-12T00:00:00Z", ahora);
-    expect(resultado.toDateString()).toBe(new Date("2026-07-12T00:00:00Z").toDateString());
+    const { inicio } = periodoPlan("2026-06-12T00:00:00Z", ahora);
+    expect(inicio.toDateString()).toBe(new Date("2026-07-12T00:00:00Z").toDateString());
   });
 
-  it("sin fecha de contratación, usa una ventana de los últimos 30 días", () => {
+  it("sin fecha de contratación, usa una ventana del último mes", () => {
     const ahora = new Date("2026-07-05T12:00:00Z");
-    const resultado = inicioPeriodoPlan(null, ahora);
+    const { inicio } = periodoPlan(null, ahora);
     const esperado = new Date(ahora);
     esperado.setHours(0, 0, 0, 0);
-    esperado.setDate(esperado.getDate() - 30);
-    expect(resultado.toDateString()).toBe(esperado.toDateString());
+    expect(inicio.toDateString()).toBe(sumarMesesFecha(esperado, -1).toDateString());
   });
 });
 
@@ -891,6 +915,90 @@ describe("resolverDescuento", () => {
     const asignado = { ...cuponBase, patenteAsignada: "ZZ9999" };
     const r = resolverDescuento("abc123", "AB1234", [asignado]);
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("cuponDescuentoDePatente", () => {
+  const base: Cupon = {
+    id: "cu1",
+    codigo: "AAA111",
+    nombreLote: "Lote",
+    numeroLote: 1,
+    totalLote: 1,
+    tipo: "descuento",
+    valor: 2000,
+    usado: false,
+    patenteAsignada: "AB1234",
+    creadoEn: new Date().toISOString(),
+    fechaCaducidad: new Date(Date.now() + 30 * 86400000).toISOString(),
+  };
+
+  it("toma el cupón vigente de esa patente", () => {
+    expect(cuponDescuentoDePatente([base], "AB1234")?.codigo).toBe("AAA111");
+  });
+
+  it("ignora usados, caducados, de otra patente y los que no son descuento", () => {
+    const lista: Cupon[] = [
+      { ...base, id: "a", codigo: "USADO1", usado: true },
+      { ...base, id: "b", codigo: "VENC01", fechaCaducidad: new Date(Date.now() - 86400000).toISOString() },
+      { ...base, id: "c", codigo: "OTRA01", patenteAsignada: "ZZ9999" },
+      { ...base, id: "d", codigo: "VALE01", tipo: "vale" },
+    ];
+    expect(cuponDescuentoDePatente(lista, "AB1234")).toBeUndefined();
+  });
+
+  it("con varios vigentes usa primero el que vence antes", () => {
+    const lejano = { ...base, id: "lejano", codigo: "LEJOS1", fechaCaducidad: new Date(Date.now() + 60 * 86400000).toISOString() };
+    const pronto = { ...base, id: "pronto", codigo: "PRONT1", fechaCaducidad: new Date(Date.now() + 2 * 86400000).toISOString() };
+    expect(cuponDescuentoDePatente([lejano, pronto], "AB1234")?.codigo).toBe("PRONT1");
+  });
+});
+
+describe("precioConCupon", () => {
+  it("resta un monto fijo y un porcentaje", () => {
+    expect(precioConCupon(21990, { valor: 2000, esPorcentaje: false })).toBe(19990);
+    expect(precioConCupon(20000, { valor: 10, esPorcentaje: true })).toBe(18000);
+  });
+
+  it("sin cupón devuelve el precio tal cual y nunca baja de $0", () => {
+    expect(precioConCupon(21990, undefined)).toBe(21990);
+    expect(precioConCupon(1000, { valor: 5000, esPorcentaje: false })).toBe(0);
+  });
+});
+
+describe("ofertaConCupon", () => {
+  const cupon = { valor: 2000, esPorcentaje: false };
+
+  it("descuenta todo lo cobrable y recalcula el ahorro contra el precio final", () => {
+    const o = ofertaConCupon(
+      {
+        renovacionAnticipada: { pNormal: 25000, pPromo: 21990, ahorro: 3010, tramoVigente: true },
+        reactivacion: { precio: 18000, diasVencido: 5, pNormal: 25000 },
+        upgrade: { precio: 12000 },
+        pagoVencido: { precio: 21990, diasVencido: 40 },
+      },
+      cupon
+    );
+    expect(o.renovacionAnticipada).toMatchObject({ pNormal: 25000, pPromo: 19990, ahorro: 5010 });
+    expect(o.reactivacion?.precio).toBe(16000);
+    expect(o.upgrade?.precio).toBe(10000);
+    expect(o.pagoVencido?.precio).toBe(19990);
+  });
+
+  it("sin cupón devuelve la misma oferta", () => {
+    const original = { upgrade: { precio: 12000 } };
+    expect(ofertaConCupon(original, undefined)).toBe(original);
+  });
+});
+
+describe("beneficioCupon", () => {
+  it("distingue % de monto fijo en un descuento", () => {
+    expect(beneficioCupon({ tipo: "descuento", valor: 20, esPorcentaje: true })).toBe("20% de descuento");
+    expect(beneficioCupon({ tipo: "descuento", valor: 5000, esPorcentaje: false })).toContain("5.000");
+  });
+
+  it("un vale es lavado gratis aunque el lote se haya pagado", () => {
+    expect(beneficioCupon({ tipo: "vale", valor: 8000 })).toBe("Lavado gratis");
   });
 });
 
@@ -1718,6 +1826,39 @@ describe("pasesIncluidos", () => {
   it("el plan viejo sigue sin tope: su nombre es la marca de grandfathering", () => {
     expect(pasesIncluidos(PLAN_ILIMITADO_LEGACY)).toBeNull();
     expect(pasesIncluidos(null)).toBeNull();
+  });
+});
+
+describe("planVigente / ilimitadoHastaAlRenovar", () => {
+  const enDias = (dias: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + dias);
+    return d.toISOString();
+  };
+
+  it("el que renovó antes de vencer sigue sin tope hasta que termine el mes que ya pagó", () => {
+    const cliente = { plan: PLAN_X5, ilimitadoHasta: enDias(10), vencimiento: enDias(40) };
+    expect(planVigente(cliente)).toBe(PLAN_ILIMITADO_LEGACY);
+    expect(pasesIncluidos(planVigente(cliente))).toBeNull();
+  });
+
+  it("pasado ese mes rige el X5 que ya tenía pagado", () => {
+    expect(planVigente({ plan: PLAN_X5, ilimitadoHasta: enDias(-1) })).toBe(PLAN_X5);
+    expect(planVigente({ plan: PLAN_X5, ilimitadoHasta: null })).toBe(PLAN_X5);
+  });
+
+  it("solo arrastra el mes sin tope quien lo tenía pagado y renovó antes de vencer", () => {
+    const legacy = { plan: PLAN_ILIMITADO_LEGACY, ilimitadoHasta: null };
+    const vigente = enDias(10);
+    expect(ilimitadoHastaAlRenovar({ ...legacy, vencimiento: vigente })).toBe(vigente);
+    expect(ilimitadoHastaAlRenovar({ ...legacy, vencimiento: enDias(-1) })).toBeNull();
+    expect(ilimitadoHastaAlRenovar({ plan: PLAN_X5, ilimitadoHasta: null, vencimiento: enDias(10) })).toBeNull();
+    expect(ilimitadoHastaAlRenovar({ plan: undefined, ilimitadoHasta: null, vencimiento: enDias(10) })).toBeNull();
+  });
+
+  it("renovar de nuevo dentro del mes de arrastre no lo estira", () => {
+    const arrastre = enDias(5);
+    expect(ilimitadoHastaAlRenovar({ plan: PLAN_X5, ilimitadoHasta: arrastre, vencimiento: enDias(35) })).toBe(arrastre);
   });
 });
 

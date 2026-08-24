@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "dotacion" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -23,7 +23,7 @@ export const runtime = "nodejs";
 // única forma de salir del estado "Vencido".
 //
 // `fechaContratacion` se limpia junto con el plan a propósito: si el cliente
-// vuelve más adelante, contratar tiene que darle 30 días completos y no un
+// vuelve más adelante, contratar tiene que darle el mes completo y no un
 // resto del ciclo viejo (ver vencimientoAnclado, que es lo que se aplica
 // mientras esa fecha siga puesta).
 export async function POST(request: NextRequest) {

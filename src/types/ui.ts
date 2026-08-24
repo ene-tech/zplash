@@ -37,7 +37,7 @@ export type ModalState =
   | null;
 
 export interface UIState {
-  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario" | "mantencion" | "estanques" | "mensajes" | "correo" | "funcionario";
+  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario" | "mantencion" | "estanques" | "mensajes" | "correo" | "funcionario" | "equipo";
   operResult: OperResult;
   adminTab: string;
   contabilidadTab: string;
@@ -45,6 +45,7 @@ export interface UIState {
   inventarioTab: string;
   mantencionTab: string;
   funcionarioTab: string;
+  equipoTab: string;
   search: string;
   modal: ModalState;
   loginErr: string;

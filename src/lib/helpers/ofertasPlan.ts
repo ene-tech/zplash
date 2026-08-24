@@ -1,4 +1,5 @@
-import type { CanalPromo, Cliente, ConfigGlobal, Ingreso, Precios, Venta } from "@/types";
+import type { CanalPromo, Cliente, ConfigGlobal, Cupon, Ingreso, Precios, Venta } from "@/types";
+import { precioConCupon } from "./cupones";
 import { PLANES } from "./precios";
 import { diasVencido, planStatus } from "./clientes";
 import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
@@ -36,6 +37,32 @@ export interface OfertaPlan {
   // vencimiento a fechaContratacion (ver vencimientoAnclado), así que el
   // cliente recupera SU plan con los días de atraso ya perdidos.
   pagoVencido?: { precio: number; diasVencido: number };
+}
+
+/**
+ * La misma oferta con el cupón de descuento de la patente ya restado de todo
+ * lo cobrable. Solo para MOSTRAR (las tarjetas de Mi Cuenta, que anuncian el
+ * precio y disparan el cobro con el mismo número): los caminos que cobran
+ * —/api/pagos/webpay/crear y cobrarOfertaOneclick— vuelven a aplicar el
+ * descuento sobre el precio base por su cuenta, así que jamás hay que
+ * alimentarlos con una oferta que ya pasó por acá o el cupón se restaría dos
+ * veces.
+ *
+ * `pNormal` no se toca a propósito: es el precio de referencia de "antes", no
+ * algo que se cobre. `ahorro` sí se recalcula, para que la tarjeta no siga
+ * anunciando un ahorro menor que el real.
+ */
+export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | "esPorcentaje"> | undefined): OfertaPlan {
+  if (!cupon) return oferta;
+  const o: OfertaPlan = { ...oferta };
+  if (o.renovacionAnticipada) {
+    const pPromo = precioConCupon(o.renovacionAnticipada.pPromo, cupon);
+    o.renovacionAnticipada = { ...o.renovacionAnticipada, pPromo, ahorro: o.renovacionAnticipada.pNormal - pPromo };
+  }
+  if (o.reactivacion) o.reactivacion = { ...o.reactivacion, precio: precioConCupon(o.reactivacion.precio, cupon) };
+  if (o.upgrade) o.upgrade = { ...o.upgrade, precio: precioConCupon(o.upgrade.precio, cupon) };
+  if (o.pagoVencido) o.pagoVencido = { ...o.pagoVencido, precio: precioConCupon(o.pagoVencido.precio, cupon) };
+  return o;
 }
 
 /**

@@ -15,7 +15,8 @@ import {
   type EstadoReingresoPlan,
   isValidTelefono,
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
-  montoDescuento,
+  cuponDescuentoDePatente,
+  precioConCupon,
   PLANES,
   planStatus,
   precioConHeredado,
@@ -203,19 +204,32 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // Descuento generado por una regla de WhatsApp (ver @/lib/whatsapp/reglas)
   // tras una venta anterior de este vehículo — se reconoce solo por patente,
   // sin que el operador tenga que tipear ningún código (a diferencia del
-  // cupón manual que sí se pide en OperadorNotFoundResult). Se aplica al
-  // cobrar el Lavado Full Túnel (ver useIngresoActions.cobrarLavadoUnico).
-  const cuponDescuentoVigente = data.cupones.find(
-    (cup) => cup.tipo === "descuento" && !cup.usado && cup.patenteAsignada === c.patente && new Date(cup.fechaCaducidad) > new Date()
-  );
+  // cupón manual que sí se pide en OperadorNotFoundResult). Se aplica tanto al
+  // Lavado Full Túnel (ver useIngresoActions.cobrarLavadoUnico) como a
+  // cualquier plan que se cobre acá (ver conCupon más abajo y usePlanActions).
+  const cuponDescuentoVigente = cuponDescuentoDePatente(data.cupones, c.patente);
   // Al cliente con plan vigente que ya gastó las pasadas de su ciclo (ver
   // pasesRestantes) el paso extra le sale al precio de lavado adicional, no al
   // lavado único de lista: ese sigue siendo el precio de quien no tiene plan.
   const precioBaseLavadoUnico =
     estadoIngreso === "sin_pases" ? precioLavadoAdicional(data.precios) : precioLavadoUnico(data.precios);
-  const precioLavadoUnicoFinal = cuponDescuentoVigente
-    ? Math.max(0, precioBaseLavadoUnico - montoDescuento(cuponDescuentoVigente, precioBaseLavadoUnico))
-    : precioBaseLavadoUnico;
+  const precioLavadoUnicoFinal = precioConCupon(precioBaseLavadoUnico, cuponDescuentoVigente);
+
+  // El mismo cupón vale para cualquier plan, no solo para el lavado suelto: se
+  // resta de todo lo cobrable de esta ficha. Estos son además los valores que
+  // pintan los botones (ver OperadorFoundOfertas/OperadorFoundResult), así que
+  // lo que se muestra y lo que se cobra no se pueden separar.
+  //
+  // Van aparte de los precios base a propósito: showPagoAtrasado, ventaUpgrade
+  // y hayPromoRenovacion se siguen decidiendo con el precio SIN descuento, para
+  // que un cupón abarate la oferta en vez de hacerla desaparecer (esas banderas
+  // exigen precio > 0).
+  const conCupon = (precio: number) => precioConCupon(precio, cuponDescuentoVigente);
+  const pPromoFinal = conCupon(pPromo);
+  const pContratacionFinal = conCupon(pContratacion);
+  const precioAtrasadoFinal = conCupon(precioAtrasado);
+  const precioReactivacionFinal = precioReactivacion === undefined ? undefined : conCupon(precioReactivacion);
+  const precioUpgradeFinal = conCupon(precioUpgrade);
 
   // Servicio con pasada libre por el túnel (Lavado Completo Detailing o un
   // add-on de motor/chasis, ver esServicioTunelLibre) vendido en Servicios
@@ -256,11 +270,13 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     precioLavadoUnicoFinal,
   });
   const plan = usePlanActions(c, setGuardarErr, updateResult, {
-    pPromo,
-    precioAtrasado,
-    precioReactivacion,
-    precioUpgrade,
+    pPromo: pPromoFinal,
+    pContratacion: pContratacionFinal,
+    precioAtrasado: precioAtrasadoFinal,
+    precioReactivacion: precioReactivacionFinal,
+    precioUpgrade: precioUpgradeFinal,
     ventaUpgrade,
+    cuponDescuento: cuponDescuentoVigente,
   });
   const ficha = useFichaClienteActions(c, refs, setGuardarErr, updateResult);
 
@@ -301,22 +317,26 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     horasBloqueoReingreso,
     showOffer,
     pNormal,
-    pContratacion,
-    pPromo,
-    ahorro,
+    // Los cobrables salen ya con el cupón restado (ver conCupon más arriba):
+    // el botón no puede anunciar un precio distinto del que cobra. `pNormal`
+    // no, que es el precio tachado de referencia — y `ahorro` se recalcula
+    // contra el precio final para no anunciar de menos.
+    pContratacion: pContratacionFinal,
+    pPromo: pPromoFinal,
+    ahorro: pNormal - pPromoFinal,
     hayPromoRenovacion,
     showRenovacionSoloWeb,
     pPromoWeb,
     showReactivacion,
     diasVenc,
-    precioReactivacion,
+    precioReactivacion: precioReactivacionFinal,
     showReactivacionSoloWeb,
     precioReactivacionWeb,
     showPagoAtrasado,
-    precioAtrasado,
+    precioAtrasado: precioAtrasadoFinal,
     esWebVencido,
     ventaUpgrade,
-    precioUpgrade,
+    precioUpgrade: precioUpgradeFinal,
     horasVentanaUpgrade,
     cuponDescuentoVigente,
     precioLavadoUnicoFinal,

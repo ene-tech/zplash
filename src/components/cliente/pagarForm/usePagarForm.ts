@@ -16,6 +16,10 @@ export interface EstadoPlan {
   // /api/pagos/estado con el mismo helper que usa el endpoint que cobra: la
   // pantalla lo muestra tal cual, no lo recalcula.
   precioRenovacion?: number;
+  // Cuánto le está descontando un cupón vigente de esta patente a
+  // `precioRenovacion` (0/undefined = ninguno) — ya viene restado del precio,
+  // esto es solo para poder explicarlo en pantalla.
+  descuentoCupon?: number;
   // Solo para el precio de la renovación automática (Oneclick), que respeta
   // el heredado sin depender del plazo de atraso.
   precioPlanHeredado?: number | null;

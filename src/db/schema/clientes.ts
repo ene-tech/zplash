@@ -9,6 +9,14 @@ export const clientes = pgTable("clientes", {
   email: text("email"),
   vehiculo: text("vehiculo"),
   plan: text("plan"),
+  // Fecha hasta la cual (inclusive, ver sigueVigenteHoy) este cliente conserva
+  // los lavados SIN TOPE del ilimitado viejo aunque `plan` ya diga Plan X5:
+  // renovó antes de vencer, así que pagó el X5 por adelantado pero el mes que
+  // ya tenía comprado se le respeta como se lo vendieron (ver planVigente e
+  // ilimitadoHastaAlRenovar en @/lib/helpers/precios). null = el plan de la
+  // columna rige desde siempre, que es el caso de todo cliente que no venga
+  // del ilimitado viejo.
+  ilimitadoHasta: timestamptz("ilimitado_hasta"),
   tipoDocumento: text("tipo_documento"),
   razonSocial: text("razon_social"),
   rut: text("rut"),

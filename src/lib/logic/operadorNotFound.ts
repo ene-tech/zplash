@@ -1,4 +1,4 @@
-import { PLANES, formatRut, montoDescuento, precioContratacion, precioLavadoUnico, resolverDescuento, uid } from "@/lib/helpers";
+import { PLANES, formatRut, montoDescuento, precioContratacion, precioLavadoUnico, resolverDescuento, uid, vencimientoPorDefectoISO } from "@/lib/helpers";
 import { registrarIngreso } from "./ingresos";
 import type { AppData, Cliente, Cupon, Empresa, PagoInfo, Venta } from "@/types";
 
@@ -43,9 +43,7 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
   const plan = PLANES[0];
   let vencimiento: string | null = null;
   if (d.tipoCliente === "plan") {
-    const venc = new Date();
-    venc.setDate(venc.getDate() + 30);
-    vencimiento = venc.toISOString();
+    vencimiento = vencimientoPorDefectoISO();
   }
   const nuevo: Cliente = {
     id: uid(),

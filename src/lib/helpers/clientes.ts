@@ -1,5 +1,5 @@
 import type { Cliente, ClientePatch, Ingreso, PlanStatus } from "@/types";
-import { ahoraEnSantiago } from "./fechas";
+import { ahoraEnSantiago, sumarMesesFecha } from "./fechas";
 import { normPlate } from "./validadores";
 
 export const DIAS_AVISO_VENCIMIENTO = 7;
@@ -45,11 +45,15 @@ export function planStatus(c: Pick<Cliente, "vencimiento">): PlanStatus {
   return { label: "Vigente", cls: "ok" };
 }
 
-/** Duración estándar de un ciclo de plan, en días — mismo bloque usado por vencimientoAnclado/inicioPeriodoPlan. */
+/**
+ * Ciclo de plan, en días. El ciclo real es un mes calendario (ver
+ * finCicloPlan), así que esto es solo la aproximación que usa la barra de
+ * progreso: no sirve para calcular vencimientos.
+ */
 export const DURACION_PLAN_DIAS = 30;
 
 /**
- * Porcentaje de un ciclo de plan (30 días) que le queda al cliente, para la
+ * Porcentaje del ciclo de plan que le queda al cliente, para la
  * barra de progreso de la lista de clientes: 100% recién renovado, 0% el día
  * del vencimiento. Se satura en 100 si el vencimiento quedó más lejos que un
  * ciclo completo (p.ej. un plan cargado manualmente a futuro) y en 0 tras
@@ -145,11 +149,26 @@ export function resolverPatentePendiente(
   };
 }
 
-/** 30 days from `desde` (por defecto ahora), as an ISO string. Kept outside component bodies since it is not a pure computation. */
+/**
+ * Vencimiento del ciclo `ciclos`-ésimo de un plan contratado en `inicio`: el
+ * día anterior al mismo día del mes siguiente — contratado el 23, vigente
+ * hasta el 22 del mes que viene (el 22 completo: planStatus/sigueVigenteHoy
+ * comparan por día, no por hora). Cuando el mes destino no tiene ese día
+ * (contratado un 31), cae en el último día del mes.
+ *
+ * `ciclos` se cuenta siempre desde la contratación en vez de encadenar ciclo
+ * sobre ciclo, para que un plan contratado un 31 no vaya perdiendo días cada
+ * vez que pasa por un mes corto.
+ */
+export function finCicloPlan(inicio: Date, ciclos = 1): Date {
+  const d = new Date(inicio);
+  d.setDate(d.getDate() - 1);
+  return sumarMesesFecha(d, ciclos);
+}
+
+/** Vencimiento de un plan contratado en `desde` (por defecto ahora), como ISO. Kept outside component bodies since it is not a pure computation. */
 export function vencimientoPorDefectoISO(desde: Date = new Date()): string {
-  const d = new Date(desde);
-  d.setDate(d.getDate() + 30);
-  return d.toISOString();
+  return finCicloPlan(desde).toISOString();
 }
 
 /**
@@ -163,7 +182,7 @@ export function vencimientoPorDefectoISO(desde: Date = new Date()): string {
  * la renovación de un cliente de noche en Chile — todavía "hoy" en el
  * calendario — pero el webhook comparaba contra `new Date()` (hora exacta),
  * que ya marcaba ese vencimiento como pasado. Eso lo mandaba a
- * vencimientoAnclado() en vez de sumarle 30 días desde donde estaba, y como
+ * vencimientoAnclado() en vez de sumarle un ciclo desde donde estaba, y como
  * vencimientoAnclado() también usa el mismo "hoy" día-granular, el resultado
  * caía en esa misma fecha (ya pasada en hora exacta): el cliente pagaba y
  * quedaba igual de "Vencido" en el sistema.
@@ -177,9 +196,9 @@ export function sigueVigenteHoy(vencimiento: string | null | undefined): boolean
 
 /**
  * Próximo vencimiento manteniendo el ciclo mensual anclado a la fecha de
- * contratación original (avanza de 30 en 30 días desde ahí), en vez de
- * reiniciar el ciclo desde la fecha en que el operador renueva manualmente
- * un cliente Web cuyo pago automático falló.
+ * contratación original (avanza mes a mes desde ahí, ver finCicloPlan), en
+ * vez de reiniciar el ciclo desde la fecha en que el operador renueva
+ * manualmente un cliente Web cuyo pago automático falló.
  */
 export function vencimientoAnclado(fechaContratacion: string | null | undefined): string {
   // Mismo motivo que en planStatus: hora de Chile, no la del entorno donde
@@ -188,46 +207,37 @@ export function vencimientoAnclado(fechaContratacion: string | null | undefined)
   hoy.setHours(0, 0, 0, 0);
   let base = fechaContratacion ? new Date(fechaContratacion) : new Date(hoy);
   if (isNaN(base.getTime())) base = new Date(hoy);
-  while (base <= hoy) {
-    base.setDate(base.getDate() + 30);
-  }
-  // Red de seguridad: `hoy` es día-granular (mismo criterio que planStatus),
-  // así que `base` puede caer "hoy" con una hora ya pasada en el momento
-  // exacto en que corre esta función (ver sigueVigenteHoy). El vencimiento
-  // que se guarda nunca debería nacer ya vencido — si eso pasa, suma un
-  // ciclo más.
+  // `hoy` es día-granular (mismo criterio que planStatus), así que el ciclo
+  // puede caer "hoy" con una hora ya pasada en el momento exacto en que corre
+  // esta función (ver sigueVigenteHoy); el segundo tope (`ahora`) es la red de
+  // seguridad para que el vencimiento que se guarda nunca nazca ya vencido.
   const ahora = new Date();
-  while (base <= ahora) {
-    base.setDate(base.getDate() + 30);
-  }
-  return base.toISOString();
+  let ciclos = 1;
+  let venc = finCicloPlan(base, ciclos);
+  while (venc <= hoy || venc <= ahora) venc = finCicloPlan(base, ++ciclos);
+  return venc.toISOString();
 }
 
 /**
- * Inicio del período de plan vigente hoy, anclado a fechaContratacion en
- * bloques de 30 días (mismo ciclo que vencimientoAnclado) — no mes
- * calendario. P. ej. contratado el 12 de junio, el período vigente el 5 de
- * julio es [12 jun, 11 jul]. Sin fecha de contratación (cliente sin plan
- * asociado a un ciclo), se usa una ventana de los últimos 30 días.
+ * Período de plan vigente hoy, anclado a fechaContratacion en ciclos
+ * mensuales (mismo ciclo que vencimientoAnclado). P. ej. contratado el 12 de
+ * junio, el período vigente el 5 de julio es [12 jun, 12 jul): vence el 11.
+ * `fin` es exclusivo — es el inicio del ciclo siguiente, no el vencimiento.
+ * Sin fecha de contratación (cliente sin plan asociado a un ciclo), se usa
+ * una ventana del último mes.
  */
-export function inicioPeriodoPlan(fechaContratacion: string | null | undefined, ahora: Date = ahoraEnSantiago()): Date {
+export function periodoPlan(
+  fechaContratacion: string | null | undefined,
+  ahora: Date = ahoraEnSantiago()
+): { inicio: Date; fin: Date } {
   const hoy = new Date(ahora);
   hoy.setHours(0, 0, 0, 0);
-  let base = fechaContratacion ? new Date(fechaContratacion) : null;
-  if (!base || isNaN(base.getTime())) {
-    base = new Date(hoy);
-    base.setDate(base.getDate() - 30);
-    return base;
-  }
+  const base = fechaContratacion ? new Date(fechaContratacion) : null;
+  if (!base || isNaN(base.getTime())) return { inicio: sumarMesesFecha(hoy, -1), fin: hoy };
   base.setHours(0, 0, 0, 0);
-  let siguiente = new Date(base);
-  siguiente.setDate(siguiente.getDate() + 30);
-  while (siguiente <= hoy) {
-    base = siguiente;
-    siguiente = new Date(base);
-    siguiente.setDate(siguiente.getDate() + 30);
-  }
-  return base;
+  let ciclos = 0;
+  while (sumarMesesFecha(base, ciclos + 1) <= hoy) ciclos++;
+  return { inicio: sumarMesesFecha(base, ciclos), fin: sumarMesesFecha(base, ciclos + 1) };
 }
 
 /**

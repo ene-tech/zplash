@@ -1,15 +1,24 @@
 import {
   deleteContratosFuncionario,
+  deleteReglasOperador,
   deleteTareasTurno,
   deleteTareasTurnoHechas,
   deleteTurnosFuncionario,
   insertMarcasAsistencia,
   upsertContratosFuncionario,
+  upsertReglasOperador,
   upsertTareasTurno,
   upsertTareasTurnoHechas,
   upsertTurnosFuncionario,
 } from "@/lib/serverActions";
-import type { ContratoFuncionario, MarcaAsistencia, TareaTurno, TareaTurnoHecha, TurnoFuncionario } from "@/types";
+import type {
+  ContratoFuncionario,
+  MarcaAsistencia,
+  ReglaOperador,
+  TareaTurno,
+  TareaTurnoHecha,
+  TurnoFuncionario,
+} from "@/types";
 import { diffPorId, SIN_CAMBIOS, type CommitResult } from "./shared";
 
 export function commitTurnosFuncionario(previous: TurnoFuncionario[], siguientes: TurnoFuncionario[] | undefined): CommitResult {
@@ -48,6 +57,15 @@ export function commitMarcasAsistencia(previous: MarcaAsistencia[], siguientes: 
   if (!siguientes) return SIN_CAMBIOS;
   const { cambiados } = diffPorId(previous, siguientes);
   return { ops: cambiados.length ? [insertMarcasAsistencia(cambiados)] : [], auditoria: [] };
+}
+
+export function commitReglasOperador(previous: ReglaOperador[], siguientes: ReglaOperador[] | undefined): CommitResult {
+  if (!siguientes) return SIN_CAMBIOS;
+  const { cambiados, eliminados } = diffPorId(previous, siguientes);
+  const ops: Promise<boolean>[] = [];
+  if (cambiados.length) ops.push(upsertReglasOperador(cambiados));
+  if (eliminados.length) ops.push(deleteReglasOperador(eliminados));
+  return { ops, auditoria: [] };
 }
 
 export function commitContratosFuncionario(

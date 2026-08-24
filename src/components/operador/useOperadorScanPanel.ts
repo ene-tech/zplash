@@ -13,6 +13,7 @@ import {
   fmtTelefono,
   isValidPatente,
   normPlate,
+  cuponDescuentoDePatente,
   patenteAutorizadaParaCupon,
   resolverDescuento,
   uid,
@@ -249,9 +250,7 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       // reconoce solo por patente, el cliente no necesita mostrar ni tipear
       // ningún código (a diferencia del cupón de entrada de arriba).
       const patente = normPlate(plate);
-      const autoDescuento = data.cupones.find(
-        (cup) => cup.tipo === "descuento" && !cup.usado && cup.patenteAsignada === patente && new Date(cup.fechaCaducidad) > new Date()
-      );
+      const autoDescuento = cuponDescuentoDePatente(data.cupones, patente);
       if (autoDescuento) {
         setCuponErr({ msg: "Descuento vigente detectado para esta patente", ok: true });
         setCodigoDescuento(autoDescuento.codigo);

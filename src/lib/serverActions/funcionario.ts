@@ -1,9 +1,16 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
-import { diaCaja, distanciaMetros, idTareaHecha } from "@/lib/helpers";
+import { diaCaja, distanciaMetros, esAdministracionOGerencia, idTareaHecha } from "@/lib/helpers";
 import { sesionActual, tieneModulo } from "@/lib/session";
-import type { ContratoFuncionario, MarcaAsistencia, TareaTurno, TareaTurnoHecha, TurnoFuncionario } from "@/types";
+import type {
+  ContratoFuncionario,
+  MarcaAsistencia,
+  ReglaOperador,
+  TareaTurno,
+  TareaTurnoHecha,
+  TurnoFuncionario,
+} from "@/types";
 
 // Horario/turno asignado, catálogo de tareas y contrato son datos que ASIGNA
 // quien administra a las personas, no el funcionario sobre sí mismo: van
@@ -11,7 +18,21 @@ import type { ContratoFuncionario, MarcaAsistencia, TareaTurno, TareaTurnoHecha,
 // con "funcionario", que es el acceso de solo-lectura + marcaje de cada uno.
 export async function upsertTurnosFuncionario(rows: TurnoFuncionario[]): Promise<boolean> {
   if (!(await tieneModulo("perfiles"))) return false;
-  return dataAccess.upsertTurnosFuncionario(rows);
+  // El horario lo asigna cualquiera con "perfiles"; la zona a cargo
+  // (prelavado/aspirados) solo Administración y Gerencia — es su configurador.
+  // A quien no lo sea se le saca la columna del payload en vez de rechazar el
+  // guardado: sin la clave, el upsert no toca `zona` y el encargado vigente
+  // queda como está (ver upsertRows). Se valida además el valor, porque una
+  // Server Action es un POST alcanzable sin pasar por la UI.
+  const sesion = await sesionActual();
+  const puedeZona = esAdministracionOGerencia(sesion?.nombre);
+  return dataAccess.upsertTurnosFuncionario(
+    rows.map(({ zona, ...resto }) =>
+      puedeZona && zona !== undefined
+        ? { ...resto, zona: zona === "prelavado" || zona === "aspirados" ? zona : null }
+        : resto
+    )
+  );
 }
 
 export async function deleteTurnosFuncionario(ids: string[]): Promise<boolean> {
@@ -37,6 +58,16 @@ export async function upsertContratosFuncionario(rows: ContratoFuncionario[]): P
 export async function deleteContratosFuncionario(ids: string[]): Promise<boolean> {
   if (!(await tieneModulo("perfiles"))) return false;
   return dataAccess.deleteContratosFuncionario(ids);
+}
+
+export async function upsertReglasOperador(rows: ReglaOperador[]): Promise<boolean> {
+  if (!(await tieneModulo("perfiles"))) return false;
+  return dataAccess.upsertReglasOperador(rows);
+}
+
+export async function deleteReglasOperador(ids: string[]): Promise<boolean> {
+  if (!(await tieneModulo("perfiles"))) return false;
+  return dataAccess.deleteReglasOperador(ids);
 }
 
 /**
@@ -94,7 +125,7 @@ export async function upsertTareasTurnoHechas(rows: TareaTurnoHecha[]): Promise<
   const saneadas = rows.map((h) => ({
     ...h,
     fecha,
-    id: idTareaHecha(fecha, h.turno, h.tareaId),
+    id: idTareaHecha(fecha, h.turno, h.zona, h.tareaId),
     perfilId: sesion.id,
     perfilNombre: sesion.nombre,
     completadoEn: ahora,

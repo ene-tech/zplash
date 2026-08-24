@@ -1,4 +1,5 @@
 import type { Cupon } from "@/types";
+import { fmtCLP } from "./precios";
 import { normPlate } from "./validadores";
 
 /** Alfabeto sin 0/O ni 1/I para evitar confusiones al leer o tipear el código. */
@@ -38,6 +39,35 @@ export function montoDescuento(cupon: Pick<Cupon, "esPorcentaje" | "valor">, pre
   return cupon.esPorcentaje ? Math.round((precioBase * cupon.valor) / 100) : cupon.valor;
 }
 
+/** Cupón "descuento" sin usar, vigente y atado a esta patente: el que se aplica
+ * con solo leer la patente, sin que nadie tipee un código. Si hay varios, el
+ * que vence antes (si no, un cupón lejano tapa a uno que caduca mañana).
+ *
+ * Mismo criterio en los cuatro sitios que lo cobran — mesón (sobre `data.cupones`
+ * ya cargado) y los tres caminos de cobro web, que primero lo buscan en la base
+ * (ver buscarCuponDescuentoPlan en @/lib/pagos). */
+export function cuponDescuentoDePatente(lista: Cupon[], patente: string, ahora: Date = new Date()): Cupon | undefined {
+  return lista
+    .filter((c) => c.tipo === "descuento" && !c.usado && c.patenteAsignada === patente && new Date(c.fechaCaducidad) > ahora)
+    .sort((a, b) => new Date(a.fechaCaducidad).getTime() - new Date(b.fechaCaducidad).getTime())[0];
+}
+
+/** Precio final tras aplicar el cupón (nunca baja de $0). Se usa tanto para
+ * PINTAR el precio como para COBRARLO, en el mesón y en la web: la pantalla no
+ * puede anunciar un monto distinto del que se termina cobrando (mismo principio
+ * que documenta /api/pagos/estado).
+ *
+ * ponytail: si el descuento cubre el total el precio queda en $0 — el mesón lo
+ * soporta (no pide método de pago), pero Webpay/Oneclick no pueden cobrar $0 y
+ * el pago se rechaza con "El monto a cobrar debe ser mayor a $0". Con los
+ * montos reales (descuentos de $2.000-$3.000 contra planes de $20.000+) no
+ * pasa; si algún día se emiten cupones de 100%, hay que decidir ahí si el plan
+ * se entrega sin pasar por Transbank. */
+export function precioConCupon(precio: number, cupon: Pick<Cupon, "esPorcentaje" | "valor"> | undefined | null): number {
+  if (!cupon) return precio;
+  return Math.max(0, precio - montoDescuento(cupon, precio));
+}
+
 /** true si la patente puede canjear este cupón: los cupones tipo "vale" de un
  * pack empresa pueden traer una lista de patentes autorizadas (la flota para
  * la que se contrató el lote); sin lista (vacía/undefined) el cupón queda
@@ -70,6 +100,16 @@ export function cuponDelLoteUsadoPorPatente(
   return cupones.find(
     (c) => c.id !== cupon.id && c.unCuponPorPatente && c.nombreLote === cupon.nombreLote && c.usado && normPlate(c.patenteUso || "") === p
   );
+}
+
+/** Qué gana quien tiene el cupón, dicho en sus términos: lo usa el Portal
+ * Cliente ("Mis tickets y cupones") y el operador al validar un código a mano.
+ * Distinto de valorCupon (@/components/tabs/ventaEmpresa/useCuponesList), que
+ * es la vista del admin y muestra lo que costó el cupón: un "vale" de un pack
+ * pagado sigue siendo un lavado gratis para quien lo canjea. */
+export function beneficioCupon(c: Pick<Cupon, "tipo" | "valor" | "esPorcentaje">): string {
+  if (c.tipo !== "descuento") return "Lavado gratis";
+  return c.esPorcentaje ? `${c.valor}% de descuento` : `${fmtCLP(c.valor)} de descuento`;
 }
 
 export type EstadoCupon = { label: string; cls: "ok" | "warn" | "bad" };

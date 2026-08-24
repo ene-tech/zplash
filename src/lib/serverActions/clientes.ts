@@ -44,7 +44,7 @@ const CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["nombre"
 // commitClientes se espera antes que commitVentas pero no lo condiciona), el
 // operador veía "sin conexión", reintentaba, y quedaban Ventas duplicadas
 // cobradas sin que el plan del cliente llegara a activarse nunca.
-const CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["plan", "vencimiento", "ultimaRenovacion"]);
+const CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["plan", "ilimitadoHasta", "vencimiento", "ultimaRenovacion"]);
 
 // Antes, upsertClientes exigía solo tieneSesionValida(): cualquier perfil
 // logueado podía guardar un cliente. Al agregar el gate de tieneModulo

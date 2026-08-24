@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, precios } from "@/db/schema";
-import { PLANES, isValidPatente, normPlate, planStatus, precioRenovacionCliente } from "@/lib/helpers";
+import { PLANES, isValidPatente, normPlate, planStatus, precioConCupon, precioRenovacionCliente } from "@/lib/helpers";
 import { getConfig } from "@/lib/dataAccess/config";
+import { buscarCuponDescuentoPlan } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -30,8 +31,20 @@ export async function GET(request: NextRequest) {
     if (!cliente) {
       return NextResponse.json({ encontrado: false });
     }
-    const [{ diasGraciaPagoAtrasado }, filasPrecios] = await Promise.all([getConfig(), db.select().from(precios)]);
+    const [{ diasGraciaPagoAtrasado }, filasPrecios, cupon] = await Promise.all([
+      getConfig(),
+      db.select().from(precios),
+      buscarCuponDescuentoPlan(patente, db),
+    ]);
     const preciosMap = Object.fromEntries(filasPrecios.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
+    // Cupón de descuento de la patente: se resta acá porque /api/pagos/webpay/
+    // crear también lo resta al cobrar — si esta pantalla siguiera anunciando
+    // el precio sin descuento, volvería a pasar justo lo que el comentario de
+    // abajo trata de evitar, un monto distinto del que termina cobrando Webpay.
+    // Solo se manda el monto rebajado, nunca el código: este endpoint es
+    // público y se consulta con cualquier patente.
+    const precioBase = precioRenovacionCliente(preciosMap, cliente.plan || PLANES[0], cliente, diasGraciaPagoAtrasado);
+    const precioFinal = precioConCupon(precioBase, cupon);
 
     return NextResponse.json({
       encontrado: true,
@@ -46,7 +59,10 @@ export async function GET(request: NextRequest) {
       // manda calculado y no en partes (precio de lista + heredado + días de
       // gracia, como estaba antes) justamente para que la pantalla no pueda
       // volver a anunciar un monto distinto del que termina cobrando Webpay.
-      precioRenovacion: precioRenovacionCliente(preciosMap, cliente.plan || PLANES[0], cliente, diasGraciaPagoAtrasado),
+      precioRenovacion: precioFinal,
+      // Cuánto se le está descontando (0 = ningún cupón), para que la pantalla
+      // pueda explicar el precio más bajo en vez de que parezca un error.
+      descuentoCupon: precioBase - precioFinal,
       // Sigue yendo aparte porque /pagar lo usa para el precio de la
       // renovación automática (Oneclick), que no pasa por el plazo de atraso.
       precioPlanHeredado: cliente.precioPlanHeredado,

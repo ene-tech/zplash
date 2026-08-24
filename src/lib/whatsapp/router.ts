@@ -223,5 +223,8 @@ export async function responderMensaje(textoCrudo: string, telefono: string, con
   }
   if (OPCIONES_CAMBIO_PATENTE.has(normalizado)) return iniciarCambioPatente(conversacion, textos);
 
-  return { texto: textos.mensajeNoEntendido };
+  // Cualquier texto que no sea una opción conocida devuelve el menú: da lo
+  // mismo lo que escriban, lo primero que ven es el menú (antes respondía un
+  // "no entendí" que dejaba al cliente sin saber qué escribir).
+  return { texto: textos.menuPrincipal };
 }

@@ -4,31 +4,30 @@ import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, ingresos, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
+import { consumirCupon } from "./cuponPlan";
 import {
   PLANES,
-  inicioPeriodoPlan,
+  ilimitadoHastaAlRenovar,
+  periodoPlan,
   movimientoContableDesdeVenta,
   resolverPatentePendiente,
   sigueVigenteHoy,
+  sumarMesesFecha,
   uid,
   vencimientoAnclado,
+  vencimientoPorDefectoISO,
 } from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorCambioPatente, evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Cliente, Venta } from "@/types";
 
-export function addDaysISO(iso: string, dias: number): string {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + dias);
-  return d.toISOString();
-}
 
 /** Pasadas del cliente en su ciclo de plan vigente, contadas en la base (acá
  * no hay un AppData cargado como en el módulo Operador). Solo se usa en el
  * webhook de WooCommerce, para no tocarle el plan al cliente que no pasó ni
  * una vez (ver planResultante en /api/webhooks/woocommerce). */
 export async function visitasPeriodoActual(db: DbOrTx, cliente: { id: string; fechaContratacion: string | null }): Promise<number> {
-  const inicio = inicioPeriodoPlan(cliente.fechaContratacion, new Date());
+  const { inicio } = periodoPlan(cliente.fechaContratacion, new Date());
   const filas = await db
     .select({ id: ingresos.id })
     .from(ingresos)
@@ -44,7 +43,7 @@ interface AplicarPagoParams {
   creadoPor: string;
   esServicioAdicional: boolean;
   // Si es servicio adicional no se toca plan/vencimiento del cliente; si no,
-  // se extiende (o inicia) el ciclo de 30 días como cualquier renovación web.
+  // se extiende (o inicia) el ciclo mensual como cualquier renovación web.
   tipoVentaNuevo: string;
   tipoVentaExistente: string;
   // Boleta/Factura elegida en el checkout (ver DatosDocumento en
@@ -56,6 +55,11 @@ interface AplicarPagoParams {
   direccion?: string | null;
   giro?: string | null;
   email?: string | null;
+  // Cupón de descuento ya aplicado a `monto` por quien resolvió el precio (ver
+  // buscarCuponDescuentoPlan): acá solo se sella la venta y se quema el cupón,
+  // en esta misma transacción — nunca se vuelve a calcular el descuento, que a
+  // esta altura Transbank ya cobró el monto rebajado.
+  cuponCodigo?: string | null;
 }
 
 /**
@@ -83,7 +87,7 @@ export async function aplicarPagoAprobado(
   let clienteId: string;
   // Vencimiento resultante tras aplicar este pago — devuelto para que
   // cobrarOfertaOneclick pueda anclar `suscripcionesOneclick.proximoCobro` al
-  // vencimiento REAL en vez de a un "hoy + 30 días" a ciegas (ver ese
+  // vencimiento REAL en vez de a un "hoy + un mes" a ciegas (ver ese
   // comentario en cobrarOfertaOneclick.ts para el desfase que esto evita).
   // Por defecto queda en lo que ya tenía `existente` (ej. rama
   // esServicioAdicional, que no toca vencimiento); las otras dos ramas lo
@@ -117,7 +121,7 @@ export async function aplicarPagoAprobado(
     // sigueVigenteHoy (día-granular) en vez de comparar por hora exacta — ver
     // el comentario en esa función para el bug real que causó en producción.
     const nuevoVencimiento = sigueVigenteHoy(existente.vencimiento)
-      ? addDaysISO(existente.vencimiento!, 30)
+      ? sumarMesesFecha(new Date(existente.vencimiento!), 1).toISOString()
       : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
     vencimientoResultante = nuevoVencimiento;
     clienteId = existente.id;
@@ -135,8 +139,11 @@ export async function aplicarPagoAprobado(
         patentePendienteDesde: fila.patentePendienteDesde || null,
         vencimiento: nuevoVencimiento,
         // Misma migración al X5 que en el mesón: el ilimitado viejo dejó de
-        // ofrecerse, así que renovar deja al cliente en el plan vigente.
+        // ofrecerse, así que renovar deja al cliente en el plan vigente —
+        // respetándole sin tope el mes que ya tenía comprado si renovó antes
+        // de vencer (ver ilimitadoHastaAlRenovar).
         plan: PLANES[0],
+        ilimitadoHasta: ilimitadoHastaAlRenovar(anterior),
         origen: "WEB",
       })
       .where(eq(clientes.id, clienteId));
@@ -154,7 +161,7 @@ export async function aplicarPagoAprobado(
     }
   } else {
     clienteId = uid();
-    vencimientoResultante = addDaysISO(new Date().toISOString(), 30);
+    vencimientoResultante = vencimientoPorDefectoISO();
     await db.insert(clientes).values({
       id: clienteId,
       nombre: "Cliente Web",
@@ -191,7 +198,17 @@ export async function aplicarPagoAprobado(
     direccion: p.direccion || null,
     giro: p.giro || null,
     email: p.email || null,
+    viaCupon: !!p.cuponCodigo,
+    cuponCodigo: p.cuponCodigo || null,
   });
+
+  if (p.cuponCodigo && !(await consumirCupon(p.cuponCodigo, p.patente, p.creadoPor, db))) {
+    // El cobro ya se hizo con el descuento aplicado, así que la venta se
+    // registra igual — esto solo deja rastro de que el cupón se había quemado
+    // en el intertanto (ej. el mismo cupón canjeado en el túnel entre el
+    // /crear y el /retorno de Webpay).
+    console.error("Cupón ya usado al aplicar un pago aprobado", p.cuponCodigo, p.patente, p.ventaId);
+  }
 
   // A diferencia de insertVentas (@/lib/dataAccess/ventas), esta función no
   // pasa por ahí — es el choke point de ventas confirmadas por un pago

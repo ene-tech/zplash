@@ -12,6 +12,7 @@ import {
   precioContratacion,
   precioLavadoUnicoWeb,
   precioRenovacionCliente,
+  precioConCupon,
   precioServicio,
   precioZonaAspirado,
 } from "@/lib/helpers";
@@ -19,6 +20,7 @@ import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
+import { buscarCuponDescuentoPlan } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { webpayTransaction } from "@/lib/transbank";
 
@@ -83,6 +85,9 @@ interface ItemResuelto extends DatosDocumento {
   servicioId: string | null;
   nombre: string;
   monto: number;
+  // Se llena solo en el ítem de plan al que se le aplicó el cupón de la
+  // patente — viaja hasta /retorno en pagosWebpayItems.cuponCodigo.
+  cuponCodigo?: string;
 }
 
 const SIN_DOCUMENTO: DatosDocumento = { tipoDocumento: null, razonSocial: null, rut: null, direccion: null, giro: null, email: null };
@@ -225,6 +230,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Cupón de descuento atado a la patente (ver buscarCuponDescuentoPlan): se
+    // resta del ítem de plan de la compra — TIPOS_PLAN + el chequeo de
+    // cantidadPlanes garantizan que hay a lo más uno. A propósito NO se aplica
+    // a lavado_unico/servicio/aspirado: ese mismo cupón ya lo descuenta el
+    // mesón al pasar por el túnel (ver cuponDescuentoVigente en
+    // useOperadorFoundResult), y aplicarlo en los dos lados sería gastarlo dos
+    // veces. Recién se marca usado en /retorno, cuando Transbank confirma:
+    // hasta entonces el cliente todavía puede abandonar el pago.
+    const indicePlan = items.findIndex((i) => TIPOS_PLAN.has(i.tipo));
+    if (indicePlan >= 0) {
+      const cupon = await buscarCuponDescuentoPlan(patente, db);
+      if (cupon) {
+        items[indicePlan].monto = precioConCupon(items[indicePlan].monto, cupon);
+        items[indicePlan].cuponCodigo = cupon.codigo;
+      }
+    }
+
     const montoTotal = items.reduce((sum, i) => sum + i.monto, 0);
     // Separado del chequeo de abajo: NaN/Infinity es un error real de
     // cálculo (500), pero $0 puede ser un precio legítimo (ej. un tramo de
@@ -265,6 +287,7 @@ export async function POST(request: NextRequest) {
         direccion: item.direccion,
         giro: item.giro,
         email: item.email,
+        cuponCodigo: item.cuponCodigo ?? null,
       }))
     );
 

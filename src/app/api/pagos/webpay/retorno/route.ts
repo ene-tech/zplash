@@ -216,6 +216,9 @@ async function procesarRetorno(
                   metodoPago: "tarjeta",
                   creadoPor: "Automático (Webpay)",
                   horasVentanaUpgrade: config.horasVentanaUpgradePlan,
+                  // Cupón que /crear ya restó del monto cobrado: acá se quema,
+                  // en la misma transacción que crea la venta.
+                  cuponCodigo: item.cuponCodigo,
                 },
                 tx2
               );
@@ -253,6 +256,7 @@ async function procesarRetorno(
                 direccion: item.direccion,
                 giro: item.giro,
                 email: item.email,
+                cuponCodigo: item.cuponCodigo,
               },
               tx2
             );

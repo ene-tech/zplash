@@ -37,7 +37,6 @@ const GRUPOS: Campo[][] = [
   [{ key: "textoContratarPlan", label: "Opción 2 — Quiero contratar el plan" }],
   [{ key: "horarioUbicacion", label: "Opción 3 — Horario y ubicación" }],
   [{ key: "contactoHumano", label: "Opción 4 — Hablar con una persona" }],
-  [{ key: "mensajeNoEntendido", label: "Mensaje cuando no se entiende lo escrito" }],
   [{ key: "patenteNoEncontrada", label: "Cuando la patente consultada no existe" }],
   [
     {

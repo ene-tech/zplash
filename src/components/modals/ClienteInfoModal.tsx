@@ -15,7 +15,7 @@ import {
   fmtCLP,
   fmtDate,
   fmtFecha,
-  inicioPeriodoPlan,
+  periodoPlan,
   visitasDesdeContratacion,
   visitasPeriodoPlan,
   visitasUltimos30Dias,
@@ -27,9 +27,11 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const { data: appData, patchUi, loadingHistorial } = useApp();
-  const inicioPeriodo = inicioPeriodoPlan(c.fechaContratacion);
-  const finPeriodo = new Date(inicioPeriodo);
-  finPeriodo.setDate(finPeriodo.getDate() + 29);
+  const { inicio: inicioPeriodo, fin } = periodoPlan(c.fechaContratacion);
+  // `fin` es exclusivo (inicio del ciclo siguiente); el período se muestra
+  // hasta el día anterior, que es el que el cliente ve como vencimiento.
+  const finPeriodo = new Date(fin);
+  finPeriodo.setDate(finPeriodo.getDate() - 1);
   const visitasPeriodo = visitasPeriodoPlan(appData.ingresos, c);
   const tienePlan = !!c.vencimiento;
   const visitasPlan = tienePlan ? visitasDesdeContratacion(appData.ingresos, c) : visitasUltimos30Dias(appData.ingresos, c.id);

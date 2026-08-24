@@ -6,8 +6,11 @@ import {
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   PLAN_X5,
   enPlazoDePagoPlan,
+  finCicloPlan,
+  ilimitadoHastaAlRenovar,
   planStatus,
   sigueVigenteHoy,
+  sumarMesesFecha,
   ventaLavadoUnicoDeIngreso,
 } from "@/lib/helpers";
 
@@ -232,20 +235,26 @@ export function renovarPlan(
     !!cliente.vencimiento &&
     (sigueVigenteHoy(cliente.vencimiento) ||
       (anclarAtraso && enPlazoDePagoPlan(cliente, data.config.diasGraciaPagoAtrasado)));
-  const base = anclarAlVencimiento ? new Date(cliente.vencimiento!) : new Date();
+  // Anclado: un mes más sobre el vencimiento vigente, que ya es "el día
+  // anterior" del mes (ver finCicloPlan). Desde cero: mes completo contado
+  // desde hoy, o sea hasta el día anterior del mes que viene.
+  let base = anclarAlVencimiento ? sumarMesesFecha(new Date(cliente.vencimiento!), 1) : finCicloPlan(new Date());
   // Con un plazo de gracia largo, el vencimiento anclado podría nacer ya
   // vencido (misma red de seguridad que vencimientoAnclado): en ese caso se
   // suma otro ciclo hasta que quede en el futuro.
-  do {
-    base.setDate(base.getDate() + 30);
-  } while (base <= new Date());
+  while (base <= new Date()) base = sumarMesesFecha(base, 1);
   // La renovación es el momento en que un cliente del plan ilimitado viejo
   // pasa al X5: el ilimitado dejó de ofrecerse, así que renovar deja a
   // cualquier cliente en el plan que se vende hoy, lave mucho o poco.
   const plan = PLAN_X5;
+  // Lo que NO cambia es el mes que ese cliente ya tenía comprado sin tope: si
+  // renovó antes de vencer, se le respeta hasta que termine y el X5 que paga
+  // hoy le rige recién desde el mes siguiente (ver ilimitadoHastaAlRenovar).
+  const ilimitadoHasta = ilimitadoHastaAlRenovar(cliente);
   const clienteActualizado: Cliente = {
     ...cliente,
     plan,
+    ilimitadoHasta,
     vencimiento: base.toISOString(),
     ultimaRenovacion: new Date().toISOString(),
   };

@@ -14,6 +14,7 @@ import type { Empresa } from "./empresas";
 import type {
   ContratoFuncionario,
   MarcaAsistencia,
+  ReglaOperador,
   TareaTurno,
   TareaTurnoHecha,
   TurnoFuncionario,
@@ -76,6 +77,7 @@ export interface AppData {
   tareasTurnoHechas: TareaTurnoHecha[];
   marcasAsistencia: MarcaAsistencia[];
   contratosFuncionario: ContratoFuncionario[];
+  reglasOperador: ReglaOperador[];
 }
 
 export * from "./agenda";

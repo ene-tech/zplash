@@ -49,10 +49,6 @@ Sábado, domingo y festivos: 10:00 - 19:00`,
 
   contactoHumano: `Un miembro de nuestro equipo te va a contactar por este mismo WhatsApp. También puedes llamar al +56 9 3905 9611.`,
 
-  mensajeNoEntendido: `No entendí tu mensaje 🤔
-
-Escribe *menu* para ver las opciones, o envía tu *patente* para consultar tu plan.`,
-
   patenteNoEncontrada: `No encontramos ningún cliente con esa patente. Verifica que esté bien escrita (ej. AB1234) o escribe *3* para hablar con una persona.`,
 
   textoDescuentoInstrucciones: `🎉 ¡Bienvenido a ZPlash!

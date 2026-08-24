@@ -7,6 +7,7 @@ import { clienteFromRow, movimientoToRow, ventaFromRow } from "@/lib/dataAccess"
 import { PLANES, movimientoContableDesdeVenta, vencimientoPorDefectoISO, ventaUpgradeElegible } from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
+import { consumirCupon } from "./cuponPlan";
 import type { Venta } from "@/types";
 
 interface AplicarUpgradeParams {
@@ -20,6 +21,10 @@ interface AplicarUpgradeParams {
   // también llama esta función (cobro directo con tarjeta guardada, sin
   // pasar por Webpay) y necesita distinguirlo en el historial.
   tipoVenta?: string;
+  // Cupón de descuento ya restado de `monto` — mismo trato que en
+  // aplicarPagoAprobado: acá solo se sella la venta y se quema, en esta misma
+  // transacción.
+  cuponCodigo?: string | null;
 }
 
 /**
@@ -74,7 +79,13 @@ export async function aplicarUpgradePlan(p: AplicarUpgradeParams, db: DbOrTx = g
     metodoPago: p.metodoPago,
     esServicioAdicional: false,
     creadoPor: p.creadoPor,
+    viaCupon: !!p.cuponCodigo,
+    cuponCodigo: p.cuponCodigo || null,
   });
+
+  if (p.cuponCodigo && !(await consumirCupon(p.cuponCodigo, p.patente, p.creadoPor, db))) {
+    console.error("Cupón ya usado al aplicar un upgrade de plan", p.cuponCodigo, p.patente, p.ventaId);
+  }
 
   const venta: Venta = {
     id: p.ventaId,

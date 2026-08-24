@@ -76,7 +76,18 @@ export default function HubView() {
           <button className="role-btn" onClick={() => patchUi({ view: "funcionario" })}>
             <div className="icon">🧑‍🔧</div>
             <div className="label">Mi Entorno</div>
-            <div className="desc">Asistencia, turno, tareas de apertura/cierre y contrato</div>
+            <div className="desc">Mi horario, mis tareas del día y mi contrato</div>
+          </button>
+        )}
+        {/* La contracara de Mi Entorno: acá se puebla lo que allá se ve. Gateada
+            con "perfiles" y no con un módulo nuevo porque es exactamente el
+            permiso que ya exige el servidor para guardar horarios, tareas y
+            contratos (ver @/lib/serverActions/funcionario). */}
+        {modulos.includes("perfiles") && (
+          <button className="role-btn" onClick={() => patchUi({ view: "equipo" })}>
+            <div className="icon">🗓️</div>
+            <div className="label">Gestión de Equipo</div>
+            <div className="desc">Asignar horarios, encargados de zona, tareas y contratos</div>
           </button>
         )}
         {modulos.includes("mensajes") && (

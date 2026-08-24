@@ -12,7 +12,7 @@ const PREGUNTAS_PLAN_MENSUAL = [
   {
     q: "¿Qué incluye el Plan X5?",
     a: [
-      "5 lavados Full Túnel durante los 30 días desde la contratación.",
+      "5 lavados Full Túnel durante el mes que va desde la contratación.",
       "Máximo 1 ingreso cada 24 horas.",
       "Aspirado autoservicio sin límite de tiempo, en cada uno de los 5 lavados, después de pasar por el túnel.",
       "Válido para una patente; puede cambiarse al término del período.",
@@ -71,7 +71,7 @@ export default async function PlanMensualPage() {
           descripcion="5 lavados por el túnel al mes (un ingreso al día). Ideal para quienes usan el auto a diario y quieren mantenerlo siempre limpio sin pensar en pagar cada vez."
           imagen="/fondo-producto.jpg"
           features={[
-            { icon: <Car />, titulo: "5 lavados al mes", detalle: "Un ingreso al día por el túnel, durante los 30 días desde la contratación." },
+            { icon: <Car />, titulo: "5 lavados al mes", detalle: "Un ingreso al día por el túnel, durante el mes que va desde la contratación." },
             { icon: <CreditCard />, titulo: "Dos formas de pagar", detalle: "Mes a mes con tarjeta, o renovación automática más barata." },
             { icon: <Bell />, titulo: "Te avisamos antes de que venza", detalle: "Para que no te quedes sin plan sin darte cuenta." },
           ]}

@@ -1,18 +1,55 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { citaServicios, citas, ingresos, precios, servicios, suscripcionesOneclick, ventas } from "@/db/schema";
+import { citaServicios, citas, cupones, ingresos, precios, servicios, suscripcionesOneclick, ventas } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { aceptoPoliticas, getClientesByIds } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
+import { cuponFromRow } from "@/lib/dataAccess/cupones";
 import { preciosFromRows } from "@/lib/dataAccess/precios";
-import { calcularOfertasPlan, inicioProximoPeriodoPlan, pasesIncluidos, visitasPeriodoPlan, type OfertaPlan } from "@/lib/helpers";
+import {
+  beneficioCupon,
+  calcularOfertasPlan,
+  estadoCupon,
+  inicioProximoPeriodoPlan,
+  ofertaConCupon,
+  pasesIncluidos,
+  planVigente,
+  visitasPeriodoPlan,
+  type OfertaPlan,
+} from "@/lib/helpers";
 import { ingresoFromRow } from "@/lib/dataAccess/ingresos";
+import { buscarCuponDescuentoPlan } from "@/lib/pagos";
 import { ventaFromRow } from "@/lib/dataAccess/ventas";
+import type { Cupon } from "@/types";
 
 export const runtime = "nodejs";
 
 const LIMITE_COMPRAS = 20;
+
+// Tickets ("vale") y cupones de descuento atados a la cuenta por correo: los de
+// un Pack Empresa comprado por web y los que el cliente sumó a mano en "Mis
+// tickets y cupones" (ver /agregar-cupon). Se sirven desde acá y no desde el
+// /api/empresa/tickets público justamente para poder mostrar el beneficio: ese
+// endpoint se consulta por RUT/email sin sesión y a propósito no expone `valor`.
+async function cuponesDeLaCuenta(email: string) {
+  const filas = await getDb()
+    .select()
+    .from(cupones)
+    .where(sql`lower(${cupones.email}) = ${email.trim().toLowerCase()}`)
+    .orderBy(desc(cupones.creadoEn));
+  return filas.map(cuponFromRow).map((c) => ({
+    codigo: c.codigo,
+    nombreLote: c.nombreLote,
+    numeroLote: c.numeroLote,
+    totalLote: c.totalLote,
+    estado: estadoCupon(c).label,
+    beneficio: beneficioCupon(c),
+    // patenteUso solo existe una vez canjeado; hasta entonces se muestra la
+    // patente a la que quedó atado el descuento (null = lo puede usar cualquiera).
+    patente: c.patenteUso || c.patenteAsignada || null,
+  }));
+}
 
 export async function GET() {
   const sesion = await leerSesionCliente();
@@ -23,7 +60,11 @@ export async function GET() {
   // politicasAceptadas va por email y no por patente, así que también hay que
   // devolverlo en el early return de abajo: una cuenta sin vehículos igual
   // tiene que poder aceptar las políticas.
-  const [clientesEncontrados, politicasOk] = await Promise.all([getClientesByIds(sesion.clienteIds), aceptoPoliticas(sesion.email)]);
+  const [clientesEncontrados, politicasOk, cuponesCuenta] = await Promise.all([
+    getClientesByIds(sesion.clienteIds),
+    aceptoPoliticas(sesion.email),
+    cuponesDeLaCuenta(sesion.email),
+  ]);
   const patentes = clientesEncontrados.map((c) => c.patente);
   if (!patentes.length) {
     return NextResponse.json({
@@ -33,6 +74,10 @@ export async function GET() {
       renovacionesLegacy: [],
       ofertas: {},
       lavados: {},
+      // Una cuenta sin vehículos igual puede tener tickets: el comprador de un
+      // Pack Empresa no necesita tener patentes propias en ZPlash.
+      cupones: cuponesCuenta,
+      descuentos: {},
       politicasAceptadas: politicasOk,
     });
   }
@@ -69,15 +114,26 @@ export async function GET() {
     db.select().from(precios),
   ]);
 
+  // Cupón de descuento vigente por patente — el MISMO lookup que usan los dos
+  // caminos que cobran un plan (ver buscarCuponDescuentoPlan): las tarjetas de
+  // plan de Mi Cuenta anuncian el precio y disparan el cobro con ese mismo
+  // número, así que tienen que mostrarlo ya rebajado.
+  const cuponesPorPatente = new Map<string, Cupon>();
+  for (const [patente, cupon] of await Promise.all(patentes.map(async (p) => [p, await buscarCuponDescuentoPlan(p)] as const))) {
+    if (cupon) cuponesPorPatente.set(patente, cupon);
+  }
+
   const preciosMap = preciosFromRows(preciosRows);
   const ventasPorCliente = ventasClienteRows.map(ventaFromRow);
   const ingresosPorCliente = ingresosClienteRows.map(ingresoFromRow);
   const ofertas: Record<string, OfertaPlan> = {};
   // Pasadas usadas en el ciclo vigente, solo para planes con tope (X5 —
-  // pasesIncluidos devuelve null para el ilimitado viejo y para sin plan).
+  // pasesIncluidos devuelve null para el ilimitado viejo y para sin plan, y
+  // planVigente cubre al que renovó anticipado y todavía le corre el mes sin
+  // tope que ya tenía comprado).
   const lavados: Record<string, { usados: number; incluidos: number; reponeEl: string }> = {};
   for (const c of clientesEncontrados) {
-    const incluidos = pasesIncluidos(c.plan);
+    const incluidos = pasesIncluidos(planVigente(c));
     if (incluidos !== null) {
       lavados[c.patente] = {
         usados: visitasPeriodoPlan(ingresosPorCliente, c),
@@ -92,7 +148,7 @@ export async function GET() {
       config,
       preciosMap
     );
-    if (Object.keys(oferta).length) ofertas[c.patente] = oferta;
+    if (Object.keys(oferta).length) ofertas[c.patente] = ofertaConCupon(oferta, cuponesPorPatente.get(c.patente));
   }
 
   const citaIds = citasRows.map((c) => c.id);
@@ -141,6 +197,10 @@ export async function GET() {
     // upgrade) — mismas que ve el Operador, ver @/lib/helpers/ofertasPlan.
     ofertas,
     lavados,
+    cupones: cuponesCuenta,
+    // Cupón que se está aplicando a las tarjetas de plan de cada patente, para
+    // que el cliente vea de dónde sale el precio más bajo y no parezca un error.
+    descuentos: Object.fromEntries([...cuponesPorPatente].map(([p, c]) => [p, { codigo: c.codigo, beneficio: beneficioCupon(c) }])),
     politicasAceptadas: politicasOk,
   });
 }

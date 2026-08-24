@@ -37,10 +37,20 @@ export function sumarDias(fecha: string, delta: number): string {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
-export function sumarMeses(fecha: string, delta: number): string {
-  const d = new Date(`${fecha}T00:00:00`);
+/** Suma `delta` meses calendario, clampando al último día del mes destino
+ * cuando el día no existe ahí (31 ene + 1 mes = 28 feb, y no el 3 de marzo al
+ * que se desborda `setMonth` solo). Base del ciclo mensual de los planes —
+ * ver finCicloPlan en ./clientes. */
+export function sumarMesesFecha(fecha: Date, delta: number): Date {
+  const d = new Date(fecha);
+  const dia = d.getDate();
   d.setMonth(d.getMonth() + delta);
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  if (d.getDate() !== dia) d.setDate(0);
+  return d;
+}
+
+export function sumarMeses(fecha: string, delta: number): string {
+  return ymd(sumarMesesFecha(new Date(`${fecha}T00:00:00`), delta));
 }
 
 export function ymd(d: Date): string {

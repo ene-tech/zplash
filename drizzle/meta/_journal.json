@@ -526,6 +526,48 @@
       "when": 1787181250019,
       "tag": "0074_estanques_orden",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1787412792801,
+      "tag": "0075_turno_puesto",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1787416475936,
+      "tag": "0076_zona_checklist",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1787416483309,
+      "tag": "0077_turno_zona",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1787416563368,
+      "tag": "0078_cupon_en_pago_webpay",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1787524999204,
+      "tag": "0079_turno_partido",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1787527044696,
+      "tag": "0080_reglas_operador",
+      "breakpoints": true
     }
   ]
 }

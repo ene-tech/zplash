@@ -40,12 +40,6 @@ export function extraerPatente(payload: Record<string, unknown>): string {
   return normPlate(candidatos.find((c) => c && c.trim()) || "");
 }
 
-export function addDaysISO(iso: string, dias: number): string {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + dias);
-  return d.toISOString();
-}
-
 /** Mismo criterio de búsqueda que ya usaba el webhook de pedidos: por patente primero, por email si no hay match. */
 export async function buscarClienteExistente(patente: string, email: string): Promise<typeof clientes.$inferSelect | undefined> {
   const db = getDb();
@@ -64,9 +58,9 @@ export async function buscarClienteExistente(patente: string, email: string): Pr
 // pedido de renovación con IDs distintos para el mismo ciclo de un mismo
 // cliente, separados por minutos u horas — cada uno pasa la firma HMAC y
 // tiene un orderId legítimo, así que el chequeo de "mismo orderId ya
-// procesado" en route.ts no lo detecta, y cada uno apilaba 30 días más de
+// procesado" en route.ts no lo detecta, y cada uno apilaba un mes más de
 // vencimiento sin que hubiera 2 pagos reales de por medio en todos los casos.
-// 3 días de ventana porque ningún ciclo real de renovación (30 días) debería
+// 3 días de ventana porque ningún ciclo real de renovación (un mes) debería
 // generar dos pedidos "Renovación"/"Plan nuevo" tan seguidos para la misma
 // patente.
 const VENTANA_RENOVACION_SOSPECHOSA_MS = 3 * 24 * 60 * 60 * 1000;

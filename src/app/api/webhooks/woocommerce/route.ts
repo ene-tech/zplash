@@ -7,13 +7,16 @@ import {
   PLANES,
   formatTelefono,
   movimientoContableDesdeVenta,
+  ilimitadoHastaAlRenovar,
   resolverPatentePendiente,
   sigueVigenteHoy,
+  sumarMesesFecha,
   vencimientoAnclado,
+  vencimientoPorDefectoISO,
 } from "@/lib/helpers";
 import { visitasPeriodoActual } from "@/lib/pagos";
 import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
-import { addDaysISO, buscarClienteExistente, extraerPatente, huboRenovacionWebReciente, verificarFirma } from "./shared";
+import { buscarClienteExistente, extraerPatente, huboRenovacionWebReciente, verificarFirma } from "./shared";
 
 export const runtime = "nodejs";
 // Reexportado para no romper route.test.ts, que prueba la firma HMAC contra este módulo.
@@ -115,7 +118,7 @@ export async function POST(request: NextRequest) {
   // apilar sobre (o anclar a) el ciclo que el cliente ya había cancelado.
   const recontratacion = !!(existente && existente.suscripcionCanceladaEn);
   // Duplicado sospechoso: ver huboRenovacionWebReciente en ./shared — no
-  // apila otro ciclo de 30 días a ciegas, deja el vencimiento como estaba y
+  // apila otro ciclo mensual a ciegas, deja el vencimiento como estaba y
   // marca la venta para que un operador la revise (ver más abajo, creadoPor).
   let duplicadoSospechoso = false;
 
@@ -123,12 +126,12 @@ export async function POST(request: NextRequest) {
     clienteId = existente.id;
     let nuevoVencimiento: string;
     if (recontratacion) {
-      nuevoVencimiento = addDaysISO(fechaOrden, 30);
+      nuevoVencimiento = vencimientoPorDefectoISO(new Date(fechaOrden));
     } else {
       duplicadoSospechoso = await huboRenovacionWebReciente(existente.id, fechaOrden);
       if (duplicadoSospechoso) {
         console.warn(`Pedido WooCommerce #${orderId}: renovación reciente ya registrada para el cliente ${existente.id}, no se extiende el vencimiento (revisar manualmente)`);
-        nuevoVencimiento = existente.vencimiento || addDaysISO(fechaOrden, 30);
+        nuevoVencimiento = existente.vencimiento || vencimientoPorDefectoISO(new Date(fechaOrden));
       } else {
         // Si el plan sigue vigente, se apila un ciclo más desde ahí. Si ya
         // venció (mismo criterio que aplicarPagoAprobado y renovarWeb, ver
@@ -141,7 +144,7 @@ export async function POST(request: NextRequest) {
         // marcaba como "ya vencido" un plan que técnicamente vencía más
         // tarde ese mismo día — ver sigueVigenteHoy para el caso real.
         nuevoVencimiento = sigueVigenteHoy(existente.vencimiento)
-          ? addDaysISO(existente.vencimiento!, 30)
+          ? sumarMesesFecha(new Date(existente.vencimiento!), 1).toISOString()
           : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
       }
     }
@@ -178,6 +181,11 @@ export async function POST(request: NextRequest) {
           email: email || existente.email,
           vencimiento: nuevoVencimiento,
           plan: planResultante,
+          // Igual que en el mesón: al que venía del ilimitado viejo y renovó
+          // antes de vencer se le respeta sin tope el mes que ya tenía
+          // comprado (ver ilimitadoHastaAlRenovar). En la excepción de arriba
+          // —plan intacto— no cambia nada: ese cliente sigue sin tope igual.
+          ilimitadoHasta: ilimitadoHastaAlRenovar(anterior),
           patente: fila.patente ?? anterior.patente,
           patentePendiente: fila.patentePendiente || null,
           patentePendienteDesde: fila.patentePendienteDesde || null,
@@ -205,7 +213,7 @@ export async function POST(request: NextRequest) {
     }
   } else {
     clienteId = "c" + Date.now() + Math.floor(Math.random() * 1000);
-    const vencimiento = addDaysISO(fechaOrden, 30);
+    const vencimiento = vencimientoPorDefectoISO(new Date(fechaOrden));
     try {
       await db.insert(clientes).values({
         id: clienteId,

@@ -1,4 +1,4 @@
-import { boolean, index, integer, numeric, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, integer, numeric, pgTable, text } from "drizzle-orm/pg-core";
 import { perfiles } from "./perfiles";
 import { timestamptz } from "./shared";
 
@@ -7,10 +7,12 @@ import { timestamptz } from "./shared";
 // (ver perfiles.ts) es la persona — acá va todo lo laboral que cuelga de él.
 
 // Horario de trabajo Y función asignada en una sola tabla: una fila por
-// perfil y día de la semana. `turno` es la función del día ("apertura" abre el
-// local, "cierre" lo cierra, "normal" ni una ni la otra) y es lo que decide
-// qué checklist de tareas_turno le toca (ver tareasDelTurno en
+// perfil y TRAMO horario del día. `turno` es la función del día ("apertura"
+// abre el local, "cierre" lo cierra, "normal" ni una ni la otra) y es lo que
+// decide qué checklist de tareas_turno le toca (ver tareasDelTurno en
 // @/lib/helpers/funcionario). Sin fila para un día = ese día no trabaja.
+// Dos filas el mismo día = turno partido: mañana y tarde con la colación
+// entre medio (por eso el índice de perfil+día NO es único).
 export const turnosFuncionario = pgTable(
   "turnos_funcionario",
   {
@@ -20,22 +22,53 @@ export const turnosFuncionario = pgTable(
       .references(() => perfiles.id, { onDelete: "cascade" }),
     diaSemana: integer("dia_semana").notNull(), // 0 = domingo … 6 = sábado, igual que Date.getDay()
     turno: text("turno").notNull().default("normal"),
+    // Zona del local a cargo ese día: "prelavado" o "aspirados". Cada zona se
+    // abre y se cierra por separado, con su encargado y su checklist propio.
+    // La reparte el configurador de Apertura y Cierre (solo Administración y
+    // Gerencia, ver esAdministracionOGerencia); null = ese día trabaja pero no
+    // es encargado de ninguna zona.
+    zona: text("zona"), // "prelavado" | "aspirados" | null
     horaInicio: text("hora_inicio").notNull(), // "HH:MM"
     horaFin: text("hora_fin").notNull(),
     activo: boolean("activo").notNull().default(true),
   },
-  (t) => [uniqueIndex("turnos_funcionario_perfil_dia_idx").on(t.perfilId, t.diaSemana)]
+  (t) => [index("turnos_funcionario_perfil_dia_idx").on(t.perfilId, t.diaSemana)]
 );
 
-// Catálogo de tareas obligatorias de apertura y de cierre (ej. "Cortar matriz
-// general de agua" al cerrar, "Purgar agua de compresores" al abrir),
-// administrable por Gerencia. `orden` es el orden en que se ejecutan en el
-// local, no alfabético — la lista es una secuencia, no un set.
+// Tope horario de un operador: los días en que aplica y la ventana dentro de
+// la que puede trabajar esos días ("Carlos, de lunes a viernes, hasta las
+// 18:30, porque estudia de noche"). Los días que no están en `dias` no tienen
+// tope: la regla acota el horario, no arma el calendario. Una fila por perfil
+// —el id ES el perfil_id— y no tener fila es no tener tope. NO es un permiso
+// del sistema: es una política de a quién se le puede asignar qué turno, y la
+// hacen cumplir las pantallas que reparten horario (ver motivoFueraDeRegla en
+// @/lib/helpers/funcionario).
+export const reglasOperador = pgTable("reglas_operador", {
+  id: text("id")
+    .primaryKey()
+    .references(() => perfiles.id, { onDelete: "cascade" }),
+  dias: text("dias").notNull(), // días en que APLICA el tope, "1,2,3,4,5" (0 = domingo)
+  horaDesde: text("hora_desde").notNull(), // "HH:MM", esos días no puede entrar antes
+  horaHasta: text("hora_hasta").notNull(), // "HH:MM", esos días no puede quedarse después
+  // Combos turno|zona que NO puede tomar, "apertura|prelavado,cierre|aspirados".
+  // Vacío = puede abrir y cerrar cualquier sector.
+  vetados: text("vetados"),
+  notas: text("notas"),
+});
+
+// Catálogo de tareas obligatorias de apertura y de cierre, administrable por
+// Gerencia. Son cuatro checklists, uno por turno y zona (apertura/cierre ×
+// prelavado/aspirados): "Purgar agua de compresores" al abrir prelavado,
+// "Cortar matriz general de agua" al cerrar aspirados. `orden` es el orden en
+// que se ejecutan en el local, no alfabético — es una secuencia, no un set.
 export const tareasTurno = pgTable(
   "tareas_turno",
   {
     id: text("id").primaryKey(),
     turno: text("turno").notNull(), // "apertura" | "cierre"
+    // El default existe solo para las tareas que ya estaban cargadas cuando el
+    // checklist se dividió por zona: las nuevas siempre traen la suya.
+    zona: text("zona").notNull().default("prelavado"), // "prelavado" | "aspirados"
     descripcion: text("descripcion").notNull(),
     orden: integer("orden").notNull().default(0),
     activo: boolean("activo").notNull().default(true),
@@ -43,8 +76,8 @@ export const tareasTurno = pgTable(
   (t) => [index("tareas_turno_turno_idx").on(t.turno)]
 );
 
-// Una tarea del checklist efectivamente hecha, un día y un turno concretos.
-// El id es determinista (`fecha|turno|tareaId`, ver idTareaHecha en
+// Una tarea del checklist efectivamente hecha, un día, un turno y una zona
+// concretos. El id es determinista (`fecha|turno|zona|tareaId`, ver idTareaHecha en
 // @/lib/helpers/funcionario): marcar dos veces la misma tarea es el mismo
 // upsert, y desmarcarla es borrar esa fila — no hay forma de duplicar el
 // cumplimiento de una tarea ni de que dos pestañas abiertas peleen por ella.
@@ -56,6 +89,7 @@ export const tareasTurnoHechas = pgTable(
     id: text("id").primaryKey(),
     fecha: text("fecha").notNull(), // YYYY-MM-DD, día de caja (ver diaCaja en @/lib/helpers)
     turno: text("turno").notNull(),
+    zona: text("zona").notNull().default("prelavado"),
     tareaId: text("tarea_id").notNull(),
     perfilId: text("perfil_id").notNull(),
     perfilNombre: text("perfil_nombre").notNull(),

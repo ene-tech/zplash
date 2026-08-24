@@ -1,5 +1,5 @@
 import type { AppData, Empresa } from "@/types";
-import { PLANES, formatRut, formatTelefono, isValidPatente, isValidRut, normPlate, uid } from "@/lib/helpers";
+import { PLANES, formatRut, formatTelefono, isValidPatente, isValidRut, normPlate, uid, vencimientoPorDefectoISO } from "@/lib/helpers";
 
 function getField(row: Record<string, unknown>, ...names: string[]): string {
   const keys = Object.keys(row);
@@ -58,9 +58,7 @@ export function importarClientes(data: AppData, rows: Record<string, unknown>[])
     );
     let vencimiento: string | null = null;
     if (fechaContratacion) {
-      const v = new Date(fechaContratacion);
-      v.setDate(v.getDate() + 30);
-      vencimiento = v.toISOString();
+      vencimiento = vencimientoPorDefectoISO(new Date(fechaContratacion));
     }
     const tipoDocRaw = getField(row, "tipo documento", "tipodocumento", "documento");
     const tipoDocumento: "Boleta" | "Factura" = tipoDocRaw && tipoDocRaw.toLowerCase().startsWith("fact") ? "Factura" : "Boleta";

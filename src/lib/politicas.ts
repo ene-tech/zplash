@@ -8,7 +8,7 @@
 // aparecer y se pide aceptar la versión nueva, sin borrar el registro de
 // haber aceptado la anterior. Súbela cuando cambie algo que le importe al
 // cliente (plazos, garantía, cobros), no por una corrección de redacción.
-export const POLITICAS_VERSION = "2026-08-19";
+export const POLITICAS_VERSION = "2026-08-23";
 
 // A propósito sin cifras que sean configurables desde Configuración
 // (horasBloqueoReingresoPlan, vigenciaDiasPackEmpresa, tramos de promoción):
@@ -29,7 +29,7 @@ export const POLITICAS: { titulo: string; puntos: string[] }[] = [
   {
     titulo: "1. Plan X5",
     puntos: [
-      "Tiene una vigencia de 30 días corridos contados desde la fecha de contratación.",
+      "Tiene una vigencia de un mes: va desde la fecha de contratación hasta el día anterior en el mes siguiente (contratado el 23, vence el 22).",
       "Incluye 5 lavados Full Túnel dentro de ese período, con un máximo de un ingreso cada 24 horas.",
       "Usadas las 5 pasadas, el lavado Full Túnel adicional tiene un precio preferencial de $3.990 por lo que queda del período. Ese valor es exclusivo para el vehículo que tiene el plan.",
       "Los planes contratados antes del Plan X5 mantienen los lavados ilimitados que se les ofrecieron, y pasan al Plan X5 cuando renuevan.",

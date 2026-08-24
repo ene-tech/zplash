@@ -1,0 +1,1 @@
+ALTER TABLE "turnos_funcionario" ADD COLUMN "zona" text;

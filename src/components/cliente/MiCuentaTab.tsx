@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fmtCLP, fmtDate, fmtFecha } from "@/lib/helpers";
 import type { OfertaPlan } from "@/lib/helpers";
 import { useSesionCliente } from "@/hooks/useSesionCliente";
-import { TicketsEmpresaSection } from "@/components/cliente/miCuenta/TicketsEmpresaSection";
+import { TicketsYCuponesSection, type CuponCuenta } from "@/components/cliente/miCuenta/TicketsYCuponesSection";
 import { VehiculoCard } from "@/components/cliente/miCuenta/VehiculoCard";
 import { AgregarPatente } from "@/components/cliente/miCuenta/AgregarPatente";
 import { OtpLoginForm } from "@/components/cliente/miCuenta/OtpLoginForm";
@@ -63,6 +63,8 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
   const [tarjetas, setTarjetas] = useState<Tarjeta[]>([]);
   const [detailing, setDetailing] = useState<Detailing[]>([]);
   const [compras, setCompras] = useState<Compra[]>([]);
+  const [cupones, setCupones] = useState<CuponCuenta[]>([]);
+  const [descuentos, setDescuentos] = useState<Record<string, { codigo: string; beneficio: string }>>({});
   const [renovacionesLegacy, setRenovacionesLegacy] = useState<RenovacionLegacy[]>([]);
   const [ofertas, setOfertas] = useState<Record<string, OfertaPlan>>({});
   const [lavados, setLavados] = useState<Record<string, LavadosPeriodo>>({});
@@ -83,6 +85,8 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
             renovacionesLegacy: RenovacionLegacy[];
             ofertas: Record<string, OfertaPlan>;
             lavados: Record<string, LavadosPeriodo>;
+            cupones: CuponCuenta[];
+            descuentos: Record<string, { codigo: string; beneficio: string }>;
             politicasAceptadas: boolean;
           } | null
         ) => {
@@ -93,6 +97,8 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
           setRenovacionesLegacy(data.renovacionesLegacy || []);
           setOfertas(data.ofertas || {});
           setLavados(data.lavados || {});
+          setCupones(data.cupones || []);
+          setDescuentos(data.descuentos || {});
           setPoliticasAceptadas(data.politicasAceptadas);
         }
       );
@@ -116,7 +122,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
       {politicasAceptadas === false && <AvisoPoliticas onAceptado={() => setPoliticasAceptadas(true)} />}
       <ActivarNotificaciones />
       <FilaEnVivo />
-      <TicketsEmpresaSection key={sesion.email} email={sesion.email} />
+      <TicketsYCuponesSection cupones={cupones} vehiculos={sesion.vehiculos} onAgregado={cargarMiCuenta} />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <h3 style={{ margin: 0 }}>Mis vehículos</h3>
@@ -137,6 +143,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
                 v={v}
                 oferta={ofertas[v.patente]}
                 lavados={lavados[v.patente]}
+                descuento={descuentos[v.patente]}
                 tarjeta={tarjetaActiva ? { cardTipo: tarjetaActiva.cardTipo, cardUltimosDigitos: tarjetaActiva.cardUltimosDigitos } : undefined}
                 email={sesion.email}
                 onActualizado={refrescar}

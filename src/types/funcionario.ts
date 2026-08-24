@@ -9,23 +9,63 @@ export type TurnoTipo = "apertura" | "cierre" | "normal";
 /** Los dos turnos que tienen checklist propio (ver TareaTurno). */
 export type TurnoConTareas = Exclude<TurnoTipo, "normal">;
 
-/** Una fila del horario semanal de un funcionario: qué día trabaja, en qué
- * horario y con qué función. No tener fila para un día = ese día no trabaja. */
+/** Las dos zonas del local: se abren y se cierran por separado, cada una con
+ * su encargado y su checklist propio. De ahí que haya cuatro checklists
+ * (turno × zona), no dos. Lo asigna el configurador de Apertura y Cierre. */
+export type ZonaTurno = "prelavado" | "aspirados";
+
+/** Un tramo del horario semanal de un funcionario: qué día trabaja, en qué
+ * horario y con qué función. No tener fila para un día = ese día no trabaja;
+ * dos filas el mismo día = turno partido, con la colación en el hueco. */
 export interface TurnoFuncionario {
   id: string;
   perfilId: string;
   diaSemana: number; // 0 = domingo … 6 = sábado, igual que Date.getDay()
   turno: TurnoTipo;
+  /** Zona a cargo ese día; null = trabaja sin ser encargado de ninguna. */
+  zona?: ZonaTurno | null;
   horaInicio: string; // "HH:MM"
   horaFin: string;
   activo: boolean;
 }
 
-/** Tarea obligatoria de apertura o de cierre (ej. "Cortar matriz general de
- * agua"). `orden` es la secuencia en que se ejecutan en el local. */
+/** El tope horario de un operador: los días en que APLICA y la ventana dentro
+ * de la que puede trabajar esos días (los demás días trabaja sin tope). El id
+ * ES el id del perfil (una regla por persona) y no tener regla es no tener
+ * tope. Ver motivoFueraDeRegla. */
+export interface ReglaOperador {
+  id: string;
+  /** Días en que aplica el tope, 0 = domingo … 6 = sábado. */
+  dias: number[];
+  horaDesde: string; // "HH:MM"
+  horaHasta: string;
+  notas?: string;
+  /** Combos turno|zona (ver claveTurnoZona) que NO puede tomar: "cierre|aspirados".
+   * Vacío = puede abrir y cerrar cualquier sector. */
+  vetados?: string[];
+}
+
+/** Cuánta gente necesita el local en una franja horaria de ciertos días: "los
+ * sábados de 12:00 a 16:00, 4 operadores". Es el requerimiento, no el horario:
+ * el creador de horario lo tiene que satisfacer (ver proponerHorario) y la
+ * pantalla avisa cuando la semana asignada se queda corta (ver avisosDotacion).
+ * Dos franjas que se pisan no se suman: cada una pide "al menos N". */
+export interface TramoDotacion {
+  id: string;
+  /** Días que cubre, 0 = domingo … 6 = sábado. */
+  dias: number[];
+  desde: string; // "HH:MM"
+  hasta: string;
+  cantidad: number;
+}
+
+/** Tarea obligatoria de un checklist (ej. "Cortar matriz general de agua" al
+ * cerrar aspirados). Turno y zona juntos son el checklist al que pertenece.
+ * `orden` es la secuencia en que se ejecutan en el local. */
 export interface TareaTurno {
   id: string;
   turno: TurnoConTareas;
+  zona: ZonaTurno;
   descripcion: string;
   orden: number;
   activo: boolean;
@@ -38,6 +78,7 @@ export interface TareaTurnoHecha {
   id: string;
   fecha: string; // YYYY-MM-DD (día de caja)
   turno: TurnoConTareas;
+  zona: ZonaTurno;
   tareaId: string;
   perfilId: string;
   perfilNombre: string;

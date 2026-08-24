@@ -61,6 +61,13 @@ export const pagosWebpayItems = pgTable("pagos_webpay_items", {
   email: text("email"),
   cantidadCupones: integer("cantidad_cupones"),
   patentesAutorizadas: jsonb("patentes_autorizadas").$type<string[]>(),
+  // Cupón de descuento aplicado a este ítem (solo ítems de plan, ver
+  // TIPOS_PLAN en /api/pagos/webpay/crear): `monto` ya viene rebajado, y este
+  // código viaja hasta /retorno para marcar el cupón usado y sellar la venta
+  // con viaCupon. Se guarda en vez de volver a buscarlo por patente al
+  // retornar, para que quede registrado exactamente cuál se cobró aunque en
+  // el intertanto el cliente haya canjeado otro en el túnel.
+  cuponCodigo: text("cupon_codigo"),
   // Nombre de lote que el propio cliente le pone a su compra (ej. "Lavados
   // rentacar SALFA Mayo") para reconocerlo después en Mi Cuenta y en el
   // panel B2B/Tickets/Dsctos — si lo deja vacío, aplicarPagoPackEmpresa cae

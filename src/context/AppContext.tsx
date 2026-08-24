@@ -43,6 +43,7 @@ import {
   commitPlantillasWhatsapp,
   commitPrecios,
   commitPreciosTamano,
+  commitReglasOperador,
   commitProductos,
   commitProveedores,
   commitRegistrosMantencion,
@@ -98,6 +99,7 @@ const initialData: AppData = {
   tareasTurnoHechas: [],
   marcasAsistencia: [],
   contratosFuncionario: [],
+  reglasOperador: [],
 };
 
 const initialUI: UIState = {
@@ -108,7 +110,8 @@ const initialUI: UIState = {
   webSettingsTab: "precios",
   inventarioTab: "productos",
   mantencionTab: "maquinas",
-  funcionarioTab: "asistencia",
+  funcionarioTab: "turnos",
+  equipoTab: "horarios",
   search: "",
   modal: null,
   loginErr: "",
@@ -275,6 +278,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     agregar(commitTareasTurnoHechas(previous.tareasTurnoHechas, patch.tareasTurnoHechas));
     agregar(commitMarcasAsistencia(previous.marcasAsistencia, patch.marcasAsistencia));
     agregar(commitContratosFuncionario(previous.contratosFuncionario, patch.contratosFuncionario));
+    agregar(commitReglasOperador(previous.reglasOperador, patch.reglasOperador));
 
     let results: boolean[];
     try {

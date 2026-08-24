@@ -2,7 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, esExentoFormatoCliente, fmtTelefono, formatRut, isValidRut, precioContratacion, precioLavadoUnico } from "@/lib/helpers";
+import { PLANES, esExentoFormatoCliente, fmtTelefono, formatRut, isValidRut, precioContratacion, precioLavadoUnico, vencimientoPorDefectoISO } from "@/lib/helpers";
 import { guardarClienteModal } from "@/lib/logic";
 import type { Cliente, PagoInfo } from "@/types";
 import { validarClienteModal } from "./validarClienteModal";
@@ -94,9 +94,7 @@ export function useClientModal(
     if (contexto === "operador") {
       plan = tipoCliente === "plan" ? PLANES[0] : "";
       if (tipoCliente === "plan") {
-        const d = new Date();
-        d.setDate(d.getDate() + 30);
-        vencimiento = d.toISOString();
+        vencimiento = vencimientoPorDefectoISO();
       } else {
         vencimiento = null;
       }

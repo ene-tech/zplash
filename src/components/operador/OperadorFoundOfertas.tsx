@@ -273,9 +273,9 @@ export default function OperadorFoundOfertas(props: Props) {
             {props.cuponDescuentoVigente.esPorcentaje
               ? `${props.cuponDescuentoVigente.valor}%`
               : fmtCLP(props.cuponDescuentoVigente.valor)}{" "}
-            en el Lavado Full Túnel, válido hasta el{" "}
-            {new Date(props.cuponDescuentoVigente.fechaCaducidad).toLocaleDateString("es-CL")}. Se aplica
-            automáticamente al cobrar, sin necesidad de código.
+            en el Lavado Full Túnel o en cualquier plan, válido hasta el{" "}
+            {new Date(props.cuponDescuentoVigente.fechaCaducidad).toLocaleDateString("es-CL")}. Ya está
+            restado en los precios de esta pantalla y se gasta con el primer cobro, sin necesidad de código.
           </div>
         </div>
       )}

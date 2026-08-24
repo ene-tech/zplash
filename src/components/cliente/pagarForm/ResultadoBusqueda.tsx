@@ -80,6 +80,13 @@ export function ResultadoBusqueda(p: Props) {
               </div>
             )}
           </div>
+          {/* El precio ya viene rebajado desde /api/pagos/estado: esto solo
+              explica de dónde sale, para que no se lea como un error. */}
+          {!!r.descuentoCupon && (
+            <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginTop: 12 }}>
+              Tienes un descuento de {fmtCLP(r.descuentoCupon)} para esta patente — ya está aplicado en el precio.
+            </div>
+          )}
           {!p.mostrarAuto && (
             <button
               className="btn"
