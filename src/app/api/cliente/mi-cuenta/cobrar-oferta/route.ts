@@ -3,7 +3,7 @@ import { isValidPatente, normPlate } from "@/lib/helpers";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
-import { cobrarOfertaOneclick, type TipoOfertaCuenta } from "@/lib/pagos";
+import { cobrarOfertaOneclick, otorgarTicketReactivacion, type TipoOfertaCuenta } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -69,6 +69,22 @@ export async function POST(request: NextRequest) {
 
     try {
       const { estado } = await cobrarOfertaOneclick(patente, tipo, monto);
+      if (estado === "aprobada" && tipo === "reactivacion") {
+        // El mismo ticket de lavado gratis que emite inscribir la tarjeta
+        // desde /pagar (ver /api/pagos/oneclick/inscripcion/retorno): esto es
+        // el mismo hecho —plan vencido reactivado contra una tarjeta de pago
+        // automático—, solo que el cliente guardó la tarjeta antes desde "Mis
+        // tarjetas" en vez de inscribirla en el mismo pago. Sin esto la promo
+        // dependía de por cuál de las dos puertas entró. otorgarTicketReactivacion
+        // es una sola vez por cliente, así que no puede duplicar el del otro
+        // camino, y un fallo acá no puede tumbar un cobro ya hecho: se
+        // registra y se sigue.
+        try {
+          await otorgarTicketReactivacion({ patente, email: cliente.email, creadoPor: "Promo reactivación (Mi Cuenta)" });
+        } catch (error) {
+          console.error("No se pudo emitir el ticket de la promo de reactivación", patente, error);
+        }
+      }
       return NextResponse.json({ ok: true, estado });
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : "No se pudo cobrar la tarjeta";

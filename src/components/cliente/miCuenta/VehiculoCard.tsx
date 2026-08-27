@@ -37,6 +37,7 @@ function fraseVenceEn(diasRestantes: number): string {
 export function VehiculoCard({
   v,
   oferta,
+  ticketReactivacion,
   lavados,
   tarjeta,
   descuento,
@@ -45,6 +46,9 @@ export function VehiculoCard({
 }: {
   v: VehiculoSesion;
   oferta?: OfertaPlan;
+  // Le queda el lavado full túnel gratis de la promo de reactivación (una
+  // sola vez por cliente, ver otorgarTicketReactivacion).
+  ticketReactivacion?: boolean;
   lavados?: { usados: number; incluidos: number; reponeEl: string };
   tarjeta?: TarjetaGuardada;
   // Cupón que el server ya restó de los precios de `oferta` (ver
@@ -213,6 +217,14 @@ export function VehiculoCard({
           <div className="price-row">
             <span className="new">{fmtCLP(oferta.reactivacion.precio)}</span>
           </div>
+          {/* El ticket lo emite el cobro contra la tarjeta guardada (ver
+              cobrar-oferta), así que solo se anuncia con tarjeta activa:
+              pagando por Webpay, sin tarjeta registrada, la promo no aplica. */}
+          {ticketReactivacion && tarjeta && (
+            <div className="hint" style={{ color: "var(--green)", fontSize: 13, marginBottom: 12 }}>
+              Incluye 1 lavado full túnel gratis por reactivar con tu tarjeta de pago automático.
+            </div>
+          )}
           {oferta.reactivacion.pNormal > 0 && (
             <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
               Precio promocional solo por este primer mes. Después tu plan vuelve a {fmtCLP(oferta.reactivacion.pNormal)},

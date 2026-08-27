@@ -67,6 +67,10 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
   const [descuentos, setDescuentos] = useState<Record<string, { codigo: string; beneficio: string }>>({});
   const [renovacionesLegacy, setRenovacionesLegacy] = useState<RenovacionLegacy[]>([]);
   const [ofertas, setOfertas] = useState<Record<string, OfertaPlan>>({});
+  // Por patente: le queda el lavado gratis de la promo de reactivación (ver
+  // /api/cliente/mi-cuenta). Solo se anuncia junto con una tarjeta activa,
+  // que es lo que dispara el cobro que lo emite.
+  const [ticketsReactivacion, setTicketsReactivacion] = useState<Record<string, boolean>>({});
   const [lavados, setLavados] = useState<Record<string, LavadosPeriodo>>({});
   // undefined = todavía no llega la respuesta de /api/cliente/mi-cuenta. Sin
   // ese tercer estado el aviso de políticas parpadea en cada carga para quien
@@ -84,6 +88,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
             compras: Compra[];
             renovacionesLegacy: RenovacionLegacy[];
             ofertas: Record<string, OfertaPlan>;
+            ticketsReactivacion: Record<string, boolean>;
             lavados: Record<string, LavadosPeriodo>;
             cupones: CuponCuenta[];
             descuentos: Record<string, { codigo: string; beneficio: string }>;
@@ -96,6 +101,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
           setCompras(data.compras);
           setRenovacionesLegacy(data.renovacionesLegacy || []);
           setOfertas(data.ofertas || {});
+          setTicketsReactivacion(data.ticketsReactivacion || {});
           setLavados(data.lavados || {});
           setCupones(data.cupones || []);
           setDescuentos(data.descuentos || {});
@@ -142,6 +148,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
                 key={v.patente}
                 v={v}
                 oferta={ofertas[v.patente]}
+                ticketReactivacion={!!ticketsReactivacion[v.patente]}
                 lavados={lavados[v.patente]}
                 descuento={descuentos[v.patente]}
                 tarjeta={tarjetaActiva ? { cardTipo: tarjetaActiva.cardTipo, cardUltimosDigitos: tarjetaActiva.cardUltimosDigitos } : undefined}

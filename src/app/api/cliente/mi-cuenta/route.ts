@@ -19,7 +19,7 @@ import {
   type OfertaPlan,
 } from "@/lib/helpers";
 import { ingresoFromRow } from "@/lib/dataAccess/ingresos";
-import { buscarCuponDescuentoPlan } from "@/lib/pagos";
+import { buscarCuponDescuentoPlan, yaTieneTicketReactivacion } from "@/lib/pagos";
 import { ventaFromRow } from "@/lib/dataAccess/ventas";
 import type { Cupon } from "@/types";
 
@@ -127,6 +127,12 @@ export async function GET() {
   const ventasPorCliente = ventasClienteRows.map(ventaFromRow);
   const ingresosPorCliente = ingresosClienteRows.map(ingresoFromRow);
   const ofertas: Record<string, OfertaPlan> = {};
+  // Por patente con oferta de reactivación: todavía le queda el lavado full
+  // túnel gratis de la promo (una sola vez por cliente, ver
+  // otorgarTicketReactivacion). Lo emite el cobro contra la tarjeta guardada
+  // (/api/cliente/mi-cuenta/cobrar-oferta), así que VehiculoCard solo lo
+  // anuncia cuando además hay tarjeta activa.
+  const ticketsReactivacion: Record<string, boolean> = {};
   // Pasadas usadas en el ciclo vigente, solo para planes con tope (X5 —
   // pasesIncluidos devuelve null para el ilimitado viejo y para sin plan, y
   // planVigente cubre al que renovó anticipado y todavía le corre el mes sin
@@ -149,6 +155,12 @@ export async function GET() {
       preciosMap
     );
     if (Object.keys(oferta).length) ofertas[c.patente] = ofertaConCupon(oferta, cuponesPorPatente.get(c.patente));
+    // Solo se pregunta por el ticket de la promo si hay reactivación que
+    // ofrecer: es la única tarjeta que lo anuncia, y es una consulta más por
+    // patente (ver yaTieneTicketReactivacion).
+    if (oferta.reactivacion) {
+      ticketsReactivacion[c.patente] = !(await yaTieneTicketReactivacion(c.patente, (c.email || sesion.email).trim().toLowerCase()));
+    }
   }
 
   const citaIds = citasRows.map((c) => c.id);
@@ -196,6 +208,7 @@ export async function GET() {
     // Promociones de plan por patente (renovación anticipada, reactivación,
     // upgrade) — mismas que ve el Operador, ver @/lib/helpers/ofertasPlan.
     ofertas,
+    ticketsReactivacion,
     lavados,
     cupones: cuponesCuenta,
     // Cupón que se está aplicando a las tarjetas de plan de cada patente, para
