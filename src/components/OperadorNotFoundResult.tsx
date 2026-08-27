@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { beneficioCupon, fmtCLP } from "@/lib/helpers";
 import { useOperadorNotFoundResult } from "@/components/operador/useOperadorNotFoundResult";
 
@@ -14,7 +14,7 @@ export default function OperadorNotFoundResult({
   clearPlate: () => void;
   codigoDescuento?: string;
 }) {
-  const { patchUi } = useApp();
+  const { patchUi, guardando } = useAppData();
   const qNombreRef = useRef<HTMLInputElement>(null);
   const qTelefonoRef = useRef<HTMLInputElement>(null);
   const qEmailRef = useRef<HTMLInputElement>(null);
@@ -134,8 +134,8 @@ export default function OperadorNotFoundResult({
         )}
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-        <button className="btn" style={{ marginTop: 0, flex: "2 1 200px" }} onClick={r.quickAdd}>
-          Registrar cliente
+        <button className="btn" style={{ marginTop: 0, flex: "2 1 200px" }} onClick={r.quickAdd} disabled={guardando}>
+          {guardando ? "Guardando…" : "Registrar cliente"}
         </button>
         <button className="btn ghost" style={{ marginTop: 0, flex: "1 1 120px" }} onClick={() => patchUi({ operResult: null })}>
           Cancelar

@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { LAVADO_UNICO_WEB_KEY, PLAN_ONECLICK_KEY, precioLavadoUnicoWeb, precioPlanOneclick } from "@/lib/helpers";
 import { Globe } from "lucide-react";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
 export default function PagosWebSection() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [planOneclickVal, setPlanOneclickVal] = useState(() => String(precioPlanOneclick(data.precios)));
   const [lavadoUnicoWebVal, setLavadoUnicoWebVal] = useState(() => String(precioLavadoUnicoWeb(data.precios)));
   const [guardando, setGuardando] = useState(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import TurnosFuncionarioTab from "@/components/tabs/funcionario/TurnosFuncionarioTab";
 import TareasTurnoTab from "@/components/tabs/funcionario/TareasTurnoTab";
@@ -16,7 +16,7 @@ const TABS = [
 ] as const;
 
 export default function FuncionarioView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout } = useAppUi();
   const tabActual = TABS.find((t) => t.id === ui.funcionarioTab) || TABS[0];
 
   return (

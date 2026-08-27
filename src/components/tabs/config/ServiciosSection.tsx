@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { precioServicio } from "@/lib/helpers";
 import { TAMANOS_VEHICULO, TAMANO_LABEL, type TamanoVehiculo } from "@/types";
 import { ListPlus } from "lucide-react";
@@ -12,7 +12,7 @@ import SaveBar from "./SaveBar";
 const TAMANO_VACIO: Record<TamanoVehiculo, number> = { s: 0, m: 0, l: 0, xl: 0 };
 
 export default function ServiciosSection() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const catalogoServicios = data.servicios.filter((s) => s.activo);
   const categoriasServicios = Array.from(new Set(catalogoServicios.map((s) => s.categoria || "")));
   const [servicioVals, setServicioVals] = useState<Record<string, string>>(() =>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import PriceInput from "@/components/PriceInput";
 import { fmtCLP } from "@/lib/helpers";
 import type { Venta } from "@/types";
@@ -32,7 +32,7 @@ const priceInputClassName =
 // tener que borrarlo y volver a cargarlo desde cero. No toca patente, cliente
 // ni la cita/agenda asociada — solo los datos propios de la venta.
 export default function ServicioAdicionalModal({ data: v }: { data: Venta }) {
-  const { data, commit, patchUi } = useApp();
+  const { data, commit, patchUi } = useAppData();
 
   const nombreRef = useRef<HTMLInputElement>(null);
   const tipoRef = useRef<HTMLInputElement>(null);

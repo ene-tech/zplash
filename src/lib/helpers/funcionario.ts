@@ -1,10 +1,12 @@
 import type {
   MarcaAsistencia,
+  PartTime,
   PerfilPublico,
   ReglaOperador,
   TareaTurno,
   TareaTurnoHecha,
   TramoDotacion,
+  TramoPartTime,
   TurnoConTareas,
   TurnoFuncionario,
   TurnoTipo,
@@ -81,7 +83,8 @@ export function conTramo(turnos: TurnoFuncionario[], fila: TurnoFuncionario): Tu
  * 18:30 y el fin de semana se queda hasta el cierre. Sin regla no hay tope.
  *
  * Con `turno` (y `zona` si quien asigna la reparte) también revisa los vetos
- * de apertura y cierre de la regla, que no dependen del día.
+ * de apertura y cierre de la regla y su ubicación de trabajo, que no dependen
+ * del día.
  *
  * Es la única fuente de verdad de la regla: la usan las tres pantallas que
  * reparten turnos y también el creador de horario. */
@@ -96,6 +99,12 @@ export function motivoFueraDeRegla(
 ): string | null {
   const r = reglas.find((x) => x.id === perfilId);
   if (!r) return null;
+  // La ubicación de trabajo tampoco depende del día ni de la hora: quien
+  // trabaja en aspirados no toma un tramo de la otra zona ningún día. Sin zona
+  // (Horarios y Turnos asigna el tramo sin repartir sector) no hay nada que
+  // romper.
+  if (r.zonaFija && zona && zona !== r.zonaFija)
+    return `solo trabaja en ${ZONA_LABELS[r.zonaFija].toLowerCase()}`;
   // El veto de apertura/cierre no depende del día: quien no cierra aspirados
   // no los cierra ningún día. Sin zona (Horarios y Turnos asigna el turno sin
   // repartir sector) solo frena si tiene vetados TODOS los sectores del turno.
@@ -199,13 +208,6 @@ export function idTareaHecha(fecha: string, turno: TurnoConTareas, zona: ZonaTur
   return `${fecha}|${turno}|${zona}|${tareaId}`;
 }
 
-/** Marcas de un perfil en un día, ordenadas de la más antigua a la más nueva. */
-export function marcasDelDia(marcas: MarcaAsistencia[], perfilId: string, fecha: string): MarcaAsistencia[] {
-  return marcas
-    .filter((m) => m.perfilId === perfilId && m.fecha === fecha)
-    .sort((a, b) => (a.marcadoEn < b.marcadoEn ? -1 : 1));
-}
-
 /** Qué corresponde marcar ahora: "salida" si la última marca del día fue una
  * entrada, "entrada" en cualquier otro caso (incluido el primer marcaje del
  * día). Deja marcar varios pares por día — hay turnos partidos. */
@@ -285,6 +287,10 @@ export interface CriteriosHorario {
   /** Dotación requerida por franja y día (ver TramoDotacion). El reparto suma
    * turnos normales hasta cubrirla; lo que no alcance sale en `avisos`. */
   dotacion?: TramoDotacion[];
+  /** Planilla part time ya comprometida (ver TramoPartTime). Cuenta como
+   * dotación en pie: el peak lo cubre primero el part time y solo lo que
+   * quede corto se le pide al equipo de planta. */
+  planillaPartTime?: TramoPartTime[];
 }
 
 type Bloque = "manana" | "tarde";
@@ -320,27 +326,245 @@ export function dotacionRequerida(
   );
 }
 
-/** Las franjas de la dotación que el horario asignado no alcanza a cubrir.
- * Mira el momento MÁS FLACO de cada franja, no el promedio: si a las 12:00
- * entran tres pero a las 15:00 queda uno solo, la franja no está cubierta. La
- * dotación se comprueba en cada hora en que alguien entra o sale, que es donde
- * puede bajar. */
-export function avisosDotacion(turnos: TurnoFuncionario[], dotacion: TramoDotacion[]): string[] {
+/** Los tramos de una franja de un día, mirados como cuerpos disponibles: el
+ * equipo de planta más la planilla part time. Un part time cuenta igual que
+ * un funcionario para la dotación —es gente en el local— pero no toma
+ * apertura ni cierre, así que no aparece en el horario del equipo. */
+function cuerposDelDia(
+  turnos: TurnoFuncionario[],
+  planilla: TramoPartTime[],
+  diaSemana: number
+): { desde: string; hasta: string }[] {
+  return [
+    ...turnos.filter((t) => t.activo && t.diaSemana === diaSemana).map((t) => ({ desde: t.horaInicio, hasta: t.horaFin })),
+    ...planilla.filter((p) => p.dias.includes(diaSemana)).map((p) => ({ desde: p.desde, hasta: p.hasta })),
+  ];
+}
+
+/** Cuánta gente hay en pie en el momento MÁS FLACO de una ventana, contando
+ * equipo de planta y part time. Se mira el mínimo y no el promedio: si a las
+ * 12:00 hay tres pero a las 15:00 queda uno, esa franja tiene uno. Basta con
+ * revisar el inicio de la ventana y cada hora en que alguien entra o sale,
+ * que es donde el número puede bajar. */
+export function dotacionEnPie(
+  turnos: TurnoFuncionario[],
+  planilla: TramoPartTime[],
+  diaSemana: number,
+  desde: string,
+  hasta: string
+): number {
+  const cuerpos = cuerposDelDia(turnos, planilla, diaSemana);
+  const cortes = [desde, ...cuerpos.flatMap((c) => [c.desde, c.hasta]).filter((h) => h > desde && h < hasta)];
+  return Math.min(...cortes.map((h) => cuerpos.filter((c) => c.desde <= h && h < c.hasta).length));
+}
+
+/** Las franjas de la dotación que la semana asignada no alcanza a cubrir,
+ * contando el equipo de planta más la planilla part time (ver dotacionEnPie).
+ * Son avisos, no bloqueos: la franja corta se ve antes de que llegue el
+ * sábado. */
+export function avisosDotacion(
+  turnos: TurnoFuncionario[],
+  dotacion: TramoDotacion[],
+  planilla: TramoPartTime[] = []
+): string[] {
   const avisos: string[] = [];
   for (const tramo of dotacion)
     for (const dia of tramo.dias.slice().sort((a, b) => DIAS_ORDEN.indexOf(a) - DIAS_ORDEN.indexOf(b))) {
-      const delDia = turnos.filter((t) => t.activo && t.diaSemana === dia);
-      const cortes = [
-        tramo.desde,
-        ...delDia.flatMap((t) => [t.horaInicio, t.horaFin]).filter((h) => h > tramo.desde && h < tramo.hasta),
-      ];
-      const enPie = Math.min(...cortes.map((h) => delDia.filter((t) => t.horaInicio <= h && h < t.horaFin).length));
+      const enPie = dotacionEnPie(turnos, planilla, dia, tramo.desde, tramo.hasta);
       if (enPie < tramo.cantidad)
         avisos.push(
           `${DIAS_SEMANA[dia]} ${tramo.desde}-${tramo.hasta}: la dotación pide ${tramo.cantidad} y en algún momento hay ${enPie}.`
         );
     }
   return avisos;
+}
+
+/** Tope legal de la jornada part time en Chile (art. 40 bis del Código del
+ * Trabajo): 30 horas semanales. Más que eso ya no es part time, y es el
+ * divisor con que se estima cuánta gente falta (ver sugerirPartTime). */
+export const TOPE_HORAS_PART_TIME = 30;
+
+/** Horas a la semana que la planilla le asigna a un part time. */
+export function horasPartTime(planilla: TramoPartTime[], partTimeId: string): number {
+  const minutos = planilla
+    .filter((t) => t.partTimeId === partTimeId)
+    .reduce((n, t) => n + t.dias.length * (aMinutos(t.hasta) - aMinutos(t.desde)), 0);
+  return Math.round((minutos / 60) * 10) / 10;
+}
+
+/** true si la disponibilidad que declaró esa persona cubre entera la ventana.
+ * ponytail: exige que UN horario suyo la cubra completa —no encadena dos ni
+ * ofrece cubrir media ventana—; si aparece el caso, partir el hueco. */
+export function puedeCubrir(pt: PartTime, diaSemana: number, desde: string, hasta: string): boolean {
+  return pt.horarios.some((h) => h.dias.includes(diaSemana) && h.desde <= desde && h.hasta >= hasta);
+}
+
+/** La planilla que efectivamente cuenta como dotación: sin los tramos de
+ * quien ya no está activo ni de una ficha que se borró. Un tramo huérfano
+ * sumaría gente que no va a llegar el sábado. */
+export function planillaVigente(planilla: TramoPartTime[], partTimes: PartTime[]): TramoPartTime[] {
+  return planilla.filter((t) => partTimes.some((p) => p.id === t.partTimeId && p.activo));
+}
+
+/** Avisos de la planilla part time: tramos que caen fuera de la
+ * disponibilidad que la persona declaró y semanas sobre el tope part time.
+ * Avisos y no bloqueos, igual que avisosLegales: el favor se puede pedir,
+ * pero queda a la vista. */
+export function avisosPartTime(planilla: TramoPartTime[], partTimes: PartTime[]): string[] {
+  const avisos: string[] = [];
+  for (const t of planilla) {
+    const pt = partTimes.find((p) => p.id === t.partTimeId);
+    if (!pt) {
+      avisos.push(`Hay un tramo ${t.desde}-${t.hasta} sin part time asignado.`);
+      continue;
+    }
+    const fuera = DIAS_ORDEN.filter((d) => t.dias.includes(d) && !puedeCubrir(pt, d, t.desde, t.hasta));
+    if (fuera.length)
+      avisos.push(
+        `${pt.nombre}: ${fuera.map((d) => DIAS_SEMANA[d]).join(", ")} ${t.desde}-${t.hasta} queda fuera de la disponibilidad que declaró.`
+      );
+  }
+  for (const pt of partTimes) {
+    const horas = horasPartTime(planilla, pt.id);
+    if (horas > TOPE_HORAS_PART_TIME)
+      avisos.push(`${pt.nombre}: ${horas} h a la semana, sobre el tope part time de ${TOPE_HORAS_PART_TIME} h.`);
+  }
+  return avisos;
+}
+
+/** Un trozo de la semana en que la dotación queda corta aun contando la
+ * planilla part time: cuántos cuerpos faltan ahí y qué part times de la ficha
+ * podrían tomarlo. */
+export interface HuecoDotacion {
+  diaSemana: number;
+  desde: string;
+  hasta: string;
+  /** Cuerpos que faltan durante toda la ventana. */
+  faltan: number;
+  /** Part times activos, disponibles a esa hora y todavía sin comprometer. */
+  candidatos: PartTime[];
+}
+
+/** La semana que tendría que cumplir UNA persona part time nueva: los tramos
+ * que viene a cubrir, lo que suman y quién de la ficha podría tomarlos. Es lo
+ * que se le publica a quien busca el reemplazo ("sábado y domingo de 12:00 a
+ * 16:00, 8 h a la semana"). */
+export interface PuestoPartTime {
+  tramos: { diaSemana: number; desde: string; hasta: string }[];
+  /** Horas a la semana que suman sus tramos. */
+  horas: number;
+  /** Part times de la ficha que cubren TODOS sus tramos y no están
+   * comprometidos a esas horas. */
+  candidatos: PartTime[];
+}
+
+/** El sugerido de part time: qué le falta a la dotación y cuánta gente hay que
+ * sumar para cerrarla. */
+export interface SugerenciaPartTime {
+  huecos: HuecoDotacion[];
+  /** Un puesto por persona que hay que sumar, con el horario que debe cumplir. */
+  puestos: PuestoPartTime[];
+  /** Horas part time a la semana que hay que comprar. */
+  horas: number;
+  /** Personas part time que faltan: los puestos que salieron del reparto. */
+  personas: number;
+  /** De esas, cuántas pueden salir de la ficha: disponibles y sin asignar. */
+  enLaFicha: number;
+}
+
+/** Cuántos part time faltan para cumplir la dotación con el horario que hoy
+ * tiene el equipo y la planilla ya comprometida.
+ *
+ * Recorre la semana por tramos —el déficit solo puede cambiar donde empieza o
+ * termina una franja de dotación o donde alguien entra o sale— y junta los
+ * trozos pegados que van cortos por lo mismo, para que el sugerido diga
+ * "sábado de 12:00 a 16:00 falta 1" y no cuatro pedazos.
+ *
+ * Los huecos después se reparten en puestos: la semana concreta que tendría
+ * que cumplir cada persona que se contrate. El reparto es codicioso —cada
+ * cuerpo que falta se le da al primer puesto que lo pueda tomar sin pisarse
+ * con lo que ya lleva ni pasarse del tope part time, y si ninguno puede se
+ * abre uno nuevo—, así que la cantidad de personas es el largo de esa lista.
+ * ponytail: primer calce y no el mínimo de personas posible (eso es bin
+ * packing); alcanza para no repartir cuatro sábados sueltos entre cuatro
+ * personas. Sigue siendo un sugerido: quién toma cada puesto se decide a mano
+ * en la planilla. */
+export function sugerirPartTime(
+  turnos: TurnoFuncionario[],
+  dotacion: TramoDotacion[],
+  planilla: TramoPartTime[],
+  partTimes: PartTime[]
+): SugerenciaPartTime {
+  const huecos: HuecoDotacion[] = [];
+  const dias = [...new Set(dotacion.flatMap((d) => d.dias))].sort(
+    (a, b) => DIAS_ORDEN.indexOf(a) - DIAS_ORDEN.indexOf(b)
+  );
+  for (const dia of dias) {
+    const cuerpos = cuerposDelDia(turnos, planilla, dia);
+    const cortes = [
+      ...new Set([
+        ...dotacion.filter((d) => d.dias.includes(dia)).flatMap((d) => [d.desde, d.hasta]),
+        ...cuerpos.flatMap((c) => [c.desde, c.hasta]),
+      ]),
+    ].sort();
+    for (let i = 0; i < cortes.length - 1; i++) {
+      const desde = cortes[i];
+      const hasta = cortes[i + 1];
+      const faltan =
+        dotacionRequerida(dotacion, dia, desde, hasta) -
+        cuerpos.filter((c) => c.desde <= desde && desde < c.hasta).length;
+      if (faltan <= 0) continue;
+      const ultimo = huecos[huecos.length - 1];
+      if (ultimo && ultimo.diaSemana === dia && ultimo.hasta === desde && ultimo.faltan === faltan)
+        ultimo.hasta = hasta;
+      else huecos.push({ diaSemana: dia, desde, hasta, faltan, candidatos: [] });
+    }
+  }
+  /** Los de la ficha que pueden tomar esa ventana entera: activos, con la
+   * disponibilidad que declararon y sin otro tramo a esa misma hora. */
+  const disponibles = (diaSemana: number, desde: string, hasta: string) =>
+    partTimes.filter(
+      (pt) =>
+        pt.activo &&
+        puedeCubrir(pt, diaSemana, desde, hasta) &&
+        // Nadie puede cubrir dos tramos a la misma hora.
+        !planilla.some(
+          (t) => t.partTimeId === pt.id && t.dias.includes(diaSemana) && t.desde < hasta && desde < t.hasta
+        )
+    );
+  for (const h of huecos) h.candidatos = disponibles(h.diaSemana, h.desde, h.hasta);
+
+  const horasTramos = (tramos: PuestoPartTime["tramos"]) =>
+    tramos.reduce((n, t) => n + (aMinutos(t.hasta) - aMinutos(t.desde)), 0) / 60;
+  const puestos: PuestoPartTime[] = [];
+  for (const h of huecos)
+    // Un hueco al que le faltan dos cuerpos son dos personas: el mismo tramo
+    // no le puede caber dos veces a la misma (se pisa consigo mismo).
+    for (let i = 0; i < h.faltan; i++) {
+      const tramo = { diaSemana: h.diaSemana, desde: h.desde, hasta: h.hasta };
+      const puesto = puestos.find(
+        (p) =>
+          horasTramos([...p.tramos, tramo]) <= TOPE_HORAS_PART_TIME &&
+          !p.tramos.some((t) => t.diaSemana === h.diaSemana && t.desde < h.hasta && h.desde < t.hasta)
+      );
+      if (puesto) puesto.tramos.push(tramo);
+      else puestos.push({ tramos: [tramo], horas: 0, candidatos: [] });
+    }
+  for (const p of puestos) {
+    p.horas = Math.round(horasTramos(p.tramos) * 10) / 10;
+    // Candidato del puesto es quien puede con TODOS sus tramos, no con uno.
+    p.candidatos = p.tramos
+      .map((t) => disponibles(t.diaSemana, t.desde, t.hasta))
+      .reduce((a, b) => a.filter((pt) => b.includes(pt)));
+  }
+
+  return {
+    huecos,
+    puestos,
+    horas: Math.round(horasTramos(puestos.flatMap((p) => p.tramos)) * 10) / 10,
+    personas: puestos.length,
+    enLaFicha: new Set(huecos.flatMap((h) => h.candidatos.map((p) => p.id))).size,
+  };
 }
 
 /** Arma una propuesta de horario semanal: reparte los cuatro encargados que
@@ -445,16 +669,36 @@ export function proponerHorario(c: CriteriosHorario): { turnos: TurnoFuncionario
   // pide más gente se suman turnos normales, y siempre al bloque que va más
   // corto: repartir por déficit evita que la mañana se lleve a todos y la
   // tarde quede pelada cuando el peak cruza el relevo.
-  // ponytail: la dotación se cubre por bloque de jornada, no minuto a minuto,
-  // así que un peak de 12 a 16 pide la cantidad completa a la mañana Y a la
-  // tarde. Si hace falta un tramo que arranque dentro del peak, se agrega a
-  // mano sobre la propuesta.
+  // ponytail: el refuerzo entra por bloque de jornada, no minuto a minuto, así
+  // que un peak de 12 a 16 que cruza el relevo pide la cantidad completa en la
+  // mañana Y en la tarde. Si hace falta un tramo que arranque dentro del peak,
+  // se agrega a mano sobre la propuesta (o se cubre con un part time).
+  const planilla = c.planillaPartTime ?? [];
   const franjas = dias.flatMap((dia) =>
     (["manana", "tarde"] as Bloque[]).map((bloque) => ({ dia, bloque, ...bloquesPorDia.get(dia)![bloque] }))
   );
+  // Lo que le falta a un bloque: por cada franja de dotación que lo toca, lo
+  // que esa franja pide menos lo que hay en pie en el trozo que comparten —el
+  // equipo ya asignado ese día y la planilla part time—. Se mide contra el
+  // trozo compartido y no contra el bloque entero para no mandar a nadie a las
+  // 09:40 por un peak que recién arranca a las 12:00.
   const faltan = (f: (typeof franjas)[number]) =>
-    dotacionRequerida(c.dotacion ?? [], f.dia, f.inicio, f.fin) -
-    turnos.filter((t) => t.diaSemana === f.dia && t.horaInicio === f.inicio).length;
+    Math.max(
+      0,
+      ...(c.dotacion ?? [])
+        .filter((d) => d.dias.includes(f.dia) && d.desde < f.fin && f.inicio < d.hasta)
+        .map(
+          (d) =>
+            d.cantidad -
+            dotacionEnPie(
+              turnos,
+              planilla,
+              f.dia,
+              d.desde > f.inicio ? d.desde : f.inicio,
+              d.hasta < f.fin ? d.hasta : f.fin
+            )
+        )
+    );
   const sinGente = new Set<string>();
   for (;;) {
     const peor = franjas
@@ -488,7 +732,7 @@ export function proponerHorario(c: CriteriosHorario): { turnos: TurnoFuncionario
       asignar(perfilId, dia, "normal", null, bloque);
     }
 
-  avisos.push(...avisosDotacion(turnos, c.dotacion ?? []));
+  avisos.push(...avisosDotacion(turnos, c.dotacion ?? [], planilla));
 
   return { turnos: turnos.sort((a, b) => a.diaSemana - b.diaSemana), avisos };
 }

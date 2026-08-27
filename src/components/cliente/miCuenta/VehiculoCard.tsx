@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SolicitudCambioPatente } from "@/components/cliente/miCuenta/SolicitudCambioPatente";
 import { QuitarVehiculo } from "@/components/cliente/miCuenta/QuitarVehiculo";
 import { EliminarPlan } from "@/components/cliente/miCuenta/EliminarPlan";
+import { AvisoPasaAX5 } from "@/components/cliente/AvisoPasaAX5";
 import { useOfertaPlan, type TarjetaGuardada, type TipoOfertaPlan } from "@/components/cliente/miCuenta/useOfertaPlan";
 import { redirigirAInscripcionOneclick } from "@/lib/webpayClient";
 
@@ -154,6 +155,8 @@ export function VehiculoCard({
           Cupón {descuento.codigo} ({descuento.beneficio}) — ya aplicado en los precios de abajo.
         </div>
       )}
+
+      {oferta && <AvisoPasaAX5 plan={v.plan} vencimiento={v.estado.cls !== "bad" ? v.vencimiento : null} />}
 
       {ra && !(sinOfertaReal && tarjeta) && (
         <div className="offer-card">

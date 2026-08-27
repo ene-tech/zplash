@@ -105,6 +105,15 @@ const nextConfig: NextConfig = {
           { key: "Content-Security-Policy", value: cspHeader },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // 2 años + subdominios: sin esto, la primera visita a
+          // "zplash.cl" escrito a mano sale por http y el redirect a https
+          // es interceptable (la cookie de sesión es `secure`, pero el
+          // pedido inicial y su Origin no). En dev queda fuera a propósito:
+          // el navegador recuerda el header por dominio y "localhost"
+          // quedaría forzado a https para cualquier otro proyecto local.
+          ...(isDev
+            ? []
+            : [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]),
         ],
       },
     ];

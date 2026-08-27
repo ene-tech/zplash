@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { PLANES, keyPrimeraContratacion, precioNormal, precioPreferencial, uid } from "@/lib/helpers";
 import type { TramoRenovacionLocal } from "@/types";
 import { Tag } from "lucide-react";
@@ -12,7 +12,7 @@ import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
 export default function PlanesSection() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [normalVals, setNormalVals] = useState<Record<string, string>>(() =>
     Object.fromEntries(PLANES.map((p) => [p, String(precioNormal(data.precios, p))]))
   );

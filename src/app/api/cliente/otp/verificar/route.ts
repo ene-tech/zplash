@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { otpsCliente } from "@/db/schema";
 import { buscarClientesPorEmail, vincularPatenteACuenta } from "@/lib/dataAccess/clientes";
 import { crearSesionCliente } from "@/lib/auth/clienteSession";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { origenValido } from "@/lib/csrf";
-import { PATENTE_FORMATO_MSG, isValidEmail, isValidPatente, normPlate } from "@/lib/helpers";
+import { PATENTE_FORMATO_MSG, isValidPatente, normPlate } from "@/lib/helpers";
 import bcrypt from "bcryptjs";
 
 export const runtime = "nodejs";
@@ -23,16 +23,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 
-  let body: { email?: unknown; codigo?: unknown; nombre?: unknown; patente?: unknown };
+  let body: { solicitudId?: unknown; codigo?: unknown; nombre?: unknown; patente?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: "JSON inválido" }, { status: 400 });
   }
 
-  const email = (typeof body.email === "string" ? body.email.trim() : "").toLowerCase();
+  // `solicitudId` (el id de la fila de otpsCliente que devolvió
+  // otp/solicitar) en vez del correo: así la respuesta de solicitar no tiene
+  // que revelar a qué dirección se mandó el código — antes la mandaba en
+  // limpio justamente para poder reenviarla acá. De paso desaparece la
+  // ambigüedad del "último código sin usar de este correo": se verifica
+  // contra la solicitud exacta que originó el código.
+  const solicitudId = typeof body.solicitudId === "string" ? body.solicitudId.trim() : "";
   const codigo = typeof body.codigo === "string" ? body.codigo.trim() : "";
-  if (!isValidEmail(email) || !/^\d{6}$/.test(codigo)) {
+  if (!solicitudId || !/^\d{6}$/.test(codigo)) {
     return NextResponse.json({ ok: false, error: "Datos inválidos" }, { status: 400 });
   }
 
@@ -52,8 +58,7 @@ export async function POST(request: NextRequest) {
     [fila] = await db
       .select()
       .from(otpsCliente)
-      .where(and(eq(otpsCliente.email, email), isNull(otpsCliente.usadoEn)))
-      .orderBy(desc(otpsCliente.creadoEn))
+      .where(and(eq(otpsCliente.id, solicitudId), isNull(otpsCliente.usadoEn)))
       .limit(1);
   } catch (error) {
     console.error("Error consultando código OTP", error);
@@ -63,6 +68,10 @@ export async function POST(request: NextRequest) {
   if (!fila || new Date(fila.expiraEn).getTime() < Date.now() || fila.intentos >= LIMITE_INTENTOS_CODIGO) {
     return NextResponse.json({ ok: false, error: "Código inválido o expirado, solicita uno nuevo" }, { status: 400 });
   }
+  // El correo sale de la fila, no del cuerpo del request: es el que resolvió
+  // otp/solicitar (por patente o por correo) y el único al que se mandó este
+  // código, así que no hay forma de verificar un código contra otra cuenta.
+  const email = fila.email;
 
   const coincide = await bcrypt.compare(codigo, fila.codigoHash);
   if (!coincide) {

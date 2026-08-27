@@ -12,6 +12,8 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   horarioOperadorFindeFin: "19:15",
   festivos: [],
   dotacion: [],
+  partTimes: [],
+  planillaPartTime: [],
   vigenciaDiasPackEmpresa: 365,
   tramosRenovacionLocal: {},
   horasVentanaUpgradePlan: 1,

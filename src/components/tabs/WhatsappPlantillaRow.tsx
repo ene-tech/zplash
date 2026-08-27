@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { convertirVariablesMeta, slugMetaTemplate } from "@/lib/helpers/whatsapp";
 import { EmojiBar, VariableBar, insertarEnCursor } from "@/components/ui/mensaje-toolbar";
 import type { PlantillaWhatsapp } from "@/types";
@@ -40,7 +40,7 @@ function BotonCopiar({ texto, deshabilitado }: { texto: string; deshabilitado?: 
 }
 
 export function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaWhatsapp; puedeBorrar: boolean }) {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const mensajeRef = useRef<HTMLTextAreaElement>(null);
   const [mensaje, setMensaje] = useState(plantilla.mensaje);
   const [metaNombre, setMetaNombre] = useState(plantilla.metaNombre || "");

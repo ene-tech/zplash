@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { ESTADOS_CITA, esEstadoFinal, esRetrocesoInvalido } from "@/lib/agenda";
 import { fmtTelefono, sumarDias, todayYMD } from "@/lib/helpers";
 import type { Cita } from "@/types";
@@ -11,7 +11,7 @@ import type { Cita } from "@/types";
 // servicios ligados vía cita_servicios (equivalente a cita_procedimientos),
 // no un nombre único.
 export function CitasDelDia() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [fecha, setFecha] = useState(todayYMD());
 
   const nombresServicios = (ids: string[]) => {

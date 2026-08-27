@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { esEstadoPagadoEgreso } from "@/lib/helpers";
 import type { MovimientoContable, PagoInfo } from "@/types";
 
@@ -9,7 +9,7 @@ import type { MovimientoContable, PagoInfo } from "@/types";
 // búsqueda, totales del período, cierre de caja diario (solo ingresos), y
 // las acciones de estado/eliminación de cada fila.
 export function useMovimientosContablesList(tipo: MovimientoContable["tipo"]) {
-  const { data, commit, patchUi } = useApp();
+  const { data, commit, patchUi } = useAppData();
   const [busqueda, setBusqueda] = useState("");
 
   const items = data.movimientosContables

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import type { Modulo, PerfilPublico } from "@/types";
 
 // Estado y lógica de edición de módulos compartidos entre la fila de tabla
@@ -9,7 +9,7 @@ import type { Modulo, PerfilPublico } from "@/types";
 // instancia (son subárboles DOM independientes, uno oculto vía CSS), así que
 // no hay problema en que cada una tenga su propio estado local.
 export function usePerfilRowState(perfil: PerfilPublico) {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [editandoModulos, setEditandoModulos] = useState(false);
   const [reseteando, setReseteando] = useState(false);
   const [seleccion, setSeleccion] = useState<Set<Modulo>>(new Set(perfil.modulos));

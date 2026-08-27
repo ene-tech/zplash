@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { todayYMD } from "@/lib/helpers";
 import type { ConfigGlobal } from "@/types";
 import { Clock } from "lucide-react";
@@ -10,7 +10,7 @@ import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
 export default function HorarioSection() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [cfg, setCfg] = useState<ConfigGlobal>(data.config);
   const festivoRef = useRef<HTMLInputElement>(null);
   const [guardando, setGuardando] = useState(false);

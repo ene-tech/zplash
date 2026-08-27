@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData, useAppUi } from "@/context/AppContext";
 import {
   claveTurnoZona,
   DIAS_ORDEN,
   DIAS_SEMANA,
   motivoFueraDeRegla,
   perfilesDelEquipo,
+  planillaVigente,
+  sugerirPartTime,
   TURNOS_ZONA,
+  ZONA_LABELS,
 } from "@/lib/helpers";
-import type { ReglaOperador } from "@/types";
+import type { ReglaOperador, ZonaTurno } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
@@ -23,9 +26,14 @@ import { Trash2 } from "lucide-react";
  * horario— se niegan a asignarle un tramo que la rompa (ver
  * motivoFueraDeRegla). Sin regla = sin tope, que es como está todo el equipo
  * hasta que alguien cargue una. La misma regla lleva los vetos de apertura y
- * cierre: qué sector puede abrir o cerrar esa persona (ver vetados). */
+ * cierre: qué sector puede abrir o cerrar esa persona (ver vetados) y su
+ * ubicación de trabajo, la única zona en la que presta servicio (ver
+ * zonaFija). Lo que el equipo no alcanza a cubrir con estas reglas es lo que
+ * hay que comprar en part time: abajo va el resumen y el horario de cada
+ * puesto sale en Part Time (ver sugerirPartTime). */
 export default function ReglasOperadorTab() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
+  const { patchUi } = useAppUi();
   const funcionarios = perfilesDelEquipo(data.perfiles);
   const [perfilId, setPerfilId] = useState("");
   const [err, setErr] = useState<{ msg: string; ok: boolean; form: "tope" | "turnos" } | null>(null);
@@ -34,6 +42,17 @@ export default function ReglasOperadorTab() {
   // remonta con key={perfilId}, así cada campo vuelve a tomar el valor de LA
   // regla de ese operador sin un efecto que sincronice cinco useState.
   const reglaEnEdicion = data.reglasOperador.find((r) => r.id === perfilId);
+
+  // Lo que el equipo no alcanza a cubrir con el horario que estas reglas
+  // permiten hay que comprarlo en part time. Acá va el resumen —cuántos y con
+  // qué horario— y el detalle, con quién de la ficha puede tomarlo, en su
+  // pestaña.
+  const sugerencia = sugerirPartTime(
+    data.turnosFuncionario,
+    data.config.dotacion,
+    planillaVigente(data.config.planillaPartTime, data.config.partTimes),
+    data.config.partTimes
+  );
   const nombreDe = (id: string) => funcionarios.find((f) => f.id === id)?.nombre ?? "El funcionario";
 
   /** Los tramos ya asignados que rompen la regla. Cargar el tope no reescribe
@@ -60,7 +79,7 @@ export default function ReglasOperadorTab() {
       ...cambio,
     };
     const resto = data.reglasOperador.filter((r) => r.id !== perfilId);
-    const vacia = !regla.dias.length && !regla.vetados?.length;
+    const vacia = !regla.dias.length && !regla.vetados?.length && !regla.zonaFija;
     const ok = await commit({ reglasOperador: vacia ? resto : [...resto, regla] });
     if (!ok) {
       setErr({ msg: "No se pudo guardar (sin conexión). Intenta de nuevo.", ok: false, form });
@@ -105,17 +124,24 @@ export default function ReglasOperadorTab() {
       setErr({ msg: "Selecciona al operador", ok: false, form: "turnos" });
       return;
     }
+    const campos = new FormData(e.currentTarget);
     // Los turnos que quedaron sin marcar son los que NO puede tomar.
-    const puede = new FormData(e.currentTarget).getAll("puede").map(String);
+    const puede = campos.getAll("puede").map(String);
     const vetados = TURNOS_ZONA.map((c) => claveTurnoZona(c.turno, c.zona)).filter((k) => !puede.includes(k));
+    const zonaFija = (String(campos.get("zonaFija") ?? "") || undefined) as ZonaTurno | undefined;
     await guardarRegla(
-      { vetados },
+      { vetados, zonaFija },
       "turnos",
-      vetados.length
-        ? `${nombreDe(perfilId)} ya no toma: ${TURNOS_ZONA.filter((c) => vetados.includes(claveTurnoZona(c.turno, c.zona)))
-            .map((c) => c.label.toLowerCase())
-            .join(", ")}.`
-        : `${nombreDe(perfilId)} puede tomar cualquier apertura o cierre.`
+      [
+        zonaFija
+          ? `${nombreDe(perfilId)} trabaja solo en ${ZONA_LABELS[zonaFija].toLowerCase()}.`
+          : `${nombreDe(perfilId)} trabaja en todo el local.`,
+        vetados.length
+          ? `No toma: ${TURNOS_ZONA.filter((c) => vetados.includes(claveTurnoZona(c.turno, c.zona)))
+              .map((c) => c.label.toLowerCase())
+              .join(", ")}.`
+          : "Puede tomar cualquier apertura o cierre.",
+      ].join(" ")
     );
   };
 
@@ -123,7 +149,11 @@ export default function ReglasOperadorTab() {
     const ok = await commit({ reglasOperador: data.reglasOperador.filter((x) => x.id !== r.id) });
     setErr(
       ok
-        ? { msg: `${nombreDe(r.id)} queda sin tope horario y puede tomar cualquier turno.`, ok: true, form: "tope" }
+        ? {
+            msg: `${nombreDe(r.id)} queda sin tope horario, trabaja en todo el local y puede tomar cualquier turno.`,
+            ok: true,
+            form: "tope",
+          }
         : { msg: "No se pudo quitar la regla (sin conexión).", ok: false, form: "tope" }
     );
   };
@@ -137,7 +167,9 @@ export default function ReglasOperadorTab() {
         cierre. Con la regla cargada, ni <strong>Horarios y Turnos</strong>, ni <strong>Apertura y Cierre</strong>, ni
         el creador de horario le van a asignar un turno que la rompa. Quien no tenga regla no tiene tope. Aparte del tope va
         <strong> Apertura y cierre</strong>, que se guarda por separado: lo que desmarques ahí tampoco se le asigna, así
-        queda fuera de la apertura o el cierre del sector que no le corresponda aunque su horario dé.
+        queda fuera de la apertura o el cierre del sector que no le corresponda aunque su horario dé. Ahí mismo va la{" "}
+        <strong>ubicación de trabajo</strong>: si alguien presta servicio en una sola zona del local, no se le asigna
+        ningún tramo de la otra —ni de encargado ni normal—, ningún día.
       </div>
 
       <h3>Reglas del equipo</h3>
@@ -146,6 +178,7 @@ export default function ReglasOperadorTab() {
           <TableHeader>
             <TableRow>
               <TableHead>Operador</TableHead>
+              <TableHead>Ubicación</TableHead>
               <TableHead>Días con tope</TableHead>
               <TableHead>Esos días</TableHead>
               <TableHead>Apertura y cierre</TableHead>
@@ -157,7 +190,7 @@ export default function ReglasOperadorTab() {
           <TableBody>
             {funcionarios.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={8}>
                   <div className="empty">Ningún perfil tiene el módulo Operador ni Mi Entorno asignado todavía</div>
                 </TableCell>
               </TableRow>
@@ -168,6 +201,13 @@ export default function ReglasOperadorTab() {
                 return (
                   <TableRow key={f.id}>
                     <TableCell>{f.nombre}</TableCell>
+                    <TableCell>
+                      {r?.zonaFija ? (
+                        ZONA_LABELS[r.zonaFija]
+                      ) : (
+                        <span style={{ color: "var(--gray)" }}>Todo el local</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {r?.dias.length ? (
                         DIAS_ORDEN.filter((d) => r.dias.includes(d)).map((d) => DIAS_SEMANA[d].slice(0, 3)).join(", ")
@@ -235,8 +275,9 @@ export default function ReglasOperadorTab() {
       </div>
 
       {/* Dos cosas distintas y por eso dos formularios con su propio Guardar:
-          el tope horario dice hasta qué hora puede trabajar; los turnos, qué
-          sector puede abrir o cerrar. Guardar uno no toca lo del otro.
+          el tope horario dice hasta qué hora puede trabajar; el otro, dónde
+          trabaja y qué sector puede abrir o cerrar. Guardar uno no toca lo del
+          otro.
           key={perfilId}: al cambiar de operador cada formulario se remonta y
           sus campos vuelven a tomar el valor de SU regla. */}
       <h4 style={{ fontSize: 14, color: "var(--gold)", margin: "18px 0 4px" }}>Tope horario</h4>
@@ -280,11 +321,23 @@ export default function ReglasOperadorTab() {
         <Button type="submit">Guardar tope horario</Button>
       </form>
 
-      <h4 style={{ fontSize: 14, color: "var(--gold)", margin: "22px 0 4px" }}>Apertura y cierre</h4>
+      <h4 style={{ fontSize: 14, color: "var(--gold)", margin: "22px 0 4px" }}>Ubicación y turnos</h4>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 8 }}>
-        Desmarca lo que esta persona <em>no</em> puede tomar. Vale todos los días y no depende de su horario.
+        Dónde presta servicio y qué puede abrir o cerrar. Desmarca lo que esta persona <em>no</em> puede tomar. Vale
+        todos los días y no depende de su horario.
       </div>
       <form key={`turnos-${perfilId}`} onSubmit={guardarTurnos}>
+        <div className="field" style={{ maxWidth: 260 }}>
+          <label>Ubicación de trabajo</label>
+          <select name="zonaFija" defaultValue={reglaEnEdicion?.zonaFija ?? ""}>
+            <option value="">Todo el local</option>
+            {(Object.keys(ZONA_LABELS) as ZonaTurno[]).map((z) => (
+              <option key={z} value={z}>
+                Solo {ZONA_LABELS[z].toLowerCase()}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="field">
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {TURNOS_ZONA.map((c) => {
@@ -309,8 +362,30 @@ export default function ReglasOperadorTab() {
             {err.msg}
           </div>
         )}
-        <Button type="submit">Guardar apertura y cierre</Button>
+        <Button type="submit">Guardar ubicación y turnos</Button>
       </form>
+
+      {sugerencia.personas > 0 && (
+        <>
+          <h3 style={{ marginTop: 28 }}>Lo que el equipo no alcanza a cubrir</h3>
+          <div style={{ fontSize: 14, marginBottom: 10 }}>
+            Con el horario que hoy permite el equipo faltan <strong>{sugerencia.personas}</strong> part time —
+            {sugerencia.horas} h a la semana— para cumplir la dotación. Cada uno tendría que cumplir este horario:
+          </div>
+          {sugerencia.puestos.map((p, i) => (
+            <div key={i} style={{ fontSize: 13, marginBottom: 4 }}>
+              <span className="plate-tag info" style={{ marginRight: 6 }}>
+                Part time {i + 1}
+              </span>
+              {p.tramos.map((t) => `${DIAS_SEMANA[t.diaSemana].slice(0, 3)} ${t.desde}-${t.hasta}`).join(" · ")}
+              <span style={{ color: "var(--gray)" }}> · {p.horas} h/sem</span>
+            </div>
+          ))}
+          <Button variant="ghost" size="sm" onClick={() => patchUi({ equipoTab: "parttime" })}>
+            Ver quién puede tomarlos en Part Time
+          </Button>
+        </>
+      )}
     </div>
   );
 }

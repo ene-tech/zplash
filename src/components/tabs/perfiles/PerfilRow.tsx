@@ -1,6 +1,6 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import { MODULO_LABELS, TODOS_LOS_MODULOS } from "@/lib/helpers";
 import type { PerfilPublico } from "@/types";
 import { TableRow, TableCell } from "@/components/ui/table";
@@ -19,7 +19,7 @@ export function PerfilRow({
   puedeAsignarPermisos: boolean;
   onEliminar: () => void;
 }) {
-  const { ui, patchUi } = useApp();
+  const { ui, patchUi } = useAppUi();
   const { editandoModulos, setEditandoModulos, reseteando, setReseteando, seleccion, toggleModulo, guardarModulos, guardando } =
     usePerfilRowState(perfil);
 

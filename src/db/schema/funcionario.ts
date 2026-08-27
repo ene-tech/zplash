@@ -53,6 +53,10 @@ export const reglasOperador = pgTable("reglas_operador", {
   // Combos turno|zona que NO puede tomar, "apertura|prelavado,cierre|aspirados".
   // Vacío = puede abrir y cerrar cualquier sector.
   vetados: text("vetados"),
+  // Ubicación de trabajo: la única zona del local en que presta servicio
+  // ("aspirados"). null = trabaja en todo el local, que es como está el equipo
+  // hasta que alguien la fije.
+  zonaFija: text("zona_fija"), // "prelavado" | "aspirados" | null
   notas: text("notas"),
 });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import {
   cancelarSuscripcionOneclick,
   cobrarSuscripcionManual,
@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
-  const { data: appData, patchUi, loadingHistorial } = useApp();
+  const { data: appData, patchUi, loadingHistorial } = useAppData();
   const { inicio: inicioPeriodo, fin } = periodoPlan(c.fechaContratacion);
   // `fin` es exclusivo (inicio del ciclo siguiente); el período se muestra
   // hasta el día anterior, que es el que el cliente ve como vencimiento.

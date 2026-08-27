@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppAcciones } from "@/context/AppContext";
 import DatosTransferencia from "@/components/DatosTransferencia";
 import { fmtCLP } from "@/lib/helpers";
 import type { PagoInfo } from "@/types";
@@ -17,7 +17,7 @@ export default function PagoModal({
   descripcion: string;
   onConfirm: (pago: PagoInfo) => void;
 }) {
-  const { patchUi } = useApp();
+  const { patchUi } = useAppAcciones();
   const [metodo, setMetodo] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
   const [err, setErr] = useState("");
 

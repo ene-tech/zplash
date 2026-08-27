@@ -16,10 +16,10 @@ import type { Cliente } from "@/types";
 import { DetailList, DetailRow } from "@/components/DetailList";
 import { useOperadorFoundResult } from "@/components/operador/useOperadorFoundResult";
 import OperadorFoundOfertas from "@/components/operador/OperadorFoundOfertas";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 
 export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: () => void }) {
-  const { data } = useApp();
+  const { data, guardando } = useAppData();
   const nombreRef = useRef<HTMLInputElement>(null);
   const vehiculoRef = useRef<HTMLInputElement>(null);
   const telefonoRef = useRef<HTMLInputElement>(null);
@@ -172,7 +172,7 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
               {mensajeSinPases(c)}
             </div>
-            <button className="btn secondary" style={{ marginTop: 8 }} onClick={r.cobrarLavadoUnico}>
+            <button className="btn secondary" style={{ marginTop: 8 }} onClick={r.cobrarLavadoUnico} disabled={guardando}>
               Comprar lavado adicional por {fmtCLP(r.precioLavadoUnicoFinal)} e ingresar de todas formas
             </button>
           </>
@@ -181,13 +181,13 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
               {mensajeBloqueoReingreso(data.ingresos, c.id, r.horasBloqueoReingreso)}
             </div>
-            <button className="btn secondary" style={{ marginTop: 8 }} onClick={r.cobrarLavadoUnico}>
+            <button className="btn secondary" style={{ marginTop: 8 }} onClick={r.cobrarLavadoUnico} disabled={guardando}>
               Comprar lavado por {fmtCLP(r.precioLavadoUnicoFinal)} e ingresar de todas formas
             </button>
           </>
         ) : r.planVigente ? (
-          <button className="btn" style={{ marginTop: 16 }} onClick={r.registrar}>
-            Registrar ingreso
+          <button className="btn" style={{ marginTop: 16 }} onClick={r.registrar} disabled={guardando}>
+            {guardando ? "Guardando…" : "Registrar ingreso"}
           </button>
         ) : (
           <>
@@ -195,10 +195,10 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
               Este cliente no tiene un plan vigente. Elige el tipo de lavado:
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-              <button className="btn" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.contratarPlan}>
+              <button className="btn" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.contratarPlan} disabled={guardando}>
                 Contratar plan nuevo ({fmtCLP(r.pContratacion)})
               </button>
-              <button className="btn secondary" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.registrarPagado}>
+              <button className="btn secondary" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.registrarPagado} disabled={guardando}>
                 Lavado Full Túnel ({fmtCLP(r.precioLavadoUnicoFinal)})
               </button>
             </div>

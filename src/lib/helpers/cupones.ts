@@ -5,10 +5,23 @@ import { normPlate } from "./validadores";
 /** Alfabeto sin 0/O ni 1/I para evitar confusiones al leer o tipear el código. */
 const ALFABETO_CUPON = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+// getRandomValues y no Math.random(): un código de cupón es canjeable por un
+// lavado (ver canjearCupon), así que vale plata. Math.random() en V8 es
+// xorshift128+ — observando unos pocos códigos emitidos se puede reconstruir
+// su estado y predecir los siguientes, y los lotes de Pack Empresa se emiten
+// justamente de a decenas seguidas. Web Crypto y no crypto.randomInt de Node
+// porque este módulo entra en el barrel de @/lib/helpers, que también se
+// importa desde componentes del navegador.
+//
+// El alfabeto tiene 32 caracteres y 256 % 32 === 0, así que `byte % 32` no
+// introduce sesgo (con un largo que no divida a 256 habría que descartar los
+// bytes del último tramo incompleto en vez de tomar el módulo).
 export function generarCodigoCupon(existentes: Set<string>): string {
   let codigo: string;
   do {
-    codigo = Array.from({ length: 6 }, () => ALFABETO_CUPON[Math.floor(Math.random() * ALFABETO_CUPON.length)]).join("");
+    const bytes = new Uint8Array(6);
+    globalThis.crypto.getRandomValues(bytes);
+    codigo = Array.from(bytes, (b) => ALFABETO_CUPON[b % ALFABETO_CUPON.length]).join("");
   } while (existentes.has(codigo));
   return codigo;
 }

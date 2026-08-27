@@ -2,8 +2,12 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, suscripcionesOneclick } from "@/db/schema";
-import { cancelarSuscripcionWooCommerceLegacy, cobrarSuscripcion } from "@/lib/pagos";
+import { diasVencido } from "@/lib/helpers";
+import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
+import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
+import { cancelarSuscripcionWooCommerceLegacy, cobrarOfertaOneclick, cobrarSuscripcion, otorgarTicketReactivacion } from "@/lib/pagos";
 import { oneclickInscription } from "@/lib/transbank";
+import type { Cliente } from "@/types";
 
 // Si la patente que acaba de activar su tarjeta Oneclick propia todavía
 // tiene marca de renovación automática por WooCommerce (ver
@@ -16,7 +20,7 @@ import { oneclickInscription } from "@/lib/transbank";
 // para el detalle de por qué es best-effort.
 function dispararMigracionLegacySiCorresponde(
   db: ReturnType<typeof getDb>,
-  cliente: { id: string; email: string | null; renovacionAutoWooDesde: string | null } | undefined,
+  cliente: Pick<Cliente, "id" | "email" | "renovacionAutoWooDesde"> | null,
   patente: string
 ) {
   if (!cliente?.renovacionAutoWooDesde) return;
@@ -87,11 +91,9 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     return redirectResultado(origin, esSoloTarjeta ? "tarjeta_anulada" : "anulado");
   }
 
-  const [cliente] = await db
-    .select({ id: clientes.id, email: clientes.email, vencimiento: clientes.vencimiento, renovacionAutoWooDesde: clientes.renovacionAutoWooDesde })
-    .from(clientes)
-    .where(eq(clientes.patente, suscripcion.patente))
-    .limit(1);
+  // Ficha completa (no un subset de columnas): más abajo se le calcula la
+  // promoción de reactivación, que necesita plan/fechaContratacion/heredado.
+  const cliente = await buscarClientePorPatente(suscripcion.patente);
 
   if (esSoloTarjeta) {
     // Sin cobro inmediato: si la patente tiene un plan vigente, el próximo
@@ -140,10 +142,44 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
 
   dispararMigracionLegacySiCorresponde(db, cliente, suscripcion.patente);
 
+  // ¿El plan venía vencido? Se mira ANTES de cobrar, porque el cobro de acá
+  // abajo es justamente lo que lo reactiva (ver aplicarPagoAprobado).
+  const veniaVencido = !!cliente && diasVencido(cliente) !== null;
+
+  // Promoción de reactivación que le calza a esta patente (ver
+  // calcularOfertasPlan): el cliente que llega vencido e inscribe su tarjeta
+  // entra pagando ese precio y no el de lista de la renovación automática —
+  // es la misma oferta que Mi Cuenta cobra vía cobrarOfertaOneclick y la que
+  // /pagar le anunció antes de mandarlo a Transbank (ver /api/pagos/estado).
+  // Se recalcula acá con datos frescos, nunca se confía en lo que el cliente
+  // vio en pantalla. Es solo por este primer cobro: los meses siguientes los
+  // cobra el cron al precio normal de la renovación automática.
+  const promoReactivacion = veniaVencido && cliente ? (await calcularOfertasPlanDeCliente(cliente)).reactivacion?.precio : undefined;
+
   // Tarjeta inscrita: cobra ya mismo en vez de esperar al cron del día
   // siguiente, para que el plan quede activo de inmediato.
   try {
-    const { estado } = await cobrarSuscripcion(activada);
+    const { estado } = promoReactivacion
+      ? await cobrarOfertaOneclick(suscripcion.patente, "reactivacion", promoReactivacion)
+      : await cobrarSuscripcion(activada);
+    if (estado === "aprobada" && veniaVencido) {
+      // Promo: registrar tarjeta de pago automático teniendo el plan vencido
+      // deja 1 ticket de lavado full túnel gratis, para cualquier vehículo,
+      // con 30 días de vigencia y un correo con el código —una sola vez por
+      // cliente, ver otorgarTicketReactivacion, que devuelve null si ya la
+      // usó. Fuera de la transacción del cobro (cobrarSuscripcion abre la
+      // suya): el cargo ya está hecho, y no emitir el ticket nunca puede
+      // costarle el plan al cliente, por eso se registra el error y se sigue.
+      try {
+        await otorgarTicketReactivacion({
+          patente: suscripcion.patente,
+          email: suscripcion.email,
+          creadoPor: "Promo reactivación (Oneclick)",
+        });
+      } catch (error) {
+        console.error("No se pudo emitir el ticket de la promo de reactivación", suscripcion.patente, error);
+      }
+    }
     return redirectResultado(origin, estado === "aprobada" ? "ok" : "error");
   } catch (error) {
     console.error("Error en el primer cobro tras inscripción Oneclick", error);

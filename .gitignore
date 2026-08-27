@@ -41,10 +41,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# volcados de datos de clientes (PII) — no van al repo
-auditoria-*.csv
-auditoria-*.pdf
-respaldo-*.csv
+# volcados de datos de clientes (PII) — no van al repo.
+# Los patrones van por extensión abierta a propósito: los informes y respaldos
+# se generan a mano con scripts sueltos (ver scripts/) y ya se coló más de uno
+# con una extensión que la lista anterior no cubría — respaldo-*.json e
+# informe-*.csv quedaban trackeables aunque traen patente, nombre y correo.
+auditoria-*
+respaldo-*
+informe-*
+clientes-*
+*.csv
+*.xlsx
 
 # herramientas locales de agentes
 /.claude

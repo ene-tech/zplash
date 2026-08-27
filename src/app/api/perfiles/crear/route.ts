@@ -6,6 +6,7 @@ import { hashClave } from "@/lib/auth";
 import { verificarYMigrarClave } from "@/lib/perfiles";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { origenValido } from "@/lib/csrf";
+import { TODOS_LOS_MODULOS } from "@/lib/helpers";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,13 @@ const LIMITE_INTENTOS = 20;
 const VENTANA_MS = 5 * 60 * 1000;
 
 const CLAVE_MIN_LARGO = 6;
+
+// Los módulos se guardan tal cual llegan en la fila de `perfiles`, y de ahí
+// salen los permisos que chequea tieneModulo() en cada Server Action. Sin
+// validar contra la lista real, este endpoint aceptaba cualquier string:
+// basura que ensucia el checklist de PerfilesTab, y un nombre de módulo
+// futuro concedido antes de que exista la pantalla que lo administra.
+const MODULOS_VALIDOS = new Set<string>(TODOS_LOS_MODULOS);
 
 // Solo quien ya tiene el módulo "perfiles" puede dar de alta un perfil
 // nuevo. Como no hay sesiones reales, la única prueba de identidad que el
@@ -44,7 +52,7 @@ export async function POST(request: NextRequest) {
     typeof clave !== "string" ||
     clave.length < CLAVE_MIN_LARGO ||
     !Array.isArray(modulos) ||
-    !modulos.every((m) => typeof m === "string")
+    !modulos.every((m) => typeof m === "string" && MODULOS_VALIDOS.has(m))
   ) {
     return NextResponse.json({ ok: false, error: "Datos inválidos" }, { status: 400 });
   }

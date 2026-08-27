@@ -51,3 +51,21 @@ export async function deletePerfiles(ids: string[]): Promise<boolean> {
     return false;
   }
 }
+
+// Lo ÚNICO que la pantalla de login necesita antes de haber iniciado sesión
+// (ver LoginScreen): id/nombre/modulos/icono para pintar el selector de
+// perfiles. Existe aparte de loadCore() justamente para que loadCore() pueda
+// exigir sesión — antes era la excusa por la que loadCore() (y con ella
+// `clientes`, la cartola, la contabilidad y los contratos) viajaba sin
+// ningún chequeo. Nunca incluye "clave" (ver perfilPublicoFromRow).
+export async function loadPerfilesLogin(): Promise<PerfilPublico[]> {
+  try {
+    const rows = await getDb()
+      .select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos, icono: perfiles.icono })
+      .from(perfiles);
+    return rows.map(perfilPublicoFromRow);
+  } catch (error) {
+    console.error("Error cargando perfiles para el login", error);
+    return [];
+  }
+}

@@ -7,7 +7,12 @@ import { boolean, integer, jsonb, numeric, pgTable, text } from "drizzle-orm/pg-
 // festivos: fechas YYYY-MM-DD que usan el horario de fin de semana.
 export const config = pgTable("config", {
   id: boolean("id").primaryKey().default(true),
-  pinAdmin: text("pin_admin").notNull().default("1234"),
+  // pin_admin quedó fuera del schema: no lo lee ni lo escribe nadie desde que
+  // el acceso pasa por perfiles + contraseña bcrypt (ver @/lib/session), y
+  // seguía con el default "1234" en la base. La columna sigue existiendo en
+  // Postgres —NOT NULL con default, así que los INSERT siguen andando— y
+  // conviene borrarla a mano junto con el resto del SQL pendiente:
+  //   alter table config drop column pin_admin;
   horarioOperadorSemanaInicio: text("horario_operador_semana_inicio").notNull().default("08:25"),
   horarioOperadorSemanaFin: text("horario_operador_semana_fin").notNull().default("20:15"),
   horarioOperadorFindeInicio: text("horario_operador_finde_inicio").notNull().default("09:55"),
@@ -17,6 +22,27 @@ export const config = pgTable("config", {
   // sábados de 12:00 a 16:00, 4 operadores". La respeta el creador de horario.
   dotacion: jsonb("dotacion")
     .$type<{ id: string; dias: number[]; desde: string; hasta: string; cantidad: number }[]>()
+    .notNull()
+    .default([]),
+  // Fichas de part time con su disponibilidad declarada (ver PartTime) y la
+  // planilla de lo que cada uno viene a cubrir (ver TramoPartTime). Van acá y
+  // no en tabla propia porque, como la dotación, son el requerimiento del
+  // local: se leen y se guardan siempre juntos con el resto de la config.
+  partTimes: jsonb("part_times")
+    .$type<
+      {
+        id: string;
+        nombre: string;
+        telefono?: string;
+        notas?: string;
+        horarios: { id: string; dias: number[]; desde: string; hasta: string }[];
+        activo: boolean;
+      }[]
+    >()
+    .notNull()
+    .default([]),
+  planillaPartTime: jsonb("planilla_part_time")
+    .$type<{ id: string; partTimeId: string; dias: number[]; desde: string; hasta: string }[]>()
     .notNull()
     .default([]),
   // Días de vigencia de los tickets del Pack de Tickets (ver TICKETS_KEY en

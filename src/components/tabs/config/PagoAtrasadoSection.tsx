@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { PLANES } from "@/lib/helpers";
 import { CalendarClock } from "lucide-react";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
 export default function PagoAtrasadoSection() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [diasVal, setDiasVal] = useState(() => String(data.config.diasGraciaPagoAtrasado));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);

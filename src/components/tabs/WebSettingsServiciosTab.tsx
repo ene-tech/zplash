@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import PriceInput from "@/components/PriceInput";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { precioServicio, uid } from "@/lib/helpers";
 import { subirBannerServicio } from "@/lib/serverActions";
 import { TAMANOS_VEHICULO, TAMANO_LABEL, type Servicio, type TamanoVehiculo } from "@/types";
@@ -11,7 +11,7 @@ const DURACION_DEFAULT = 30;
 const TAMANO_VACIO: Record<TamanoVehiculo, number> = { s: 0, m: 0, l: 0, xl: 0 };
 
 function ServicioRow({ servicio }: { servicio: Servicio }) {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [nombre, setNombre] = useState(servicio.nombre);
   const [categoria, setCategoria] = useState(servicio.categoria || "");
   const [precioTexto, setPrecioTexto] = useState(String(precioServicio(data.precios, servicio.id)));
@@ -155,7 +155,7 @@ function ServicioRow({ servicio }: { servicio: Servicio }) {
 }
 
 export default function WebSettingsServiciosTab() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
   const categoriaRef = useRef<HTMLInputElement>(null);

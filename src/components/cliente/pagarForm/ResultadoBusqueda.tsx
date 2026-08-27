@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { fmtCLP, fmtFecha, precioConHeredado } from "@/lib/helpers";
 import GoogleIcon from "@/components/GoogleIcon";
+import { AvisoPasaAX5 } from "@/components/cliente/AvisoPasaAX5";
 import type { PreciosPublicos } from "@/components/cliente/types";
 import { CamposDocumento } from "./CamposDocumento";
 import { useDatosDocumento } from "./useDatosDocumento";
@@ -57,7 +58,12 @@ export function ResultadoBusqueda(p: Props) {
   // heredado. El precio público queda de respaldo por si el endpoint es de
   // una versión anterior y no manda el campo.
   const precioRenovar = r.precioRenovacion ?? precioConHeredado(p.precios.plan.precio, r);
-  const precioAuto = precioConHeredado(p.precios.planOneclick.precio, r);
+  const precioAutoMensual = precioConHeredado(p.precios.planOneclick.precio, r);
+  // Al cliente vencido con promoción de reactivación la inscripción de
+  // tarjeta le cobra ese precio y no el mensual (ver precioPrimerCobroAuto):
+  // se anuncia el que se va a cobrar, con el mensual de después al lado.
+  const precioAuto = r.precioPrimerCobroAuto ?? precioAutoMensual;
+  const promoPrimerMes = precioAuto !== precioAutoMensual;
   const ahorroAuto = precioRenovar - precioAuto;
 
   return (
@@ -80,6 +86,7 @@ export function ResultadoBusqueda(p: Props) {
               </div>
             )}
           </div>
+          <AvisoPasaAX5 plan={r.plan} vencimiento={r.estado?.cls !== "bad" ? r.vencimiento : null} />
           {/* El precio ya viene rebajado desde /api/pagos/estado: esto solo
               explica de dónde sale, para que no se lea como un error. */}
           {!!r.descuentoCupon && (
@@ -186,15 +193,24 @@ export function ResultadoBusqueda(p: Props) {
       {!p.soloPagoUnico &&
         (!p.mostrarAuto ? (
           <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => p.setMostrarAuto(true)}>
-            Renovación automática — {fmtCLP(precioAuto)}/mes
+            Renovación automática — {fmtCLP(precioAuto)}
+            {promoPrimerMes ? " el primer mes" : "/mes"}
             {ahorroAuto > 0 && <> (ahorras {fmtCLP(ahorroAuto)})</>}
           </button>
         ) : (
           <div className="field" style={{ marginTop: 14 }}>
             <label>Email (para confirmar la inscripción de tu tarjeta)</label>
             <input type="email" value={p.email} onChange={(e) => p.setEmail(e.target.value)} placeholder="tu@email.cl" />
+            {(promoPrimerMes || r.ticketReactivacion) && (
+              <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginTop: 8 }}>
+                {promoPrimerMes && <>Precio de reactivación por este mes; desde el próximo, {fmtCLP(precioAutoMensual)}/mes. </>}
+                {r.ticketReactivacion && <>Además te regalamos 1 lavado full túnel gratis por registrar tu tarjeta.</>}
+              </div>
+            )}
             <button className="btn" style={{ marginTop: 10 }} onClick={p.activarAutomatica} disabled={p.inscribiendo}>
-              {p.inscribiendo ? "Redirigiendo..." : `Activar renovación automática — ${fmtCLP(precioAuto)}/mes`}
+              {p.inscribiendo
+                ? "Redirigiendo..."
+                : `Activar renovación automática — ${fmtCLP(precioAuto)}${promoPrimerMes ? " el primer mes" : "/mes"}`}
             </button>
           </div>
         ))}

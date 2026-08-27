@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import {
   avisosDotacion,
   avisosLegales,
@@ -11,6 +11,7 @@ import {
   idTurnoFuncionario,
   motivoFueraDeRegla,
   perfilesDelEquipo,
+  planillaVigente,
   proponerHorario,
   tramosDelDiaSemana,
   TURNO_LABELS,
@@ -112,11 +113,14 @@ function GrillaSemana({
 /** Los avisos de la semana: puestos sin encargado y reglas legales pasadas a
  * llevar (ver avisosLegales). Son avisos, no bloqueos: la excepción se puede
  * hacer, pero se ve. */
-function Avisos({ lista }: { lista: string[] }) {
-  if (!lista.length) return null;
+export function Avisos({ lista }: { lista: string[] }) {
+  // Dos tramos de dotación que se pisan dan el mismo aviso dos veces: se
+  // muestra uno.
+  const unicos = [...new Set(lista)];
+  if (!unicos.length) return null;
   return (
     <div className="err" style={{ marginBottom: 10, textAlign: "left" }}>
-      {lista.map((a) => (
+      {unicos.map((a) => (
         <div key={a}>{a}</div>
       ))}
     </div>
@@ -129,7 +133,7 @@ function Avisos({ lista }: { lista: string[] }) {
  * servidor gatea estas escrituras con el módulo "perfiles" (ver
  * upsertTurnosFuncionario), el mismo con el que se abre esta vista. */
 export default function HorariosEquipoTab() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const funcionarios = perfilesDelEquipo(data.perfiles);
   const [perfilId, setPerfilId] = useState("");
   const [diaSemana, setDiaSemana] = useState(1);
@@ -151,6 +155,11 @@ export default function HorariosEquipoTab() {
   // La dotación sí se persiste (config.dotacion): es el requerimiento del
   // local, no un criterio de una corrida del creador de horario.
   const [dotacion, setDotacion] = useState<TramoDotacion[]>(data.config.dotacion);
+  // La planilla part time se carga en su propia pestaña; acá solo se cuenta.
+  // El checkbox es para ver la propuesta sin ella —cuánto aguanta el equipo de
+  // planta solo— sin tener que borrar la planilla.
+  const planillaPartTime = planillaVigente(data.config.planillaPartTime, data.config.partTimes);
+  const [conPartTime, setConPartTime] = useState(true);
   const [excluidos, setExcluidos] = useState<string[]>([]);
   const [propuesta, setPropuesta] = useState<{ turnos: TurnoFuncionario[]; avisos: string[] } | null>(null);
 
@@ -245,6 +254,7 @@ export default function HorariosEquipoTab() {
         diasLibres,
         reglas: data.reglasOperador,
         dotacion,
+        planillaPartTime: conPartTime ? planillaPartTime : [],
       })
     );
   };
@@ -275,13 +285,19 @@ export default function HorariosEquipoTab() {
 
       <h3>Turnos del equipo</h3>
       <GrillaSemana funcionarios={funcionarios} turnos={data.turnosFuncionario} onQuitar={quitar} />
-      <Avisos lista={[...avisosLegales(data.turnosFuncionario, funcionarios), ...avisosDotacion(data.turnosFuncionario, dotacion)]} />
+      <Avisos
+        lista={[
+          ...avisosLegales(data.turnosFuncionario, funcionarios),
+          ...avisosDotacion(data.turnosFuncionario, dotacion, planillaPartTime),
+        ]}
+      />
 
       <h3 style={{ marginTop: 28 }}>Dotación</h3>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
         Cuánta gente necesita el local en cada franja: &quot;los sábados de 12:00 a 16:00, 4 operadores&quot;. El
         creador de horario suma turnos hasta llegar a ese número, y arriba se avisa cuando la semana asignada deja una
-        franja corta. Dos franjas que se pisan no se suman: cada una pide <em>al menos</em> esa cantidad.
+        franja corta. Dos franjas que se pisan no se suman: cada una pide <em>al menos</em> esa cantidad. Lo que cubra
+        la planilla de <strong>Part Time</strong> cuenta acá como gente en el local y no se le pide al equipo.
       </div>
       {dotacion.map((t) => (
         <div key={t.id} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
@@ -426,6 +442,18 @@ export default function HorariosEquipoTab() {
             value={diasLibres}
             onChange={(e) => setDiasLibres(Math.min(6, Math.max(0, Number(e.target.value) || 0)))}
           />
+        </div>
+        <div className="field" style={{ minWidth: 190 }}>
+          <label>Part time</label>
+          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, paddingTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={conPartTime}
+              onChange={() => setConPartTime(!conPartTime)}
+              style={{ width: "auto" }}
+            />
+            Contar la planilla ({planillaPartTime.length} {planillaPartTime.length === 1 ? "tramo" : "tramos"})
+          </label>
         </div>
         <div className="field">
           <label>Entran a la rotación</label>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import ClientModal from "@/components/modals/ClientModal";
 import ConfirmModal from "@/components/modals/ConfirmModal";
 import PerfilModal from "@/components/modals/PerfilModal";
@@ -17,7 +17,7 @@ import MaquinariaFichaModal from "@/components/modals/MaquinariaFichaModal";
 import CorreoRedactarModal from "@/components/modals/CorreoRedactarModal";
 
 export default function ModalRoot() {
-  const { ui } = useApp();
+  const { ui } = useAppUi();
   const m = ui.modal;
   if (!m) return null;
 

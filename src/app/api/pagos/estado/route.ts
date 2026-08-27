@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, precios } from "@/db/schema";
-import { PLANES, isValidPatente, normPlate, planStatus, precioConCupon, precioRenovacionCliente } from "@/lib/helpers";
+import { precios } from "@/db/schema";
+import { PLANES, diasVencido, isValidPatente, normPlate, planStatus, precioConCupon, precioRenovacionCliente } from "@/lib/helpers";
+import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
-import { buscarCuponDescuentoPlan } from "@/lib/pagos";
+import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
+import { buscarCuponDescuentoPlan, yaTieneTicketReactivacion } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getDb();
-    const [cliente] = await db.select().from(clientes).where(eq(clientes.patente, patente)).limit(1);
+    const cliente = await buscarClientePorPatente(patente);
     if (!cliente) {
       return NextResponse.json({ encontrado: false });
     }
@@ -45,6 +46,18 @@ export async function GET(request: NextRequest) {
     // público y se consulta con cualquier patente.
     const precioBase = precioRenovacionCliente(preciosMap, cliente.plan || PLANES[0], cliente, diasGraciaPagoAtrasado);
     const precioFinal = precioConCupon(precioBase, cupon);
+
+    // Plan vencido: las dos cosas que cambian la oferta de renovación
+    // automática de /pagar — la promoción de reactivación que le calza (lo
+    // que le va a cobrar la inscripción de tarjeta, ver
+    // /api/pagos/oneclick/inscripcion/retorno) y si todavía le queda el
+    // ticket de lavado gratis que regala inscribirla estando vencido. Solo
+    // para vencidos: calcular la oferta cuesta cuatro consultas más y este
+    // endpoint es público, un cliente al día no las necesita.
+    const vencido = diasVencido(cliente) !== null;
+    const [oferta, yaUsoTicket] = vencido
+      ? await Promise.all([calcularOfertasPlanDeCliente(cliente), yaTieneTicketReactivacion(patente, (cliente.email || "").trim().toLowerCase())])
+      : [undefined, true];
 
     return NextResponse.json({
       encontrado: true,
@@ -66,6 +79,18 @@ export async function GET(request: NextRequest) {
       // Sigue yendo aparte porque /pagar lo usa para el precio de la
       // renovación automática (Oneclick), que no pasa por el plazo de atraso.
       precioPlanHeredado: cliente.precioPlanHeredado,
+      // Lo que cobra el PRIMER cobro de la renovación automática cuando la
+      // patente califica para la promoción de reactivación; undefined = paga
+      // el precio de siempre de la renovación automática. Los meses
+      // siguientes los cobra el cron a ese precio normal. Con el cupón ya
+      // restado porque cobrarOfertaOneclick también lo resta al cobrar — si
+      // no, la pantalla anunciaría un monto distinto del que llega a
+      // Transbank.
+      precioPrimerCobroAuto: oferta?.reactivacion ? precioConCupon(oferta.reactivacion.precio, cupon) : undefined,
+      // El lavado full túnel gratis por inscribir la tarjeta con el plan
+      // vencido sigue disponible para esta patente (es una sola vez por
+      // cliente, ver otorgarTicketReactivacion).
+      ticketReactivacion: vencido && !yaUsoTicket,
     });
   } catch (error) {
     console.error("Error en /api/pagos/estado", error);

@@ -517,6 +517,17 @@ export function tramoRenovacionVigente(config: ConfigGlobal, plan: string, visit
  * cliente (ver useOperadorFoundResult). Ante rangos que se pisan gana el
  * tramo del canal específico por sobre el "AMBOS", para que una promo
  * dirigida a un canal le pueda mejorar el precio general.
+ *
+ * Un plan sin escala propia usa la del plan que se vende hoy (PLAN_X5):
+ * reactivar NO devuelve al cliente a su plan viejo, lo deja en el X5 (ver
+ * renovarPlan en @/lib/logic/ingresos, donde toda renovación escribe
+ * PLAN_X5), así que la promoción que le corresponde es la del producto que
+ * está comprando. Sin esto los clientes del ilimitado legacy no calzaban con
+ * ningún tramo —su `plan` dice "Plan Ilimitado Mensual" y los tramos están
+ * guardados bajo "Plan X5"— y se quedaban sin oferta de reactivación en Mi
+ * Cuenta, en el mesón y en los correos de plan vencido. La clave por plan se
+ * mantiene para que el admin pueda darle una escala distinta a un plan
+ * puntual.
  */
 export function precioReactivacionVencido(
   config: ConfigGlobal,
@@ -525,7 +536,7 @@ export function precioReactivacionVencido(
   visitas: number,
   canal: CanalPromo
 ): number | undefined {
-  const tramos = [...(config.tramosReactivacionVencido[plan] || [])].sort(
+  const tramos = [...(config.tramosReactivacionVencido[plan] || config.tramosReactivacionVencido[PLAN_X5] || [])].sort(
     (a, b) =>
       a.diasVencidoMin - b.diasVencidoMin ||
       a.visitasMin - b.visitasMin ||

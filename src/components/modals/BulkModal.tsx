@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { importarClientes } from "@/lib/logic";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 export default function BulkModal() {
-  const { data, commit, patchUi } = useApp();
+  const { data, commit, patchUi } = useAppData();
   const [summary, setSummary] = useState<{
     guardadoOk: boolean;
     nuevos: number;

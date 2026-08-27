@@ -12,6 +12,7 @@ import { aplicarVariables, fmtCLP, isValidEmail, isValidPatente, normPlate, uid 
 import {
   actualizarFlowStateConversacion,
   emitirCuponDescuentoPrimeraVez,
+  esInicioDeConversacion,
   getConfig,
   upsertClientes,
   vincularClienteConversacion,
@@ -211,6 +212,12 @@ export async function responderMensaje(textoCrudo: string, telefono: string, con
   if (flujoActivo && quiereSalirDelFlujo) {
     await actualizarFlowStateConversacion(conversacion.id, null);
   }
+
+  // El menú es siempre el primer mensaje de una conversación: si el bot no
+  // respondió nada en las últimas 24h, da lo mismo lo que hayan escrito
+  // (patente, "1", lo que sea) — primero ven el menú, y desde el mensaje
+  // siguiente el texto ya se interpreta como opción.
+  if (await esInicioDeConversacion(conversacion.id)) return { texto: textos.menuPrincipal };
 
   if (!texto || SALUDOS.has(normalizado)) return { texto: textos.menuPrincipal };
   if (isValidPatente(texto)) return estadoPlanPorPatente(texto, textos, telefono, conversacion);

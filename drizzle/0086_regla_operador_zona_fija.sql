@@ -1,0 +1,1 @@
+ALTER TABLE "reglas_operador" ADD COLUMN "zona_fija" text;

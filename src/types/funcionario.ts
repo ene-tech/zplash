@@ -43,6 +43,10 @@ export interface ReglaOperador {
   /** Combos turno|zona (ver claveTurnoZona) que NO puede tomar: "cierre|aspirados".
    * Vacío = puede abrir y cerrar cualquier sector. */
   vetados?: string[];
+  /** Ubicación de trabajo: la única zona del local en que presta servicio. No
+   * se le asigna ningún turno de la otra —ni de encargado ni normal—, ningún
+   * día y a ninguna hora. Ausente = trabaja en todo el local. */
+  zonaFija?: ZonaTurno;
 }
 
 /** Cuánta gente necesita el local en una franja horaria de ciertos días: "los
@@ -57,6 +61,45 @@ export interface TramoDotacion {
   desde: string; // "HH:MM"
   hasta: string;
   cantidad: number;
+}
+
+/** Una ventana en la que un part time puede prestar servicio: los días y el
+ * horario que declaró tener disponible ("sábados y domingos de 10:00 a
+ * 14:00"). Es disponibilidad, no turno asignado: lo que efectivamente viene a
+ * cubrir es la planilla (ver TramoPartTime). */
+export interface DisponibilidadPartTime {
+  id: string;
+  /** Días que cubre, 0 = domingo … 6 = sábado. */
+  dias: number[];
+  desde: string; // "HH:MM"
+  hasta: string;
+}
+
+/** Ficha de una persona que cubre turnos part time. NO es un perfil del
+ * sistema (no entra a la app, no tiene módulos ni checklist a cargo): es
+ * refuerzo de dotación en los peaks y los fines de semana. `horarios` es
+ * cuándo podría venir; la planilla dice cuándo viene. */
+export interface PartTime {
+  id: string;
+  nombre: string;
+  telefono?: string;
+  notas?: string;
+  horarios: DisponibilidadPartTime[];
+  activo: boolean;
+}
+
+/** Un tramo de la planilla part time: quién viene, qué días y en qué horario.
+ * Es oferta de dotación —la contracara de TramoDotacion, que es la demanda— y
+ * el creador de horario la descuenta antes de mandar a un funcionario de
+ * planta a cubrir un peak (ver proponerHorario). Se repite todas las semanas,
+ * igual que el horario del equipo. */
+export interface TramoPartTime {
+  id: string;
+  partTimeId: string;
+  /** Días que cubre, 0 = domingo … 6 = sábado. */
+  dias: number[];
+  desde: string; // "HH:MM"
+  hasta: string;
 }
 
 /** Tarea obligatoria de un checklist (ej. "Cortar matriz general de agua" al

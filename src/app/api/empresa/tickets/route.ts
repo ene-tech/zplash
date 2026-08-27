@@ -55,9 +55,16 @@ export async function GET(request: NextRequest) {
       .from(cupones)
       .where(condicion);
 
+    // El código sale enmascarado: este endpoint es público y se consulta por
+    // RUT, que en Chile es enumerable, así que devolverlo entero era entregar
+    // los tickets sin usar de cualquier empresa a quien probara RUTs (un
+    // código de cupón es un lavado gratis, ver canjearCupon). Los 2 últimos
+    // caracteres alcanzan para distinguir las filas en pantalla y no para
+    // canjear nada; el código completo lo tiene quien compró (va en el correo
+    // del Pack) y el mesón no lo necesita — reconoce el ticket por patente.
     const tickets = filas
       .map((f) => ({
-        codigo: f.codigo,
+        codigo: `••••${f.codigo.slice(-2)}`,
         nombreLote: f.nombreLote,
         numeroLote: f.numeroLote,
         totalLote: f.totalLote,

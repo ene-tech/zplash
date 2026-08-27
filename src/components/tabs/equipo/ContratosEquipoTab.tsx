@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { fmtFecha, perfilesDelEquipo } from "@/lib/helpers";
 import type { ContratoFuncionario } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -14,7 +14,7 @@ const TIPOS_CONTRATO = ["Indefinido", "Plazo fijo", "Part-time", "Por obra o fae
  * remuneración a propósito — ver el comentario de contratos_funcionario en el
  * esquema. */
 export default function ContratosEquipoTab() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const funcionarios = perfilesDelEquipo(data.perfiles);
   const [perfilId, setPerfilId] = useState("");
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);

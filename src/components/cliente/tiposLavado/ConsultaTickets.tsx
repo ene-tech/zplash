@@ -90,7 +90,7 @@ export function ConsultaTickets() {
                 </tr>
               ) : (
                 tickets.map((t) => (
-                  <tr key={t.codigo}>
+                  <tr key={`${t.nombreLote}-${t.numeroLote}`}>
                     <td className="plate-tag">{t.codigo}</td>
                     <td>
                       {t.numeroLote}/{t.totalLote}

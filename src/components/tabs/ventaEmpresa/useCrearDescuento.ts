@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type RefObject } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { PATENTE_FORMATO_MSG, generarCodigoCupon, isValidPatente, normPlate, uid } from "@/lib/helpers";
 import type { Cupon } from "@/types";
 
@@ -16,7 +16,7 @@ type CrearDescuentoRefs = {
 // se registra como venta acá. Puede quedar abierto (cualquier patente) o
 // asignado a una específica.
 export function useCrearDescuento(refs: CrearDescuentoRefs) {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const { dNombreRef, dCaducidadRef, dPatenteRef } = refs;
   const [dValorTexto, setDValorTexto] = useState("");
   const [dTipoValor, setDTipoValor] = useState<"monto" | "porcentaje">("monto");

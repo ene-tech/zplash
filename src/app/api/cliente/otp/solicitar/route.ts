@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { otpsCliente } from "@/db/schema";
@@ -20,8 +21,27 @@ const VENTANA_EMAIL_MS = 10 * 60 * 1000;
 
 const DURACION_CODIGO_MS = 5 * 60 * 1000;
 
+// crypto.randomInt y no Math.random(): este código es la única credencial del
+// Portal Cliente (da acceso a los datos del cliente y a la tarjeta guardada en
+// Oneclick). Math.random() en V8 es xorshift128+, no un CSPRNG — con unas
+// pocas salidas observadas se puede reconstruir su estado y predecir las
+// siguientes, y acá cualquiera puede pedirse códigos a su propio correo.
 function generarCodigo(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+// La respuesta ya no lleva el correo en limpio: mandar una patente cualquiera
+// (login por patente, más abajo) devolvía el correo registrado de su dueño a
+// cualquiera que lo pidiera, y bastaba con eso más /api/pagos/estado para
+// armar patente → nombre + correo de toda la base. Ahora sale enmascarado
+// solo para mostrarlo, y quien verifica el código usa `solicitudId` (ver
+// otp/verificar), que es el id de la fila de otpsCliente — opaco y de un solo
+// uso, así que no sirve para averiguar a qué correo se mandó.
+function enmascararEmail(email: string): string {
+  const [usuario, dominio] = email.split("@");
+  if (!dominio) return "***";
+  const visible = usuario.slice(0, 1);
+  return `${visible}${"*".repeat(Math.max(usuario.length - 1, 1))}@${dominio}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -105,10 +125,11 @@ export async function POST(request: NextRequest) {
 
   const codigo = generarCodigo();
   const codigoHash = await bcrypt.hash(codigo, 10);
+  const solicitudId = uid();
 
   try {
     await getDb().insert(otpsCliente).values({
-      id: uid(),
+      id: solicitudId,
       email,
       codigoHash,
       expiraEn: new Date(Date.now() + DURACION_CODIGO_MS).toISOString(),
@@ -123,5 +144,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "No pudimos enviar el código por correo, intenta de nuevo" }, { status: 502 });
   }
 
-  return NextResponse.json({ ok: true, email });
+  return NextResponse.json({ ok: true, solicitudId, email: enmascararEmail(email) });
 }

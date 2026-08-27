@@ -49,7 +49,7 @@ type FormRefs = {
 // (Cliente + Venta + Cita en un solo commit). La selección de servicios del
 // catálogo vive en useServicioSeleccion (dominio propio).
 export function useServiciosAdicionalesForm(refs: FormRefs) {
-  const { data, ui, commit } = useApp();
+  const { data, ui, commit, guardando } = useApp();
   const {
     patenteRef,
     nombreRef,
@@ -164,7 +164,7 @@ export function useServiciosAdicionalesForm(refs: FormRefs) {
   };
 
   const registrar = async () => {
-    if (!patenteBuscada) return;
+    if (!patenteBuscada || guardando) return;
     const nombre = (nombreRef.current?.value.trim() || "").toUpperCase();
     const telefonoValor = telefonoRef.current?.value.trim() || "";
     const emailValor = emailRef.current?.value.trim() || "";
@@ -279,6 +279,7 @@ export function useServiciosAdicionalesForm(refs: FormRefs) {
     buscarPatente,
     cambiarPatente,
     registrar,
+    guardando,
     onRutBlur,
     onTelefonoBlur,
   };

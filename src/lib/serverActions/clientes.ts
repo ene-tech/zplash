@@ -39,11 +39,12 @@ const CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["nombre"
 // ya existente al vender/renovar/reactivar un plan desde el módulo Operador.
 // Ningún perfil de operador tiene el módulo "clientes" por defecto (ver
 // PERFILES_DEFAULT) — sin esta excepción, cualquier venta de plan quedaba
-// bloqueada acá. Como commit() ya inserta la Venta correspondiente sin
-// depender de que este upsert de clientes tenga éxito (ver AppContext.commit,
-// commitClientes se espera antes que commitVentas pero no lo condiciona), el
-// operador veía "sin conexión", reintentaba, y quedaban Ventas duplicadas
-// cobradas sin que el plan del cliente llegara a activarse nunca.
+// bloqueada acá, y como commit() insertaba la Venta igual aunque este upsert
+// fallara, el operador veía "sin conexión", reintentaba, y quedaban Ventas
+// duplicadas cobradas sin que el plan del cliente llegara a activarse nunca.
+// Ese segundo efecto ya no ocurre (commit() aborta el resto de la escritura
+// si el cliente no se guardó, ver AppContext.commit), pero la excepción sigue
+// siendo necesaria para que la venta de plan se pueda guardar de una.
 const CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["plan", "ilimitadoHasta", "vencimiento", "ultimaRenovacion"]);
 
 // Antes, upsertClientes exigía solo tieneSesionValida(): cualquier perfil

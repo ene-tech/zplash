@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { clienteIdsConCorreoDePlantilla, enviarCorreosMasivos, suscripcionesParaFiltroCorreo } from "@/lib/serverActions";
 import { aplicarVariables, fmtFecha, normPlate } from "@/lib/helpers";
 import { ClientesSeleccionablesCorreoList } from "./correosUnicos/ClientesSeleccionablesCorreoList";
@@ -44,7 +44,7 @@ function sumarResultados(a: ResultadoEnvioMasivoCorreo, b: ResultadoEnvioMasivoC
 }
 
 export default function WebSettingsCorreosUnicosTab() {
-  const { data, patchUi } = useApp();
+  const { data, patchUi } = useAppData();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstadoCorreo>("todos");
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigenCorreo>("todos");
   const [vencidoDiasMax, setVencidoDiasMax] = useState("");

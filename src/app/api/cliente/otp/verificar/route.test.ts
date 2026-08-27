@@ -11,7 +11,7 @@ const { mockDb, filas } = vi.hoisted(() => {
   const mockDb = {
     select: () => ({
       from: () => ({
-        where: () => ({ orderBy: () => ({ limit: () => Promise.resolve(filas) }) }),
+        where: () => ({ limit: () => Promise.resolve(filas) }),
       }),
     }),
     update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
@@ -65,14 +65,14 @@ describe("POST /api/cliente/otp/verificar", () => {
   });
 
   it("crea la ficha y abre sesión cuando el código es correcto (registro)", async () => {
-    const res = await pedir({ email: "nuevo@ejemplo.com", codigo: "123456", nombre: "Ana", patente: "AB1234" });
+    const res = await pedir({ solicitudId: "otp1", codigo: "123456", nombre: "Ana", patente: "AB1234" });
     expect(res.status).toBe(200);
     expect(mockVincular).toHaveBeenCalledWith("AB1234", "Ana", "nuevo@ejemplo.com", "Portal Cliente (Registro)");
     expect(mockCrearSesion).toHaveBeenCalledWith(["c1"], "nuevo@ejemplo.com");
   });
 
   it("no crea nada ni abre sesión si el código es incorrecto", async () => {
-    const res = await pedir({ email: "nuevo@ejemplo.com", codigo: "000000", nombre: "Ana", patente: "AB1234" });
+    const res = await pedir({ solicitudId: "otp1", codigo: "000000", nombre: "Ana", patente: "AB1234" });
     expect(res.status).toBe(400);
     expect(mockVincular).not.toHaveBeenCalled();
     expect(mockCrearSesion).not.toHaveBeenCalled();
@@ -80,19 +80,19 @@ describe("POST /api/cliente/otp/verificar", () => {
 
   it("no abre sesión si la patente tiene dueño activo", async () => {
     mockVincular.mockResolvedValue({ ok: false, error: "Esa patente ya está registrada." });
-    const res = await pedir({ email: "nuevo@ejemplo.com", codigo: "123456", nombre: "Ana", patente: "AB1234" });
+    const res = await pedir({ solicitudId: "otp1", codigo: "123456", nombre: "Ana", patente: "AB1234" });
     expect(res.status).toBe(409);
     expect(mockCrearSesion).not.toHaveBeenCalled();
   });
 
   it("rechaza el registro con patente inválida antes de tocar la base", async () => {
-    const res = await pedir({ email: "nuevo@ejemplo.com", codigo: "123456", nombre: "Ana", patente: "XX" });
+    const res = await pedir({ solicitudId: "otp1", codigo: "123456", nombre: "Ana", patente: "XX" });
     expect(res.status).toBe(400);
     expect(mockVincular).not.toHaveBeenCalled();
   });
 
   it("sin nombre sigue siendo login: correo sin vehículos no abre sesión", async () => {
-    const res = await pedir({ email: "nuevo@ejemplo.com", codigo: "123456" });
+    const res = await pedir({ solicitudId: "otp1", codigo: "123456" });
     expect(res.status).toBe(404);
     expect(mockVincular).not.toHaveBeenCalled();
     expect(mockCrearSesion).not.toHaveBeenCalled();
@@ -100,7 +100,7 @@ describe("POST /api/cliente/otp/verificar", () => {
 
   it("sin nombre y con vehículos, abre sesión con todos ellos", async () => {
     mockBuscarPorEmail.mockResolvedValue([{ id: "c1" }, { id: "c2" }]);
-    const res = await pedir({ email: "nuevo@ejemplo.com", codigo: "123456" });
+    const res = await pedir({ solicitudId: "otp1", codigo: "123456" });
     expect(res.status).toBe(200);
     expect(mockCrearSesion).toHaveBeenCalledWith(["c1", "c2"], "nuevo@ejemplo.com");
   });

@@ -1,12 +1,13 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import HorariosEquipoTab from "@/components/tabs/equipo/HorariosEquipoTab";
 import ChecklistsEquipoTab from "@/components/tabs/equipo/ChecklistsEquipoTab";
 import ContratosEquipoTab from "@/components/tabs/equipo/ContratosEquipoTab";
 import ReglasOperadorTab from "@/components/tabs/equipo/ReglasOperadorTab";
-import { CalendarDays, ClipboardCheck, FileText, UserCog } from "lucide-react";
+import PartTimeEquipoTab from "@/components/tabs/equipo/PartTimeEquipoTab";
+import { CalendarDays, ClipboardCheck, FileText, UserCog, UserPlus } from "lucide-react";
 
 // La contracara administrativa de Mi Entorno (ver FuncionarioView): acá se
 // puebla lo que allá se ve. Va gateada con el módulo "perfiles" —el mismo con
@@ -15,12 +16,13 @@ import { CalendarDays, ClipboardCheck, FileText, UserCog } from "lucide-react";
 const TABS = [
   { id: "horarios", label: "Horarios y Turnos", icon: CalendarDays },
   { id: "reglas", label: "Operadores y Reglas", icon: UserCog },
+  { id: "parttime", label: "Part Time", icon: UserPlus },
   { id: "checklists", label: "Apertura y Cierre", icon: ClipboardCheck },
   { id: "contratos", label: "Contratos", icon: FileText },
 ] as const;
 
 export default function EquipoView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout } = useAppUi();
   const tabActual = TABS.find((t) => t.id === ui.equipoTab) || TABS[0];
 
   return (
@@ -48,6 +50,7 @@ export default function EquipoView() {
           <div className="sidebar-content">
             {tabActual.id === "horarios" && <HorariosEquipoTab />}
             {tabActual.id === "reglas" && <ReglasOperadorTab />}
+            {tabActual.id === "parttime" && <PartTimeEquipoTab />}
             {tabActual.id === "checklists" && <ChecklistsEquipoTab />}
             {tabActual.id === "contratos" && <ContratosEquipoTab />}
           </div>

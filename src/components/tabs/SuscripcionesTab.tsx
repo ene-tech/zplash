@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import {
   cancelarSuscripcionOneclick,
   cobrarSuscripcionManual,
@@ -36,7 +36,7 @@ const ESTADO_CLASE: Record<string, string> = {
 // cada acción, mismo criterio que ya usa ClienteInfoModal para esta misma
 // tabla (suscripciones_oneclick).
 export default function SuscripcionesTab() {
-  const { ui, patchUi } = useApp();
+  const { ui, patchUi } = useAppUi();
   const [suscripciones, setSuscripciones] = useState<SuscripcionOneclickInfo[]>([]);
   const [cargando, setCargando] = useState(true);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);

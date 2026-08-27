@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { clienteIdsConMensajePlantilla, enviarMensajesMasivosWhatsapp } from "@/lib/serverActions";
 import { aplicarVariables, fmtFecha, montoDescuento } from "@/lib/helpers";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
@@ -47,7 +47,7 @@ function sumarResultados(a: ResultadoEnvioMasivoWhatsapp, b: ResultadoEnvioMasiv
 }
 
 export default function WebSettingsMensajesUnicosTab() {
-  const { data, patchUi } = useApp();
+  const { data, patchUi } = useAppData();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigen>("todos");
   const [visitasMin, setVisitasMin] = useState("");

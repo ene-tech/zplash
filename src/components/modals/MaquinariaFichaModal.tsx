@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { alertaMantencionStatus, fmtFecha, mantencionStatus } from "@/lib/helpers";
 import type { Maquinaria } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,7 +16,7 @@ import { Wrench } from "lucide-react";
 // mostrados abajo reflejen de inmediato el plan recién guardado, mismo patrón
 // que ClienteInfoModal lee appData en vez de solo la prop `data`.
 export default function MaquinariaFichaModal({ data: maquinariaInicial }: { data: Maquinaria }) {
-  const { data, patchUi } = useApp();
+  const { data, patchUi } = useAppData();
   const maquinaria = data.maquinarias.find((m) => m.id === maquinariaInicial.id) || maquinariaInicial;
 
   const cerrar = () => patchUi({ modal: null });

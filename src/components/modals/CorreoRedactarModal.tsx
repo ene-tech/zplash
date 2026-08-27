@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { fmtFecha, fmtHora } from "@/lib/helpers";
 import type { CorreoDetalle } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -39,7 +39,7 @@ function contenidoInicial(original: CorreoDetalle | undefined, firma: string): s
 }
 
 export default function CorreoRedactarModal({ original }: { original?: CorreoDetalle }) {
-  const { data, patchUi } = useApp();
+  const { data, patchUi } = useAppData();
   const editorRef = useRef<EditorCorreoHandle>(null);
   const [para, setPara] = useState(original?.deEmail || "");
   const [cc, setCc] = useState("");

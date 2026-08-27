@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { uid } from "@/lib/helpers";
 import type { HorarioAgenda } from "@/types";
 
@@ -28,7 +28,7 @@ function agruparPorDia(horarios: HorarioAgenda[]): Map<number, Rango[]> {
 }
 
 export function HorarioSemanal() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [rangosPorDia, setRangosPorDia] = useState<Map<number, Rango[]>>(() => agruparPorDia(data.horariosAgenda));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState("");

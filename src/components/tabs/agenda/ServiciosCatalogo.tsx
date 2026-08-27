@@ -2,12 +2,12 @@
 
 import { useRef, useState } from "react";
 import PriceInput from "@/components/PriceInput";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { fmtCLP, precioServicio, uid } from "@/lib/helpers";
 import type { Servicio } from "@/types";
 
 export function ServiciosCatalogo() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
   const categoriaRef = useRef<HTMLInputElement>(null);

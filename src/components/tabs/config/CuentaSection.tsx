@@ -1,13 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import { KeyRound } from "lucide-react";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
 export default function CuentaSection() {
-  const { ui } = useApp();
+  const { ui } = useAppUi();
   const curPinRef = useRef<HTMLInputElement>(null);
   const newPinRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);

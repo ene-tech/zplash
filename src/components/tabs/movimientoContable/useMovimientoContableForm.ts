@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type RefObject } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { eliminarBorradorGasto, guardarBorradorGasto, leerBorradoresGasto, type BorradorGasto } from "@/lib/borradoresGasto";
 import { subirComprobanteGasto } from "@/lib/serverActions";
 import {
@@ -36,7 +36,7 @@ type FormRefs = {
 // `tipo`): valida los campos según el tipo, sube el comprobante adjunto si
 // corresponde (solo egresos) y arma el registro final.
 export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs: FormRefs) {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const { fechaRef, descripcionRef, contraparteRef, rutProveedorRef, numeroFacturaRef, notasRef, archivoInputRef } = refs;
   const glosasGasto = data.categoriasGasto.filter((c) => c.activa).map((c) => ({ categoria: c.nombre, grupo: c.grupo }));
   const canalesIngreso = data.categoriasIngreso.filter((c) => c.activa);

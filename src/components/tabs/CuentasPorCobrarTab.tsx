@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { fmtCLP } from "@/lib/helpers";
 import type { MovimientoContable, PagoInfo } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -13,7 +13,7 @@ import { HandCoins } from "lucide-react";
 // movimientos de tipo "ingreso" con estado "pendiente" (ver Ingresos y
 // MovimientoContableTab), igual que Cuentas por Pagar se deriva de egresos.
 export default function CuentasPorCobrarTab() {
-  const { data, commit, patchUi } = useApp();
+  const { data, commit, patchUi } = useAppData();
   const [busqueda, setBusqueda] = useState("");
 
   const items = useMemo(() => {

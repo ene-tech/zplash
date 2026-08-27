@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import { fmtHora, nivelEstanque, uid, umbralBajo } from "@/lib/helpers";
 import {
@@ -48,7 +48,7 @@ function nombreLibre(prefijo: string, usados: string[]): string {
 }
 
 export default function EstanquesView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout } = useAppUi();
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("monitor");
   const [estanques, setEstanques] = useState<EstanqueConLectura[]>([]);
   const [valvulas, setValvulas] = useState<Valvula[]>([]);

@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { ZONA_ASPIRADO_KEY, precioZonaAspirado } from "@/lib/helpers";
 import { Wind } from "lucide-react";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
 export default function AspiradoSection() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [zonaAspiradoVal, setZonaAspiradoVal] = useState(() => String(precioZonaAspirado(data.precios)));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);

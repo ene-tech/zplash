@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { esNombreVacio, formatTelefono, fmtTelefono, isValidEmail, isValidTelefono, TELEFONO_FORMATO_MSG } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -17,7 +17,7 @@ type FichaRefs = {
 // correo) que el operador puede completar directamente desde el resultado
 // "cliente encontrado", sin pasar por el módulo Clientes.
 export function useFichaClienteActions(c: Cliente, refs: FichaRefs, setGuardarErr: (msg: string) => void, updateResult: (updated: Cliente) => void) {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const { nombreRef, vehiculoRef, telefonoRef, emailRef } = refs;
 
   // Teléfono/Correo/Vehículo se guardan cada uno con su propio botón, pero

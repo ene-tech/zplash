@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type RefObject } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { importarCartola } from "@/lib/logic";
 import type { CartolaParseResult } from "@/lib/cartolaParser";
 import { mesActualKey, mesKey, uidMovimientoContable } from "@/lib/helpers";
@@ -20,7 +20,7 @@ function diffDias(a: string, b: string): number {
 // clasificar por categoría, aprender regla, vincular a un movimiento
 // contable existente, o crear uno nuevo directo desde el cargo/abono).
 export function useConciliacionBancaria(fileInputRef: RefObject<HTMLInputElement | null>) {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [mes, setMes] = useState(mesActualKey);
   const [subiendo, setSubiendo] = useState(false);
   const [preview, setPreview] = useState<CartolaParseResult | null>(null);

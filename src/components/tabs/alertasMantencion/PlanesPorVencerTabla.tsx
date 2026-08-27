@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { fmtFecha, planMantencionStatus } from "@/lib/helpers";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
@@ -11,7 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
  * planes y la bitácora, así que no hay nada que "cerrar" acá; se apagan solas
  * al registrar la mantención en la pestaña Registros. */
 export function PlanesPorVencerTabla() {
-  const { data } = useApp();
+  const { data } = useAppData();
 
   const filas = useMemo(() => {
     const activas = new Set(data.maquinarias.filter((m) => m.activo).map((m) => m.id));

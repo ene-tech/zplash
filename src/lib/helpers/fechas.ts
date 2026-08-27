@@ -125,15 +125,6 @@ export function primerDiaMesActualYMD(): string {
   return ymd(new Date(d.getFullYear(), d.getMonth(), 1));
 }
 
-/** Rango { desde, hasta } (YYYY-MM-DD) del mes calendario anterior al actual. */
-export function mesPasadoRango(): { desde: string; hasta: string } {
-  const d = new Date();
-  return {
-    desde: ymd(new Date(d.getFullYear(), d.getMonth() - 1, 1)),
-    hasta: ymd(new Date(d.getFullYear(), d.getMonth(), 0)),
-  };
-}
-
 export function inRange(iso: string | null | undefined, desde: string, hasta: string): boolean {
   if (!iso) return false;
   const d = new Date(iso);

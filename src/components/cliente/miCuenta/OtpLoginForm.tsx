@@ -13,19 +13,9 @@ import { PATENTE_FORMATO_MSG, isValidPatente, normPlate } from "@/lib/helpers";
 // no existe: manda nombre + correo + patente, el código se envía al correo que
 // declaró y la ficha se crea recién al verificarlo (ver otp/verificar).
 
-// Oculta parte del correo antes de mostrarlo en pantalla (el correo completo
-// sigue viajando al backend para verificar el código, esto es solo display).
-function ocultarEmail(email: string): string {
-  const [usuario, dominio] = email.split("@");
-  if (!usuario || !dominio) return email;
-  // Con 2 caracteres o menos, mostrar cualquier prefijo deja el usuario
-  // completo a la vista (ej. "jo@..." -> "jo***@..."): para esos casos no se
-  // muestra ningún carácter, en vez de reventar el propósito de la función.
-  if (usuario.length <= 2) return `${"*".repeat(usuario.length)}@${dominio}`;
-  const visible = usuario.slice(0, 2);
-  return `${visible}${"*".repeat(Math.max(usuario.length - visible.length, 3))}@${dominio}`;
-}
-
+// El correo ya llega enmascarado desde /api/cliente/otp/solicitar y solo se
+// usa para mostrarlo: el backend nunca lo devuelve en limpio, y verificar el
+// código va con `solicitudId` (opaco, de un solo uso) en vez del correo.
 export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () => void; registro?: boolean }) {
   const [paso, setPaso] = useState<"pedir" | "verificar">("pedir");
   const [modo, setModo] = useState<"patente" | "email" | "registro">(registro ? "registro" : "patente");
@@ -33,6 +23,7 @@ export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () =>
   const [nombre, setNombre] = useState("");
   const [patenteNueva, setPatenteNueva] = useState("");
   const [emailDestino, setEmailDestino] = useState("");
+  const [solicitudId, setSolicitudId] = useState("");
   const [codigo, setCodigo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
@@ -79,6 +70,7 @@ export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () =>
         return;
       }
       setEmailDestino(data.email);
+      setSolicitudId(data.solicitudId);
       setPaso("verificar");
     } catch {
       setError("Sin conexión. Intenta de nuevo.");
@@ -99,7 +91,7 @@ export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () =>
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: emailDestino,
+          solicitudId,
           codigo,
           // El backend crea la ficha solo si vienen estos dos (ver verificar).
           ...(esRegistro ? { nombre: nombre.trim(), patente: normPlate(patenteNueva) } : {}),
@@ -123,7 +115,7 @@ export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () =>
       <div className="card" style={{ maxWidth: 420, margin: "0 auto", textAlign: "center" }}>
         <h3>Ingresa el código</h3>
         <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
-          Te enviamos un código de 6 dígitos por correo a <strong>{ocultarEmail(emailDestino)}</strong>. Vence en 5
+          Te enviamos un código de 6 dígitos por correo a <strong>{emailDestino}</strong>. Vence en 5
           minutos.
         </p>
         <div className="field" style={{ marginBottom: 12 }}>

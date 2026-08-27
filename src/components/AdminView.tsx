@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import type { Modulo } from "@/types";
 import {
@@ -47,7 +47,7 @@ const TABS: { id: Modulo; label: string; icon: LucideIcon }[] = [
 ];
 
 export default function AdminView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout } = useAppUi();
   const modulos = ui.perfilActual?.modulos || [];
   const tabsPermitidas = TABS.filter((t) => modulos.includes(t.id));
 

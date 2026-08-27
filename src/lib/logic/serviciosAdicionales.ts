@@ -147,7 +147,16 @@ export function registrarServicioAdicional(data: AppData, d: DatosServicioAdicio
     patente: d.patente,
     nombre: d.nombre,
     telefono: d.telefono || undefined,
-    fechaHora: d.horaCita ? `${d.fechaCita}T${d.horaCita}:00` : ahora,
+    // La hora que eligió el operador es hora local, y la columna es
+    // timestamptz: mandarla sin zona ("2026-08-21T09:42:00") hacía que
+    // Postgres la leyera como UTC y la cita apareciera 4 h antes en la Agenda
+    // al recargar (las 45 citas anteriores al 26-08-2026 quedaron así, ver
+    // migración 0085). `new Date(...)` sobre un string sin zona ya parsea en
+    // hora local del navegador — mismo criterio que sumarMinutos.
+    // ponytail: asume que la agenda nunca cruza medianoche UTC, o sea horario
+    // de cierre < 20:00 en Chile (hoy 19:00). Si el local abriera de noche,
+    // los .slice(0, 10) que agrupan citas por día tendrían que pasar a diaCaja().
+    fechaHora: d.horaCita ? new Date(`${d.fechaCita}T${d.horaCita}:00`).toISOString() : ahora,
     duracionMinutos: d.duracionCita,
     estado: "agendado",
     notas: d.notas || undefined,

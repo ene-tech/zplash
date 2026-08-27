@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import {
   CANTIDAD_MINIMA_TICKETS,
   CATEGORIA_DETAILING,
@@ -20,7 +20,7 @@ import { TAMANOS_VEHICULO, TAMANO_LABEL, type TamanoVehiculo } from "@/types";
 const TAMANO_VACIO: Record<TamanoVehiculo, number> = { s: 0, m: 0, l: 0, xl: 0 };
 
 export default function WebSettingsTab() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [pagoUnicoVal, setPagoUnicoVal] = useState(() => String(precioNormal(data.precios, PLANES[0])));
   const [renovacionAutoVal, setRenovacionAutoVal] = useState(() => String(precioPlanOneclick(data.precios)));
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);

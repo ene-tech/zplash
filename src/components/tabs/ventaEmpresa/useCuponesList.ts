@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { estadoCupon, fmtCLP } from "@/lib/helpers";
 import type { Cupon } from "@/types";
 
@@ -13,7 +13,7 @@ export function valorCupon(c: Cupon): string {
 // Listado de todos los cupones (vale + descuento) generados: búsqueda,
 // eliminación, y export a Excel.
 export function useCuponesList() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [busqueda, setBusqueda] = useState("");
 
   const eliminar = (cup: Cupon) => {

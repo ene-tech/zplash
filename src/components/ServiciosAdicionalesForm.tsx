@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import DatosTransferencia from "@/components/DatosTransferencia";
 import PriceInput from "@/components/PriceInput";
 import { fmtCLP, fmtTelefono, todayYMD } from "@/lib/helpers";
@@ -10,7 +10,7 @@ import { useServiciosAdicionalesForm } from "@/components/servicios/useServicios
 import ServicioCatalogoSelector from "@/components/servicios/ServicioCatalogoSelector";
 
 export default function ServiciosAdicionalesForm() {
-  const { data } = useApp();
+  const { data } = useAppData();
   const patenteRef = useRef<HTMLInputElement>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
   const telefonoRef = useRef<HTMLInputElement>(null);
@@ -286,8 +286,8 @@ export default function ServiciosAdicionalesForm() {
           )}
 
           <div className="err">{r.err}</div>
-          <button className="btn" onClick={r.registrar}>
-            Registrar servicio
+          <button className="btn" onClick={r.registrar} disabled={r.guardando}>
+            {r.guardando ? "Guardando…" : "Registrar servicio"}
           </button>
         </>
       )}

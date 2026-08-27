@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { Lock } from "lucide-react";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
 export default function BloqueoSection() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [horasVal, setHorasVal] = useState(() => String(data.config.horasBloqueoReingresoPlan));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);

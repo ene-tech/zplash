@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { pagosWebpay, pagosWebpayItems, servicios } from "@/db/schema";
 import { getConfig } from "@/lib/dataAccess/config";
@@ -42,6 +42,16 @@ async function procesarRetorno(
   const db = getDb();
 
   // El cliente canceló/abandonó en la página de Transbank: no viene token_ws.
+  //
+  // Este es el único camino de esta ruta que escribe sin que Transbank haya
+  // confirmado nada, y llega por GET — o sea, cualquiera puede invocarlo con
+  // los parámetros que quiera. Por eso el UPDATE exige las tres condiciones:
+  // que el buy_order exista, que el TBK_TOKEN sea el mismo que se guardó al
+  // crear la transacción (ver webpay/crear) y que siga "iniciada". Sin el
+  // chequeo del token alcanzaba con adivinar un buy_order —"wp" + Date.now()
+  // en base36, o sea predecible al milisegundo— para dejar en "anulada" el
+  // pago en curso de otra persona: Transbank le cobraba igual y su retorno
+  // real caía en la rama "ya-procesado", sin aplicar nunca el plan.
   if (!tokenWs && tbkToken) {
     let volverCuenta = false;
     if (tbkOrdenCompra) {
@@ -49,7 +59,13 @@ async function procesarRetorno(
         const [fila] = await db
           .update(pagosWebpay)
           .set({ estado: "anulada", actualizadoEn: new Date().toISOString() })
-          .where(eq(pagosWebpay.buyOrder, tbkOrdenCompra))
+          .where(
+            and(
+              eq(pagosWebpay.buyOrder, tbkOrdenCompra),
+              eq(pagosWebpay.token, tbkToken),
+              eq(pagosWebpay.estado, "iniciada")
+            )
+          )
           .returning({ tipo: pagosWebpay.tipo });
         volverCuenta = !!fila && TIPOS_PROMO_CUENTA.has(fila.tipo);
       } catch (error) {
@@ -86,7 +102,11 @@ async function procesarRetorno(
   // que el primero terminara de escribir, y aplicarPagoAprobado() volvía a
   // extender el vencimiento del cliente gratis (sin que Transbank cobrara de
   // nuevo, ya que el cargo ya estaba hecho) cada vez que se repetía.
-  let resultado: { tipo: "ok" | "rechazado" | "ya-procesado" | "no-encontrado"; estadoPrevio?: string; volverCuenta?: boolean };
+  let resultado: {
+    tipo: "ok" | "rechazado" | "ya-procesado" | "no-encontrado" | "monto-no-coincide";
+    estadoPrevio?: string;
+    volverCuenta?: boolean;
+  };
   try {
     resultado = await db.transaction(async (tx) => {
       const [pago] = await tx.select().from(pagosWebpay).where(eq(pagosWebpay.buyOrder, buyOrder)).for("update").limit(1);
@@ -109,6 +129,31 @@ async function procesarRetorno(
           .set({ estado: "rechazada", responseCode, actualizadoEn: new Date().toISOString() })
           .where(eq(pagosWebpay.buyOrder, buyOrder));
         return { tipo: "rechazado" as const, volverCuenta };
+      }
+
+      // Lo que Transbank dice haber cobrado tiene que ser lo que se registró
+      // al crear la transacción (ver webpay/crear, que calcula todos los
+      // montos server-side). Si no coincide, no se aplica NADA: extender un
+      // plan contra un cobro por otro monto es peor que dejarlo pendiente de
+      // revisión, y el cargo ya está hecho igual, así que la fila se marca
+      // aprobada sin venta para que quede visible en vez de perderse.
+      if (commitResult.amount !== pago.monto) {
+        console.error(
+          "Monto de Transbank distinto del registrado — no se aplica el pago, requiere revisión manual",
+          buyOrder,
+          { registrado: pago.monto, informado: commitResult.amount }
+        );
+        await tx
+          .update(pagosWebpay)
+          .set({
+            estado: "aprobada",
+            responseCode,
+            authorizationCode: authorizationCode || null,
+            ventaId: null,
+            actualizadoEn: new Date().toISOString(),
+          })
+          .where(eq(pagosWebpay.buyOrder, buyOrder));
+        return { tipo: "monto-no-coincide" as const, volverCuenta };
       }
 
       // Aprobado: mismo patrón que el webhook de WooCommerce (buscar/crear
@@ -297,7 +342,7 @@ async function procesarRetorno(
   if (resultado.tipo === "ya-procesado") {
     return redirectResultado(origin, resultado.estadoPrevio === "aprobada" ? "ok" : "error", buyOrder, resultado.volverCuenta);
   }
-  if (resultado.tipo === "rechazado") {
+  if (resultado.tipo === "rechazado" || resultado.tipo === "monto-no-coincide") {
     return redirectResultado(origin, "error", buyOrder, resultado.volverCuenta);
   }
   return redirectResultado(origin, "ok", buyOrder, resultado.volverCuenta);

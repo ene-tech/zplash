@@ -1,6 +1,6 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import WebSettingsTab from "@/components/tabs/WebSettingsTab";
 import WebSettingsServiciosTab from "@/components/tabs/WebSettingsServiciosTab";
@@ -30,7 +30,7 @@ const TABS = [
 ] as const;
 
 export default function WebSettingsView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout } = useAppUi();
   const tabActual = TABS.find((t) => t.id === ui.webSettingsTab) || TABS[0];
 
   return (

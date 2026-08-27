@@ -177,3 +177,18 @@ export async function dentroVentana24h(conversacionId: string): Promise<boolean>
     .limit(1);
   return !!ultimo;
 }
+
+// True cuando la conversación arranca de cero: el bot (o el operador desde
+// MensajesView) no mandó nada en las últimas 24h. Se mira lo SALIENTE, no lo
+// entrante, porque el mensaje que gatilla la respuesta ya quedó insertado
+// antes de llegar a responderMensaje (@/lib/whatsapp/router), que usa esto
+// para contestar el menú como primer mensaje de cada conversación.
+export async function esInicioDeConversacion(conversacionId: string): Promise<boolean> {
+  const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const [ultimo] = await getDb()
+    .select({ id: mensajesWhatsapp.id })
+    .from(mensajesWhatsapp)
+    .where(and(eq(mensajesWhatsapp.conversacionId, conversacionId), eq(mensajesWhatsapp.direccion, "saliente"), gt(mensajesWhatsapp.creadoEn, hace24h)))
+    .limit(1);
+  return !ultimo;
+}

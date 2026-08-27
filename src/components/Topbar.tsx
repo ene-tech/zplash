@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import SyncBadge from "@/components/SyncBadge";
 
 export default function Topbar({
@@ -13,7 +13,7 @@ export default function Topbar({
   onLogout: () => void;
   onBack?: () => void;
 }) {
-  const { storageReady } = useApp();
+  const { storageReady } = useAppData();
   return (
     <div className="topbar">
       <div className="title">

@@ -72,6 +72,7 @@ export function reglaOperadorFromRow(r: ReglaOperadorRow): ReglaOperador {
     horaDesde: r.horaDesde,
     horaHasta: r.horaHasta,
     vetados: r.vetados?.split(",").filter(Boolean) ?? [],
+    zonaFija: (r.zonaFija as ZonaTurno) || undefined,
     notas: r.notas || undefined,
   };
 }
@@ -82,7 +83,13 @@ export async function upsertReglasOperador(rows: ReglaOperador[]): Promise<boole
     await upsertRows(
       reglasOperador,
       reglasOperador.id,
-      rows.map((r) => ({ ...r, dias: r.dias.join(","), vetados: r.vetados?.join(",") || null, notas: r.notas || null }))
+      rows.map((r) => ({
+        ...r,
+        dias: r.dias.join(","),
+        vetados: r.vetados?.join(",") || null,
+        zonaFija: r.zonaFija || null,
+        notas: r.notas || null,
+      }))
     );
     return true;
   } catch (error) {

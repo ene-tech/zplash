@@ -1,13 +1,39 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { useApp } from "@/context/AppContext";
-import { MODULOS_ADMIN } from "@/lib/helpers";
+import { fmtCLP, inRange, MODULOS_ADMIN, todayYMD } from "@/lib/helpers";
 
 export default function HubView() {
-  const { ui, patchUi, logout } = useApp();
+  const { data, ui, patchUi, logout, loadingHistorial } = useApp();
   const modulos = ui.perfilActual?.modulos || [];
   const primerTabAdmin = MODULOS_ADMIN.find((m) => modulos.includes(m));
+
+  // Pulso del día, solo para Gerencia (nombre exacto de perfil, mismo criterio
+  // que puedeBorrarCategoriaInventario en helpers/perfiles): no es un módulo
+  // aparte, es un vistazo en el menú de inicio a lo que Cierre de Caja ya
+  // muestra en detalle.
+  const esGerencia = ui.perfilActual?.nombre === "Gerencia";
+  const hoy = todayYMD();
+  // El corte de las 24 h se fija una sola vez, al montar, con el
+  // inicializador perezoso de useState: llamar Date.now() en el cuerpo del
+  // componente lo recalculaba en cada re-render, así que el conteo podía
+  // cambiar solo porque se abrió un modal.
+  const [corte24h] = useState(() => Date.now() - 24 * 3600_000);
+  const nuevos24h = esGerencia
+    ? data.clientes.filter((c) => new Date(c.creadoEn).getTime() >= corte24h).length
+    : 0;
+  // Mismo criterio de "plata real" que el Total de "Detalle de venta" en
+  // Cierre de Caja (ver useCierreData): las modificaciones de plan hechas
+  // desde un perfil de administrador no mueven caja y no suman acá.
+  const clientesPorId = new Map(data.clientes.map((c) => [c.id, c]));
+  const vendidoHoy = esGerencia
+    ? data.ventas
+        .filter((v) => inRange(v.fecha, hoy, hoy))
+        .filter((v) => !(v.tipo === "Plan nuevo" && clientesPorId.get(v.clienteId)?.creadoPor === "Administrador"))
+        .reduce((s, v) => s + (v.precio || 0), 0)
+    : 0;
 
   return (
     <div className="login-screen">
@@ -15,6 +41,18 @@ export default function HubView() {
         <Image src="/logo.png" alt="ZPlash" width={200} height={76} className="brand-logo" />
         <div className="sub">Hola, {ui.perfilActual?.nombre}</div>
       </div>
+      {esGerencia && (
+        <div className="hub-stats">
+          <div className="stat-card">
+            <div className="num">{nuevos24h}</div>
+            <div className="lbl">Clientes nuevos · 24 h</div>
+          </div>
+          <div className="stat-card">
+            <div className="num">{loadingHistorial ? "…" : fmtCLP(vendidoHoy)}</div>
+            <div className="lbl">Vendido hoy</div>
+          </div>
+        </div>
+      )}
       <div className="role-grid module-grid">
         {modulos.includes("operador") && (
           <button className="role-btn" onClick={() => patchUi({ view: "operador" })}>

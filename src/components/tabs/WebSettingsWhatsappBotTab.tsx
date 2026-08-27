@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { CONFIG_DEFAULT, TEXTOS_BOT_WHATSAPP_DEFAULT } from "@/lib/helpers";
 import type { TextosBotWhatsapp } from "@/types";
 import { Textarea } from "@/components/ui/textarea";
@@ -124,7 +124,7 @@ const GRUPOS: Campo[][] = [
 ];
 
 export default function WebSettingsWhatsappBotTab() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [valores, setValores] = useState<TextosBotWhatsapp>(() => data.config.textosBotWhatsapp);
   const [descuentoValor, setDescuentoValor] = useState(() => String(data.config.descuentoPrimeraVezValor));
   const [descuentoDias, setDescuentoDias] = useState(() => String(data.config.descuentoPrimeraVezDiasValidez));

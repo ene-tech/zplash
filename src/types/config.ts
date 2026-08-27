@@ -62,7 +62,7 @@ export interface TramoReactivacionVencido {
 }
 
 import type { TextosBotWhatsapp } from "./whatsapp";
-import type { TramoDotacion } from "./funcionario";
+import type { PartTime, TramoDotacion, TramoPartTime } from "./funcionario";
 
 export interface ConfigGlobal {
   horarioOperadorSemanaInicio: string;
@@ -133,4 +133,12 @@ export interface ConfigGlobal {
   // de horario. Vacía = sin requerimiento, el horario se arma solo con los
   // cuatro encargados de apertura y cierre.
   dotacion: TramoDotacion[];
+  // Fichas de las personas que hacen turnos part time, con la disponibilidad
+  // que declararon (ver PartTime). No son perfiles del sistema: no entran a
+  // la app, solo cubren dotación.
+  partTimes: PartTime[];
+  // Planilla part time: qué tramo viene a cubrir cada uno, semana a semana
+  // (ver TramoPartTime). Cuenta como dotación en pie y el creador de horario
+  // la descuenta antes de mandar a alguien de planta al peak.
+  planillaPartTime: TramoPartTime[];
 }

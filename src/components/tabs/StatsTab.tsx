@@ -1,6 +1,6 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { useStatsData } from "@/components/tabs/stats/useStatsData";
 import { StatsResumenGlobal } from "@/components/tabs/stats/StatsResumenGlobal";
 import { StatsResumenPeriodo } from "@/components/tabs/stats/StatsResumenPeriodo";
@@ -10,7 +10,7 @@ export default function StatsTab() {
   // Mismo motivo que en CierreTab: se llama siempre, aunque ventas/ingresos
   // todavía no lleguen (oleada "historial", ver AppContext).
   const r = useStatsData();
-  const { loadingHistorial } = useApp();
+  const { loadingHistorial } = useAppData();
 
   if (loadingHistorial) {
     return <div className="empty">Cargando historial de ventas e ingresos…</div>;

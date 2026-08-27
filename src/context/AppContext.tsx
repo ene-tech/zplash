@@ -14,7 +14,7 @@ import {
   recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
-import { insertAuditoria, loadCore, loadHistorial, waitForStorage } from "@/lib/serverActions";
+import { insertAuditoria, loadCore, loadHistorial, loadPerfilesLogin, waitForStorage } from "@/lib/serverActions";
 import {
   commitAlertasMantencion,
   commitBloqueosAgenda,
@@ -132,11 +132,15 @@ const initialUI: UIState = {
   clientesOrden: "estado",
 };
 
-interface AppContextValue {
+interface AppDataContextValue {
   data: AppData;
-  commit: (patch: Partial<AppData>) => Promise<boolean>;
-  ui: UIState;
-  patchUi: (patch: Partial<UIState>) => void;
+  /** true mientras hay un commit en vuelo. Los botones que registran plata
+   * (venta, ingreso, plan) tienen que deshabilitarse con esto: mientras el
+   * commit no vuelve la pantalla no cambia, el operador vuelve a apretar y
+   * cada clic guarda otra Venta + Movimiento contable con ids nuevos —
+   * UA5066 terminó con 4 "Lavado de Motor" de $29.990 en 48 s el
+   * 21-08-2026, GZCP36 con 4 "Lavado único" el 15-08. */
+  guardando: boolean;
   storageReady: boolean;
   storageChecked: boolean;
   loading: boolean;
@@ -146,10 +150,26 @@ interface AppContextValue {
   // estado de carga en vez de operar con arreglos todavía vacíos — ver
   // diagnóstico de performance 2026-08-10.
   loadingHistorial: boolean;
+}
+
+interface AppUiContextValue {
+  ui: UIState;
+}
+
+// Callbacks, aparte de los dos anteriores: no cambian salvo que cambie el
+// perfil de la sesión (ver las deps de commit), así que quien solo los
+// necesita no se suscribe ni a `data` ni a `ui`.
+interface AppAccionesContextValue {
+  commit: (patch: Partial<AppData>) => Promise<boolean>;
+  patchUi: (patch: Partial<UIState>) => void;
   logout: (extra?: Partial<UIState>) => Promise<void>;
 }
 
-const AppContext = createContext<AppContextValue | null>(null);
+type AppContextValue = AppDataContextValue & AppUiContextValue & AppAccionesContextValue;
+
+const AppDataContext = createContext<AppDataContextValue | null>(null);
+const AppUiContext = createContext<AppUiContextValue | null>(null);
+const AppAccionesContext = createContext<AppAccionesContextValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(initialData);
@@ -165,9 +185,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ui, setUi] = useState<UIState>(initialUI);
   const [storageReady, setStorageReady] = useState(false);
   const [storageChecked, setStorageChecked] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [cargandoPerfiles, setCargandoPerfiles] = useState(true);
   const [loadingHistorial, setLoadingHistorial] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  // Id del perfil cuyos datos ya están cargados en `data`. Se compara contra
+  // el perfil logueado para derivar `loading` en el MISMO render en que el
+  // login setea perfilActual: con un booleano puesto desde el efecto, entre
+  // el patchUi({view:"hub"}) y el efecto había un render con la vista del hub
+  // ya montada sobre `data` vacía (todo en cero por medio segundo).
+  const [perfilCargado, setPerfilCargado] = useState<string | null>(null);
 
+  // Etapa 1 (sin sesión): solo los perfiles, que es lo que LoginScreen
+  // necesita para pintar "¿Quién eres?". El resto de AppData ya no se puede
+  // pedir sin cookie de sesión (ver loadCore en @/lib/serverActions/loadAll),
+  // así que pedirlo acá devolvería un error en vez de datos.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -179,40 +210,87 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await new Promise((r) => setTimeout(r, 1500));
       }
 
-      // Las dos oleadas se piden en paralelo (loadHistorial() se dispara acá,
-      // antes de esperar loadCore()) — lo único que cambia es que la pantalla
-      // ya no espera a que ambas terminen: `loading` baja apenas llega
-      // loadCore() y loadHistorial() sigue su curso de fondo, parchando
-      // `data` cuando esté lista. Ver diagnóstico de performance 2026-08-10.
-      const historialPromise = loadHistorial();
-
-      const core = await loadCore();
-      if (cancelled) return;
-      const conCore = { ...dataRef.current, ...core };
-      dataRef.current = conCore;
-      setData(conCore);
-      setLoading(false);
-
-      const historial = await historialPromise;
-      if (cancelled) return;
-      const conHistorial = {
-        ...dataRef.current,
-        ...historial,
-        // clientes ya se pintó con visitas/ultimaVisita "tal cual la
-        // columna" (ver loadCore) — recién acá, con `ingresos` disponible,
-        // se corrige contra el historial real (ver recalcularVisitasClientes).
-        clientes: recalcularVisitasClientes(dataRef.current.clientes, historial.ingresos),
-      };
-      dataRef.current = conHistorial;
-      setData(conHistorial);
-      setLoadingHistorial(false);
+      try {
+        const perfiles = await loadPerfilesLogin();
+        if (cancelled) return;
+        if (perfiles.length) {
+          const conPerfiles = { ...dataRef.current, perfiles };
+          dataRef.current = conPerfiles;
+          setData(conPerfiles);
+        }
+      } catch (error) {
+        console.error("No se pudieron cargar los perfiles para el login", error);
+        setStorageReady(false);
+      }
+      if (!cancelled) setCargandoPerfiles(false);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const commit = useCallback(async (patch: Partial<AppData>): Promise<boolean> => {
+  // Etapa 2 (con sesión): recién cuando el login dejó la cookie puesta —
+  // /api/perfiles/login la emite antes de que se setee `ui.perfilActual`— se
+  // trae AppData. `perfilActual?.id` como dependencia y no `perfilActual`
+  // porque patchUi crea un objeto nuevo cada vez y esto recargaría de más.
+  const perfilId = ui.perfilActual?.id ?? null;
+  useEffect(() => {
+    if (!perfilId) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingHistorial(true);
+      try {
+        // Las dos oleadas se piden en paralelo (loadHistorial() se dispara
+        // acá, antes de esperar loadCore()) — lo único que cambia es que la
+        // pantalla ya no espera a que ambas terminen: se pinta apenas llega
+        // loadCore() y loadHistorial() sigue su curso de fondo, parchando
+        // `data` cuando esté lista. Ver diagnóstico de performance 2026-08-10.
+        const historialPromise = loadHistorial();
+
+        const core = await loadCore();
+        if (cancelled) return;
+        const conCore = { ...dataRef.current, ...core };
+        dataRef.current = conCore;
+        setData(conCore);
+        // Recién acá la app es usable: el historial sigue en camino, y para
+        // eso está loadingHistorial. Se marca solo en el camino feliz — si
+        // loadCore() falla, `loading` queda arriba y admin/page.tsx muestra
+        // el aviso de conexión en vez de un panel con todo en cero.
+        setPerfilCargado(perfilId);
+
+        const historial = await historialPromise;
+        if (cancelled) return;
+        const conHistorial = {
+          ...dataRef.current,
+          ...historial,
+          // clientes ya se pintó con visitas/ultimaVisita "tal cual la
+          // columna" (ver loadCore) — recién acá, con `ingresos` disponible,
+          // se corrige contra el historial real (ver recalcularVisitasClientes).
+          clientes: recalcularVisitasClientes(dataRef.current.clientes, historial.ingresos),
+        };
+        dataRef.current = conHistorial;
+        setData(conHistorial);
+      } catch (error) {
+        // Sesión vencida/inválida: loadCore() tira "Sin sesión". No hay nada
+        // que mostrar, así que se avisa igual que una caída de almacenamiento
+        // en vez de dejar la app con arreglos vacíos que parecen "no hay
+        // clientes" ni colgada para siempre en "Cargando datos...".
+        console.error("No se pudo cargar la información de la sesión", error);
+        if (!cancelled) setStorageReady(false);
+      } finally {
+        if (!cancelled) setLoadingHistorial(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [perfilId]);
+
+  // Cubre las dos etapas con el mismo flag que ya consume admin/page.tsx: la
+  // carga de perfiles antes del login, y la de AppData justo después.
+  const loading = cargandoPerfiles || (!!perfilId && perfilCargado !== perfilId);
+
+  const commitInterno = useCallback(async (patch: Partial<AppData>): Promise<boolean> => {
     const previous = dataRef.current;
     patch = derivarMovimientosDesdeVentas(previous, patch);
 
@@ -234,6 +312,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // nuevo, esa fila recién existe una vez que este await termina.
     const { ok: clientesOk, auditoria: auditoriaClientes } = await commitClientes(previous.clientes, patch.clientes, usuario);
     auditoria.push(...auditoriaClientes);
+
+    // Si la ficha no se pudo guardar, no se dispara NADA más: antes el resto
+    // del commit (ventas incluidas) salía igual, así que una venta de plan
+    // rechazada por upsertClientes dejaba el cobro registrado y el plan sin
+    // activar — el operador veía "no se pudo guardar", el cliente quedaba
+    // vencido, y solo la base lo delataba (caso RRWL69, venta del 25-07-2026).
+    // Como el estado local se revierte igual, cortar acá deja la operación
+    // completa sin efecto en vez de a medias.
+    if (!clientesOk) {
+      console.error("No se pudo guardar el cliente: se aborta el resto del commit para no dejar ventas huérfanas");
+      dataRef.current = previous;
+      setData(previous);
+      setStorageReady(false);
+      return false;
+    }
 
     agregar(commitIngresos(previous.ingresos, patch.ingresos, usuario));
 
@@ -293,7 +386,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error("No se pudo guardar: posible falla de red", err);
       results = [false];
     }
-    const ok = clientesOk && citasOk && results.every(Boolean);
+    const ok = citasOk && results.every(Boolean);
     setStorageReady(ok);
     if (!ok) {
       console.error("No se pudo guardar toda la información en el almacenamiento persistente");
@@ -311,6 +404,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // cambia el usuario que queda registrado en la auditoría.
   }, [ui.perfilActual]);
 
+  // Envoltorio que expone `guardando`: el único lugar donde se sabe que hay
+  // una escritura en vuelo, para que cualquier botón pueda bloquearse sin
+  // llevar su propio estado (ver el comentario de `guardando` arriba).
+  const commit = useCallback(
+    (patch: Partial<AppData>): Promise<boolean> => {
+      setGuardando(true);
+      return commitInterno(patch).finally(() => setGuardando(false));
+    },
+    [commitInterno]
+  );
+
   const patchUi = useCallback((patch: Partial<UIState>) => {
     setUi((prev) => ({ ...prev, ...patch }));
   }, []);
@@ -321,6 +425,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(
     async (extra: Partial<UIState> = {}) => {
       patchUi({ view: "login", perfilActual: null, perfilSeleccionadoId: null, ...extra });
+      // Obliga a que el próximo login vuelva a pedir AppData en vez de
+      // reusar la del turno anterior (ver `loading` más arriba): la cookie ya
+      // no vale, así que lo que quedó en memoria tampoco.
+      setPerfilCargado(null);
       try {
         await fetch("/api/perfiles/logout", { method: "POST" });
       } catch {
@@ -330,21 +438,71 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [patchUi]
   );
 
-  // Memoizado: sin esto, este objeto es nuevo en cada render del provider y
-  // React re-renderiza TODO componente que llama useApp() cada vez — incluso
-  // los que no leen el pedazo de estado que cambió (p.ej. escribir en un
-  // buscador re-renderizaba tablas de miles de filas que no dependen de
-  // `ui.search`). Ver diagnóstico de performance 2026-08-09.
-  const value = useMemo<AppContextValue>(
-    () => ({ data, commit, ui, patchUi, storageReady, storageChecked, loading, loadingHistorial, logout }),
-    [data, commit, ui, patchUi, storageReady, storageChecked, loading, loadingHistorial, logout]
+  // Tres valores memoizados en vez de uno solo. Memoizar el objeto único
+  // evitaba re-renderizar cuando NADA cambiaba, pero no servía para lo que
+  // decía este comentario antes: `ui` era una de sus dependencias, así que
+  // tipear en un buscador o abrir un modal creaba un valor nuevo igual y
+  // volvía a re-renderizar los ~120 componentes que llaman useApp(), cada
+  // uno cargando los arreglos completos de AppData.
+  //
+  // Partido en data / ui / acciones, un cambio de `ui` solo despierta a
+  // quienes leen `ui`, y un commit solo a quienes leen `data`. Las acciones
+  // van aparte porque son estables salvo cambio de perfil: así useAppData()
+  // puede tomar `commit`/`patchUi` sin quedar suscrito a `ui`.
+  const valorData = useMemo<AppDataContextValue>(
+    () => ({ data, guardando, storageReady, storageChecked, loading, loadingHistorial }),
+    [data, guardando, storageReady, storageChecked, loading, loadingHistorial]
+  );
+  const valorUi = useMemo<AppUiContextValue>(() => ({ ui }), [ui]);
+  const valorAcciones = useMemo<AppAccionesContextValue>(
+    () => ({ commit, patchUi, logout }),
+    [commit, patchUi, logout]
   );
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppAccionesContext.Provider value={valorAcciones}>
+      <AppDataContext.Provider value={valorData}>
+        <AppUiContext.Provider value={valorUi}>{children}</AppUiContext.Provider>
+      </AppDataContext.Provider>
+    </AppAccionesContext.Provider>
+  );
 }
 
-export function useApp(): AppContextValue {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useApp must be used within AppProvider");
+/**
+ * Solo los callbacks. Para componentes que no leen nada del estado —modales
+ * que únicamente cierran (`patchUi`), botones que disparan un commit—: no se
+ * re-renderizan ni por un commit ni por un cambio de UI.
+ */
+export function useAppAcciones(): AppAccionesContextValue {
+  const ctx = useContext(AppAccionesContext);
+  if (!ctx) throw new Error("useAppAcciones must be used within AppProvider");
   return ctx;
+}
+
+/**
+ * Para componentes que leen datos y no `ui`. No se suscribe al contexto de
+ * UI, así que abrir un modal o tipear en un buscador ya no los re-renderiza.
+ */
+export function useAppData(): AppDataContextValue & AppAccionesContextValue {
+  const datos = useContext(AppDataContext);
+  if (!datos) throw new Error("useAppData must be used within AppProvider");
+  return { ...datos, ...useAppAcciones() };
+}
+
+/**
+ * Para componentes que solo leen `ui` (tabs, modales, filtros). No se
+ * suscribe a `data`, así que un commit no los re-renderiza.
+ */
+export function useAppUi(): AppUiContextValue & AppAccionesContextValue {
+  const ui = useContext(AppUiContext);
+  if (!ui) throw new Error("useAppUi must be used within AppProvider");
+  return { ...ui, ...useAppAcciones() };
+}
+
+/** Todo junto, para los componentes que de verdad leen `data` y `ui`. */
+export function useApp(): AppContextValue {
+  const datos = useContext(AppDataContext);
+  const ui = useContext(AppUiContext);
+  if (!datos || !ui) throw new Error("useApp must be used within AppProvider");
+  return { ...datos, ...ui, ...useAppAcciones() };
 }

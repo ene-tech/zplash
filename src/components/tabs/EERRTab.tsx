@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import {
   categoriaAGrupo,
   fechaEfectiva,
@@ -86,7 +86,7 @@ function Fila({
  *    fechaEfectiva). Lo devengado y todavía no cobrado/pagado no suma; va
  *    aparte, en las dos líneas informativas del pie. */
 export default function EERRTab({ caja = false }: { caja?: boolean }) {
-  const { data } = useApp();
+  const { data } = useAppData();
   const [hasta, setHasta] = useState(mesActualKey);
   const [desde, setDesde] = useState(() => mesesEntre("2000-01", mesActualKey()).slice(-6)[0]);
 

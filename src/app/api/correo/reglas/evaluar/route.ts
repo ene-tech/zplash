@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { rechazoSiNoEsCron } from "@/lib/cron";
 import { procesarVencimientosCorreo } from "@/lib/mailing/reglas";
 
 export const runtime = "nodejs";
@@ -11,22 +11,9 @@ export const runtime = "nodejs";
 // @/lib/mailing/reglas/cron) — "venta_creada"/"cobro_fallido" ya se evalúan
 // en vivo desde sus propios hooks (dataAccess/ventas.ts, cobrarSuscripcion),
 // no necesitan este cron.
-function autorizacionValida(header: string | null, secreto: string): boolean {
-  if (!header) return false;
-  const esperado = Buffer.from(`Bearer ${secreto}`);
-  const recibido = Buffer.from(header);
-  return esperado.length === recibido.length && crypto.timingSafeEqual(esperado, recibido);
-}
-
 export async function POST(request: NextRequest) {
-  const secreto = process.env.CRON_SECRET;
-  if (!secreto) {
-    console.error("CRON_SECRET no configurado");
-    return NextResponse.json({ error: "No configurado" }, { status: 500 });
-  }
-  if (!autorizacionValida(request.headers.get("authorization"), secreto)) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  const rechazo = rechazoSiNoEsCron(request);
+  if (rechazo) return rechazo;
 
   const resultado = await procesarVencimientosCorreo();
   return NextResponse.json({ ok: true, ...resultado });

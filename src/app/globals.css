@@ -157,6 +157,24 @@ h4,
   font-weight: 700;
   text-transform: uppercase;
 }
+/* Pulso del día en el menú de inicio (solo Gerencia): mismo lenguaje visual
+   que .stat-card pero en chico, para no competir con los botones de módulo. */
+.hub-stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.hub-stats .stat-card {
+  padding: 10px 16px;
+  min-width: 148px;
+}
+.hub-stats .stat-card .num {
+  font-size: 20px;
+}
+.hub-stats .stat-card .lbl {
+  font-size: 10px;
+}
 .role-grid {
   display: flex;
   gap: 18px;

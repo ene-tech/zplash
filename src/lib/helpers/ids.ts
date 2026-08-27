@@ -2,17 +2,12 @@ export function uid(): string {
   return "c" + Date.now() + Math.floor(Math.random() * 1000);
 }
 
-/** Mismo esquema de id usado para ingresos en toda la app ("i" + timestamp), envuelto en una función para no llamar Date.now() directo desde un componente (ver react-hooks/purity). */
-export function uidIngreso(): string {
-  return "i" + Date.now();
-}
-
-/** Mismo esquema de id usado para ventas en toda la app ("v" + timestamp), envuelto en una función por el mismo motivo que uidIngreso(). */
+/** Mismo esquema de id usado para ventas en toda la app ("v" + timestamp), envuelto en una función para no llamar Date.now() directo desde un componente (ver react-hooks/purity). */
 export function uidVenta(): string {
   return "v" + Date.now();
 }
 
-/** Mismo esquema de id usado para movimientos contables ("mc" + timestamp + random), envuelto en una función por el mismo motivo que uidIngreso() — necesario acá porque ConciliacionBancariaTab crea el movimiento dentro del cuerpo del componente, no en un módulo aparte como MovimientoContableTab. */
+/** Mismo esquema de id usado para movimientos contables ("mc" + timestamp + random), envuelto en una función por el mismo motivo que uidVenta() — necesario acá porque ConciliacionBancariaTab crea el movimiento dentro del cuerpo del componente, no en un módulo aparte como MovimientoContableTab. */
 export function uidMovimientoContable(): string {
   return "mc" + Date.now() + Math.floor(Math.random() * 1000);
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { GRUPOS_GASTO_EERR } from "@/lib/helpers";
 import type { CategoriaGasto, CategoriaIngreso } from "@/types";
 
 export default function ContabilidadConfigTab() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const nuevaCategoriaNombreRef = useRef<HTMLInputElement>(null);
   const nuevaCategoriaGrupoRef = useRef<HTMLSelectElement>(null);
   const [categoriaErr, setCategoriaErr] = useState<{ msg: string; ok: boolean } | null>(null);

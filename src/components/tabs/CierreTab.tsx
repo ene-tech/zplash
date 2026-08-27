@@ -1,6 +1,6 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { descargarCierre, descargarFacturables } from "@/lib/logic";
 import { todayYMD } from "@/lib/helpers";
 import { useCierreData } from "@/components/tabs/cierre/useCierreData";
@@ -16,7 +16,7 @@ export default function CierreTab() {
   // `ingresos`/`movimientosContables` todavía vacíos (oleada "historial" sin
   // llegar, ver AppContext) solo calcula puros ceros, no falla.
   const r = useCierreData();
-  const { loadingHistorial } = useApp();
+  const { loadingHistorial } = useAppData();
 
   if (loadingHistorial) {
     return <div className="empty">Cargando historial de ventas e ingresos…</div>;

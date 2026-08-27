@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,7 @@ async function descargarAdjunto(carpetaPath: string, uid: number, indice: number
 }
 
 export default function CorreoView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout } = useAppUi();
   const [carpetas, setCarpetas] = useState<CarpetaBuzon[]>([]);
   const [carpetaActual, setCarpetaActual] = useState<string | null>(null);
   const [correos, setCorreos] = useState<CorreoResumen[]>([]);

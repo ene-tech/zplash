@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { diaSemanaDe, lunesDe, minutosDesdeMedianoche } from "@/lib/agenda";
 import { sumarDias, todayYMD } from "@/lib/helpers";
 import type { Cita } from "@/types";
@@ -47,7 +47,7 @@ const CABECERA: CSSProperties = {
 };
 
 export function AgendaSemanal() {
-  const { data } = useApp();
+  const { data } = useAppData();
   const hoy = todayYMD();
   const [lunes, setLunes] = useState(() => lunesDe(hoy));
 

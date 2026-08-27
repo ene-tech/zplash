@@ -65,7 +65,16 @@ function aplicarVariablesHtml(html: string, variables: Record<string, string>): 
 // es el único patrón que renderiza consistente en Outlook de escritorio,
 // que sigue usando el motor de Word para HTML y no soporta CSS moderno.
 export function envolverCorreoBase(cuerpoPlantilla: string, variables: Record<string, string>): string {
-  const contenido = aplicarVariablesHtml(textoPlanoAHtml(cuerpoPlantilla), variables);
+  return envolverHtmlBase(aplicarVariablesHtml(textoPlanoAHtml(cuerpoPlantilla), variables));
+}
+
+// La misma shell de marca, pero recibiendo HTML ya armado — la usan los
+// correos que no vienen de una PlantillaCorreo editable (ej. el código de
+// acceso, ver @/lib/buzon/otp) y por eso no pasan por la conversión de texto
+// plano de arriba. `boton` se apaga donde el CTA sobra: quien está pidiendo
+// un código ya está entrando a Mi Cuenta.
+export function envolverHtmlBase(contenido: string, opciones?: { boton?: boolean }): string {
+  const boton = opciones?.boton ?? true;
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -87,11 +96,11 @@ export function envolverCorreoBase(cuerpoPlantilla: string, variables: Record<st
               ${contenido}
             </td>
           </tr>
-          <tr>
+          ${boton ? `<tr>
             <td style="padding:8px 28px 28px; text-align:center;">
               <a href="https://zplash.cl/cliente" style="display:inline-block; background-color:#ffc72c; color:#262320; font-weight:bold; font-size:14px; text-decoration:none; padding:12px 32px; border-radius:6px;">Ir a Mi Cuenta</a>
             </td>
-          </tr>
+          </tr>` : ""}
           <tr>
             <td style="padding:0 28px;">
               <div style="height:1px; background-color:#e5e2d8; line-height:1px; font-size:0;">&nbsp;</div>

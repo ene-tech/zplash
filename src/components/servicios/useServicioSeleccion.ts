@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type RefObject } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { CATEGORIA_DETAILING, precioServicio, precioServicioTamano } from "@/lib/helpers";
 import type { TamanoVehiculo } from "@/types";
 
@@ -16,7 +16,7 @@ export type ItemPersonalizado = { id: string; nombre: string; precio: number };
 // cobrar el precio correcto — validarRegistroServicioAdicional exige elegirlo
 // antes de registrar si hay Detailing seleccionado).
 export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInputElement | null>, setErr: (msg: string) => void) {
-  const { data } = useApp();
+  const { data } = useAppData();
   const [serviciosSeleccionados, setServiciosSeleccionados] = useState<string[]>([]);
   const [itemsPersonalizados, setItemsPersonalizados] = useState<ItemPersonalizado[]>([]);
   const [ajuste, setAjuste] = useState<0 | 5000 | 10000>(0);

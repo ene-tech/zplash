@@ -1,6 +1,6 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppUi } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import ProductosTab from "@/components/tabs/ProductosTab";
 import ProveedoresTab from "@/components/tabs/ProveedoresTab";
@@ -24,7 +24,7 @@ const TABS = [
 ] as const;
 
 export default function InventarioView() {
-  const { ui, patchUi, logout } = useApp();
+  const { ui, patchUi, logout } = useAppUi();
   const tabActual = TABS.find((t) => t.id === ui.inventarioTab) || TABS[0];
 
   return (

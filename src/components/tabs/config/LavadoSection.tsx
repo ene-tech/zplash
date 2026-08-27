@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { LAVADO_ADICIONAL_KEY, LAVADO_UNICO_KEY, precioLavadoAdicional, precioLavadoUnico } from "@/lib/helpers";
 import { Droplets } from "lucide-react";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
 
 export default function LavadoSection() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [lavadoUnicoVal, setLavadoUnicoVal] = useState(() => String(precioLavadoUnico(data.precios)));
   const [lavadoAdicionalVal, setLavadoAdicionalVal] = useState(() => String(precioLavadoAdicional(data.precios)));
   const [guardando, setGuardando] = useState(false);

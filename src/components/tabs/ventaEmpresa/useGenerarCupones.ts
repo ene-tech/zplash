@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type RefObject } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { PATENTE_FORMATO_MSG, RUT_FORMATO_MSG, fmtCLP, formatRut, generarCodigoCupon, isValidPatente, isValidRut, parsearPatentes, uid } from "@/lib/helpers";
 import type { Cupon, Empresa, Venta } from "@/types";
 
@@ -20,7 +20,7 @@ type GenerarCuponesRefs = {
 // una única Venta en el cierre de caja de hoy, y cada cupón se canjea
 // después por separado desde el perfil operador.
 export function useGenerarCupones(refs: GenerarCuponesRefs) {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const { nombreRef, cantidadRef, caducidadRef, razonSocialRef, rutRef, direccionRef, giroRef } = refs;
   const [valorTexto, setValorTexto] = useState("");
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");

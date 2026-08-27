@@ -23,6 +23,16 @@ export interface EstadoPlan {
   // Solo para el precio de la renovación automática (Oneclick), que respeta
   // el heredado sin depender del plazo de atraso.
   precioPlanHeredado?: number | null;
+  // Precio del PRIMER cobro de la renovación automática cuando la patente
+  // llega vencida y le calza una promoción de reactivación (ver
+  // calcularOfertasPlan): es lo que va a cobrar la inscripción de tarjeta,
+  // resuelto por /api/pagos/estado con el mismo helper que cobra
+  // /api/pagos/oneclick/inscripcion/retorno. undefined = paga el precio de
+  // siempre de la renovación automática.
+  precioPrimerCobroAuto?: number;
+  // Le queda el lavado full túnel gratis por inscribir la tarjeta estando
+  // vencido (una sola vez por cliente).
+  ticketReactivacion?: boolean;
 }
 
 export type TipoPago = "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" | "aspirado";

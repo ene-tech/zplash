@@ -746,8 +746,22 @@ describe("precioReactivacionVencido", () => {
     expect(precioReactivacionVencido(config, "plan1", 5, 10, "LOCAL")).toBe(18990);
   });
 
-  it("sin tramos configurados para el plan -> undefined (no se ofrece promoción)", () => {
+  it("sin tramos para el plan ni para el Plan X5 -> undefined (no se ofrece promoción)", () => {
     expect(precioReactivacionVencido(config, "otro-plan", 15, 1, "LOCAL")).toBeUndefined();
+  });
+
+  it("un plan sin escala propia usa la del Plan X5 (el ilimitado legacy reactiva al producto que se vende hoy)", () => {
+    const soloX5: ConfigGlobal = {
+      ...CONFIG_DEFAULT,
+      tramosReactivacionVencido: {
+        "Plan X5": [{ id: "web", diasVencidoMin: 0, diasVencidoMax: 150, visitasMin: 1, visitasMax: 5, precio: 19990, canal: "WEB" }],
+      },
+    };
+    expect(precioReactivacionVencido(soloX5, "Plan Ilimitado Mensual", 11, 1, "WEB")).toBe(19990);
+    // El canal del tramo sigue mandando: esa promo Web no se cobra en el mesón.
+    expect(precioReactivacionVencido(soloX5, "Plan Ilimitado Mensual", 11, 1, "LOCAL")).toBeUndefined();
+    // Y el plan con escala propia no la pierde por existir la del X5.
+    expect(precioReactivacionVencido({ ...soloX5, tramosReactivacionVencido: { ...soloX5.tramosReactivacionVencido, ...config.tramosReactivacionVencido } }, "plan1", 15, 1, "LOCAL")).toBe(15990);
   });
 
   it("tramo sin canal (guardado antes de la opción) vale para los dos canales", () => {

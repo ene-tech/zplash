@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { esEstadoPagadoEgreso, fmtCLP, formatRut, mesActualKey, mesKey } from "@/lib/helpers";
 import type { MovimientoContable } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -25,7 +25,7 @@ export default function GastoEstadoTab({
   estado: "x_rendir" | "pendiente_pago";
   titulo: string;
 }) {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const [mes, setMes] = useState(mesActualKey);
   const [busqueda, setBusqueda] = useState("");
 

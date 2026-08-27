@@ -1,6 +1,6 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppAcciones } from "@/context/AppContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,7 @@ export default function ConfirmModal({
   confirmLabel?: string;
   danger?: boolean;
 }) {
-  const { patchUi } = useApp();
+  const { patchUi } = useAppAcciones();
   const cerrar = () => patchUi({ modal: null });
 
   return (

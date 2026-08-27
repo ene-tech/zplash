@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { Mail } from "lucide-react";
 import EditorCorreo, { type EditorCorreoHandle } from "@/components/correo/EditorCorreo";
 import ConfigSection from "./ConfigSection";
@@ -11,7 +11,7 @@ import SaveBar from "./SaveBar";
 // respuesta (ver contenidoInicial ahí) — vive en ConfigGlobal.firmaCorreo,
 // mismo mecanismo de guardado que el resto de esta pestaña (commit({config})).
 export default function CorreoFirmaSection() {
-  const { data, commit } = useApp();
+  const { data, commit } = useAppData();
   const editorRef = useRef<EditorCorreoHandle>(null);
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);

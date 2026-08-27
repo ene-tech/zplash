@@ -1,10 +1,10 @@
 "use client";
 
-import { useApp } from "@/context/AppContext";
+import { useAppData } from "@/context/AppContext";
 import { todayStr } from "@/lib/helpers";
 
 export default function TodayLog() {
-  const { data } = useApp();
+  const { data } = useAppData();
   const hoy = todayStr();
   const list = data.ingresos
     .filter((i) => new Date(i.fecha).toDateString() === hoy)
