@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { registrarIngreso, renovarPlan } from "@/lib/logic";
-import { PLANES, isValidEmail, isValidTelefono, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
+import { PLANES, isValidEmail, isValidTelefono, marcarDescuentoUsado, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { AppData, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
@@ -59,9 +59,7 @@ export function usePlanActions(
       ...patch,
       ...(venta ? { ventas: [{ ...venta, viaCupon: true, cuponCodigo: cuponDescuento.codigo }, ...resto] } : {}),
       cupones: data.cupones.map((x) =>
-        x.id === cuponDescuento.id
-          ? { ...x, usado: true, patenteUso: cliente.patente, fechaUso: ahora, operadorUso: ui.perfilActual?.nombre || "" }
-          : x
+        x.id === cuponDescuento.id ? marcarDescuentoUsado(x, cliente.patente, ui.perfilActual?.nombre, ahora) : x
       ),
     };
   };

@@ -1,4 +1,5 @@
-import type { Cupon } from "@/types";
+import type { Cliente, Cupon } from "@/types";
+import { findClient } from "./clientes";
 import { fmtCLP } from "./precios";
 import { normPlate } from "./validadores";
 
@@ -26,23 +27,66 @@ export function generarCodigoCupon(existentes: Set<string>): string {
   return codigo;
 }
 
+/** true si esta patente ya gastó el descuento. Un descuento normal es de un
+ * solo uso global (`usado`); uno de "un uso por patente" (promo abierta que
+ * circula pública) sigue vivo hasta caducar y lleva en `patentesUsadas` las
+ * que ya lo canjearon. */
+export function descuentoGastadoPor(cupon: Pick<Cupon, "usado" | "unUsoPorPatente" | "patentesUsadas">, patente: string): boolean {
+  if (!cupon.unUsoPorPatente) return cupon.usado;
+  const p = normPlate(patente);
+  return (cupon.patentesUsadas || []).some((x) => normPlate(x) === p);
+}
+
 /** Valida un código de descuento (tipo "descuento") para una patente dada, antes de aplicarlo a una venta.
- * Si el cupón no tiene patenteAsignada, es "abierto": lo puede usar cualquier patente. */
+ * Si el cupón no tiene patenteAsignada, es "abierto": lo puede usar cualquier patente.
+ *
+ * `clientes` va obligatorio (y no con default `[]`) a propósito: es lo que
+ * decide la restricción "solo clientes nuevos", y una lista vacía por omisión
+ * la apagaría en silencio justo donde se calcula un precio a cobrar. */
 export function resolverDescuento(
   codigoCrudo: string,
   patente: string,
-  cupones: Cupon[]
+  cupones: Cupon[],
+  clientes: Cliente[]
 ): { ok: true; cupon: Cupon } | { ok: false; msg: string } {
   const codigo = codigoCrudo.trim().toUpperCase();
   const cupon = cupones.find((c) => c.codigo === codigo);
   if (!cupon) return { ok: false, msg: "Código de descuento no encontrado" };
   if (cupon.tipo !== "descuento") return { ok: false, msg: "Este código no es un descuento válido" };
-  if (cupon.usado) return { ok: false, msg: "Este descuento ya fue usado" };
+  if (descuentoGastadoPor(cupon, patente)) {
+    return { ok: false, msg: cupon.unUsoPorPatente ? "Esta patente ya usó este descuento" : "Este descuento ya fue usado" };
+  }
   if (new Date(cupon.fechaCaducidad) < new Date()) return { ok: false, msg: "Este descuento está caducado" };
   if (cupon.patenteAsignada && cupon.patenteAsignada !== patente) {
     return { ok: false, msg: "Este descuento fue asignado a otra patente" };
   }
+  // "Cliente nuevo" = patente sin ficha, la misma definición que usa el
+  // descuento de bienvenida (/api/cliente/descuento-bienvenida): es lo único
+  // que el mesón puede verificar con el auto delante.
+  if (cupon.soloClientesNuevos && findClient(clientes, patente)) {
+    return { ok: false, msg: "Este descuento es solo para clientes nuevos" };
+  }
   return { ok: true, cupon };
+}
+
+/** Quema el descuento para esta patente. Único lugar donde se decide CÓMO se
+ * quema, porque son dos formas distintas: el descuento normal muere entero
+ * (`usado`), y el de "un uso por patente" solo suma la patente a la lista y
+ * sigue vigente para el resto.
+ *
+ * ponytail: la lista se reescribe entera en el commit del mesón, así que dos
+ * cajas cobrando el MISMO código en el mismo instante pueden pisarse y perder
+ * un uso (la segunda patente podría volver a canjearlo). Misma ventana que ya
+ * tiene `usado` hoy y son segundos de riesgo con un solo mesón; si algún día
+ * hay varias cajas en paralelo, el append va server-side en SQL
+ * (`patentes_usadas || to_jsonb(patente)` con el NOT @> en el WHERE, igual que
+ * el `usado = false` de consumirCupon). */
+export function marcarDescuentoUsado(cupon: Cupon, patente: string, operador: string | undefined, ahora: string): Cupon {
+  const p = normPlate(patente);
+  if (cupon.unUsoPorPatente) {
+    return { ...cupon, patentesUsadas: [...(cupon.patentesUsadas || []), p] };
+  }
+  return { ...cupon, usado: true, patenteUso: p, fechaUso: ahora, operadorUso: operador || "" };
 }
 
 /** Monto a descontar del precio base: si el cupón es de porcentaje, se calcula sobre precioBase; si no, es el monto fijo.

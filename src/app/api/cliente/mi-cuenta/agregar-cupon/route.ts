@@ -55,6 +55,17 @@ export async function POST(request: NextRequest) {
     if (cupon.usado) {
       return NextResponse.json({ ok: false, error: "Ese código ya fue usado" }, { status: 409 });
     }
+    // Una promo abierta de "un uso por patente" no se guarda en ninguna
+    // cuenta: atarle este email/patenteAsignada se la sacaría del alcance de
+    // todos los demás (patenteAsignada es justamente lo que resolverDescuento
+    // usa para rechazar a otra patente). Se aplica tipeando el código en el
+    // mesón, y ahí queda registrado el uso de esa patente.
+    if (cupon.unUsoPorPatente) {
+      return NextResponse.json(
+        { ok: false, error: "Ese código es una promoción abierta: no se guarda en la cuenta, lo aplicamos al llegar al local." },
+        { status: 409 }
+      );
+    }
     if (new Date(cupon.fechaCaducidad) < new Date()) {
       return NextResponse.json({ ok: false, error: "Ese código está vencido" }, { status: 409 });
     }

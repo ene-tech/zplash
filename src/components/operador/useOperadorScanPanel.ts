@@ -236,7 +236,7 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       return;
     }
     if (codigo) {
-      const resultado = resolverDescuento(codigo, normPlate(plate), data.cupones);
+      const resultado = resolverDescuento(codigo, normPlate(plate), data.cupones, data.clientes);
       if (!resultado.ok) {
         setCuponErr({ msg: resultado.msg, ok: false });
         setCodigoDescuento("");

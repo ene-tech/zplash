@@ -71,6 +71,7 @@ import {
   cuponDescuentoDePatente,
   ofertaConCupon,
   precioConCupon,
+  marcarDescuentoUsado,
   resolverDescuento,
   resolverPatentePendiente,
   sumarMeses,
@@ -904,31 +905,107 @@ describe("resolverDescuento", () => {
     fechaCaducidad: new Date(Date.now() + 86400000).toISOString(),
   };
 
+  const registrado: Cliente = { id: "c1", nombre: "Ana", patente: "AB1234", creadoEn: new Date().toISOString() };
+
   it("acepta un cupón válido y sin restricción de patente", () => {
-    const r = resolverDescuento("abc123", "AB1234", [cuponBase]);
+    const r = resolverDescuento("abc123", "AB1234", [cuponBase], []);
     expect(r.ok).toBe(true);
   });
 
   it("rechaza código inexistente", () => {
-    const r = resolverDescuento("ZZZZZZ", "AB1234", [cuponBase]);
+    const r = resolverDescuento("ZZZZZZ", "AB1234", [cuponBase], []);
     expect(r.ok).toBe(false);
   });
 
   it("rechaza un cupón ya usado", () => {
-    const r = resolverDescuento("abc123", "AB1234", [{ ...cuponBase, usado: true }]);
+    const r = resolverDescuento("abc123", "AB1234", [{ ...cuponBase, usado: true }], []);
     expect(r.ok).toBe(false);
   });
 
   it("rechaza un cupón caducado", () => {
     const caducado = { ...cuponBase, fechaCaducidad: new Date(Date.now() - 86400000).toISOString() };
-    const r = resolverDescuento("abc123", "AB1234", [caducado]);
+    const r = resolverDescuento("abc123", "AB1234", [caducado], []);
     expect(r.ok).toBe(false);
   });
 
   it("rechaza un cupón asignado a otra patente", () => {
     const asignado = { ...cuponBase, patenteAsignada: "ZZ9999" };
-    const r = resolverDescuento("abc123", "AB1234", [asignado]);
+    const r = resolverDescuento("abc123", "AB1234", [asignado], []);
     expect(r.ok).toBe(false);
+  });
+
+  describe("solo clientes nuevos", () => {
+    const soloNuevos = { ...cuponBase, soloClientesNuevos: true };
+
+    it("acepta una patente sin ficha", () => {
+      expect(resolverDescuento("abc123", "AB1234", [soloNuevos], []).ok).toBe(true);
+    });
+
+    it("rechaza una patente que ya es cliente", () => {
+      const r = resolverDescuento("abc123", "AB1234", [soloNuevos], [registrado]);
+      expect(r).toEqual({ ok: false, msg: "Este descuento es solo para clientes nuevos" });
+    });
+
+    it("no restringe si el cupón no lleva la regla", () => {
+      expect(resolverDescuento("abc123", "AB1234", [cuponBase], [registrado]).ok).toBe(true);
+    });
+  });
+
+  describe("un uso por patente", () => {
+    const reusable = { ...cuponBase, unUsoPorPatente: true };
+
+    it("sigue vigente para una patente que no lo ha usado", () => {
+      const usadoPorOtra = { ...reusable, patentesUsadas: ["ZZ9999"] };
+      expect(resolverDescuento("abc123", "AB1234", [usadoPorOtra], []).ok).toBe(true);
+    });
+
+    it("rechaza a la patente que ya lo usó", () => {
+      const usadoPorEsta = { ...reusable, patentesUsadas: ["ZZ9999", "AB1234"] };
+      const r = resolverDescuento("abc123", "AB1234", [usadoPorEsta], []);
+      expect(r).toEqual({ ok: false, msg: "Esta patente ya usó este descuento" });
+    });
+
+    it("compara la patente normalizada", () => {
+      const usadoPorEsta = { ...reusable, patentesUsadas: ["ab-1234"] };
+      expect(resolverDescuento("abc123", "AB1234", [usadoPorEsta], []).ok).toBe(false);
+    });
+
+    it("ignora el flag global `usado`: el código no muere en el primer canje", () => {
+      const conUsadoViejo = { ...reusable, usado: true, patenteUso: "ZZ9999" };
+      expect(resolverDescuento("abc123", "AB1234", [conUsadoViejo], []).ok).toBe(true);
+    });
+  });
+});
+
+describe("marcarDescuentoUsado", () => {
+  const base: Cupon = {
+    id: "cu1",
+    codigo: "ABC123",
+    nombreLote: "Lote",
+    numeroLote: 1,
+    totalLote: 1,
+    tipo: "descuento",
+    valor: 5000,
+    usado: false,
+    creadoEn: "2026-01-01T00:00:00.000Z",
+    fechaCaducidad: "2026-12-31T00:00:00.000Z",
+  };
+
+  it("quema entero un descuento normal", () => {
+    const r = marcarDescuentoUsado(base, "ab-1234", "Juan", "2026-02-01T10:00:00.000Z");
+    expect(r).toMatchObject({ usado: true, patenteUso: "AB1234", fechaUso: "2026-02-01T10:00:00.000Z", operadorUso: "Juan" });
+  });
+
+  it("en uno de un uso por patente solo suma la patente y lo deja vigente", () => {
+    const reusable = { ...base, unUsoPorPatente: true, patentesUsadas: ["ZZ9999"] };
+    const r = marcarDescuentoUsado(reusable, "ab-1234", "Juan", "2026-02-01T10:00:00.000Z");
+    expect(r.usado).toBe(false);
+    expect(r.patentesUsadas).toEqual(["ZZ9999", "AB1234"]);
+  });
+
+  it("arranca la lista si todavía no tenía usos", () => {
+    const reusable = { ...base, unUsoPorPatente: true };
+    expect(marcarDescuentoUsado(reusable, "AB1234", undefined, "2026-02-01T10:00:00.000Z").patentesUsadas).toEqual(["AB1234"]);
   });
 });
 
@@ -987,7 +1064,7 @@ describe("ofertaConCupon", () => {
     const o = ofertaConCupon(
       {
         renovacionAnticipada: { pNormal: 25000, pPromo: 21990, ahorro: 3010, tramoVigente: true },
-        reactivacion: { precio: 18000, diasVencido: 5, pNormal: 25000 },
+        reactivacion: { precio: 18000, diasVencido: 5, pNormal: 25000, visitas: 2 },
         upgrade: { precio: 12000 },
         pagoVencido: { precio: 21990, diasVencido: 40 },
       },
@@ -1520,6 +1597,16 @@ describe("calcularOfertasPlan", () => {
     expect(oferta.reactivacion?.precio).toBe(17990);
     expect(oferta.reactivacion?.diasVencido).toBeGreaterThanOrEqual(9);
     expect(oferta.reactivacion?.diasVencido).toBeLessThanOrEqual(11);
+  });
+
+  it("la reactivación expone las pasadas del último período pagado (eje del tramo, y {{pasadas}} en el correo)", () => {
+    // El período que cuenta es el mes que TERMINA en el vencimiento (ver
+    // visitasUltimoPeriodoVencido): el ingreso de ayer es posterior, ya sin
+    // plan pagado, y no suma.
+    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-10) };
+    const ingreso = (id: string, dias: number): Ingreso => ({ ...ingresoAyer(), id, fecha: diasDesdeHoy(dias) });
+    const oferta = calcularOfertasPlan(cliente, [], [ingreso("i1", -12), ingreso("i2", -20), ingreso("i3", -1)], config, precios);
+    expect(oferta.reactivacion?.visitas).toBe(2);
   });
 
   it("plan vencido fuera de todos los tramos de reactivación -> sin promoción, pero el plan sigue pagable al precio normal", () => {

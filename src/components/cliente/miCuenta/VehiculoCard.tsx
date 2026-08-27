@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { MoreVertical } from "lucide-react";
-import { fmtCLP, fmtFecha } from "@/lib/helpers";
+import { PLANES, fmtCLP, fmtFecha } from "@/lib/helpers";
 import type { OfertaPlan } from "@/lib/helpers";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
 import { Button } from "@/components/ui/button";
@@ -72,9 +72,11 @@ export function VehiculoCard({
     pedir,
     cancelarConfirmacion,
     confirmarConTarjeta,
-    pagarPorWebpayEnCambio,
     pagarPlanVencido,
-  } = useOfertaPlan(v.patente, tarjeta ?? null, onActualizado);
+    // Sin tarjeta inscrita el plan no se puede cobrar: se manda a inscribir
+    // una y ese retorno hace el primer cobro con el precio de la promoción
+    // (ver promoPrimerCobroOneclick).
+  } = useOfertaPlan(v.patente, tarjeta ?? null, onActualizado, () => registrarTarjeta(false));
 
   const montoOferta = (tipo: TipoOfertaPlan): number | undefined =>
     tipo === "renovacion_temprana" ? oferta?.renovacionAnticipada?.pPromo : tipo === "reactivacion" ? oferta?.reactivacion?.precio : oferta?.upgrade?.precio;
@@ -89,17 +91,29 @@ export function VehiculoCard({
 
   const [inscribiendo, setInscribiendo] = useState(false);
   const [errInscripcion, setErrInscripcion] = useState("");
+  // Sin tarjeta inscrita los botones de promoción salen a Transbank a
+  // inscribir una (es la única forma de pagar el plan), así que hay que
+  // decirlo antes de que el cliente apriete, no después.
+  const ocupado = pagando !== null || inscribiendo;
+  const avisoInscripcion = !tarjeta && (
+    <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+      Se inscribe tu tarjeta para el pago automático mensual y el cobro se hace al instante.
+    </div>
+  );
 
-  // Mismo endpoint que AgregarTarjeta ("solo guardar", sin cobrar nada), pero
-  // sin el paso de elegir patente/email: acá ya se sabe ambos por contexto.
-  async function registrarTarjeta() {
+  // Mismo endpoint que AgregarTarjeta pero sin el paso de elegir
+  // patente/email: acá ya se sabe ambos por contexto. `soloGuardar` decide si
+  // la inscripción además cobra al volver: false = está pagando el plan (es
+  // la única forma de pagarlo sin tarjeta guardada), true = solo deja la
+  // tarjeta lista para el cobro automático del vencimiento.
+  async function registrarTarjeta(soloGuardar = true) {
     setErrInscripcion("");
     setInscribiendo(true);
     try {
       const res = await fetch("/api/pagos/oneclick/inscribir", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patente: v.patente, email, soloGuardar: true }),
+        body: JSON.stringify({ patente: v.patente, email, soloGuardar }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -175,10 +189,7 @@ export function VehiculoCard({
               </div>
               {errInscripcion && <div className="err">{errInscripcion}</div>}
               <div className="offer-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button className="btn secondary" onClick={() => pedir("renovacion_temprana")} disabled={pagando !== null}>
-                  {pagando === "renovacion_temprana" ? "Procesando..." : "PAGAR RENOVACIÓN"}
-                </button>
-                <button type="button" className="btn ghost" onClick={registrarTarjeta} disabled={inscribiendo}>
+                <button type="button" className="btn secondary" onClick={() => registrarTarjeta()} disabled={inscribiendo}>
                   {inscribiendo ? "Redirigiendo..." : "REGISTRAR TARJETA - PAGO AUTOMÁTICO"}
                 </button>
               </div>
@@ -198,8 +209,9 @@ export function VehiculoCard({
               <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
                 Renovar ahora suma un mes a la fecha de vencimiento de tu plan actual: no pierdes los días que ya tienes.
               </div>
-              <button className="btn secondary" onClick={() => pedir("renovacion_temprana")} disabled={pagando !== null}>
-                {pagando === "renovacion_temprana" ? "Procesando..." : "Renovar a precio preferencial"}
+              {avisoInscripcion}
+              <button className="btn secondary" onClick={() => pedir("renovacion_temprana")} disabled={ocupado}>
+                {pagando === "renovacion_temprana" ? "Procesando..." : inscribiendo ? "Redirigiendo..." : "Renovar a precio preferencial"}
               </button>
             </>
           )}
@@ -213,16 +225,17 @@ export function VehiculoCard({
               Tu plan venció hace {oferta.reactivacion.diasVencido} día{oferta.reactivacion.diasVencido === 1 ? "" : "s"}
             </h4>
           </div>
-          <div className="msg">Reactiva tu {v.plan} ahora mismo a precio preferencial.</div>
+          <div className="msg">Activa tu {PLANES[0]} ahora mismo a precio preferencial.</div>
           <div className="price-row">
             <span className="new">{fmtCLP(oferta.reactivacion.precio)}</span>
           </div>
-          {/* El ticket lo emite el cobro contra la tarjeta guardada (ver
-              cobrar-oferta), así que solo se anuncia con tarjeta activa:
-              pagando por Webpay, sin tarjeta registrada, la promo no aplica. */}
-          {ticketReactivacion && tarjeta && (
+          {/* Lo emite tanto el cobro contra la tarjeta guardada (cobrar-oferta)
+              como el primer cobro de una tarjeta recién inscrita (ver
+              /api/pagos/oneclick/inscripcion/retorno), que son los dos únicos
+              caminos para reactivar. */}
+          {ticketReactivacion && (
             <div className="hint" style={{ color: "var(--green)", fontSize: 13, marginBottom: 12 }}>
-              Incluye 1 lavado full túnel gratis por reactivar con tu tarjeta de pago automático.
+              Incluye 1 lavado full túnel gratis por reactivar con tu tarjeta de pago automático, para usar en cualquier patente.
             </div>
           )}
           {oferta.reactivacion.pNormal > 0 && (
@@ -231,8 +244,13 @@ export function VehiculoCard({
               pagándolo antes del vencimiento.
             </div>
           )}
-          <button className="btn secondary" onClick={() => pedir("reactivacion")} disabled={pagando !== null}>
-            {pagando === "reactivacion" ? "Procesando..." : `Reactivar plan (${fmtCLP(oferta.reactivacion.precio)})`}
+          {avisoInscripcion}
+          <button className="btn secondary" onClick={() => pedir("reactivacion")} disabled={ocupado}>
+            {pagando === "reactivacion"
+              ? "Procesando..."
+              : inscribiendo
+                ? "Redirigiendo..."
+                : `Reactivar plan (${fmtCLP(oferta.reactivacion.precio)})`}
           </button>
         </div>
       )}
@@ -266,8 +284,13 @@ export function VehiculoCard({
           <div className="price-row">
             <span className="new">+{fmtCLP(oferta.upgrade.precio)}</span>
           </div>
-          <button className="btn secondary" onClick={() => pedir("upgrade_plan")} disabled={pagando !== null}>
-            {pagando === "upgrade_plan" ? "Procesando..." : `Upgrade a plan (+${fmtCLP(oferta.upgrade.precio)})`}
+          {avisoInscripcion}
+          <button className="btn secondary" onClick={() => pedir("upgrade_plan")} disabled={ocupado}>
+            {pagando === "upgrade_plan"
+              ? "Procesando..."
+              : inscribiendo
+                ? "Redirigiendo..."
+                : `Upgrade a plan (+${fmtCLP(oferta.upgrade.precio)})`}
           </button>
         </div>
       )}
@@ -282,14 +305,17 @@ export function VehiculoCard({
               {tarjeta.cardTipo ? `${tarjeta.cardTipo} ` : "tarjeta "}
               terminada en <strong>{tarjeta.cardUltimosDigitos}</strong>.
             </div>
-            {errOferta && <div className="err">{errOferta}</div>}
+            {(errOferta || errInscripcion) && <div className="err">{errOferta || errInscripcion}</div>}
             <div className="modal-actions">
               <button type="button" className="btn ghost" onClick={cancelarConfirmacion} disabled={pagando !== null}>
                 Cancelar
               </button>
+              {/* Única salida cuando la tarjeta guardada no pasa: el plan no
+                  se cobra por Webpay, así que se inscribe otra —la
+                  inscripción reemplaza a la anterior y cobra al volver. */}
               {rechazada && (
-                <button type="button" className="btn ghost" onClick={pagarPorWebpayEnCambio} disabled={pagando !== null}>
-                  {pagando !== null ? "Redirigiendo..." : "Pagar por Webpay"}
+                <button type="button" className="btn ghost" onClick={() => registrarTarjeta(false)} disabled={inscribiendo}>
+                  {inscribiendo ? "Redirigiendo..." : "Pagar con otra tarjeta"}
                 </button>
               )}
               <button type="button" className="btn" onClick={confirmarConTarjeta} disabled={pagando !== null}>

@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { registrarIngreso, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { yaIngresoHoy, type EstadoReingresoPlan } from "@/lib/helpers";
+import { marcarDescuentoUsado, yaIngresoHoy, type EstadoReingresoPlan } from "@/lib/helpers";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
@@ -94,7 +94,7 @@ export function useIngresoActions(
           ? {
               cupones: data.cupones.map((x) =>
                 x.id === cuponDescuentoVigente.id
-                  ? { ...cuponDescuentoVigente, usado: true, patenteUso: cliente.patente, fechaUso: ahora, operadorUso: ui.perfilActual?.nombre || "" }
+                  ? marcarDescuentoUsado(cuponDescuentoVigente, cliente.patente, ui.perfilActual?.nombre, ahora)
                   : x
               ),
             }

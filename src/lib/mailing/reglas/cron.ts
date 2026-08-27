@@ -58,7 +58,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
     // enviado" (ver precioReactivacionVencido/precioRenovacionLocal en
     // @/lib/helpers/precios).
     promo?: {
-      calcular: (row: typeof clientes.$inferSelect) => Promise<number | undefined>;
+      calcular: (row: typeof clientes.$inferSelect) => Promise<{ precio: number | undefined; pasadas?: number }>;
       campo: "precioReactivacion" | "precioRenovacion";
       obligatorio: boolean;
     }
@@ -72,7 +72,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
       // @/db/schema/mailReglas.
       if (regla.condicionSoloSinAutopago && row.patente && patentesConAutopago.has(row.patente)) continue;
 
-      let precioPromo: number | undefined;
+      let valores: { precio: number | undefined; pasadas?: number } = { precio: undefined };
       if (promo) {
         // Antes de este `promo` (v1: solo plan_vencido), nada en este loop
         // podía lanzar antes de registrar el disparo. calcularOfertasPlanDeCliente
@@ -80,13 +80,20 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
         // puede tumbar el resto del loop (ni, más grave, el bloque plan_vencido
         // completo que corre después en la misma llamada del cron).
         try {
-          precioPromo = await promo.calcular(row);
+          valores = await promo.calcular(row);
         } catch (error) {
           console.error("Error calculando precio de promoción para regla de correo de vencimiento", regla.id, row.id, error);
           errores++;
           continue;
         }
-        if (precioPromo === undefined && promo.obligatorio) continue;
+        if (valores.precio === undefined && promo.obligatorio) continue;
+        // Tope de pasadas de la regla (ver condicionPasadasMax en
+        // @/db/schema/mailReglas). Va antes de registrarDisparoReglaCorreo,
+        // igual que el `obligatorio` de arriba: al cliente que no pasa el
+        // filtro no se le anota un disparo, asi que si mañana la regla cambia
+        // de tope vuelve a ser elegible en vez de quedar marcado como "ya
+        // enviado".
+        if (regla.condicionPasadasMax != null && (valores.pasadas ?? 0) > regla.condicionPasadasMax) continue;
       }
 
       // origenId incluye el vencimiento exacto: si el cliente renueva y su
@@ -107,7 +114,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
 
       try {
         const cliente = clienteFromRow(row);
-        const variables = construirVariables({ cliente, ...(promo ? { [promo.campo]: precioPromo } : {}) });
+        const variables = construirVariables({ cliente, ...(promo ? { [promo.campo]: valores.precio, pasadas: valores.pasadas } : {}) });
         await ejecutarAccionReglaCorreo(regla, disparo.id, cliente, variables);
         procesados++;
       } catch (error) {
@@ -132,7 +139,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
     // porque ningún tramo le calza (típicamente viene mucho) o porque el
     // precio no le ahorra nada contra el normal — y con
     // condicionSoloConPromoRenovacion ese cliente no recibe el correo.
-    const calcularPrecioRenovacion = async (row: typeof clientes.$inferSelect): Promise<number | undefined> => {
+    const calcularPrecioRenovacion = async (row: typeof clientes.$inferSelect): Promise<{ precio: number | undefined }> => {
       const oferta = (await calcularOfertasPlanDeCliente(clienteFromRow(row))).renovacionAnticipada;
       // tramoVigente, no solo ahorro>0: sin él, un plan sin ningún tramo de
       // renovación anticipada configurado para el canal Web cae al precio
@@ -140,7 +147,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
       // y eso cuenta como "promoción real" para cualquier cliente — la regla
       // "solo con promoción vigente" no excluiría a nadie, y si ese precio
       // legado quedó en $0 el correo saldría anunciando una renovación gratis.
-      return oferta && oferta.tramoVigente && oferta.ahorro > 0 ? oferta.pPromo : undefined;
+      return { precio: oferta && oferta.tramoVigente && oferta.ahorro > 0 ? oferta.pPromo : undefined };
     };
 
     for (const regla of reglasPorVencer) {
@@ -178,8 +185,15 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
     // Mismo cálculo que usa Operador/Mi Cuenta (oferta.reactivacion) — ver
     // calcularOfertasPlanDeCliente, que ya trae ventas/ingresos/config/precios
     // de este cliente puntual, un solo lugar para no duplicar esa lógica acá.
-    const calcularPrecioReactivacion = async (row: typeof clientes.$inferSelect): Promise<number | undefined> =>
-      (await calcularOfertasPlanDeCliente(clienteFromRow(row))).reactivacion?.precio;
+    const calcularPrecioReactivacion = async (row: typeof clientes.$inferSelect): Promise<{ precio: number | undefined; pasadas?: number }> => {
+      const oferta = (await calcularOfertasPlanDeCliente(clienteFromRow(row))).reactivacion;
+      // {{pasadas}} = las veces que alcanzó a pasar en el período que pagó, el
+      // mismo número con que el tramo le eligió el precio. Va tal cual, sin
+      // topar: es el dato con que el correo argumenta, y mostrarle un número
+      // distinto del que realmente pasó le resta credibilidad al mensaje. Es
+      // además el mismo valor contra el que filtra condicionPasadasMax.
+      return { precio: oferta?.precio, pasadas: oferta?.visitas };
+    };
 
     // Query por regla (no una sola para todas) porque cada una puede tener su
     // propio condicionDiasDespuesVencimiento — ej. una regla a los 0 días

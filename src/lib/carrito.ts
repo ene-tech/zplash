@@ -1,4 +1,6 @@
-export type TipoItemCarrito = "plan_nuevo" | "servicio" | "lavado_unico" | "aspirado";
+// El plan no entra al carrito: solo se contrata inscribiendo la tarjeta (ver
+// TIPOS_VALIDOS en /api/pagos/webpay/crear).
+export type TipoItemCarrito = "servicio" | "lavado_unico" | "aspirado";
 
 export interface ItemCarrito {
   key: string; // "plan" | "lavado_unico" | servicioId
@@ -20,7 +22,11 @@ let cache: ItemCarrito[] | null = null;
 function leerDeStorage(): ItemCarrito[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    // Se filtran los tipos que ya no se pueden pagar por Webpay: un carrito
+    // guardado hace meses puede traer todavía un "plan_nuevo", y con eso
+    // /api/pagos/webpay/crear rechaza la compra entera.
+    const items: ItemCarrito[] = raw ? JSON.parse(raw) : [];
+    return items.filter((i) => i.tipo === "servicio" || i.tipo === "lavado_unico" || i.tipo === "aspirado");
   } catch {
     return [];
   }

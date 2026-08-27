@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, suscripcionesOneclick } from "@/db/schema";
-import { diasVencido } from "@/lib/helpers";
+import { diasVencido, promoPrimerCobroOneclick } from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { cancelarSuscripcionWooCommerceLegacy, cobrarOfertaOneclick, cobrarSuscripcion, otorgarTicketReactivacion } from "@/lib/pagos";
@@ -146,21 +146,21 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   // abajo es justamente lo que lo reactiva (ver aplicarPagoAprobado).
   const veniaVencido = !!cliente && diasVencido(cliente) !== null;
 
-  // Promoción de reactivación que le calza a esta patente (ver
-  // calcularOfertasPlan): el cliente que llega vencido e inscribe su tarjeta
-  // entra pagando ese precio y no el de lista de la renovación automática —
-  // es la misma oferta que Mi Cuenta cobra vía cobrarOfertaOneclick y la que
-  // /pagar le anunció antes de mandarlo a Transbank (ver /api/pagos/estado).
-  // Se recalcula acá con datos frescos, nunca se confía en lo que el cliente
-  // vio en pantalla. Es solo por este primer cobro: los meses siguientes los
-  // cobra el cron al precio normal de la renovación automática.
-  const promoReactivacion = veniaVencido && cliente ? (await calcularOfertasPlanDeCliente(cliente)).reactivacion?.precio : undefined;
+  // Promoción que le calza a esta patente (ver promoPrimerCobroOneclick): el
+  // cliente que llega vencido e inscribe su tarjeta entra pagando ese precio
+  // y no el de lista de la renovación automática — es la misma oferta que Mi
+  // Cuenta cobra vía cobrarOfertaOneclick y la que /pagar le anunció antes de
+  // mandarlo a Transbank (ver /api/pagos/estado). Se recalcula acá con datos
+  // frescos, nunca se confía en lo que el cliente vio en pantalla. Es solo
+  // por este primer cobro: los meses siguientes los cobra el cron al precio
+  // normal de la renovación automática.
+  const promo = veniaVencido && cliente ? promoPrimerCobroOneclick(await calcularOfertasPlanDeCliente(cliente)) : undefined;
 
   // Tarjeta inscrita: cobra ya mismo en vez de esperar al cron del día
   // siguiente, para que el plan quede activo de inmediato.
   try {
-    const { estado } = promoReactivacion
-      ? await cobrarOfertaOneclick(suscripcion.patente, "reactivacion", promoReactivacion)
+    const { estado } = promo
+      ? await cobrarOfertaOneclick(suscripcion.patente, promo.tipo, promo.monto)
       : await cobrarSuscripcion(activada);
     if (estado === "aprobada" && veniaVencido) {
       // Promo: registrar tarjeta de pago automático teniendo el plan vencido

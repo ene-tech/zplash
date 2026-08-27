@@ -14,13 +14,17 @@ type CrearDescuentoRefs = {
 // Genera un código de descuento (resta % o monto fijo del precio a cobrar al
 // canjearlo desde el perfil operador) — distinto de un cupón "vale", nunca
 // se registra como venta acá. Puede quedar abierto (cualquier patente) o
-// asignado a una específica.
+// asignado a una específica, y con dos límites opcionales: solo clientes
+// nuevos (patente sin ficha) y un uso por patente (el código no muere en el
+// primer canje). Ver resolverDescuento en @/lib/helpers/cupones.
 export function useCrearDescuento(refs: CrearDescuentoRefs) {
   const { data, commit } = useAppData();
   const { dNombreRef, dCaducidadRef, dPatenteRef } = refs;
   const [dValorTexto, setDValorTexto] = useState("");
   const [dTipoValor, setDTipoValor] = useState<"monto" | "porcentaje">("monto");
   const [dAbierto, setDAbierto] = useState(false);
+  const [dSoloNuevos, setDSoloNuevos] = useState(false);
+  const [dUnUsoPorPatente, setDUnUsoPorPatente] = useState(false);
   const [errDescuento, setErrDescuento] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const crearDescuento = async () => {
@@ -57,6 +61,10 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
       tipo: "descuento",
       esPorcentaje: dTipoValor === "porcentaje",
       patenteAsignada: dAbierto ? undefined : patente,
+      soloClientesNuevos: dSoloNuevos,
+      // Un código atado a UNA patente ya es de un uso: la regla solo tiene
+      // sentido en uno abierto (ver el checkbox en CrearDescuentoForm).
+      unUsoPorPatente: dAbierto && dUnUsoPorPatente,
     };
 
     const ok = await commit({ cupones: [nuevo, ...data.cupones] });
@@ -65,7 +73,10 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
       return;
     }
     setErrDescuento({
-      msg: `Descuento "${nombreLote}" creado — código ${codigo}${dAbierto ? " (abierto, cualquier patente)" : ` para ${patente}`}`,
+      msg:
+        `Descuento "${nombreLote}" creado — código ${codigo}${dAbierto ? " (abierto, cualquier patente)" : ` para ${patente}`}` +
+        (nuevo.unUsoPorPatente ? " · un uso por patente" : "") +
+        (dSoloNuevos ? " · solo clientes nuevos" : ""),
       ok: true,
     });
     if (dNombreRef.current) dNombreRef.current.value = "";
@@ -74,7 +85,22 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
     if (dPatenteRef.current) dPatenteRef.current.value = "";
     setDTipoValor("monto");
     setDAbierto(false);
+    setDSoloNuevos(false);
+    setDUnUsoPorPatente(false);
   };
 
-  return { dValorTexto, setDValorTexto, dTipoValor, setDTipoValor, dAbierto, setDAbierto, errDescuento, crearDescuento };
+  return {
+    dValorTexto,
+    setDValorTexto,
+    dTipoValor,
+    setDTipoValor,
+    dAbierto,
+    setDAbierto,
+    dSoloNuevos,
+    setDSoloNuevos,
+    dUnUsoPorPatente,
+    setDUnUsoPorPatente,
+    errDescuento,
+    crearDescuento,
+  };
 }

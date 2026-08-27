@@ -9,17 +9,14 @@ import {
   isValidPatente,
   isValidRut,
   normPlate,
-  precioContratacion,
   precioLavadoUnicoWeb,
   precioRenovacionCliente,
   precioConCupon,
   precioServicio,
   precioZonaAspirado,
 } from "@/lib/helpers";
-import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
-import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { webpayTransaction } from "@/lib/transbank";
@@ -30,29 +27,16 @@ const LIMITE_REQUESTS = 10;
 const VENTANA_MS = 5 * 60 * 1000;
 const MAX_ITEMS = 20;
 
-type TipoPago = "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" | "aspirado" | "renovacion_temprana" | "reactivacion" | "upgrade_plan";
-const TIPOS_VALIDOS = new Set<TipoPago>([
-  "plan_nuevo",
-  "renovacion",
-  "servicio",
-  "lavado_unico",
-  "aspirado",
-  "renovacion_temprana",
-  "reactivacion",
-  "upgrade_plan",
-]);
-const TIPOS_PLAN = new Set<TipoPago>(["plan_nuevo", "renovacion", "renovacion_temprana", "reactivacion", "upgrade_plan"]);
-// Promociones personales de Mi Cuenta (ver @/lib/helpers/ofertasPlan): a
-// diferencia del resto de los tipos, públicos por patente, estas exigen
-// sesión de Mi Cuenta y que la patente sea de una de las suyas — no son una
-// acción pública como pagar cualquier patente, son un descuento ligado a la
-// cuenta autenticada.
-const TIPOS_PROMO_CUENTA = new Set<TipoPago>(["renovacion_temprana", "reactivacion", "upgrade_plan"]);
-const NOMBRE_PROMO: Record<string, string> = {
-  renovacion_temprana: "Renovación anticipada",
-  reactivacion: "Reactivación de plan",
-  upgrade_plan: "Upgrade a Plan X5",
-};
+// El plan solo se vende por Oneclick (renovación automática): contratarlo de
+// primera y las promociones de Mi Cuenta (renovación anticipada, reactivación,
+// upgrade) se cobran contra la tarjeta inscrita —cobrarOfertaOneclick, o el
+// primer cobro de /api/pagos/oneclick/inscripcion/retorno— y ya no pasan por
+// acá. La ÚNICA excepción es "renovacion": la tarjeta de plan vencido de Mi
+// Cuenta (ver OfertaPlan.pagoVencido), que es el plan de siempre esperando
+// que lo paguen, sin promoción ni tarjeta inscrita de por medio.
+type TipoPago = "renovacion" | "servicio" | "lavado_unico" | "aspirado";
+const TIPOS_VALIDOS = new Set<TipoPago>(["renovacion", "servicio", "lavado_unico", "aspirado"]);
+const TIPOS_PLAN = new Set<TipoPago>(["renovacion"]);
 
 function generarBuyOrder(): string {
   // "wp" + timestamp en base36: siempre corto, cabe en el límite de 26
@@ -149,29 +133,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Solo se puede pagar un plan por transacción" }, { status: 400 });
     }
 
-    // Las promociones de Mi Cuenta exigen sesión + que la patente sea del
-    // cliente logueado, y su precio se recalcula acá con datos frescos (ver
-    // calcularOfertasPlanDeCliente) en vez de confiar en nada que mande el
-    // cliente — la oferta que vio en pantalla pudo quedar vieja.
-    const requierePromoCuenta = body.items.some((i) => TIPOS_PROMO_CUENTA.has(i.tipo as TipoPago));
-    let ofertaCliente: Awaited<ReturnType<typeof calcularOfertasPlanDeCliente>> | undefined;
-    if (requierePromoCuenta) {
-      const sesion = await leerSesionCliente();
-      if (!sesion) {
-        return NextResponse.json({ error: "Sin sesión" }, { status: 401 });
-      }
-      const cliente = await buscarClientePorPatente(patente);
-      if (!cliente || !sesion.clienteIds.includes(cliente.id)) {
-        return NextResponse.json({ error: "Esa patente no pertenece a tu cuenta" }, { status: 403 });
-      }
-      ofertaCliente = await calcularOfertasPlanDeCliente(cliente);
-    }
-
-    // Plan desde /pagar (público, sin sesión): se busca al cliente para
-    // respetarle su precio heredado si renueva (ver precioPlanCliente) y para
-    // saber si contratar es su 1ra vez (ver precioContratacion) — una patente
-    // que no existe es un cliente nuevo, y ahí `null` es la respuesta correcta.
-    const hayPlanPublico = body.items.some((i) => i.tipo === "renovacion" || i.tipo === "plan_nuevo");
+    // Se busca al cliente para respetarle su precio heredado al renovar (ver
+    // precioPlanCliente) — una patente que no existe es un cliente nuevo, y
+    // ahí `null` es la respuesta correcta.
+    const hayPlanPublico = body.items.some((i) => i.tipo === "renovacion");
     const clientePlan = hayPlanPublico ? await buscarClientePorPatente(patente) : undefined;
     // Días de gracia para pagar atrasado (ver enPlazoDePagoPlan): dentro de
     // ese plazo un plan ya vencido se cobra como renovación, con el precio de
@@ -205,27 +170,12 @@ export async function POST(request: NextRequest) {
           monto: precioZonaAspirado(preciosMap),
           ...doc,
         });
-      } else if (TIPOS_PROMO_CUENTA.has(tipo)) {
-        const precioPromo =
-          tipo === "renovacion_temprana"
-            ? ofertaCliente?.renovacionAnticipada?.pPromo
-            : tipo === "reactivacion"
-              ? ofertaCliente?.reactivacion?.precio
-              : ofertaCliente?.upgrade?.precio;
-        if (precioPromo === undefined) {
-          return NextResponse.json({ error: "Esta promoción ya no está disponible, actualiza la página." }, { status: 400 });
-        }
-        items.push({ tipo, servicioId: null, nombre: NOMBRE_PROMO[tipo], monto: precioPromo, ...doc });
       } else {
-        // "plan_nuevo" paga el precio de contratación (el de 1ra contratación
-        // solo si nunca tuvo plan); "renovacion" usa precioRenovacionCliente,
-        // el MISMO cálculo que muestran /pagar (vía /api/pagos/estado) y la
-        // tarjeta de plan vencido de Mi Cuenta — acá se recalcula con datos
-        // frescos, pero tiene que dar el mismo número que vio el cliente.
-        const monto =
-          tipo === "renovacion"
-            ? precioRenovacionCliente(preciosMap, PLANES[0], clientePlan ?? {}, configPlan!.diasGraciaPagoAtrasado)
-            : precioContratacion(preciosMap, PLANES[0], clientePlan);
+        // "renovacion" usa precioRenovacionCliente, el MISMO cálculo que
+        // muestra la tarjeta de plan vencido de Mi Cuenta — acá se recalcula
+        // con datos frescos, pero tiene que dar el mismo número que vio el
+        // cliente.
+        const monto = precioRenovacionCliente(preciosMap, PLANES[0], clientePlan ?? {}, configPlan!.diasGraciaPagoAtrasado);
         items.push({ tipo, servicioId: null, nombre: PLANES[0], monto, ...doc });
       }
     }

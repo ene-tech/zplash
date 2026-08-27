@@ -32,7 +32,8 @@ function resumenCondicion(r: ReglaCorreo): string {
     const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
     const dias = r.condicionDiasDespuesVencimiento || 0;
     const cuando = dias > 0 ? `${dias} día(s) después de vencer el plan` : "Al día siguiente de vencer el plan";
-    return `${cuando}${planes}`;
+    const pasadas = r.condicionPasadasMax != null ? ` · solo hasta ${r.condicionPasadasMax} pasada(s) el último mes pagado` : "";
+    return `${cuando}${planes}${pasadas}`;
   }
   if (r.tipoEvento === "migracion_woo_legacy") {
     return `Solo al apretar "Enviar invitaciones" más abajo (no automático)`;
@@ -127,6 +128,7 @@ export default function ReglasCorreoTab() {
   const [planesElegidos, setPlanesElegidos] = useState<string[]>([]);
   const diasAntesRef = useRef<HTMLInputElement>(null);
   const diasDespuesRef = useRef<HTMLInputElement>(null);
+  const pasadasMaxRef = useRef<HTMLInputElement>(null);
   const [soloSinAutopago, setSoloSinAutopago] = useState(false);
   const [soloConPromoRenovacion, setSoloConPromoRenovacion] = useState(false);
   const [plantillaId, setPlantillaId] = useState("");
@@ -160,6 +162,9 @@ export default function ReglasCorreoTab() {
       condicionSoloSinAutopago: tipoEvento === "plan_proximo_vencer" ? soloSinAutopago : undefined,
       condicionSoloConPromoRenovacion: tipoEvento === "plan_proximo_vencer" ? soloConPromoRenovacion : undefined,
       condicionDiasDespuesVencimiento: tipoEvento === "plan_vencido" ? Number(diasDespuesRef.current?.value || 0) : undefined,
+      // Vacío = sin tope (no `|| 0`, que dejaría fuera a todos salvo a los de 0 pasadas).
+      condicionPasadasMax:
+        tipoEvento === "plan_vencido" && pasadasMaxRef.current?.value.trim() ? Number(pasadasMaxRef.current.value) : undefined,
       delayDias: 0,
       plantillaCorreoId: plantillaId,
       creadoEn: new Date().toISOString(),
@@ -176,6 +181,7 @@ export default function ReglasCorreoTab() {
     if (condicionTipoVentaRef.current) condicionTipoVentaRef.current.value = "";
     if (diasAntesRef.current) diasAntesRef.current.value = "";
     if (diasDespuesRef.current) diasDespuesRef.current.value = "";
+    if (pasadasMaxRef.current) pasadasMaxRef.current.value = "";
     setPlanesElegidos([]);
     setSoloSinAutopago(false);
     setSoloConPromoRenovacion(false);
@@ -261,15 +267,28 @@ export default function ReglasCorreoTab() {
         )}
 
         {tipoEvento === "plan_vencido" && (
-          <div className="field" style={{ marginBottom: 10 }}>
-            <label>Días de demora después del vencimiento</label>
-            <input ref={diasDespuesRef} type="number" min={0} defaultValue={0} />
-            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
-              0 = avisa al día siguiente de vencer. Con, por ejemplo, 3 días, le da tiempo a un reintento de cobro
-              automático antes de mandar el correo — útil para una regla aparte dirigida a clientes a los que no se
-              les pudo cargar el plan.
+          <>
+            <div className="field" style={{ marginBottom: 10 }}>
+              <label>Días de demora después del vencimiento</label>
+              <input ref={diasDespuesRef} type="number" min={0} defaultValue={0} />
+              <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
+                0 = avisa al día siguiente de vencer. Con, por ejemplo, 3 días, le da tiempo a un reintento de cobro
+                automático antes de mandar el correo — útil para una regla aparte dirigida a clientes a los que no se
+                les pudo cargar el plan.
+              </div>
             </div>
-          </div>
+
+            <div className="field" style={{ marginBottom: 10 }}>
+              <label>Máximo de pasadas del último mes pagado (opcional)</label>
+              <input ref={pasadasMaxRef} type="number" min={0} placeholder="sin tope" />
+              <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
+                Vacío = le llega a todos. Con un tope, la regla dispara solo para quien pasó esa cantidad de veces o
+                menos en el último mes que tuvo plan. El correo de reactivación argumenta con{" "}
+                <code>{"{{pasadas}}"}</code>, y a quien pasaba más veces que las incluidas en el {PLANES[0]} ese texto
+                le estaría ofreciendo menos lavados de los que usaba.
+              </div>
+            </div>
+          </>
         )}
 
         {PLANES.length > 1 && tipoEvento !== "migracion_woo_legacy" && (

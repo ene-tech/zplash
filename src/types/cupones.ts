@@ -36,6 +36,18 @@ export interface Cupon {
   // llegue a clientes distintos. Vacío/false = sin la regla, la misma patente
   // puede canjear varios cupones del lote (comportamiento original).
   unCuponPorPatente?: boolean;
+  // Solo aplica a "descuento": el código NO muere en el primer canje — cada
+  // patente puede usarlo una vez y sigue vigente hasta caducar. Para promos
+  // abiertas que circulan públicas (redes sociales, volantes). Vacío/false =
+  // un solo uso global, el comportamiento original (`usado`).
+  unUsoPorPatente?: boolean;
+  // Patentes que ya canjearon un descuento con unUsoPorPatente. Reemplaza a
+  // usado/patenteUso en ese modo: un código reutilizable no tiene UNA patente
+  // de uso. Ver descuentoGastadoPor / marcarDescuentoUsado.
+  patentesUsadas?: string[];
+  // Solo aplica a "descuento": lo puede usar únicamente una patente sin ficha
+  // de cliente (misma definición de "nuevo" que /api/cliente/descuento-bienvenida).
+  soloClientesNuevos?: boolean;
   // Email de quien compró el Pack Empresa por web — permite mostrar los
   // tickets en Mi Cuenta (portal cliente) buscando por el correo de la
   // sesión. Undefined en cupones generados a mano o sin email.

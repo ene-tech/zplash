@@ -1,4 +1,14 @@
-import { PLANES, formatRut, montoDescuento, precioContratacion, precioLavadoUnico, resolverDescuento, uid, vencimientoPorDefectoISO } from "@/lib/helpers";
+import {
+  PLANES,
+  formatRut,
+  marcarDescuentoUsado,
+  montoDescuento,
+  precioContratacion,
+  precioLavadoUnico,
+  resolverDescuento,
+  uid,
+  vencimientoPorDefectoISO,
+} from "@/lib/helpers";
 import { registrarIngreso } from "./ingresos";
 import type { AppData, Cliente, Cupon, Empresa, PagoInfo, Venta } from "@/types";
 
@@ -71,7 +81,7 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
   let precio = precioBase;
   let cuponAplicado: Cupon | undefined;
   if (d.tipoCliente === "unico" && d.codigoCupon) {
-    const resultado = resolverDescuento(d.codigoCupon, nuevo.patente, data.cupones);
+    const resultado = resolverDescuento(d.codigoCupon, nuevo.patente, data.cupones, data.clientes);
     if (!resultado.ok) return { ok: false, error: resultado.msg };
     cuponAplicado = resultado.cupon;
     precio = Math.max(0, precioBase - montoDescuento(resultado.cupon, precioBase));
@@ -146,9 +156,7 @@ export function finalizarClienteRapido(
     ...(cuponAplicado
       ? {
           cupones: data.cupones.map((x) =>
-            x.id === cuponAplicado.id
-              ? { ...cuponAplicado, usado: true, patenteUso: nuevo.patente, fechaUso: ahora, operadorUso: perfilNombre || "" }
-              : x
+            x.id === cuponAplicado.id ? marcarDescuentoUsado(cuponAplicado, nuevo.patente, perfilNombre, ahora) : x
           ),
         }
       : {}),

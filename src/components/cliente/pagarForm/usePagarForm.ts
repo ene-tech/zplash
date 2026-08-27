@@ -11,21 +11,16 @@ export interface EstadoPlan {
   plan?: string;
   vencimiento?: string | null;
   estado?: { label: string; cls: "ok" | "warn" | "bad"; diasRestantes?: number };
-  // Precio ya resuelto de renovar el plan de esta patente (ver
-  // precioRenovacionCliente en @/lib/helpers), calculado por
-  // /api/pagos/estado con el mismo helper que usa el endpoint que cobra: la
-  // pantalla lo muestra tal cual, no lo recalcula.
-  precioRenovacion?: number;
-  // Cuánto le está descontando un cupón vigente de esta patente a
-  // `precioRenovacion` (0/undefined = ninguno) — ya viene restado del precio,
+  // Cuánto le está descontando un cupón vigente de esta patente al precio del
+  // plan (0/undefined = ninguno) — ya viene restado de `precioPrimerCobroAuto`,
   // esto es solo para poder explicarlo en pantalla.
   descuentoCupon?: number;
   // Solo para el precio de la renovación automática (Oneclick), que respeta
   // el heredado sin depender del plazo de atraso.
   precioPlanHeredado?: number | null;
   // Precio del PRIMER cobro de la renovación automática cuando la patente
-  // llega vencida y le calza una promoción de reactivación (ver
-  // calcularOfertasPlan): es lo que va a cobrar la inscripción de tarjeta,
+  // llega vencida y le calza una promoción (ver promoPrimerCobroOneclick):
+  // es lo que va a cobrar la inscripción de tarjeta,
   // resuelto por /api/pagos/estado con el mismo helper que cobra
   // /api/pagos/oneclick/inscripcion/retorno. undefined = paga el precio de
   // siempre de la renovación automática.
@@ -35,9 +30,9 @@ export interface EstadoPlan {
   ticketReactivacion?: boolean;
 }
 
-export type TipoPago = "plan_nuevo" | "renovacion" | "servicio" | "lavado_unico" | "aspirado";
-export type AccionPlan = { tipo: "plan_nuevo" | "renovacion"; label: string };
-export type PasoMetodo = "elegir" | "google-conectando" | "google-preview" | "documento";
+// El plan NO está acá: solo se paga inscribiendo la tarjeta (ver
+// activarAutomatica), nunca por Webpay.
+export type TipoPago = "servicio" | "lavado_unico" | "aspirado";
 export type AccionServicio = { id: string; nombre: string; precio: number };
 
 // Datos de boleta/factura que junta PagoUnicoCard antes de cobrar (ver
@@ -53,24 +48,19 @@ export interface DatosDocumento {
 }
 
 // Lógica de la pantalla pública "Pagar en ZPlash": buscar el estado del plan
-// por patente, pagar cualquier ítem (plan/renovación/servicio/lavado único/
-// aspirado) vía Webpay, el flujo de elegir método de pago (invitado vs.
-// vista previa de Google) antes de confirmar, y activar la renovación
-// automática (Oneclick).
+// por patente, pagar por Webpay los ítems sueltos (servicio/lavado único/
+// aspirado) y activar la renovación automática (Oneclick), que es la única
+// forma de contratar o renovar el plan.
 export function usePagarForm() {
   const params = useSearchParams();
   const item = params.get("item");
-  const soloPagoUnico = item === "plan" && params.get("auto") !== "1";
   const [patente, setPatente] = useState("");
   const [buscando, setBuscando] = useState(false);
   const [err, setErr] = useState("");
   const [resultado, setResultado] = useState<EstadoPlan | null>(null);
   const [pagando, setPagando] = useState<string | null>(null);
-  const [mostrarAuto, setMostrarAuto] = useState(params.get("auto") === "1");
   const [email, setEmail] = useState("");
   const [inscribiendo, setInscribiendo] = useState(false);
-  const [accionPlan, setAccionPlan] = useState<AccionPlan | null>(null);
-  const [pasoMetodo, setPasoMetodo] = useState<PasoMetodo | null>(null);
   const [accionServicio, setAccionServicio] = useState<AccionServicio | null>(null);
 
   async function buscar() {
@@ -124,36 +114,6 @@ export function usePagarForm() {
     }
   }
 
-  function elegirMetodo(tipo: "plan_nuevo" | "renovacion", label: string) {
-    setAccionPlan({ tipo, label });
-    setPasoMetodo("elegir");
-  }
-
-  function cancelarMetodo() {
-    setAccionPlan(null);
-    setPasoMetodo(null);
-  }
-
-  function conectarGoogle() {
-    setPasoMetodo("google-conectando");
-    setTimeout(() => setPasoMetodo("google-preview"), 600);
-  }
-
-  // Paso previo a cobrar: pedir Boleta/Factura (ver CamposDocumento) antes de
-  // ir a Webpay, sea cual sea la puerta de entrada (invitado directo o vuelta
-  // desde la vista previa de Google).
-  function irADocumento() {
-    setPasoMetodo("documento");
-  }
-
-  function confirmarPago(datosDocumento?: DatosDocumento) {
-    if (!accionPlan) return;
-    const tipo = accionPlan.tipo;
-    setAccionPlan(null);
-    setPasoMetodo(null);
-    pagar(tipo, undefined, undefined, datosDocumento);
-  }
-
   function elegirServicio(id: string, nombre: string, precio: number) {
     setErr("");
     setAccionServicio({ id, nombre, precio });
@@ -203,28 +163,18 @@ export function usePagarForm() {
 
   return {
     item,
-    soloPagoUnico,
     patente,
     setPatente,
     buscando,
     err,
     resultado,
     pagando,
-    mostrarAuto,
-    setMostrarAuto,
     email,
     setEmail,
     inscribiendo,
-    accionPlan,
-    pasoMetodo,
     accionServicio,
     buscar,
     pagar,
-    elegirMetodo,
-    cancelarMetodo,
-    conectarGoogle,
-    irADocumento,
-    confirmarPago,
     elegirServicio,
     cancelarServicio,
     confirmarServicio,

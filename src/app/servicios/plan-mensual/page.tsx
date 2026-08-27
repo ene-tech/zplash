@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { Car, CreditCard, Bell, Repeat, Check } from "lucide-react";
-import { PLAN_X5, fmtCLP } from "@/lib/helpers";
+import { fmtCLP } from "@/lib/helpers";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoHero from "@/components/cliente/ProductoHero";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
-import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
 import VolverBoton from "@/components/cliente/VolverBoton";
 
 const PREGUNTAS_PLAN_MENSUAL = [
@@ -20,18 +19,11 @@ const PREGUNTAS_PLAN_MENSUAL = [
     ],
   },
   {
-    q: "¿Cuál es la diferencia entre pago período a período y renovación automática?",
-    a: [
-      "Pago período a período: pagas un mes a la vez con tarjeta (Webpay Plus).",
-      "Renovación automática: inscribes tu tarjeta una vez y te cobramos cada mes automáticamente, a un precio más bajo.",
-    ],
-  },
-  {
-    q: "¿Cómo renuevo mi plan?",
+    q: "¿Cómo contrato o renuevo mi plan?",
     a: [
       "En el local.",
-      "Desde la web, en la sección Pagar, ingresando tu patente.",
-      "Ahí puedes pagar un período con tarjeta (Webpay Plus) o activar la renovación automática mensual.",
+      "Desde la web, en la sección Pagar, ingresando tu patente e inscribiendo tu tarjeta.",
+      "El plan se cobra siempre con renovación automática mensual: no hay que acordarse de pagarlo, y se cancela cuando quieras.",
     ],
   },
   {
@@ -46,8 +38,8 @@ const PREGUNTAS_PLAN_MENSUAL = [
     q: "¿Qué medios de pago aceptan?",
     a: [
       "En el local: efectivo, tarjeta y transferencia bancaria.",
-      "Desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
-      "Renovación automática con Oneclick.",
+      "El plan, desde la web: tarjeta de crédito inscrita con Oneclick (renovación automática).",
+      "Lavado único, zona de aspirado y servicios de detailing, desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
     ],
   },
 ];
@@ -72,42 +64,16 @@ export default async function PlanMensualPage() {
           imagen="/fondo-producto.jpg"
           features={[
             { icon: <Car />, titulo: "5 lavados al mes", detalle: "Un ingreso al día por el túnel, durante el mes que va desde la contratación." },
-            { icon: <CreditCard />, titulo: "Dos formas de pagar", detalle: "Mes a mes con tarjeta, o renovación automática más barata." },
+            { icon: <CreditCard />, titulo: "Se renueva solo", detalle: "Inscribes tu tarjeta una vez y se cobra cada mes; cancelas cuando quieras." },
             { icon: <Bell />, titulo: "Te avisamos antes de que venza", detalle: "Para que no te quedes sin plan sin darte cuenta." },
           ]}
         />
 
+        {/* Una sola forma de contratar el plan: inscribiendo la tarjeta. El
+            plan no se vende por Webpay (ver TIPOS_VALIDOS en
+            /api/pagos/webpay/crear), así que tampoco se agrega al carrito. */}
         <div className="card-grid">
-          <div className="card pricing-card">
-            <div className="card-icon-title">
-              <span className="icon-chip">
-                <CreditCard />
-              </span>
-              <h3>Pago período a período</h3>
-            </div>
-            <p className="desc">Contrata o renueva un mes a la vez con cualquier tipo de tarjeta.</p>
-            <div className="price-row">
-              <span className="new">{fmtCLP(precios.plan.precio)}</span>
-              <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
-            </div>
-            <ul className="pricing-card-features">
-              <li>
-                <Check /> Cualquier tarjeta (Webpay Plus)
-              </li>
-              <li>
-                <Check /> Sin compromiso, renueva cuando quieras
-              </li>
-            </ul>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link href="/pagar?item=plan" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
-                Comprar
-              </Link>
-              <AgregarCarritoButton item={{ key: "plan", tipo: "plan_nuevo", nombre: PLAN_X5, precio: precios.plan.precio }} />
-            </div>
-          </div>
-
           <div className="card pricing-card pricing-card--featured">
-            <span className="pricing-card-badge">Más elegido</span>
             <div className="card-icon-title">
               <span className="icon-chip">
                 <Repeat />
@@ -121,13 +87,13 @@ export default async function PlanMensualPage() {
             </div>
             <ul className="pricing-card-features">
               <li>
-                <Check /> Ahorras {fmtCLP(precios.plan.precio - precios.planOneclick.precio)} al mes
+                <Check /> Sin trámite todos los meses
               </li>
               <li>
                 <Check /> Cancela cuando quieras
               </li>
             </ul>
-            <Link href="/pagar?item=plan&auto=1" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
+            <Link href="/pagar?item=plan" className="btn" style={{ marginTop: 0, textDecoration: "none" }}>
               Contratar
             </Link>
           </div>

@@ -167,7 +167,7 @@ export default function OperadorFoundOfertas(props: Props) {
             </h4>
           </div>
           <div className="msg">
-            Ofrécele a {c.nombre} reactivar su {c.plan} ahora mismo a precio preferencial.
+            Ofrécele a {c.nombre} activar el {PLANES[0]} ahora mismo a precio preferencial.
           </div>
           <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
           <div className="price-row">

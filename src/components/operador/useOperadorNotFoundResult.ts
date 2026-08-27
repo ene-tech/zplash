@@ -79,7 +79,7 @@ export function useOperadorNotFoundResult(
   // Lavado Full Túnel (ver quickAdd), nunca a un plan.
   const precioBaseLavado = precioLavadoUnico(data.precios);
   const codigoTrim = codigoInput.trim();
-  const resultadoDescuento = codigoTrim ? resolverDescuento(codigoTrim, normPlate(plate), data.cupones) : null;
+  const resultadoDescuento = codigoTrim ? resolverDescuento(codigoTrim, normPlate(plate), data.cupones, data.clientes) : null;
   const cuponPrevio = resultadoDescuento?.ok ? resultadoDescuento.cupon : null;
   const precioConDescuento = cuponPrevio ? Math.max(0, precioBaseLavado - montoDescuento(cuponPrevio, precioBaseLavado)) : null;
 

@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { precios } from "@/db/schema";
-import { PLANES, diasVencido, isValidPatente, normPlate, planStatus, precioConCupon, precioRenovacionCliente } from "@/lib/helpers";
+import {
+  PLANES,
+  diasVencido,
+  isValidPatente,
+  normPlate,
+  planStatus,
+  precioConCupon,
+  precioRenovacionCliente,
+  promoPrimerCobroOneclick,
+} from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
@@ -58,6 +67,9 @@ export async function GET(request: NextRequest) {
     const [oferta, yaUsoTicket] = vencido
       ? await Promise.all([calcularOfertasPlanDeCliente(cliente), yaTieneTicketReactivacion(patente, (cliente.email || "").trim().toLowerCase())])
       : [undefined, true];
+    // La promoción que va a cobrar la inscripción de tarjeta, resuelta con el
+    // mismo helper que usa el cobro (ver promoPrimerCobroOneclick).
+    const promoAuto = oferta ? promoPrimerCobroOneclick(oferta) : undefined;
 
     return NextResponse.json({
       encontrado: true,
@@ -80,13 +92,14 @@ export async function GET(request: NextRequest) {
       // renovación automática (Oneclick), que no pasa por el plazo de atraso.
       precioPlanHeredado: cliente.precioPlanHeredado,
       // Lo que cobra el PRIMER cobro de la renovación automática cuando la
-      // patente califica para la promoción de reactivación; undefined = paga
+      // patente califica para una promoción (reactivación o upgrade desde su
+      // lavado único, la que le haya quedado más barata); undefined = paga
       // el precio de siempre de la renovación automática. Los meses
       // siguientes los cobra el cron a ese precio normal. Con el cupón ya
       // restado porque cobrarOfertaOneclick también lo resta al cobrar — si
       // no, la pantalla anunciaría un monto distinto del que llega a
       // Transbank.
-      precioPrimerCobroAuto: oferta?.reactivacion ? precioConCupon(oferta.reactivacion.precio, cupon) : undefined,
+      precioPrimerCobroAuto: promoAuto ? precioConCupon(promoAuto.monto, cupon) : undefined,
       // El lavado full túnel gratis por inscribir la tarjeta con el plan
       // vencido sigue disponible para esta patente (es una sola vez por
       // cliente, ver otorgarTicketReactivacion).

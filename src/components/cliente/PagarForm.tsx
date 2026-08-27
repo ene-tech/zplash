@@ -83,18 +83,6 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
           <ResultadoBusqueda
             precios={precios}
             resultado={r.resultado}
-            mostrarAuto={r.mostrarAuto}
-            setMostrarAuto={r.setMostrarAuto}
-            pagando={r.pagando}
-            err={r.err}
-            accionPlan={r.accionPlan}
-            pasoMetodo={r.pasoMetodo}
-            elegirMetodo={r.elegirMetodo}
-            cancelarMetodo={r.cancelarMetodo}
-            conectarGoogle={r.conectarGoogle}
-            irADocumento={r.irADocumento}
-            confirmarPago={r.confirmarPago}
-            soloPagoUnico={r.soloPagoUnico}
             email={r.email}
             setEmail={r.setEmail}
             inscribiendo={r.inscribiendo}

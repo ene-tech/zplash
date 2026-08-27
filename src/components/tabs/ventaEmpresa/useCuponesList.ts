@@ -38,8 +38,10 @@ export function useCuponesList() {
           Caducidad: new Date(c.fechaCaducidad).toLocaleDateString("es-CL"),
           Estado: est.label,
           "Un cupón por patente": c.unCuponPorPatente ? "Sí" : "",
+          "Un uso por patente": c.unUsoPorPatente ? "Sí" : "",
+          "Solo clientes nuevos": c.soloClientesNuevos ? "Sí" : "",
           "Patente asignada": c.patenteAsignada || "",
-          "Patente de uso": c.patenteUso || "",
+          "Patente de uso": c.unUsoPorPatente ? (c.patentesUsadas || []).join(", ") : c.patenteUso || "",
         };
       });
       const wb = XLSX.utils.book_new();
@@ -58,6 +60,8 @@ export function useCuponesList() {
                   Caducidad: "",
                   Estado: "",
                   "Un cupón por patente": "",
+                  "Un uso por patente": "",
+                  "Solo clientes nuevos": "",
                   "Patente asignada": "",
                   "Patente de uso": "",
                 },

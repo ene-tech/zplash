@@ -65,6 +65,16 @@ export const reglasCorreo = pgTable("reglas_correo", {
   // le pudo cobrar automáticamente, dándole tiempo a que el reintento de
   // cobro (si existe) resuelva solo antes de mandarle el correo.
   condicionDiasDespuesVencimiento: integer("condicion_dias_despues_vencimiento"),
+  // Solo aplica a tipoEvento="plan_vencido": tope de pasadas del ultimo periodo
+  // que el cliente SI pago (visitasUltimoPeriodoVencido) para que la regla le
+  // dispare. Null = sin filtro, dispara para todos.
+  //
+  // Existe porque el correo de reactivacion argumenta con {{pasadas}}: al que
+  // pasaba menos veces que las incluidas en el X5 se le puede decir de frente
+  // que el plan le cubre su uso y le baja el precio. Al que pasaba mas, ese
+  // mismo texto le ofrece MENOS lavados de los que usaba, y conviene dejarlo
+  // fuera o mandarle otra plantilla.
+  condicionPasadasMax: integer("condicion_pasadas_max"),
   // Solo aplica a tipoEvento="venta_creada": días de espera tras la venta
   // antes de mandar (0 = inmediato) — igual semántica que delayDias en
   // ReglaWhatsapp, pero sin el cron de "pendientes programados" de WhatsApp:

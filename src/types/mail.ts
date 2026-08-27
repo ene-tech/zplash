@@ -58,6 +58,9 @@ export interface ReglaCorreo {
   // Solo aplica a tipoEvento="plan_vencido" — ver comentario en
   // @/db/schema/mailReglas.
   condicionDiasDespuesVencimiento?: number;
+  // Solo aplica a tipoEvento="plan_vencido": tope de pasadas del último período
+  // pagado para que la regla dispare — ver comentario en @/db/schema/mailReglas.
+  condicionPasadasMax?: number;
   delayDias: number;
   plantillaCorreoId: string;
   creadoEn: string;

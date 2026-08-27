@@ -69,6 +69,12 @@ export function construirVariables(opts: {
   // mismo cálculo (calcularOfertasPlanDeCliente) que usa el Operador para
   // ofrecer el upgrade en el momento.
   precioUpgrade?: number;
+  // Veces que el cliente alcanzó a pasar por el túnel en el período que se le
+  // venció (ver visitasUltimoPeriodoVencido en @/lib/helpers/ingresos) — hoy
+  // solo lo pasa procesarVencimientosCorreo para "plan_vencido" (ver
+  // @/lib/mailing/reglas/cron), que es también donde se le pone el tope con
+  // que sale en el correo.
+  pasadas?: number;
 }): Record<string, string> {
   return {
     nombre: opts.cliente.nombre || "",
@@ -85,6 +91,7 @@ export function construirVariables(opts: {
     precioReactivacion: opts.precioReactivacion !== undefined ? fmtCLP(opts.precioReactivacion) : "",
     precioRenovacion: opts.precioRenovacion !== undefined ? fmtCLP(opts.precioRenovacion) : "",
     precioUpgrade: opts.precioUpgrade !== undefined ? fmtCLP(opts.precioUpgrade) : "",
+    pasadas: opts.pasadas !== undefined ? String(opts.pasadas) : "",
   };
 }
 

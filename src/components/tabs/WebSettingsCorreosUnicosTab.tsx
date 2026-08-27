@@ -44,10 +44,12 @@ function sumarResultados(a: ResultadoEnvioMasivoCorreo, b: ResultadoEnvioMasivoC
 }
 
 export default function WebSettingsCorreosUnicosTab() {
-  const { data, patchUi } = useAppData();
+  const { data, patchUi, loadingHistorial } = useAppData();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstadoCorreo>("todos");
   const [filtroOrigen, setFiltroOrigen] = useState<FiltroOrigenCorreo>("todos");
   const [vencidoDiasMax, setVencidoDiasMax] = useState("");
+  const [pasadasMin, setPasadasMin] = useState("");
+  const [pasadasMax, setPasadasMax] = useState("");
   const [filtroAutopago, setFiltroAutopago] = useState<FiltroAutopago>("todos");
   const [autopago, setAutopago] = useState<Map<string, EstadoAutopago> | null>(null);
   const [busqueda, setBusqueda] = useState("");
@@ -122,8 +124,28 @@ export default function WebSettingsCorreosUnicosTab() {
   }, [plantillaId]);
 
   const candidatos = useMemo(
-    () => filtrarClientesCorreoMasivo(data.clientes, { filtroEstado, filtroOrigen, vencidoDiasMax, filtroAutopago, busqueda }, autopago),
-    [data.clientes, filtroEstado, filtroOrigen, vencidoDiasMax, filtroAutopago, autopago, busqueda]
+    () =>
+      filtrarClientesCorreoMasivo(
+        data.clientes,
+        { filtroEstado, filtroOrigen, vencidoDiasMax, pasadasMin, pasadasMax, filtroAutopago, busqueda },
+        autopago,
+        // Sin el historial cargado no hay pasadas que contar: se pasa undefined
+        // para que el filtro devuelva vacío en vez de dejar entrar a todos con 0.
+        loadingHistorial ? undefined : data.ingresos
+      ),
+    [
+      data.clientes,
+      data.ingresos,
+      loadingHistorial,
+      filtroEstado,
+      filtroOrigen,
+      vencidoDiasMax,
+      pasadasMin,
+      pasadasMax,
+      filtroAutopago,
+      autopago,
+      busqueda,
+    ]
   );
 
   const seleccionables = candidatos.filter((c) => c.email);
@@ -210,6 +232,10 @@ export default function WebSettingsCorreosUnicosTab() {
           setFiltroOrigen={setFiltroOrigen}
           vencidoDiasMax={vencidoDiasMax}
           setVencidoDiasMax={setVencidoDiasMax}
+          pasadasMin={pasadasMin}
+          setPasadasMin={setPasadasMin}
+          pasadasMax={pasadasMax}
+          setPasadasMax={setPasadasMax}
           filtroAutopago={filtroAutopago}
           setFiltroAutopago={setFiltroAutopago}
           busqueda={busqueda}
@@ -224,6 +250,8 @@ export default function WebSettingsCorreosUnicosTab() {
               hasta que carga). */}
           {filtroAutopago !== "todos" && !autopago ? (
             "Cargando suscripciones para filtrar por cobro automático..."
+          ) : loadingHistorial && (pasadasMin.trim() || pasadasMax.trim()) ? (
+            "Cargando historial de pasadas..."
           ) : (
             <>
               {candidatos.length} cliente(s) coinciden con el filtro

@@ -28,6 +28,10 @@ export function FiltrosEnvioCorreo({
   setFiltroOrigen,
   vencidoDiasMax,
   setVencidoDiasMax,
+  pasadasMin,
+  setPasadasMin,
+  pasadasMax,
+  setPasadasMax,
   filtroAutopago,
   setFiltroAutopago,
   busqueda,
@@ -39,6 +43,10 @@ export function FiltrosEnvioCorreo({
   setFiltroOrigen: (v: FiltroOrigenCorreo) => void;
   vencidoDiasMax: string;
   setVencidoDiasMax: (v: string) => void;
+  pasadasMin: string;
+  setPasadasMin: (v: string) => void;
+  pasadasMax: string;
+  setPasadasMax: (v: string) => void;
   filtroAutopago: FiltroAutopago;
   setFiltroAutopago: (v: FiltroAutopago) => void;
   busqueda: string;
@@ -80,6 +88,17 @@ export function FiltrosEnvioCorreo({
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+        <div className="field" style={{ flex: 1, minWidth: 130, margin: 0 }}>
+          <label>Pasadas del último mes pagado, mín.</label>
+          <input type="number" min={0} value={pasadasMin} onChange={(e) => setPasadasMin(e.target.value)} placeholder="Ej: 0" />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 130, margin: 0 }}>
+          <label>Pasadas del último mes pagado, máx.</label>
+          <input type="number" min={0} value={pasadasMax} onChange={(e) => setPasadasMax(e.target.value)} placeholder="Ej: 5" />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
         <div className="field" style={{ flex: 1, minWidth: 240, margin: 0 }}>
           <label>Cobro automático</label>
           <select value={filtroAutopago} onChange={(e) => setFiltroAutopago(e.target.value as FiltroAutopago)}>
@@ -100,7 +119,10 @@ export function FiltrosEnvioCorreo({
         &quot;Vencido hace máximo&quot; deja solo a quienes ya tienen el plan vencido, acotando qué tan atrás (7 = los
         que se vencieron esta semana, sin arrastrar a los de hace meses). Si el correo habla de un cobro que falló,
         elegí <strong>Último cobro automático rechazado</strong>: es el único grupo al que de verdad se le intentó
-        cobrar y no se pudo — a un cliente sin tarjeta inscrita ese texto le llega como un cobro que nunca existió.
+        cobrar y no se pudo — a un cliente sin tarjeta inscrita ese texto le llega como un cobro que nunca existió. Las{" "}
+        <strong>pasadas del último mes pagado</strong> son las mismas que muestra <code>{"{{pasadas}}"}</code> en la
+        plantilla: con 0 a 5 le escribes solo a quien pasaba menos veces que las que incluye el X5, al que sí le
+        conviene el plan (deja fuera a los que no tienen plan vencido, que no tienen mes pagado que contar).
       </div>
     </>
   );

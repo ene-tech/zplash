@@ -22,7 +22,11 @@ export interface OfertaPlan {
   // no el de lista). Va acá porque en un cliente vencido
   // `renovacionAnticipada` no existe y es el único lugar donde el cliente Web
   // puede ver ese valor.
-  reactivacion?: { precio: number; diasVencido: number; pNormal: number };
+  // `visitas` = pasadas del último período pagado (visitasUltimoPeriodoVencido),
+  // el mismo eje con que el tramo eligió el precio. Va acá porque el correo de
+  // "Plan vencido" se lo dice al cliente ({{pasadas}}, ver @/lib/mailing/reglas/cron)
+  // y sería absurdo recontarlo con otra consulta teniéndolo ya calculado.
+  reactivacion?: { precio: number; diasVencido: number; pNormal: number; visitas: number };
   upgrade?: { precio: number };
   // Plan vencido SIN tramo de reactivación que le calce: no es una promoción,
   // es el plan de siempre esperando que lo paguen. Existe para que un cliente
@@ -63,6 +67,26 @@ export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | 
   if (o.upgrade) o.upgrade = { ...o.upgrade, precio: precioConCupon(o.upgrade.precio, cupon) };
   if (o.pagoVencido) o.pagoVencido = { ...o.pagoVencido, precio: precioConCupon(o.pagoVencido.precio, cupon) };
   return o;
+}
+
+/**
+ * La promoción que cobra el PRIMER cobro al inscribir la tarjeta con el plan
+ * vencido (ver /api/pagos/oneclick/inscripcion/retorno) y que /pagar anuncia
+ * antes de mandar al cliente a Transbank (ver /api/pagos/estado): las dos
+ * salen de acá o la pantalla promete un precio y Transbank cobra otro.
+ * `undefined` = sin promoción, paga el precio de siempre de la renovación
+ * automática (cobrarSuscripcion).
+ *
+ * `reactivacion` y `upgrade` nunca vienen juntas —calcularOfertasPlan deja
+ * solo la más barata— y las dos son de un plan ya vencido. La renovación
+ * anticipada NO entra acá a propósito: con el plan vigente el primer cobro de
+ * la inscripción es el de la renovación automática de siempre, que es
+ * justamente lo que /pagar anuncia.
+ */
+export function promoPrimerCobroOneclick(oferta: OfertaPlan): { tipo: "reactivacion" | "upgrade_plan"; monto: number } | undefined {
+  if (oferta.reactivacion) return { tipo: "reactivacion", monto: oferta.reactivacion.precio };
+  if (oferta.upgrade) return { tipo: "upgrade_plan", monto: oferta.upgrade.precio };
+  return undefined;
 }
 
 /**
@@ -136,7 +160,12 @@ export function calcularOfertasPlan(
       // pNormal con el heredado aplicado: es lo que se le va a cobrar de
       // verdad en la renovación siguiente (ver el bloque de arriba), no el
       // precio de lista.
-      oferta.reactivacion = { precio: precioReactivacion, diasVencido: diasVenc, pNormal: precioRenovacionATiempo(precios, plan, cliente) };
+      oferta.reactivacion = {
+        precio: precioReactivacion,
+        diasVencido: diasVenc,
+        pNormal: precioRenovacionATiempo(precios, plan, cliente),
+        visitas: visitasUltPeriodo,
+      };
     } else {
       // Sin tramo que le calce el plan igual se puede pagar, al precio normal
       // (ver pagoVencido). La promoción de reactivación, cuando existe, ya es

@@ -1,0 +1,11 @@
+-- Filtro opcional de una regla de correo "plan_vencido": tope de pasadas del
+-- último período que el cliente sí pagó (visitasUltimoPeriodoVencido).
+--
+-- El correo de reactivación argumenta con {{pasadas}} ("pasaste N veces, el
+-- plan te cubre y te baja el precio"). Ese texto solo se sostiene para quien
+-- pasaba menos veces que las incluidas en el X5; al que pasaba más le estaría
+-- ofreciendo MENOS lavados de los que usaba, así que conviene dejarlo fuera de
+-- la regla y mandarle otra plantilla.
+--
+-- NULL = sin tope, que es el comportamiento de todas las reglas ya creadas.
+ALTER TABLE "reglas_correo" ADD COLUMN IF NOT EXISTS "condicion_pasadas_max" integer;

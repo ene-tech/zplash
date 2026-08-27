@@ -1,5 +1,5 @@
-import { diasVencido, normPlate, planStatus } from "@/lib/helpers";
-import type { Cliente } from "@/types";
+import { diasVencido, normPlate, planStatus, visitasUltimoPeriodoVencido } from "@/lib/helpers";
+import type { Cliente, Ingreso } from "@/types";
 
 /**
  * Estado del cobro automático (Oneclick) de una patente, derivado de
@@ -18,6 +18,8 @@ export interface FiltrosCorreoMasivo {
   filtroEstado: string;
   filtroOrigen: string;
   vencidoDiasMax: string;
+  pasadasMin: string;
+  pasadasMax: string;
   filtroAutopago: string;
   busqueda: string;
 }
@@ -40,10 +42,31 @@ export interface FiltrosCorreoMasivo {
 export function filtrarClientesCorreoMasivo(
   clientes: Cliente[],
   f: FiltrosCorreoMasivo,
-  autopago?: Map<string, EstadoAutopago> | null
+  autopago?: Map<string, EstadoAutopago> | null,
+  ingresos?: Ingreso[]
 ): Cliente[] {
   const q = f.busqueda.trim().toLowerCase();
+  const filtraPasadas = !!(f.pasadasMin.trim() || f.pasadasMax.trim());
   if (f.filtroAutopago !== "todos" && !autopago) return [];
+  // Mismo criterio que con el mapa de autopago: sin el historial cargado todos
+  // darían 0 pasadas y entrarían enteros a un rango que empiece en 0.
+  if (filtraPasadas && !ingresos) return [];
+  // Rango de pasadas del último período que el cliente SÍ pagó — el mismo eje
+  // con el que argumenta {{pasadas}} en la plantilla y contra el que filtra
+  // condicionPasadasMax en las reglas automáticas (ver @/db/schema/mailReglas):
+  // al que pasaba poco el plan le cubre el uso y le baja el precio; al que
+  // pasaba más ese texto le ofrece MENOS lavados de los que usaba.
+  // Los ingresos se agrupan por cliente una sola vez porque
+  // visitasUltimoPeriodoVencido recorre TODO el historial por cliente, y acá
+  // se filtra sobre miles de clientes contra decenas de miles de ingresos.
+  const ingresosPorCliente = new Map<string, Ingreso[]>();
+  if (filtraPasadas) {
+    for (const i of ingresos ?? []) {
+      const lista = ingresosPorCliente.get(i.clienteId);
+      if (lista) lista.push(i);
+      else ingresosPorCliente.set(i.clienteId, [i]);
+    }
+  }
   return clientes.filter((c) => {
     if (f.filtroEstado !== "todos" && planStatus(c).label !== f.filtroEstado) return false;
     if (f.filtroOrigen !== "todos" && (c.origen || "LOCAL") !== f.filtroOrigen) return false;
@@ -54,6 +77,16 @@ export function filtrarClientesCorreoMasivo(
     if (f.vencidoDiasMax.trim()) {
       const dias = diasVencido(c);
       if (dias === null || dias > Number(f.vencidoDiasMax)) return false;
+    }
+    if (filtraPasadas) {
+      // Sin vencimiento no hay "último período pagado" que contar: contaría 0
+      // pasadas y entraría a cualquier rango que empiece en 0, mezclando al que
+      // nunca tuvo plan con el que pagaba y pasaba poco — mismo criterio que
+      // "Vencido hace máximo" arriba.
+      if (!c.vencimiento) return false;
+      const pasadas = visitasUltimoPeriodoVencido(ingresosPorCliente.get(c.id) ?? [], c);
+      if (f.pasadasMin.trim() && pasadas < Number(f.pasadasMin)) return false;
+      if (f.pasadasMax.trim() && pasadas > Number(f.pasadasMax)) return false;
     }
     if (f.filtroAutopago !== "todos") {
       const info = autopago!.get(normPlate(c.patente));

@@ -9,6 +9,16 @@ import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/compon
 import { Trash2, Ticket } from "lucide-react";
 import { valorCupon } from "./useCuponesList";
 
+/** Etiquetas cortas de las reglas del cupón, para no repetirlas en la tarjeta
+ * mobile y en la fila de escritorio. */
+function reglasCupon(c: Cupon): string[] {
+  return [
+    c.unCuponPorPatente && "1 por patente",
+    c.unUsoPorPatente && `1 uso por patente${c.patentesUsadas?.length ? ` · ${c.patentesUsadas.length} usos` : ""}`,
+    c.soloClientesNuevos && "solo clientes nuevos",
+  ].filter((x): x is string => !!x);
+}
+
 export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon[]; eliminar: (c: Cupon) => void }) {
   return (
     <>
@@ -23,7 +33,7 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
                 key={c.id}
                 avatar={<MobileRecordAvatar icon={Ticket} tone={est.cls} />}
                 title={<span className="plate-tag">{c.codigo}</span>}
-                subtitle={c.unCuponPorPatente ? `${c.nombreLote} · 1 por patente` : c.nombreLote}
+                subtitle={[c.nombreLote, ...reglasCupon(c)].join(" · ")}
                 menu={
                   !c.usado && (
                     <MobileRowMenu actions={[{ label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(c) }]} />
@@ -85,14 +95,22 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
                     </TableCell>
                     <TableCell className="max-w-[160px]" title={c.nombreLote}>
                       <div className="truncate">{c.nombreLote}</div>
-                      {c.unCuponPorPatente && <div className="text-xs text-muted-foreground">1 por patente</div>}
+                      {reglasCupon(c).map((r) => (
+                        <div key={r} className="text-xs text-muted-foreground">
+                          {r}
+                        </div>
+                      ))}
                     </TableCell>
                     <TableCell>{valorCupon(c)}</TableCell>
                     <TableCell>{new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}</TableCell>
                     <TableCell>
                       <span className={`status-pill ${est.cls}`}>{est.label}</span>
                     </TableCell>
-                    <TableCell>{c.patenteUso || c.patenteAsignada || (c.tipo === "descuento" ? "Abierto" : "-")}</TableCell>
+                    <TableCell>
+                      {c.unUsoPorPatente
+                        ? (c.patentesUsadas || []).join(", ") || "Abierto"
+                        : c.patenteUso || c.patenteAsignada || (c.tipo === "descuento" ? "Abierto" : "-")}
+                    </TableCell>
                     <TableCell>{c.usado && c.fechaUso ? new Date(c.fechaUso).toLocaleDateString("es-CL") : "-"}</TableCell>
                     <TableCell className="sticky right-0 z-10 bg-background">
                       {!c.usado && (

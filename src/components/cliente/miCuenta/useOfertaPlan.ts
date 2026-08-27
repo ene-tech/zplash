@@ -5,11 +5,11 @@ import { redirigirAWebpay } from "@/lib/webpayClient";
 
 export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "upgrade_plan";
 
-// "renovacion" no es una promoción de cuenta (es el tipo público de /pagar,
-// ver TIPOS_PROMO_CUENTA en /api/pagos/webpay/crear): se usa para pagar un
-// plan vencido que quedó fuera de todos los tramos de reactivación (ver
-// OfertaPlan.pagoVencido) y siempre va por Webpay — cobrar-oferta solo sabe
-// cobrar las 3 promos contra la tarjeta guardada.
+// "renovacion" no es una promoción de cuenta: es el único plan que todavía se
+// paga por Webpay (ver TIPOS_VALIDOS en /api/pagos/webpay/crear) — el plan
+// vencido que quedó fuera de todos los tramos de reactivación (ver
+// OfertaPlan.pagoVencido). Las 3 promociones se cobran contra la tarjeta
+// inscrita, nunca por Webpay.
 type TipoCobro = TipoOfertaPlan | "renovacion";
 
 export interface TarjetaGuardada {
@@ -19,26 +19,26 @@ export interface TarjetaGuardada {
 
 /**
  * Cobra una de las 3 promociones de plan que ofrece VehiculoCard (ver
- * @/lib/helpers/ofertasPlan). Si la patente ya tiene una tarjeta Oneclick
- * activa (`tarjeta`), pide confirmación y cobra directo contra ella vía
- * /api/cliente/mi-cuenta/cobrar-oferta — sin pasar por Webpay Plus, que
- * exigiría reingresar los datos de una tarjeta que el cliente ya guardó. Sin
- * tarjeta guardada, cae al flujo de siempre (redirigirAWebpay): ahí no hace
- * falta un paso de confirmación propio porque Webpay ya muestra el suyo.
+ * @/lib/helpers/ofertasPlan). El plan solo se paga con tarjeta inscrita
+ * (Oneclick), nunca por Webpay: si la patente ya tiene una activa (`tarjeta`)
+ * se pide confirmación y se cobra directo contra ella vía
+ * /api/cliente/mi-cuenta/cobrar-oferta; si no tiene, `onSinTarjeta` manda a
+ * inscribir una y ese mismo retorno hace el primer cobro con el precio de la
+ * promoción (ver promoPrimerCobroOneclick).
  */
-export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, onCobrado: () => void) {
+export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, onCobrado: () => void, onSinTarjeta: () => void) {
   const [pagando, setPagando] = useState<TipoCobro | null>(null);
   const [confirmando, setConfirmando] = useState<TipoOfertaPlan | null>(null);
   const [err, setErr] = useState("");
   // Distingue "la tarjeta guardada fue rechazada" de cualquier otro error
-  // (sin conexión, promoción vencida, etc.) — VehiculoCard lo usa para recién
-  // ahí mostrar la salida real a Webpay que el mensaje de error promete (ver
-  // pagarPorWebpayEnCambio): antes ese mensaje no tenía ningún botón detrás,
-  // así que un cliente cuya tarjeta se rechazó quedaba sin forma de completar
-  // la promoción salvo recargar la página.
+  // (sin conexión, promoción vencida, etc.): VehiculoCard lo usa para
+  // cambiarle el texto al botón de cobro y para ofrecer inscribir otra
+  // tarjeta, que es la única salida cuando la guardada no pasa.
   const [rechazada, setRechazada] = useState(false);
 
-  async function pagarWebpay(tipo: TipoCobro) {
+  // Solo para el plan vencido sin promoción (ver TipoCobro): las 3
+  // promociones no pasan por Webpay.
+  async function pagarWebpay(tipo: "renovacion") {
     setErr("");
     setPagando(tipo);
     try {
@@ -66,7 +66,7 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
     if (tarjeta) {
       setConfirmando(tipo);
     } else {
-      pagarWebpay(tipo);
+      onSinTarjeta();
     }
   }
 
@@ -92,7 +92,7 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
         return;
       }
       if (data.estado === "rechazada") {
-        setErr("La tarjeta fue rechazada. Puedes reintentar o pagar por Webpay.");
+        setErr("La tarjeta fue rechazada. Puedes reintentar o inscribir otra tarjeta.");
         setRechazada(true);
         setPagando(null);
         return;
@@ -112,15 +112,6 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
     setRechazada(false);
   }
 
-  // Salida real hacia Webpay tras un rechazo: `pedir()` solo elige Webpay
-  // cuando no hay ninguna tarjeta guardada, así que sin esto reintentar tras
-  // un rechazo volvía a caer en el mismo cobro directo contra la misma
-  // tarjeta rechazada.
-  function pagarPorWebpayEnCambio() {
-    if (!confirmando) return;
-    pagarWebpay(confirmando);
-  }
-
   return {
     pagando,
     confirmando,
@@ -129,7 +120,6 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
     pedir,
     cancelarConfirmacion,
     confirmarConTarjeta,
-    pagarPorWebpayEnCambio,
     pagarPlanVencido: () => pagarWebpay("renovacion"),
   };
 }

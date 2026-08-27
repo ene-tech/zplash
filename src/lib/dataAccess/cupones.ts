@@ -30,6 +30,9 @@ export function cuponToRow(c: Cupon): typeof cupones.$inferInsert {
     rut: c.rut || null,
     patentesAutorizadas: c.patentesAutorizadas?.length ? c.patentesAutorizadas : null,
     unCuponPorPatente: c.unCuponPorPatente || false,
+    unUsoPorPatente: c.unUsoPorPatente || false,
+    patentesUsadas: c.patentesUsadas?.length ? c.patentesUsadas : null,
+    soloClientesNuevos: c.soloClientesNuevos || false,
     email: c.email || null,
   };
 }
@@ -55,6 +58,9 @@ export function cuponFromRow(r: CuponRow): Cupon {
     rut: r.rut || undefined,
     patentesAutorizadas: r.patentesAutorizadas?.length ? r.patentesAutorizadas : undefined,
     unCuponPorPatente: r.unCuponPorPatente || false,
+    unUsoPorPatente: r.unUsoPorPatente || false,
+    patentesUsadas: r.patentesUsadas?.length ? r.patentesUsadas : undefined,
+    soloClientesNuevos: r.soloClientesNuevos || false,
     email: r.email || undefined,
   };
 }

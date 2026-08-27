@@ -40,6 +40,19 @@ export const cupones = pgTable("cupones", {
   // los lotes ya generados (y de los packs empresa, donde la flota sí puede
   // canjear varios tickets con la misma patente).
   unCuponPorPatente: boolean("un_cupon_por_patente").notNull().default(false),
+  // Solo aplica a "descuento": el código no se quema en el primer canje —
+  // cada patente puede usarlo una vez y queda vigente hasta caducar. Se usa
+  // en promos abiertas que circulan públicas (redes sociales, volantes).
+  // Default false = un solo uso global, el comportamiento original.
+  unUsoPorPatente: boolean("un_uso_por_patente").notNull().default(false),
+  // Patentes que ya canjearon el descuento cuando unUsoPorPatente está en
+  // true. Reemplaza a usado/patenteUso en ese modo: un código reutilizable no
+  // tiene UNA patente de uso ni queda "usado". Null = todavía nadie.
+  patentesUsadas: jsonb("patentes_usadas").$type<string[]>(),
+  // Solo aplica a "descuento": lo puede canjear únicamente una patente sin
+  // ficha de cliente (misma definición de "nuevo" que el descuento de
+  // bienvenida de la landing). Default false = cualquier patente.
+  soloClientesNuevos: boolean("solo_clientes_nuevos").notNull().default(false),
   // Email de quien compró el Pack Empresa por web — permite mostrar los
   // tickets en Mi Cuenta (portal cliente) buscando por el correo de la
   // sesión, sin depender de que el comprador recuerde el RUT. Null en

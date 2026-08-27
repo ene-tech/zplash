@@ -68,6 +68,29 @@ export default function CrearDescuentoForm({ dNombreRef, dCaducidadRef, dPatente
           <input ref={dPatenteRef} placeholder="AB1234" style={{ textTransform: "uppercase" }} />
         </div>
       )}
+      <div className="field">
+        <label>
+          <input type="checkbox" checked={p.dSoloNuevos} onChange={(e) => p.setDSoloNuevos(e.target.checked)} /> Solo
+          clientes nuevos
+        </label>
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12 }}>
+          Solo lo puede usar una patente que todavía no tiene ficha en ZPlash.
+        </div>
+      </div>
+      {/* Un código asignado a UNA patente ya es de un solo uso: la regla solo
+          cambia algo en uno abierto, así que ahí se ofrece. */}
+      {p.dAbierto && (
+        <div className="field">
+          <label>
+            <input type="checkbox" checked={p.dUnUsoPorPatente} onChange={(e) => p.setDUnUsoPorPatente(e.target.checked)} />{" "}
+            Un uso por patente
+          </label>
+          <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12 }}>
+            El código no muere en el primer canje: sirve hasta la fecha de caducidad y cada patente lo usa una sola vez.
+            Para promos que circulan públicas (redes sociales, volantes).
+          </div>
+        </div>
+      )}
       <div className="err" style={{ color: p.errDescuento?.ok ? "var(--green)" : undefined }}>
         {p.errDescuento?.msg || ""}
       </div>

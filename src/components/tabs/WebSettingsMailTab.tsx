@@ -159,7 +159,7 @@ export default function WebSettingsMailTab() {
           automáticamente al enviar, no hace falta escribir HTML. Usa <code>{"**texto**"}</code> para negrita. En el
           cuerpo puedes usar{" "}
           <code>{"{{nombre}}"}</code>, <code>{"{{patente}}"}</code>, <code>{"{{plan}}"}</code>, <code>{"{{monto}}"}</code>,{" "}
-          <code>{"{{fechaVencimiento}}"}</code>, <code>{"{{precioReactivacion}}"}</code>, <code>{"{{precioRenovacion}}"}</code>{" "}
+          <code>{"{{fechaVencimiento}}"}</code>, <code>{"{{precioReactivacion}}"}</code>, <code>{"{{pasadas}}"}</code>, <code>{"{{precioRenovacion}}"}</code>{" "}
           y <code>{"{{precioUpgrade}}"}</code> (estas tres últimas solo tienen valor en su situación correspondiente —
           &quot;Plan vencido&quot;, &quot;El plan está por vencer&quot; y una regla de &quot;Se registra una venta&quot;
           restringida a &quot;Lavado único&quot;: si no corresponde ofrecer el precio para ese cliente en ese momento, el
