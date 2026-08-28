@@ -6,6 +6,8 @@ import { clientes, suscripcionesOneclick } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import { listarReglasCorreoActivas, obtenerPlantillaCorreo, registrarDisparoReglaCorreo } from "@/lib/dataAccess/mail";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
+import { ofertaConCupon } from "@/lib/helpers/ofertasPlan";
+import { buscarCuponDescuentoPlan } from "@/lib/pagos/cuponPlan";
 import { uid } from "@/lib/helpers";
 import { construirVariables, ejecutarAccionReglaCorreo, MS_POR_DIA } from "./motor";
 import type { ReglaCorreo } from "@/types";
@@ -186,7 +188,14 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
     // calcularOfertasPlanDeCliente, que ya trae ventas/ingresos/config/precios
     // de este cliente puntual, un solo lugar para no duplicar esa lógica acá.
     const calcularPrecioReactivacion = async (row: typeof clientes.$inferSelect): Promise<{ precio: number | undefined; pasadas?: number }> => {
-      const oferta = (await calcularOfertasPlanDeCliente(clienteFromRow(row))).reactivacion;
+      // Con el cupón de descuento de la patente ya restado, igual que Mi
+      // Cuenta (ver ofertaConCupon): el correo tiene que anunciar el mismo
+      // número que después cobra Webpay/Oneclick. Solo para mostrar — esta
+      // oferta no alimenta ningún camino de cobro.
+      const oferta = ofertaConCupon(
+        await calcularOfertasPlanDeCliente(clienteFromRow(row)),
+        await buscarCuponDescuentoPlan(row.patente)
+      ).reactivacion;
       // {{pasadas}} = las veces que alcanzó a pasar en el período que pagó, el
       // mismo número con que el tramo le eligió el precio. Va tal cual, sin
       // topar: es el dato con que el correo argumenta, y mostrarle un número

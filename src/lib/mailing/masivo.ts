@@ -1,6 +1,9 @@
 import "server-only";
 
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
+import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
+import { ofertaConCupon } from "@/lib/helpers/ofertasPlan";
+import { buscarCuponDescuentoPlan } from "@/lib/pagos/cuponPlan";
 import { obtenerOCrearReglaEnvioManual, registrarDisparoReglaCorreo } from "@/lib/dataAccess/mail";
 import { uid } from "@/lib/helpers";
 import { construirVariables, ejecutarAccionReglaCorreo } from "./reglas";
@@ -39,6 +42,14 @@ export async function enviarCorreosMasivos(opts: {
   plantillaCorreoId: string;
   clienteIds: string[];
   enviadoPor?: string;
+  // Sufijo del origenId para reenviar una tanda que ya se mandó — sin esto la
+  // idempotencia de abajo omite a TODOS los que ya recibieron la plantilla en
+  // este ciclo, que es justo lo que hay que saltarse cuando la tanda anterior
+  // salió mala (ej. la del 27-ago-2026, que fue a 387 clientes sin el precio).
+  // Deja los dos intentos en disparos_regla_correo en vez de pisar el
+  // historial, y sigue siendo idempotente DENTRO del reintento: repetirlo con
+  // el mismo sufijo tras un corte no vuelve a escribirle a quien ya recibió.
+  reintento?: string;
 }): Promise<ResultadoEnvioMasivoCorreo> {
   const vacio: ResultadoEnvioMasivoCorreo = { total: 0, enviados: 0, fallidos: 0, sinEmail: 0, omitidos: 0 };
   if (!opts.clienteIds.length) return vacio;
@@ -72,7 +83,7 @@ export async function enviarCorreosMasivos(opts: {
       id: uid(),
       reglaId: regla.id,
       origenTipo: "cliente",
-      origenId: `${cliente.id}:${cliente.vencimiento || `sin-plan-${diaEnvio}`}`,
+      origenId: `${cliente.id}:${cliente.vencimiento || `sin-plan-${diaEnvio}`}${opts.reintento ? `:${opts.reintento}` : ""}`,
       clienteId: cliente.id,
       patente: cliente.patente,
       estado: "programado",
@@ -86,7 +97,26 @@ export async function enviarCorreosMasivos(opts: {
       continue;
     }
 
-    const variables = construirVariables({ cliente });
+    // Precio y pasadas de la promo de reactivación, igual que hace el cron de
+    // "plan_vencido" (ver calcularPrecioReactivacion en @/lib/mailing/reglas/
+    // cron): dependen del cliente, no de la regla. Sin esto la plantilla que
+    // los use sale muda ({{precioReactivacion}} y {{pasadas}} vacíos) y el
+    // correo ofrece una promoción sin monto. Un error acá no bota la tanda: se
+    // pierde la oferta de ESE cliente, igual criterio que el cron.
+    const oferta = await calcularOfertasPlanDeCliente(cliente)
+      // Mismo precio que ve el cliente en Mi Cuenta y que le va a cobrar
+      // Webpay/Oneclick: el cupón de descuento de su patente ya restado (ver
+      // ofertaConCupon). Sin esto el correo anuncia el precio de lista y el
+      // cliente llega al pago y ve otro número más bajo — o peor, el asunto
+      // promete el precio con descuento y el cuerpo muestra el de lista.
+      // ofertaConCupon es solo para MOSTRAR y esto solo muestra: el descuento
+      // lo vuelve a aplicar el camino que cobra, nunca se le pasa esta oferta.
+      .then(async (o) => ofertaConCupon(o, await buscarCuponDescuentoPlan(cliente.patente)).reactivacion)
+      .catch((error) => {
+        console.error(`Envío masivo de correo: no se pudo calcular la oferta de ${cliente.id}`, error);
+        return undefined;
+      });
+    const variables = construirVariables({ cliente, precioReactivacion: oferta?.precio, pasadas: oferta?.visitas });
     const ok = await ejecutarAccionReglaCorreo(regla, disparo.id, cliente, variables).catch((error) => {
       console.error(`Error enviando correo masivo a ${cliente.id}`, error);
       return false;

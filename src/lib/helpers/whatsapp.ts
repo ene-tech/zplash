@@ -103,7 +103,17 @@ Muéstralo en el local al momento de pagar.`,
  * Una clave sin valor en `vars` se reemplaza por string vacío en vez de
  * dejar el placeholder literal. */
 export function aplicarVariables(texto: string, vars: Record<string, string>): string {
-  return texto.replace(/\{\{(\w+)\}\}/g, (_, clave: string) => vars[clave] ?? "");
+  return texto.replace(/\{\{(\w+)\}\}/g, (_, clave: string) => {
+    // Una clave que ni siquiera existe en "vars" es un typo en la plantilla,
+    // no un valor opcional vacío: construirVariables (@/lib/whatsapp/reglas/
+    // motor) devuelve SIEMPRE todas sus claves, con "" cuando no aplican, así
+    // que "clave in vars" distingue las dos cosas. Se avisa porque si no, un
+    // typo sale como texto mudo sin que nada falle: la campaña del 27-ago-2026
+    // se mandó a 387 clientes diciendo "por solo $ —" porque la plantilla
+    // escribía una variable que el builder no conoce.
+    if (!(clave in vars)) console.warn("aplicarVariables: variable desconocida en la plantilla, sale vacía:", clave);
+    return vars[clave] ?? "";
+  });
 }
 
 /** Convierte un nombre libre (el de `PlantillaWhatsapp.nombre`, o cualquier
