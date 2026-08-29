@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { cupones } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
-import { normPlate } from "@/lib/helpers";
+import { generarCodigoCupon, normPlate, uid } from "@/lib/helpers";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -55,41 +55,107 @@ export async function POST(request: NextRequest) {
     if (cupon.usado) {
       return NextResponse.json({ ok: false, error: "Ese código ya fue usado" }, { status: 409 });
     }
-    // Una promo abierta de "un uso por patente" no se guarda en ninguna
-    // cuenta: atarle este email/patenteAsignada se la sacaría del alcance de
-    // todos los demás (patenteAsignada es justamente lo que resolverDescuento
-    // usa para rechazar a otra patente). Se aplica tipeando el código en el
-    // mesón, y ahí queda registrado el uso de esa patente.
-    if (cupon.unUsoPorPatente) {
-      return NextResponse.json(
-        { ok: false, error: "Ese código es una promoción abierta: no se guarda en la cuenta, lo aplicamos al llegar al local." },
-        { status: 409 }
-      );
-    }
     if (new Date(cupon.fechaCaducidad) < new Date()) {
       return NextResponse.json({ ok: false, error: "Ese código está vencido" }, { status: 409 });
     }
 
     const email = sesion.email.trim().toLowerCase();
+    // Antes de cualquier consulta y antes de la rama de la promo: un código
+    // que ya tiene dueño no se toca por ningún camino.
     if (cupon.email && cupon.email.trim().toLowerCase() !== email) {
       return NextResponse.json({ ok: false, error: "Ese código ya está en otra cuenta" }, { status: 409 });
     }
 
-    const patentes = (await getClientesByIds(sesion.clienteIds)).map((c) => c.patente);
+    // normPlate y no la patente "tal cual la ficha": todo lo que se compara y
+    // escribe después (patentesUsadas, patenteAsignada) viaja normalizado —
+    // ver normPlate/marcarDescuentoUsado—, y una patente guardada con guion
+    // no volvería a matchear ni acá ni en cuponDescuentoDePatente.
+    const patentes = (await getClientesByIds(sesion.clienteIds)).map((c) => normPlate(c.patente));
+    const elegida = normPlate(typeof body.patente === "string" ? body.patente : "");
+    if (elegida && !patentes.includes(elegida)) {
+      return NextResponse.json({ ok: false, error: "Esa patente no es de tu cuenta" }, { status: 400 });
+    }
+    if (cupon.tipo === "descuento" && cupon.patenteAsignada && !patentes.includes(normPlate(cupon.patenteAsignada))) {
+      return NextResponse.json({ ok: false, error: `Ese descuento es de la patente ${cupon.patenteAsignada}` }, { status: 409 });
+    }
+    // Toda patente de la cuenta tiene ficha, y un descuento con patente
+    // asignada se aplica SOLO por patente, sin pasar por resolverDescuento —
+    // que es el único que controla esta regla. Atarlo acá sería saltársela.
+    if (cupon.tipo === "descuento" && cupon.soloClientesNuevos && patentes.length) {
+      return NextResponse.json({ ok: false, error: "Ese descuento es solo para clientes nuevos" }, { status: 409 });
+    }
+
+    // Promo abierta de "un uso por patente" (un código que circula en redes o
+    // volantes): la fila compartida no se toca — atarle email/patenteAsignada
+    // se la sacaría a todos los demás, porque patenteAsignada es justo lo que
+    // resolverDescuento usa para rechazar a otra patente. Guardarla en la
+    // cuenta es gastar el uso de ESTA patente y emitirle a cambio un cupón
+    // propio equivalente, que ya es un descuento normal: sale en "Mis tickets
+    // y cupones", rebaja el precio en Mi Cuenta y lo aplica el mesón con solo
+    // leer la patente (ver cuponDescuentoDePatente).
+    // La marca es de descuentos (ver resolverDescuento): si aparece en un
+    // "vale" no se guarda en la cuenta, porque el UPDATE del final le
+    // estamparía el email de esta cuenta a una fila que es de todos.
+    if (cupon.unUsoPorPatente && cupon.tipo !== "descuento") {
+      return NextResponse.json(
+        { ok: false, error: "Ese código es una promoción abierta: no se guarda en la cuenta, lo aplicamos al llegar al local." },
+        { status: 409 }
+      );
+    }
+
+    if (cupon.tipo === "descuento" && cupon.unUsoPorPatente) {
+      const patente = elegida || (patentes.length === 1 ? patentes[0] : "");
+      if (!patente) {
+        return NextResponse.json(
+          { ok: false, error: "Ese código es una promoción por patente: agrega tu vehículo antes de guardarlo." },
+          { status: 400 }
+        );
+      }
+      const existentes = await db.select({ codigo: cupones.codigo }).from(cupones);
+      const propio = {
+        id: uid(),
+        codigo: generarCodigoCupon(new Set(existentes.map((r) => r.codigo))),
+        nombreLote: cupon.nombreLote,
+        valor: cupon.valor,
+        fechaCaducidad: cupon.fechaCaducidad,
+        creadoPor: `Portal Cliente (${cupon.codigo})`,
+        tipo: "descuento",
+        esPorcentaje: cupon.esPorcentaje,
+        patenteAsignada: patente,
+        email,
+      };
+      // El append va en SQL y no reescribiendo la lista completa: dos patentes
+      // guardando la misma promo a la vez no pueden pisarse un uso. El NOT @>
+      // en el WHERE es además lo que hace idempotente el doble click: si la
+      // patente ya estaba, no se emite un segundo cupón propio.
+      //
+      // to_jsonb(...::text) y no '["AB1234"]'::jsonb: el parámetro sale
+      // codificado como JSON otra vez y la lista termina con el texto del
+      // array adentro (["[\"AB1234\"]"]), que ningún @> vuelve a encontrar.
+      const usadaPor = sql`to_jsonb(${patente}::text)`;
+      const propioEmitido = await db.transaction(async (tx) => {
+        const [quemado] = await tx
+          .update(cupones)
+          .set({ patentesUsadas: sql`coalesce(${cupones.patentesUsadas}, '[]'::jsonb) || ${usadaPor}` })
+          .where(and(eq(cupones.id, cupon.id), sql`not coalesce(${cupones.patentesUsadas}, '[]'::jsonb) @> ${usadaPor}`))
+          .returning({ id: cupones.id });
+        if (!quemado) return null;
+        await tx.insert(cupones).values(propio);
+        return propio;
+      });
+      if (!propioEmitido) {
+        return NextResponse.json({ ok: false, error: "Esa patente ya usó este descuento" }, { status: 409 });
+      }
+      return NextResponse.json({ ok: true, tipo: "descuento", patenteAsignada: patente, codigo: propioEmitido.codigo });
+    }
+
     let patenteAsignada = cupon.patenteAsignada;
     if (cupon.tipo === "descuento") {
-      if (patenteAsignada && !patentes.includes(patenteAsignada)) {
-        return NextResponse.json({ ok: false, error: `Ese descuento es de la patente ${patenteAsignada}` }, { status: 409 });
-      }
       if (!patenteAsignada) {
         // Con un solo vehículo no se le pregunta nada al cliente; con varios el
         // formulario manda cuál. Sin vehículos el descuento igual se guarda en
         // la cuenta: queda "abierto" y el operador lo aplica tipeando el código
         // (ver resolverDescuento).
-        const elegida = normPlate(typeof body.patente === "string" ? body.patente : "");
-        if (elegida && !patentes.includes(elegida)) {
-          return NextResponse.json({ ok: false, error: "Esa patente no es de tu cuenta" }, { status: 400 });
-        }
         patenteAsignada = elegida || (patentes.length === 1 ? patentes[0] : null);
       }
     }
