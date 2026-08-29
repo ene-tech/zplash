@@ -52,6 +52,7 @@ informe-*
 clientes-*
 *.csv
 *.xlsx
+*.pdf
 
 # herramientas locales de agentes
 /.claude
