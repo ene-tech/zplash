@@ -14,7 +14,7 @@ import {
   recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
-import { insertAuditoria, loadCore, loadHistorial, loadPerfilesLogin, waitForStorage } from "@/lib/serverActions";
+import { insertAuditoria, loadCore, loadHistorial, loadPerfilesLogin } from "@/lib/serverActions";
 import {
   commitAlertasMantencion,
   commitBloqueosAgenda,
@@ -199,30 +199,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // necesita para pintar "¿Quién eres?". El resto de AppData ya no se puede
   // pedir sin cookie de sesión (ver loadCore en @/lib/serverActions/loadAll),
   // así que pedirlo acá devolvería un error en vez de datos.
+  //
+  // Con reintento y sin sonda previa: antes esto llamaba a waitForStorage()
+  // (un SELECT extra que solo respondía sí/no) y, si esa única consulta
+  // fallaba, la app quedaba en "no se pudo conectar al almacenamiento
+  // permanente" sin volver a intentar — aunque la base estuviera bien un
+  // segundo después. Los cortes vistos en producción fueron siempre
+  // parpadeos del pooler de Supabase (caso 28-08-2026: la base respondía
+  // normal minutos más tarde). Además, con la sonda fallada storageReady
+  // quedaba en false para toda la sesión aunque los perfiles cargaran bien,
+  // y el Topbar mostraba "⚠️ Sin guardado permanente" sin motivo.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const ready = await waitForStorage();
-      if (cancelled) return;
-      setStorageReady(ready);
-      setStorageChecked(true);
-      if (!ready) {
-        await new Promise((r) => setTimeout(r, 1500));
-      }
-
-      try {
-        const perfiles = await loadPerfilesLogin();
-        if (cancelled) return;
-        if (perfiles.length) {
-          const conPerfiles = { ...dataRef.current, perfiles };
-          dataRef.current = conPerfiles;
-          setData(conPerfiles);
+      for (let intento = 0; intento < 2; intento++) {
+        try {
+          const perfiles = await loadPerfilesLogin();
+          if (cancelled) return;
+          if (perfiles.length) {
+            const conPerfiles = { ...dataRef.current, perfiles };
+            dataRef.current = conPerfiles;
+            setData(conPerfiles);
+          }
+          setStorageReady(true);
+          setStorageChecked(true);
+          setCargandoPerfiles(false);
+          return;
+        } catch (error) {
+          console.error("No se pudieron cargar los perfiles para el login", error);
+          if (cancelled) return;
+          // Pinta el aviso de conexión mientras se reintenta, en vez de
+          // dejar "Cargando datos..." como si todo fuera bien.
+          setStorageChecked(true);
+          await new Promise((r) => setTimeout(r, 1500));
+          if (cancelled) return;
         }
-      } catch (error) {
-        console.error("No se pudieron cargar los perfiles para el login", error);
-        setStorageReady(false);
       }
-      if (!cancelled) setCargandoPerfiles(false);
+      // Los dos intentos fallaron: `cargandoPerfiles` se deja arriba a
+      // propósito para que la pantalla siga en el aviso ("intenta recargar")
+      // en lugar de caer a un selector de perfiles vacío.
     })();
     return () => {
       cancelled = true;

@@ -19,7 +19,6 @@ vi.mock("@/lib/dataAccess", () => ({
   loadHistorial: () => mockLoadHistorial(),
   loadAll: () => mockLoadAll(),
   loadPerfilesLogin: () => mockLoadPerfilesLogin(),
-  waitForStorage: () => Promise.resolve(true),
 }));
 
 import { loadAll, loadCore, loadHistorial, loadPerfilesLogin } from "./loadAll";

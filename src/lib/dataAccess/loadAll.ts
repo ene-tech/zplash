@@ -89,16 +89,6 @@ import { servicioFromRow } from "./servicios";
 import { ventaFromRow } from "./ventas";
 import { plantillaWhatsappFromRow, reglaWhatsappFromRow } from "./whatsapp";
 
-export async function waitForStorage(): Promise<boolean> {
-  try {
-    await getDb().select({ id: config.id }).from(config).limit(1);
-    return true;
-  } catch (error) {
-    console.error("No se pudo conectar a la base de datos", error);
-    return false;
-  }
-}
-
 /** Todo AppData menos las tres tablas de `AppDataHistorial` (ver más abajo). */
 export type AppDataCore = Omit<AppData, "ventas" | "ingresos" | "movimientosContables">;
 

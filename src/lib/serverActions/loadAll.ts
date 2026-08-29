@@ -39,10 +39,3 @@ export async function loadAll(): Promise<AppData> {
   if (!(await tieneSesionValida())) throw new Error("Sin sesión");
   return dataAccess.loadAll();
 }
-
-// Sin chequeo a propósito: no devuelve datos, solo si la base responde —
-// AppContext la llama antes del login para poder mostrar "sin conexión" en la
-// pantalla de acceso en vez de un selector de perfiles vacío.
-export async function waitForStorage(): Promise<boolean> {
-  return dataAccess.waitForStorage();
-}
