@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import {
   cancelarSuscripcionOneclick,
@@ -12,6 +12,8 @@ import {
 } from "@/lib/serverActions";
 import type { DetallePagoVenta, SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import {
+  beneficioCupon,
+  cuponDescuentoDePatente,
   fmtCLP,
   fmtDate,
   fmtFecha,
@@ -24,6 +26,10 @@ import type { Cliente } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import GenerarCuponesForm from "@/components/tabs/ventaEmpresa/GenerarCuponesForm";
+import CrearDescuentoForm from "@/components/tabs/ventaEmpresa/CrearDescuentoForm";
+import { useGenerarCupones } from "@/components/tabs/ventaEmpresa/useGenerarCupones";
+import { useCrearDescuento } from "@/components/tabs/ventaEmpresa/useCrearDescuento";
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const { data: appData, patchUi, loadingHistorial } = useAppData();
@@ -35,6 +41,52 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const visitasPeriodo = visitasPeriodoPlan(appData.ingresos, c);
   const tienePlan = !!c.vencimiento;
   const visitasPlan = tienePlan ? visitasDesdeContratacion(appData.ingresos, c) : visitasUltimos30Dias(appData.ingresos, c.id);
+  // El descuento que se le aplica solo con leer la patente en el mesón — mismo
+  // criterio que usa el cobro (ver cuponDescuentoDePatente). appData.cupones
+  // viene en loadCore, así que no depende de loadingHistorial.
+  const descuento = useMemo(() => cuponDescuentoDePatente(appData.cupones, c.patente), [appData.cupones, c.patente]);
+
+  // Atajo para entregarle un cupón desde acá mismo: se montan los MISMOS
+  // formularios de B2B/Tickets (no una copia recortada), así cualquier
+  // parámetro que se agregue allá aparece también acá. Lo único que cambia
+  // es que llegan prellenados con este cliente — ver el efecto de abajo.
+  const [entregar, setEntregar] = useState<"descuento" | "vale" | null>(null);
+  const nombreRef = useRef<HTMLInputElement>(null);
+  const cantidadRef = useRef<HTMLInputElement>(null);
+  const caducidadRef = useRef<HTMLInputElement>(null);
+  const razonSocialRef = useRef<HTMLInputElement>(null);
+  const rutRef = useRef<HTMLInputElement>(null);
+  const direccionRef = useRef<HTMLInputElement>(null);
+  const giroRef = useRef<HTMLInputElement>(null);
+  const dNombreRef = useRef<HTMLInputElement>(null);
+  const dCaducidadRef = useRef<HTMLInputElement>(null);
+  const dPatenteRef = useRef<HTMLInputElement>(null);
+  const generarCupones = useGenerarCupones({ nombreRef, cantidadRef, caducidadRef, razonSocialRef, rutRef, direccionRef, giroRef });
+  const crearDescuento = useCrearDescuento({ dNombreRef, dCaducidadRef, dPatenteRef });
+  const { setPatentesAbierto, setPatentesTexto } = generarCupones;
+  const nCupones = appData.cupones.length;
+
+  // Prellenado del atajo. Corre al abrir cada formulario y después de cada
+  // emisión (dep `nCupones`): los hooks de B2B limpian sus campos al terminar
+  // y devuelven `patentesAbierto` a true, así que sin esto un segundo ticket
+  // emitido sin cerrar el modal saldría abierto a CUALQUIER patente. La
+  // patente se reimpone siempre (es de quién es este atajo); nombre y
+  // cantidad solo si están vacíos, para no pisar lo que se esté tipeando.
+  // Los campos son inputs no controlados de B2B, por eso se escriben por ref.
+  useEffect(() => {
+    if (entregar === "descuento") {
+      if (dNombreRef.current && !dNombreRef.current.value) dNombreRef.current.value = `Cortesía ${c.nombre}`;
+      if (dPatenteRef.current) dPatenteRef.current.value = c.patente;
+      return;
+    }
+    if (entregar === "vale") {
+      if (nombreRef.current && !nombreRef.current.value) nombreRef.current.value = `Cortesía ${c.nombre}`;
+      if (cantidadRef.current && !cantidadRef.current.value) cantidadRef.current.value = "1";
+      // Lote acotado a este auto: el ticket es para él, no abierto a cualquiera.
+      setPatentesAbierto(false);
+      setPatentesTexto(c.patente);
+    }
+  }, [entregar, nCupones, c.nombre, c.patente, setPatentesAbierto, setPatentesTexto]);
   const [suscripcion, setSuscripcion] = useState<SuscripcionOneclickInfo | null>(null);
   const [cobrando, setCobrando] = useState(false);
   const [errSuscripcion, setErrSuscripcion] = useState("");
@@ -177,6 +229,14 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             </div>
             <div className="font-medium">{loadingHistorial ? "…" : visitasPlan}</div>
           </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Descuento disponible</div>
+            <div className="font-medium">
+              {descuento
+                ? `${beneficioCupon(descuento)} — código ${descuento.codigo}, vence ${fmtDate(descuento.fechaCaducidad)}`
+                : "No tiene"}
+            </div>
+          </div>
         </div>
 
         {suscripcion && (
@@ -233,6 +293,39 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             )}
           </div>
         )}
+
+        <div className="border-t border-border pt-3.5">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Entregar cupón</span>
+            <Button
+              variant={entregar === "descuento" ? "default" : "secondary"}
+              onClick={() => setEntregar(entregar === "descuento" ? null : "descuento")}
+            >
+              Descuento
+            </Button>
+            <Button
+              variant={entregar === "vale" ? "default" : "secondary"}
+              onClick={() => setEntregar(entregar === "vale" ? null : "vale")}
+            >
+              Ticket de lavado
+            </Button>
+          </div>
+          {entregar === "descuento" && (
+            <CrearDescuentoForm {...crearDescuento} dNombreRef={dNombreRef} dCaducidadRef={dCaducidadRef} dPatenteRef={dPatenteRef} />
+          )}
+          {entregar === "vale" && (
+            <GenerarCuponesForm
+              {...generarCupones}
+              nombreRef={nombreRef}
+              cantidadRef={cantidadRef}
+              caducidadRef={caducidadRef}
+              razonSocialRef={razonSocialRef}
+              rutRef={rutRef}
+              direccionRef={direccionRef}
+              giroRef={giroRef}
+            />
+          )}
+        </div>
 
         <div className="border-t border-border pt-3.5">
           <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Historial de compras</div>
