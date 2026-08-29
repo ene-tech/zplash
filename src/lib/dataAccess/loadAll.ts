@@ -84,7 +84,7 @@ import { alertaMantencionFromRow, maquinariaFromRow, planMantencionFromRow, regi
 import { plantillaCorreoFromRow, reglaCorreoFromRow } from "./mail";
 import { perfilPublicoFromRow } from "./perfiles";
 import { preciosFromRows, preciosTamanoFromRows } from "./precios";
-import { safe } from "./shared";
+import { safe, sinClavesVacias } from "./shared";
 import { servicioFromRow } from "./servicios";
 import { ventaFromRow } from "./ventas";
 import { plantillaWhatsappFromRow, reglaWhatsappFromRow } from "./whatsapp";
@@ -223,7 +223,7 @@ export async function loadCore(): Promise<AppDataCore> {
     servicioIdsPorCita.set(cs.citaId, lista);
   }
 
-  return {
+  return sinClavesVacias({
     clientes: clientesRows.map(clienteFromRow),
     perfiles: perfilesData,
     precios: preciosData,
@@ -261,7 +261,7 @@ export async function loadCore(): Promise<AppDataCore> {
     marcasAsistencia: marcasAsistenciaRows.map(marcaAsistenciaFromRow),
     contratosFuncionario: contratosFuncionarioRows.map(contratoFuncionarioFromRow),
     reglasOperador: reglasOperadorRows.map(reglaOperadorFromRow),
-  };
+  });
 }
 
 /** La oleada "pesada" — ver AppDataHistorial. Se dispara en paralelo con loadCore(), no después. */
@@ -273,11 +273,11 @@ export async function loadHistorial(): Promise<AppDataHistorial> {
     safe(db.select().from(movimientosContables).orderBy(desc(movimientosContables.fecha))),
   ]);
 
-  return {
+  return sinClavesVacias({
     ingresos: ingresosRows.map(ingresoFromRow),
     ventas: ventasRows.map(ventaFromRow),
     movimientosContables: movimientosRows.map(movimientoFromRow),
-  };
+  });
 }
 
 /**
