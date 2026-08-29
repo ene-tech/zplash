@@ -8,7 +8,7 @@ import { listarReglasCorreoActivas, obtenerPlantillaCorreo, registrarDisparoRegl
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { ofertaConCupon } from "@/lib/helpers/ofertasPlan";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos/cuponPlan";
-import { uid } from "@/lib/helpers";
+import { montoDescuento, uid } from "@/lib/helpers";
 import { construirVariables, ejecutarAccionReglaCorreo, MS_POR_DIA } from "./motor";
 import type { ReglaCorreo } from "@/types";
 
@@ -60,7 +60,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
     // enviado" (ver precioReactivacionVencido/precioRenovacionLocal en
     // @/lib/helpers/precios).
     promo?: {
-      calcular: (row: typeof clientes.$inferSelect) => Promise<{ precio: number | undefined; pasadas?: number }>;
+      calcular: (row: typeof clientes.$inferSelect) => Promise<{ precio: number | undefined; pasadas?: number; descuento?: number }>;
       campo: "precioReactivacion" | "precioRenovacion";
       obligatorio: boolean;
     }
@@ -74,7 +74,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
       // @/db/schema/mailReglas.
       if (regla.condicionSoloSinAutopago && row.patente && patentesConAutopago.has(row.patente)) continue;
 
-      let valores: { precio: number | undefined; pasadas?: number } = { precio: undefined };
+      let valores: { precio: number | undefined; pasadas?: number; descuento?: number } = { precio: undefined };
       if (promo) {
         // Antes de este `promo` (v1: solo plan_vencido), nada en este loop
         // podía lanzar antes de registrar el disparo. calcularOfertasPlanDeCliente
@@ -116,7 +116,27 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
 
       try {
         const cliente = clienteFromRow(row);
-        const variables = construirVariables({ cliente, ...(promo ? { [promo.campo]: valores.precio, pasadas: valores.pasadas } : {}) });
+        // {{montoDescuento}} = la plata del cupón que la patente tiene
+        // disponible; {{montoAPagar}} = lo que queda por pagar con ese cupón ya
+        // restado, o sea el mismo número de {{precioReactivacion}} con el
+        // nombre que ya usan las plantillas de WhatsApp (ver
+        // construirVariables en @/lib/whatsapp/reglas/motor).
+        //
+        // SOLO en la reactivación: calcularPrecioRenovacion no pasa por
+        // ofertaConCupon, así que en "plan_proximo_vencer" el precio va sin el
+        // cupón restado —anuncia más de lo que Mi Cuenta muestra y Webpay
+        // cobra— y llamar a eso "monto a pagar" sería mentira. Ahí las dos
+        // variables quedan vacías a propósito.
+        const variables = construirVariables({
+          cliente,
+          ...(promo
+            ? {
+                [promo.campo]: valores.precio,
+                pasadas: valores.pasadas,
+                ...(promo.campo === "precioReactivacion" ? { montoDescuento: valores.descuento, montoAPagar: valores.precio } : {}),
+              }
+            : {}),
+        });
         await ejecutarAccionReglaCorreo(regla, disparo.id, cliente, variables);
         procesados++;
       } catch (error) {
@@ -187,21 +207,36 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
     // Mismo cálculo que usa Operador/Mi Cuenta (oferta.reactivacion) — ver
     // calcularOfertasPlanDeCliente, que ya trae ventas/ingresos/config/precios
     // de este cliente puntual, un solo lugar para no duplicar esa lógica acá.
-    const calcularPrecioReactivacion = async (row: typeof clientes.$inferSelect): Promise<{ precio: number | undefined; pasadas?: number }> => {
+    const calcularPrecioReactivacion = async (
+      row: typeof clientes.$inferSelect
+    ): Promise<{ precio: number | undefined; pasadas?: number; descuento?: number }> => {
       // Con el cupón de descuento de la patente ya restado, igual que Mi
       // Cuenta (ver ofertaConCupon): el correo tiene que anunciar el mismo
       // número que después cobra Webpay/Oneclick. Solo para mostrar — esta
       // oferta no alimenta ningún camino de cobro.
-      const oferta = ofertaConCupon(
-        await calcularOfertasPlanDeCliente(clienteFromRow(row)),
-        await buscarCuponDescuentoPlan(row.patente)
-      ).reactivacion;
+      const sinCupon = await calcularOfertasPlanDeCliente(clienteFromRow(row));
+      const cupon = await buscarCuponDescuentoPlan(row.patente);
+      const oferta = ofertaConCupon(sinCupon, cupon).reactivacion;
       // {{pasadas}} = las veces que alcanzó a pasar en el período que pagó, el
       // mismo número con que el tramo le eligió el precio. Va tal cual, sin
       // topar: es el dato con que el correo argumenta, y mostrarle un número
       // distinto del que realmente pasó le resta credibilidad al mensaje. Es
       // además el mismo valor contra el que filtra condicionPasadasMax.
-      return { precio: oferta?.precio, pasadas: oferta?.visitas };
+      // El descuento se mide contra el precio de reactivación SIN cupón: para
+      // un cupón de porcentaje "cuánta plata tiene disponible" no es su
+      // `valor`, depende de esa base (ver montoDescuento en
+      // @/lib/helpers/cupones). Topado a esa base igual que precioConCupon
+      // topa el precio en $0: si no, un cupón más grande que el plan anuncia
+      // "$25.000 de descuento, a pagar $0" e inventa un precio de lista que no
+      // existe.
+      return {
+        precio: oferta?.precio,
+        pasadas: oferta?.visitas,
+        descuento:
+          cupon && sinCupon.reactivacion
+            ? Math.min(sinCupon.reactivacion.precio, montoDescuento(cupon, sinCupon.reactivacion.precio))
+            : undefined,
+      };
     };
 
     // Query por regla (no una sola para todas) porque cada una puede tener su

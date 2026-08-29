@@ -165,6 +165,10 @@ export default function WebSettingsMailTab() {
           restringida a &quot;Lavado único&quot;: si no corresponde ofrecer el precio para ese cliente en ese momento, el
           correo no se manda —salvo en &quot;El plan está por vencer&quot;, donde el precio queda vacío a menos que la
           regla esté marcada como &quot;solo clientes con promoción de renovación vigente&quot;).{" "}
+          <code>{"{{montoDescuento}}"}</code> es la plata del cupón de descuento que la patente tiene disponible y{" "}
+          <code>{"{{montoAPagar}}"}</code> lo que queda por pagar con ese cupón ya restado (el mismo número de{" "}
+          <code>{"{{precioReactivacion}}"}</code>) — las dos solo tienen valor en &quot;Plan vencido&quot; y en los
+          Correos Únicos, y <code>{"{{montoDescuento}}"}</code> queda vacío si esa patente no tiene un cupón vigente.{" "}
           <code>{"{{nombre}}"}</code>,{" "}
           <code>{"{{patente}}"}</code> y{" "}
           <code>{"{{fechaVencimiento}}"}</code> salen siempre en negrita.

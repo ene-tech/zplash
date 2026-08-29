@@ -5,7 +5,7 @@ import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { ofertaConCupon } from "@/lib/helpers/ofertasPlan";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos/cuponPlan";
 import { obtenerOCrearReglaEnvioManual, registrarDisparoReglaCorreo } from "@/lib/dataAccess/mail";
-import { uid } from "@/lib/helpers";
+import { montoDescuento, uid } from "@/lib/helpers";
 import { construirVariables, ejecutarAccionReglaCorreo } from "./reglas";
 import type { ResultadoEnvioMasivoCorreo } from "@/types";
 
@@ -111,12 +111,36 @@ export async function enviarCorreosMasivos(opts: {
       // promete el precio con descuento y el cuerpo muestra el de lista.
       // ofertaConCupon es solo para MOSTRAR y esto solo muestra: el descuento
       // lo vuelve a aplicar el camino que cobra, nunca se le pasa esta oferta.
-      .then(async (o) => ofertaConCupon(o, await buscarCuponDescuentoPlan(cliente.patente)).reactivacion)
+      .then(async (o) => {
+        const cupon = await buscarCuponDescuentoPlan(cliente.patente);
+        return {
+          reactivacion: ofertaConCupon(o, cupon).reactivacion,
+          // El descuento se mide contra el precio de reactivación SIN cupón:
+          // para un cupón de porcentaje "cuánta plata tiene disponible" no es
+          // su `valor`, depende de esa base (ver montoDescuento en
+          // @/lib/helpers/cupones). Topado a esa base igual que precioConCupon
+          // topa el precio en $0: si no, un cupón más grande que el plan
+          // anuncia "$25.000 de descuento, a pagar $0" e inventa un precio de
+          // lista que no existe.
+          descuento: cupon && o.reactivacion ? Math.min(o.reactivacion.precio, montoDescuento(cupon, o.reactivacion.precio)) : undefined,
+        };
+      })
       .catch((error) => {
         console.error(`Envío masivo de correo: no se pudo calcular la oferta de ${cliente.id}`, error);
-        return undefined;
+        return { reactivacion: undefined, descuento: undefined };
       });
-    const variables = construirVariables({ cliente, precioReactivacion: oferta?.precio, pasadas: oferta?.visitas });
+    const variables = construirVariables({
+      cliente,
+      precioReactivacion: oferta.reactivacion?.precio,
+      pasadas: oferta.reactivacion?.visitas,
+      // {{montoDescuento}} = la plata del cupón que la patente tiene
+      // disponible; {{montoAPagar}} = lo que queda por pagar con ese cupón ya
+      // restado, o sea el mismo número de {{precioReactivacion}} con el nombre
+      // que ya usan las plantillas de WhatsApp (ver construirVariables en
+      // @/lib/whatsapp/reglas/motor).
+      montoDescuento: oferta.descuento,
+      montoAPagar: oferta.reactivacion?.precio,
+    });
     const ok = await ejecutarAccionReglaCorreo(regla, disparo.id, cliente, variables).catch((error) => {
       console.error(`Error enviando correo masivo a ${cliente.id}`, error);
       return false;
