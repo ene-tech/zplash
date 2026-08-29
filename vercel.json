@@ -1,4 +1,7 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "//": "regions: la función tiene que correr en la MISMA región que Supabase (aws-1-us-west-2, ver DATABASE_URL) — pdx1 = Portland/Oregón = us-west-2. Antes corría en iad1 (Virginia, el default de Vercel): cada carga del panel abría ~41 conexiones al pooler y traía ~3,7 MB de filas sin comprimir cruzando el país, y cada commit del mesón paga 3 viajes secuenciales más (clientes → citas → resto, ver commitInterno en @/context/AppContext). Medido el 2026-08-29 con `curl -D - https://zplash.cl` → X-Vercel-Id: gru1::iad1::… (gru1 es el edge de São Paulo que recibe, iad1 la región donde ejecuta). us-east-1↔us-west-2 son ~65 ms de ida y vuelta; misma región son ~1 ms. Se paga ~60 ms extra en el único viaje usuario→función, que además va comprimido. NO poner más de una región: en planes que no son Enterprise el deploy falla.",
+  "regions": ["pdx1"],
   "crons": [
     { "path": "/api/pagos/oneclick/cobrar", "schedule": "0 13 * * *" },
     { "path": "/api/whatsapp/reglas/evaluar", "schedule": "0 14 * * *" },
