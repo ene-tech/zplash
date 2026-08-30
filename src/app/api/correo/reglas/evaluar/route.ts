@@ -10,8 +10,10 @@ export const runtime = "nodejs";
 // en el proyecto). Evalúa reglas "plan_proximo_vencer" y "plan_vencido" (ver
 // @/lib/mailing/reglas/cron) — "venta_creada"/"cobro_fallido" ya se evalúan
 // en vivo desde sus propios hooks (dataAccess/ventas.ts, cobrarSuscripcion),
-// no necesitan este cron.
-export async function POST(request: NextRequest) {
+// no necesitan este cron. GET, no POST: el cron de Vercel invoca la ruta con
+// GET y un POST-only devolvía 405 (mismo bug que tenía
+// /api/pagos/oneclick/cobrar, ver el comentario ahí).
+export async function GET(request: NextRequest) {
   const rechazo = rechazoSiNoEsCron(request);
   if (rechazo) return rechazo;
 

@@ -10,7 +10,13 @@ export const runtime = "nodejs";
 // Disparado por el cron de Vercel (vercel.json) una vez al día. Vercel manda
 // automáticamente "Authorization: Bearer $CRON_SECRET" en la llamada cuando
 // esa env var está configurada en el proyecto.
-export async function POST(request: NextRequest) {
+//
+// GET, no POST: el cron de Vercel siempre invoca la ruta con GET. Mientras
+// esto exportaba solo POST, la llamada diaria recibía 405 y ningún cobro
+// automático se ejecutaba nunca — los únicos cobros que había eran los del
+// primer cargo al inscribir la tarjeta (ago-2026: 10 suscripciones activas
+// con proximoCobro vencido y cero filas en cobros_oneclick).
+export async function GET(request: NextRequest) {
   const rechazo = rechazoSiNoEsCron(request);
   if (rechazo) return rechazo;
 
