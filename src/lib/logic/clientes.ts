@@ -18,6 +18,11 @@ export interface DatosClienteModal {
   plan: string;
   vencimiento: string | null;
   origen: "WEB" | "LOCAL";
+  /** Precio de plan que se le respeta al renovar a tiempo (ver
+   * precioConHeredado en @/lib/helpers) — null = paga el precio vigente.
+   * Solo lo edita Administración/Gerencia desde la ficha; el resto de los
+   * contextos lo devuelve tal como venía. */
+  precioPlanHeredado: number | null;
   pago?: PagoInfo;
 }
 
@@ -53,6 +58,7 @@ export function guardarClienteModal(data: AppData, d: DatosClienteModal): Partia
       giro: d.giro,
       vencimiento: d.vencimiento,
       origen: d.origen,
+      precioPlanHeredado: d.precioPlanHeredado,
     };
     clientes = data.clientes.map((x) => (x.id === actualizado.id ? actualizado : x));
     if (d.tipoDocumento === "Factura" && d.rut && !data.empresas.some((e) => formatRut(e.rut) === d.rut)) {
@@ -92,6 +98,7 @@ export function guardarClienteModal(data: AppData, d: DatosClienteModal): Partia
     giro: d.giro,
     vencimiento: d.vencimiento,
     origen: d.origen,
+    precioPlanHeredado: d.precioPlanHeredado,
     // El alta desde el punto de venta del operador ("+ Agregar vehículo
     // nuevo") es el vehículo entrando físicamente en ese momento, así que ya
     // cuenta como su primera visita (ver Ingreso más abajo). Un alta desde el

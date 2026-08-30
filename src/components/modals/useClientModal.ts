@@ -2,7 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, esExentoFormatoCliente, fmtTelefono, formatRut, isValidRut, precioContratacion, precioLavadoUnico, vencimientoPorDefectoISO } from "@/lib/helpers";
+import { PLANES, esAdministracionOGerencia, esExentoFormatoCliente, fmtTelefono, formatRut, isValidRut, precioContratacion, precioLavadoUnico, vencimientoPorDefectoISO } from "@/lib/helpers";
 import { guardarClienteModal } from "@/lib/logic";
 import type { Cliente, PagoInfo } from "@/types";
 import { validarClienteModal } from "./validarClienteModal";
@@ -18,6 +18,7 @@ type ClientModalRefs = {
   direccionRef: RefObject<HTMLInputElement | null>;
   giroRef: RefObject<HTMLInputElement | null>;
   vencRef: RefObject<HTMLInputElement | null>;
+  heredadoRef: RefObject<HTMLInputElement | null>;
 };
 
 // Lógica del modal de alta/edición de cliente: valida y arma el guardado
@@ -31,7 +32,12 @@ export function useClientModal(
 ) {
   const { data, commit, patchUi, ui } = useApp();
   const cli = c || ({} as Partial<Cliente>);
-  const { nombreRef, patenteRef, telefonoRef, emailRef, vehiculoRef, razonSocialRef, rutRef, direccionRef, giroRef, vencRef } = refs;
+  const { nombreRef, patenteRef, telefonoRef, emailRef, vehiculoRef, razonSocialRef, rutRef, direccionRef, giroRef, vencRef, heredadoRef } = refs;
+
+  // El precio heredado es plata: bajarlo le regala descuento permanente al
+  // cliente en cada renovación (ver precioConHeredado). Solo lo edita quien
+  // administra, mismo criterio que esExentoFormatoCliente.
+  const puedeEditarHeredado = contexto !== "operador" && esAdministracionOGerencia(ui.perfilActual?.nombre);
 
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">(cli.tipoDocumento === "Factura" ? "Factura" : "Boleta");
   // Determina si el cliente tiene plan o no. Para clientes existentes se basa en
@@ -109,6 +115,14 @@ export function useClientModal(
 
     const origen: "WEB" | "LOCAL" = contexto === "operador" ? "LOCAL" : origenSeleccionado;
 
+    // Sin el campo en pantalla (operador, perfil sin permiso, o cliente sin
+    // plan) se devuelve el valor que ya tenía: guardar la ficha nunca borra
+    // en silencio el precio que se le venía respetando.
+    const precioPlanHeredado =
+      puedeEditarHeredado && heredadoRef.current
+        ? Number(heredadoRef.current.value) || null
+        : cli.precioPlanHeredado ?? null;
+
     const persistir = async (pago?: PagoInfo) => {
       const patch = guardarClienteModal(data, {
         clienteExistente: c,
@@ -127,6 +141,7 @@ export function useClientModal(
         plan,
         vencimiento,
         origen,
+        precioPlanHeredado,
         pago,
       });
       const ok = await commit(patch);
@@ -162,6 +177,7 @@ export function useClientModal(
     setPlanSeleccionado,
     origenSeleccionado,
     setOrigenSeleccionado,
+    puedeEditarHeredado,
     err,
     cerrar,
     onRutBlur,

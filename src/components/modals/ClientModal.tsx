@@ -30,6 +30,7 @@ export default function ClientModal({
   const direccionRef = useRef<HTMLInputElement>(null);
   const giroRef = useRef<HTMLInputElement>(null);
   const vencRef = useRef<HTMLInputElement>(null);
+  const heredadoRef = useRef<HTMLInputElement>(null);
 
   const r = useClientModal(c, contexto, {
     nombreRef,
@@ -42,6 +43,7 @@ export default function ClientModal({
     direccionRef,
     giroRef,
     vencRef,
+    heredadoRef,
   });
   const cli = r.cli;
   // Estado propio (no pasa por AppContext.commit) para reflejar al toque el
@@ -202,6 +204,26 @@ export default function ClientModal({
                   />
                 </div>
               )}
+
+          {r.puedeEditarHeredado && r.tipoCliente === "plan" && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="cli-heredado">Precio heredado del plan</Label>
+              <Input
+                id="cli-heredado"
+                ref={heredadoRef}
+                type="number"
+                min={0}
+                step={10}
+                placeholder="Sin precio heredado"
+                defaultValue={cli.precioPlanHeredado ?? ""}
+              />
+              <p className="text-xs text-muted-foreground">
+                Precio que se le respeta al renovar antes de vencer, aunque el de lista suba (clientes migrados de
+                WooCommerce). Solo aplica si es menor al vigente, y se pierde si deja vencer el plan. Déjalo vacío para
+                que pague el precio vigente.
+              </p>
+            </div>
+          )}
 
           {r.err && <p className="text-sm text-destructive">{r.err}</p>}
         </div>
