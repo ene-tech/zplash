@@ -2348,3 +2348,74 @@ tr:hover td {
   color: var(--white);
   font-size: 15px;
 }
+
+/* Banner de producto: contenedor de la imagen fija, del carrusel o del video. */
+.producto-banner {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+/* Carrusel con scroll-snap nativo: swipe en mobile, flechas en desktop, sin
+   librería ni timers. La barra se oculta porque los dots ya indican posición. */
+.banner-track {
+  display: flex;
+  height: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.banner-track::-webkit-scrollbar {
+  display: none;
+}
+.banner-slide {
+  position: relative;
+  flex: 0 0 100%;
+  height: 100%;
+  scroll-snap-align: center;
+}
+.banner-flecha {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--white);
+  cursor: pointer;
+}
+.banner-flecha:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+.banner-flecha.izq {
+  left: 10px;
+}
+.banner-flecha.der {
+  right: 10px;
+}
+.banner-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+}
+.banner-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(245, 245, 240, 0.45);
+  cursor: pointer;
+}
+.banner-dots button.activo {
+  background: var(--gold);
+}

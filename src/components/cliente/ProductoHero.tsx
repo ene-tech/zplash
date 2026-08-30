@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import ProductoBanner from "@/components/cliente/ProductoBanner";
+import ProductoBanner, { type BannerFoto } from "@/components/cliente/ProductoBanner";
 
 export interface ProductoHeroFeature {
   icon: ReactNode;
@@ -27,7 +27,7 @@ export default function ProductoHero({
   titulo: string;
   descripcion: string;
   features?: ProductoHeroFeature[];
-  imagen: string;
+  imagen: string | BannerFoto[];
   videoUrl?: string;
   children?: ReactNode;
 }) {
