@@ -22,10 +22,10 @@ export function ResultadoBusqueda(p: Props) {
   // Un cliente con precio heredado (ver precioConHeredado) renueva a ese
   // valor. Sin heredado es el precio público de la renovación automática.
   const precioAutoMensual = precioConHeredado(p.precios.planOneclick.precio, r);
-  // Al cliente vencido con promoción (reactivación, o el upgrade desde su
-  // lavado único) la inscripción de tarjeta le cobra ese precio y no el
-  // mensual (ver precioPrimerCobroAuto / promoPrimerCobroOneclick): se
-  // anuncia el que se va a cobrar, con el mensual de después al lado.
+  // Cuando el primer cobro sale más barato que el mensual —promoción de
+  // reactivación/upgrade, cupón de descuento de la patente, o las dos— la
+  // inscripción de tarjeta cobra ese precio y no el mensual (ver
+  // precioPrimerCobroAuto): se anuncian los dos, el de ahora y el de después.
   const precioAuto = r.precioPrimerCobroAuto ?? precioAutoMensual;
   const promoPrimerMes = r.precioPrimerCobroAuto !== undefined;
 
@@ -50,11 +50,11 @@ export function ResultadoBusqueda(p: Props) {
             )}
           </div>
           <AvisoPasaAX5 plan={r.plan} vencimiento={r.estado?.cls !== "bad" ? r.vencimiento : null} />
-          {/* El precio de la promoción ya viene rebajado desde
+          {/* El precio del primer cobro ya viene rebajado desde
               /api/pagos/estado: esto solo explica de dónde sale, para que no se
-              lea como un error. Sin promoción no se anuncia, porque el cobro
-              mensual de la renovación automática no aplica el cupón (ver
-              cobrarSuscripcion). */}
+              lea como un error. Atado a promoPrimerMes porque el cupón solo
+              rebaja ese primer cobro — se quema ahí (ver cobrarSuscripcion) y
+              los meses siguientes vuelven al precio de lista. */}
           {!!r.descuentoCupon && promoPrimerMes && (
             <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginTop: 12 }}>
               Tienes un descuento de {fmtCLP(r.descuentoCupon)} para esta patente — ya está aplicado en el precio.
@@ -70,7 +70,11 @@ export function ResultadoBusqueda(p: Props) {
         <input type="email" value={p.email} onChange={(e) => p.setEmail(e.target.value)} placeholder="tu@email.cl" />
         {(promoPrimerMes || r.ticketReactivacion) && (
           <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginTop: 8 }}>
-            {promoPrimerMes && <>Precio promocional por este mes; desde el próximo, {fmtCLP(precioAutoMensual)}/mes. </>}
+            {promoPrimerMes && (
+              <>
+                Pagas {fmtCLP(precioAuto)} el primer mes; desde el próximo, {fmtCLP(precioAutoMensual)}/mes.{" "}
+              </>
+            )}
             {r.ticketReactivacion && <>Además te regalamos 1 lavado full túnel gratis por registrar tu tarjeta.</>}
           </div>
         )}

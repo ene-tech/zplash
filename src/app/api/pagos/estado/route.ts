@@ -8,6 +8,8 @@ import {
   normPlate,
   planStatus,
   precioConCupon,
+  precioConHeredado,
+  precioPlanOneclick,
   precioRenovacionCliente,
   promoPrimerCobroOneclick,
 } from "@/lib/helpers";
@@ -70,6 +72,15 @@ export async function GET(request: NextRequest) {
     // La promoción que va a cobrar la inscripción de tarjeta, resuelta con el
     // mismo helper que usa el cobro (ver promoPrimerCobroOneclick).
     const promoAuto = oferta ? promoPrimerCobroOneclick(oferta) : undefined;
+    // Precio mensual de la renovación automática (Oneclick): no pasa por el
+    // plazo de atraso, solo respeta el heredado — mismo cálculo que hace
+    // cobrarSuscripcion al cobrar el ciclo.
+    const precioAutoMensual = precioConHeredado(precioPlanOneclick(preciosMap), cliente);
+    // Lo que cobra el PRIMER cobro: la promoción si le calza, si no el mensual,
+    // en ambos casos con el cupón restado — los dos caminos que lo cobran
+    // (cobrarOfertaOneclick y cobrarSuscripcion) aplican el cupón, y como es de
+    // un uso solo rebaja ese primer mes.
+    const primerCobroAuto = precioConCupon(promoAuto?.monto ?? precioAutoMensual, cupon);
 
     return NextResponse.json({
       encontrado: true,
@@ -91,15 +102,18 @@ export async function GET(request: NextRequest) {
       // Sigue yendo aparte porque /pagar lo usa para el precio de la
       // renovación automática (Oneclick), que no pasa por el plazo de atraso.
       precioPlanHeredado: cliente.precioPlanHeredado,
-      // Lo que cobra el PRIMER cobro de la renovación automática cuando la
-      // patente califica para una promoción (reactivación o upgrade desde su
-      // lavado único, la que le haya quedado más barata); undefined = paga
-      // el precio de siempre de la renovación automática. Los meses
-      // siguientes los cobra el cron a ese precio normal. Con el cupón ya
-      // restado porque cobrarOfertaOneclick también lo resta al cobrar — si
-      // no, la pantalla anunciaría un monto distinto del que llega a
-      // Transbank.
-      precioPrimerCobroAuto: promoAuto ? precioConCupon(promoAuto.monto, cupon) : undefined,
+      // Lo que cobra el PRIMER cobro de la renovación automática cuando sale
+      // más barato que el mensual: por una promoción (reactivación o upgrade
+      // desde su lavado único, la que le haya quedado más barata) y/o por el
+      // cupón de descuento de la patente. undefined = paga el precio de
+      // siempre. Los meses siguientes los cobra el cron a ese precio normal
+      // (el cupón es de un uso y se quema en este cobro). Con el cupón ya
+      // restado porque cobrarOfertaOneclick y cobrarSuscripcion también lo
+      // restan al cobrar — si no, la pantalla anunciaría un monto distinto
+      // del que llega a Transbank.
+      // > 0 porque cobrarSuscripcion/cobrarOfertaOneclick no pueden cobrar $0:
+      // si el descuento cubriera el plan entero, ahí se cobra el de lista.
+      precioPrimerCobroAuto: primerCobroAuto !== precioAutoMensual && primerCobroAuto > 0 ? primerCobroAuto : undefined,
       // El lavado full túnel gratis por inscribir la tarjeta con el plan
       // vencido sigue disponible para esta patente (es una sola vez por
       // cliente, ver otorgarTicketReactivacion).

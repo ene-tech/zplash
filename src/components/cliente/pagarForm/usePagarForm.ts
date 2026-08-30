@@ -18,12 +18,12 @@ export interface EstadoPlan {
   // Solo para el precio de la renovación automática (Oneclick), que respeta
   // el heredado sin depender del plazo de atraso.
   precioPlanHeredado?: number | null;
-  // Precio del PRIMER cobro de la renovación automática cuando la patente
-  // llega vencida y le calza una promoción (ver promoPrimerCobroOneclick):
-  // es lo que va a cobrar la inscripción de tarjeta,
-  // resuelto por /api/pagos/estado con el mismo helper que cobra
-  // /api/pagos/oneclick/inscripcion/retorno. undefined = paga el precio de
-  // siempre de la renovación automática.
+  // Precio del PRIMER cobro de la renovación automática cuando sale más
+  // barato que el mensual: promoción de reactivación/upgrade (ver
+  // promoPrimerCobroOneclick) y/o cupón de descuento de la patente. Es lo que
+  // va a cobrar la inscripción de tarjeta, resuelto por /api/pagos/estado con
+  // los mismos helpers que cobran /api/pagos/oneclick/inscripcion/retorno.
+  // undefined = paga el precio de siempre de la renovación automática.
   precioPrimerCobroAuto?: number;
   // Le queda el lavado full túnel gratis por inscribir la tarjeta estando
   // vencido (una sola vez por cliente).

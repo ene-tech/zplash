@@ -4,12 +4,13 @@ import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
-import { PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, precioConHeredado, precioPlanOneclick, sumarMesesFecha } from "@/lib/helpers";
+import { PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, precioConCupon, precioConHeredado, precioPlanOneclick, sumarMesesFecha } from "@/lib/helpers";
 import { evaluarReglasCorreoPorCobroFallido } from "@/lib/mailing/reglas";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
 import type { Precios } from "@/types";
 import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
+import { buscarCuponDescuentoPlan } from "./cuponPlan";
 
 /** Próximo ciclo mensual a partir de una fecha base, saltando meses ya
  * vencidos (ej. si el cron no corrió por 2 meses) hasta caer en el futuro.
@@ -70,7 +71,23 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
       .from(clientes)
       .where(eq(clientes.patente, suscripcion.patente))
       .limit(1);
-    const monto = precioConHeredado(precioPlanOneclick(preciosMap), cliente ?? {});
+    const montoLista = precioConHeredado(precioPlanOneclick(preciosMap), cliente ?? {});
+
+    // Cupón de descuento atado a la patente: el mismo que ya rebajan Webpay,
+    // el mesón y cobrarOfertaOneclick — sin esto la renovación automática era
+    // el único camino de cobro que lo ignoraba, y el cliente con descuento
+    // veía/pagaba el precio de lista. Se resuelve DENTRO de la transacción,
+    // justo antes de autorizar, para que el monto que va a Transbank y el
+    // cupón que se quema al aplicar el pago sean el mismo dato (igual que en
+    // cobrarOfertaOneclick). Es de un uso: rebaja este cobro (el primero, tras
+    // inscribir la tarjeta) y los meses siguientes vuelven al precio de lista.
+    const cupon = await buscarCuponDescuentoPlan(suscripcion.patente, tx);
+    const montoConCupon = precioConCupon(montoLista, cupon);
+    // Transbank no puede cobrar $0 (ver ponytail en precioConCupon): si el
+    // descuento cubriera el plan entero se cobra el de lista y el cupón queda
+    // sin quemar, para que se lo apliquen en el mesón.
+    const aplicaCupon = montoConCupon > 0;
+    const monto = aplicaCupon ? montoConCupon : montoLista;
 
     const buyOrder = "oc" + Date.now().toString(36) + Math.floor(Math.random() * 36).toString(36);
     const cicloYm = mesActualKey();
@@ -130,6 +147,7 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
                 esServicioAdicional: false,
                 tipoVentaNuevo: "Renovación automática (Oneclick)",
                 tipoVentaExistente: "Renovación automática (Oneclick)",
+                cuponCodigo: aplicaCupon ? cupon?.codigo : undefined,
               },
               tx2
             );
