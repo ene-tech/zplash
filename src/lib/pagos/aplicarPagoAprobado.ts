@@ -26,8 +26,8 @@ import type { Cliente, Venta } from "@/types";
  * no hay un AppData cargado como en el módulo Operador). Solo se usa en el
  * webhook de WooCommerce, para no tocarle el plan al cliente que no pasó ni
  * una vez (ver planResultante en /api/webhooks/woocommerce). */
-export async function visitasPeriodoActual(db: DbOrTx, cliente: { id: string; fechaContratacion: string | null }): Promise<number> {
-  const { inicio } = periodoPlan(cliente.fechaContratacion, new Date());
+export async function visitasPeriodoActual(db: DbOrTx, cliente: { id: string; fechaContratacion: string | null; vencimiento: string | null }): Promise<number> {
+  const { inicio } = periodoPlan(cliente, new Date());
   const filas = await db
     .select({ id: ingresos.id })
     .from(ingresos)

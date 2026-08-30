@@ -70,7 +70,7 @@ export function mensajeBloqueoReingreso(ingresos: Ingreso[], clienteId: string, 
  */
 export function pasesRestantes(
   ingresos: Ingreso[],
-  cliente: Pick<Cliente, "id" | "plan" | "ilimitadoHasta" | "fechaContratacion">,
+  cliente: Pick<Cliente, "id" | "plan" | "ilimitadoHasta" | "fechaContratacion" | "vencimiento">,
   ahora: Date = ahoraEnSantiago()
 ): number | null {
   const incluidos = pasesIncluidos(planVigente(cliente));
@@ -81,14 +81,14 @@ export function pasesRestantes(
 /** Día en que arranca el próximo ciclo del plan (fin del vigente + 1), que es
  * cuando se le reponen las pasadas al cliente con tope. */
 export function inicioProximoPeriodoPlan(
-  cliente: Pick<Cliente, "fechaContratacion">,
+  cliente: Pick<Cliente, "fechaContratacion" | "vencimiento">,
   ahora: Date = ahoraEnSantiago()
 ): Date {
-  return periodoPlan(cliente.fechaContratacion, ahora).fin;
+  return periodoPlan(cliente, ahora).fin;
 }
 
 export function mensajeSinPases(
-  cliente: Pick<Cliente, "plan" | "ilimitadoHasta" | "fechaContratacion">,
+  cliente: Pick<Cliente, "plan" | "ilimitadoHasta" | "fechaContratacion" | "vencimiento">,
   ahora: Date = ahoraEnSantiago()
 ): string {
   const plan = planVigente(cliente);
@@ -104,10 +104,10 @@ export function mensajeSinPases(
  */
 export function visitasPeriodoPlan(
   ingresos: Ingreso[],
-  cliente: Pick<Cliente, "id" | "fechaContratacion">,
+  cliente: Pick<Cliente, "id" | "fechaContratacion" | "vencimiento">,
   ahora: Date = ahoraEnSantiago()
 ): number {
-  const { inicio, fin } = periodoPlan(cliente.fechaContratacion, ahora);
+  const { inicio, fin } = periodoPlan(cliente, ahora);
   return ingresos.filter((i) => i.clienteId === cliente.id && new Date(i.fecha) >= inicio && new Date(i.fecha) < fin).length;
 }
 

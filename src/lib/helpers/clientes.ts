@@ -219,24 +219,39 @@ export function vencimientoAnclado(fechaContratacion: string | null | undefined)
 }
 
 /**
- * Período de plan vigente hoy, anclado a fechaContratacion en ciclos
- * mensuales (mismo ciclo que vencimientoAnclado). P. ej. contratado el 12 de
- * junio, el período vigente el 5 de julio es [12 jun, 12 jul): vence el 11.
- * `fin` es exclusivo — es el inicio del ciclo siguiente, no el vencimiento.
- * Sin fecha de contratación (cliente sin plan asociado a un ciclo), se usa
- * una ventana del último mes.
+ * Período de plan vigente hoy, anclado en ciclos mensuales (mismo ciclo que
+ * vencimientoAnclado). P. ej. contratado el 12 de junio, el período vigente
+ * el 5 de julio es [12 jun, 12 jul): vence el 11. `fin` es exclusivo — es el
+ * inicio del ciclo siguiente, no el vencimiento.
+ *
+ * El ancla es `fechaContratacion`, y si no la hay, `vencimiento`: los dos
+ * caen en el mismo borde de ciclo (el vencimiento se calcula avanzando meses
+ * desde la contratación, ver vencimientoAnclado), así que el período sale
+ * igual con cualquiera de los dos. El fallback importa porque hay clientes
+ * con plan vigente y `fechaContratacion` en null (carga histórica): sin él
+ * caían en la ventana móvil de abajo, que cuenta el último mes corrido en
+ * vez del ciclo del plan — al cliente con plan X5 le sumaba pasadas de su
+ * período anterior y el Operador le negaba el ingreso incluido con "ya usó
+ * las 5" (ver pasesRestantes / estadoIngreso en useOperadorFoundResult).
+ *
+ * Sin plan (ningún ancla) se usa una ventana del último mes.
  */
 export function periodoPlan(
-  fechaContratacion: string | null | undefined,
+  cliente: Pick<Cliente, "fechaContratacion" | "vencimiento">,
   ahora: Date = ahoraEnSantiago()
 ): { inicio: Date; fin: Date } {
   const hoy = new Date(ahora);
   hoy.setHours(0, 0, 0, 0);
-  const base = fechaContratacion ? new Date(fechaContratacion) : null;
+  const ancla = cliente.fechaContratacion || cliente.vencimiento;
+  const base = ancla ? new Date(ancla) : null;
   if (!base || isNaN(base.getTime())) return { inicio: sumarMesesFecha(hoy, -1), fin: hoy };
   base.setHours(0, 0, 0, 0);
   let ciclos = 0;
   while (sumarMesesFecha(base, ciclos + 1) <= hoy) ciclos++;
+  // El ancla puede quedar en el futuro —`vencimiento` siempre lo está
+  // mientras el plan siga vigente, y una renovación anticipada lo deja hasta
+  // a dos meses—, y ahí hay que retroceder ciclos en vez de avanzarlos.
+  while (sumarMesesFecha(base, ciclos) > hoy) ciclos--;
   return { inicio: sumarMesesFecha(base, ciclos), fin: sumarMesesFecha(base, ciclos + 1) };
 }
 

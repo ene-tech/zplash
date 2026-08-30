@@ -33,7 +33,7 @@ import { useCrearDescuento } from "@/components/tabs/ventaEmpresa/useCrearDescue
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const { data: appData, patchUi, loadingHistorial } = useAppData();
-  const { inicio: inicioPeriodo, fin } = periodoPlan(c.fechaContratacion);
+  const { inicio: inicioPeriodo, fin } = periodoPlan(c);
   // `fin` es exclusivo (inicio del ciclo siguiente); el período se muestra
   // hasta el día anterior, que es el que el cliente ve como vencimiento.
   const finPeriodo = new Date(fin);
