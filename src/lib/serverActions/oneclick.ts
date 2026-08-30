@@ -10,9 +10,11 @@ export async function obtenerSuscripcionOneclick(patente: string): Promise<Suscr
   return dataAccess.obtenerSuscripcionOneclick(patente);
 }
 
-// Reintento manual de un cobro rechazado, disparado desde ClienteInfoModal.
-// Usa la misma cobrarSuscripcion() que el cron diario — si el ciclo del mes
-// ya se cobró (aprobado o rechazado), lanza y el modal muestra el error.
+// Cobro manual del ciclo, disparado desde ClienteInfoModal o desde Admin →
+// Suscripciones. Sirve tanto para reintentar un rechazo como para cobrar a un
+// cliente vencido cuyo cobro automático nunca llegó a ejecutarse. Usa la misma
+// cobrarSuscripcion() que el cron diario — si el ciclo del mes ya se cobró y
+// quedó aprobado, lanza y el modal muestra el error.
 export async function cobrarSuscripcionManual(suscripcionId: string): Promise<{ estado: "aprobada" | "rechazada" } | null> {
   if (!(await tieneModulo("clientes"))) return null;
   const suscripcion = await dataAccess.obtenerSuscripcionOneclickPorId(suscripcionId);

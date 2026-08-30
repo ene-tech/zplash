@@ -89,6 +89,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   }, [entregar, nCupones, c.nombre, c.patente, setPatentesAbierto, setPatentesTexto]);
   const [suscripcion, setSuscripcion] = useState<SuscripcionOneclickInfo | null>(null);
   const [cobrando, setCobrando] = useState(false);
+  const [confirmarCobro, setConfirmarCobro] = useState(false);
   const [errSuscripcion, setErrSuscripcion] = useState("");
 
   // Historial de compras completo del cliente — al estilo del pedido de
@@ -124,19 +125,24 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
       .catch(() => setDetallePagos({}));
   }, [idsVentas]);
 
-  async function reintentarCobro() {
+  // Cobra el ciclo a la tarjeta inscrita, ahora mismo. No es solo un reintento
+  // tras un rechazo: también sirve cuando el cobro automático nunca llegó a
+  // ejecutarse y el cliente quedó vencido con la tarjeta activa. La protección
+  // contra cobrar dos veces el mismo mes vive en cobrarSuscripcion() (revisa
+  // que no haya ya una fila "aprobada" para el ciclo), no acá.
+  async function cobrarAhora() {
     if (!suscripcion) return;
     setCobrando(true);
     setErrSuscripcion("");
     try {
       const resultado = await cobrarSuscripcionManual(suscripcion.id);
       if (!resultado) {
-        setErrSuscripcion("No se pudo reintentar el cobro.");
+        setErrSuscripcion("No se pudo ejecutar el cobro.");
         return;
       }
       const actualizada = await obtenerSuscripcionOneclick(c.patente);
       setSuscripcion(actualizada);
-      if (resultado.estado === "rechazada") setErrSuscripcion("El cobro fue rechazado nuevamente.");
+      if (resultado.estado === "rechazada") setErrSuscripcion("La tarjeta rechazó el cobro.");
     } catch {
       setErrSuscripcion("Este ciclo ya fue cobrado o hubo un error.");
     } finally {
@@ -210,6 +216,18 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             <div className="font-medium">{c.creadoEn ? fmtDate(c.creadoEn) : "-"}</div>
           </div>
           <div>
+            {/* Distinta de la fecha del último pago: es el ancla del ciclo
+                mensual (ver vencimientoAnclado/periodoPlan), así que un pago
+                atrasado no la mueve. Null en la carga histórica de
+                WooCommerce, de ahí el guion. */}
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Contrató el plan</div>
+            <div className="font-medium">{c.fechaContratacion ? fmtDate(c.fechaContratacion) : "-"}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Vence</div>
+            <div className="font-medium">{c.vencimiento ? fmtDate(c.vencimiento) : "Sin plan"}</div>
+          </div>
+          <div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground">Visitas último período</div>
             <div className="font-medium">
               {/* visitasPeriodo/visitasPlan salen de appData.ingresos, que
@@ -270,11 +288,33 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             )}
             {(suscripcion.estado === "activa" || suscripcion.estado === "suspendida") && (
               <div className="col-span-2 flex flex-wrap items-center gap-2">
-                {suscripcion.ultimoCobro?.estado === "rechazada" && suscripcion.estado === "activa" && (
-                  <Button variant="secondary" onClick={reintentarCobro} disabled={cobrando}>
-                    {cobrando ? "Cobrando..." : "Reintentar cobro ahora"}
-                  </Button>
-                )}
+                {/* Antes solo aparecía si el último intento había sido
+                    rechazado, así que el caso más común de "tiene tarjeta y no
+                    se le cobró" (el cobro nunca se ejecutó, no hay intento
+                    previo) se quedaba sin botón. Confirmación en dos pasos acá
+                    mismo en vez del ConfirmModal global: ese reemplaza esta
+                    ficha y se perdería el resultado del cobro. */}
+                {suscripcion.estado === "activa" &&
+                  (confirmarCobro ? (
+                    <>
+                      <Button
+                        onClick={() => {
+                          setConfirmarCobro(false);
+                          cobrarAhora();
+                        }}
+                        disabled={cobrando}
+                      >
+                        {cobrando ? "Cobrando..." : `Sí, cobrar la tarjeta ${suscripcion.cardUltimosDigitos || ""}`.trim()}
+                      </Button>
+                      <Button variant="ghost" onClick={() => setConfirmarCobro(false)} disabled={cobrando}>
+                        No cobrar
+                      </Button>
+                    </>
+                  ) : (
+                    <Button variant="secondary" onClick={() => setConfirmarCobro(true)} disabled={cobrando}>
+                      {cobrando ? "Cobrando..." : "Cobrar ahora"}
+                    </Button>
+                  ))}
                 {suscripcion.estado === "activa" && (
                   <Button variant="secondary" onClick={suspender} disabled={cobrando}>
                     Suspender

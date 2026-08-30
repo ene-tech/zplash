@@ -74,6 +74,23 @@ export default function SuscripcionesTab() {
     }
   };
 
+  // Con confirmacion: el boton ahora sale en TODA suscripcion activa (antes
+  // solo tras un rechazo), asi que esta a un click en cualquier fila de la
+  // tabla. cobrarSuscripcion solo bloquea un segundo cobro APROBADO del mismo
+  // mes -- no sabe de los pagos en efectivo ni de Webpay --, o sea que un
+  // click de mas le cobra la tarjeta a alguien que ya pago por otro medio.
+  const cobrar = (s: SuscripcionOneclickInfo) => {
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `Cobrar ahora el plan de ${s.clienteNombre} (${s.patente}) a la tarjeta ${s.cardUltimosDigitos || "inscrita"}. Revisa antes que no haya pagado ya por otro medio este ciclo.`,
+        confirmLabel: "Cobrar ahora",
+        danger: false,
+        onConfirm: () => ejecutar(s.id, () => cobrarSuscripcionManual(s.id)),
+      },
+    });
+  };
+
   const cancelar = (s: SuscripcionOneclickInfo) => {
     patchUi({
       modal: {
@@ -101,13 +118,10 @@ export default function SuscripcionesTab() {
   const accionesDe = (s: SuscripcionOneclickInfo): MobileRowAction[] => {
     const acciones: MobileRowAction[] = [];
     if (s.estado === "activa") {
-      if (s.ultimoCobro?.estado === "rechazada") {
-        acciones.push({
-          label: "Reintentar cobro",
-          disabled: procesandoId === s.id,
-          onClick: () => ejecutar(s.id, () => cobrarSuscripcionManual(s.id)),
-        });
-      }
+      // Mismo criterio que ClienteInfoModal: el cobro manual no es solo un
+      // reintento tras un rechazo — el caso más común es que el cobro nunca
+      // se ejecutó y no hay intento previo que mirar.
+      acciones.push({ label: "Cobrar ahora", disabled: procesandoId === s.id, onClick: () => cobrar(s) });
       acciones.push({ label: "Suspender", disabled: procesandoId === s.id, onClick: () => suspender(s) });
       acciones.push({ label: "Cancelar", destructive: true, disabled: procesandoId === s.id, onClick: () => cancelar(s) });
     } else if (s.estado === "suspendida") {
@@ -209,16 +223,9 @@ export default function SuscripcionesTab() {
                     <div className="flex flex-wrap items-center gap-1">
                       {s.estado === "activa" && (
                         <>
-                          {s.ultimoCobro?.estado === "rechazada" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={procesandoId === s.id}
-                              onClick={() => ejecutar(s.id, () => cobrarSuscripcionManual(s.id))}
-                            >
-                              Reintentar cobro
-                            </Button>
-                          )}
+                          <Button variant="ghost" size="sm" disabled={procesandoId === s.id} onClick={() => cobrar(s)}>
+                            Cobrar ahora
+                          </Button>
                           <Button variant="ghost" size="sm" disabled={procesandoId === s.id} onClick={() => suspender(s)}>
                             Suspender
                           </Button>
