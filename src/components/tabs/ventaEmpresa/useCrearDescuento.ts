@@ -3,7 +3,7 @@
 import { useState, type RefObject } from "react";
 import { useAppData } from "@/context/AppContext";
 import { PATENTE_FORMATO_MSG, generarCodigoCupon, isValidPatente, normPlate, uid } from "@/lib/helpers";
-import type { Cupon } from "@/types";
+import type { CanalCupon, Cupon } from "@/types";
 
 type CrearDescuentoRefs = {
   dNombreRef: RefObject<HTMLInputElement | null>;
@@ -16,7 +16,8 @@ type CrearDescuentoRefs = {
 // se registra como venta acá. Puede quedar abierto (cualquier patente) o
 // asignado a una específica, y con dos límites opcionales: solo clientes
 // nuevos (patente sin ficha) y un uso por patente (el código no muere en el
-// primer canje). Ver resolverDescuento en @/lib/helpers/cupones.
+// primer canje). `canal` decide además dónde se puede cobrar: mesón, web o
+// ambos. Ver resolverDescuento/cuponValeEnCanal en @/lib/helpers/cupones.
 export function useCrearDescuento(refs: CrearDescuentoRefs) {
   const { data, commit } = useAppData();
   const { dNombreRef, dCaducidadRef, dPatenteRef } = refs;
@@ -25,6 +26,7 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
   const [dAbierto, setDAbierto] = useState(false);
   const [dSoloNuevos, setDSoloNuevos] = useState(false);
   const [dUnUsoPorPatente, setDUnUsoPorPatente] = useState(false);
+  const [dCanal, setDCanal] = useState<CanalCupon>("ambos");
   const [errDescuento, setErrDescuento] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const crearDescuento = async () => {
@@ -62,6 +64,7 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
       esPorcentaje: dTipoValor === "porcentaje",
       patenteAsignada: dAbierto ? undefined : patente,
       soloClientesNuevos: dSoloNuevos,
+      canal: dCanal,
       // Un código atado a UNA patente ya es de un uso: la regla solo tiene
       // sentido en uno abierto (ver el checkbox en CrearDescuentoForm).
       unUsoPorPatente: dAbierto && dUnUsoPorPatente,
@@ -76,7 +79,8 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
       msg:
         `Descuento "${nombreLote}" creado — código ${codigo}${dAbierto ? " (abierto, cualquier patente)" : ` para ${patente}`}` +
         (nuevo.unUsoPorPatente ? " · un uso por patente" : "") +
-        (dSoloNuevos ? " · solo clientes nuevos" : ""),
+        (dSoloNuevos ? " · solo clientes nuevos" : "") +
+        (dCanal === "ambos" ? "" : dCanal === "web" ? " · solo web" : " · solo local"),
       ok: true,
     });
     if (dNombreRef.current) dNombreRef.current.value = "";
@@ -87,6 +91,7 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
     setDAbierto(false);
     setDSoloNuevos(false);
     setDUnUsoPorPatente(false);
+    setDCanal("ambos");
   };
 
   return {
@@ -100,6 +105,8 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
     setDSoloNuevos,
     dUnUsoPorPatente,
     setDUnUsoPorPatente,
+    dCanal,
+    setDCanal,
     errDescuento,
     crearDescuento,
   };

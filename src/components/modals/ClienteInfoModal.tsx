@@ -41,10 +41,18 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const visitasPeriodo = visitasPeriodoPlan(appData.ingresos, c);
   const tienePlan = !!c.vencimiento;
   const visitasPlan = tienePlan ? visitasDesdeContratacion(appData.ingresos, c) : visitasUltimos30Dias(appData.ingresos, c.id);
-  // El descuento que se le aplica solo con leer la patente en el mesón — mismo
-  // criterio que usa el cobro (ver cuponDescuentoDePatente). appData.cupones
-  // viene en loadCore, así que no depende de loadingHistorial.
-  const descuento = useMemo(() => cuponDescuentoDePatente(appData.cupones, c.patente), [appData.cupones, c.patente]);
+  // El descuento que se le aplica solo con leer la patente — mismo criterio que
+  // usa el cobro (ver cuponDescuentoDePatente). Se cae al canal "web" cuando no
+  // hay uno cobrable en el mesón: la ficha informa, no cobra, y un descuento
+  // que el cliente sí tiene (aunque sea solo por la web) no puede leerse acá
+  // como "No tiene". appData.cupones viene en loadCore, así que no depende de
+  // loadingHistorial.
+  const descuento = useMemo(
+    () =>
+      cuponDescuentoDePatente(appData.cupones, c.patente, "local") ??
+      cuponDescuentoDePatente(appData.cupones, c.patente, "web"),
+    [appData.cupones, c.patente]
+  );
 
   // Atajo para entregarle un cupón desde acá mismo: se montan los MISMOS
   // formularios de B2B/Tickets (no una copia recortada), así cualquier
@@ -251,7 +259,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             <div className="text-xs uppercase tracking-wide text-muted-foreground">Descuento disponible</div>
             <div className="font-medium">
               {descuento
-                ? `${beneficioCupon(descuento)} — código ${descuento.codigo}, vence ${fmtDate(descuento.fechaCaducidad)}`
+                ? `${beneficioCupon(descuento)}${descuento.canal === "web" ? " (solo por la web)" : ""} — código ${descuento.codigo}, vence ${fmtDate(descuento.fechaCaducidad)}`
                 : "No tiene"}
             </div>
           </div>

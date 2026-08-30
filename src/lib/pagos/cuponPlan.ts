@@ -19,7 +19,7 @@ export async function buscarCuponDescuentoPlan(patente: string, db: DbOrTx = get
     .select()
     .from(cupones)
     .where(and(eq(cupones.patenteAsignada, patente), eq(cupones.tipo, "descuento"), eq(cupones.usado, false)));
-  return cuponDescuentoDePatente(filas.map(cuponFromRow), patente);
+  return cuponDescuentoDePatente(filas.map(cuponFromRow), patente, "web");
 }
 
 /**

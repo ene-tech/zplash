@@ -33,6 +33,7 @@ export function cuponToRow(c: Cupon): typeof cupones.$inferInsert {
     unUsoPorPatente: c.unUsoPorPatente || false,
     patentesUsadas: c.patentesUsadas?.length ? c.patentesUsadas : null,
     soloClientesNuevos: c.soloClientesNuevos || false,
+    canal: c.canal || "ambos",
     email: c.email || null,
   };
 }
@@ -61,6 +62,7 @@ export function cuponFromRow(r: CuponRow): Cupon {
     unUsoPorPatente: r.unUsoPorPatente || false,
     patentesUsadas: r.patentesUsadas?.length ? r.patentesUsadas : undefined,
     soloClientesNuevos: r.soloClientesNuevos || false,
+    canal: (r.canal as Cupon["canal"]) || "ambos",
     email: r.email || undefined,
   };
 }

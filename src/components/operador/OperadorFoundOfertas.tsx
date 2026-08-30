@@ -21,6 +21,11 @@ function AvisoPasaAX5({ plan, precioAdicional }: { plan: string | null | undefin
   );
 }
 
+/** El descuento dicho en plata o en porcentaje, según cómo se emitió. */
+function fmtDescuento(cupon: { esPorcentaje?: boolean; valor: number }): string {
+  return cupon.esPorcentaje ? `${cupon.valor}%` : fmtCLP(cupon.valor);
+}
+
 type Props = Pick<
   ReturnType<typeof useOperadorFoundResult>,
   | "c"
@@ -53,18 +58,40 @@ type Props = Pick<
   | "precioUpgrade"
   | "upgradeAPlan"
   | "cuponDescuentoVigente"
+  | "cuponDescuentoSoloWeb"
+  | "precioPlanWeb"
   | "precioAdicional"
 >;
 
 // Las distintas "ofertas" que el Operador puede ver sobre un cliente
-// encontrado (túnel pendiente, renovación, reactivación, upgrade, cupón
-// WhatsApp): cada una es independiente entre sí y se muestra según su propia
-// condición calculada en useOperadorFoundResult.
+// encontrado (descuento solo-web, túnel pendiente, renovación, reactivación,
+// upgrade, descuento cobrable acá): cada una es independiente entre sí y se
+// muestra según su propia condición calculada en useOperadorFoundResult.
 export default function OperadorFoundOfertas(props: Props) {
   const { c } = props;
   const { guardando } = useAppData();
   return (
     <>
+      {props.cuponDescuentoSoloWeb && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Web</span>
+            <h4>Promoción especial contratando por la web</h4>
+          </div>
+          <div className="msg">
+            Cuéntaselo antes de cobrarle: {c.nombre} tiene {fmtDescuento(props.cuponDescuentoSoloWeb)} de descuento{" "}
+            <b>solo si contrata por la web</b> — acá no se puede aplicar. Entrando a su cuenta en la web con su patente{" "}
+            <span className="plate-tag">{c.patente}</span> el descuento ya le sale restado del precio, sin necesidad de
+            código. Válido hasta el {new Date(props.cuponDescuentoSoloWeb.fechaCaducidad).toLocaleDateString("es-CL")}.
+          </div>
+          {!!props.precioPlanWeb && (
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioPlanWeb)}</span>
+              <span className="save">total pagando por la web</span>
+            </div>
+          )}
+        </div>
+      )}
       {props.citaDetailingPendiente && (
         <div className="offer-card">
           <div className="offer-head">
@@ -267,15 +294,12 @@ export default function OperadorFoundOfertas(props: Props) {
       {props.cuponDescuentoVigente && (
         <div className="offer-card">
           <div className="offer-head">
-            <span className="badge">WhatsApp</span>
+            <span className="badge">Descuento</span>
             <h4>Descuento vigente para este vehículo</h4>
           </div>
           <div className="msg">
-            {c.nombre} tiene un descuento de{" "}
-            {props.cuponDescuentoVigente.esPorcentaje
-              ? `${props.cuponDescuentoVigente.valor}%`
-              : fmtCLP(props.cuponDescuentoVigente.valor)}{" "}
-            en el Lavado Full Túnel o en cualquier plan, válido hasta el{" "}
+            {c.nombre} tiene un descuento de {fmtDescuento(props.cuponDescuentoVigente)} en el Lavado Full Túnel o en
+            cualquier plan, válido hasta el{" "}
             {new Date(props.cuponDescuentoVigente.fechaCaducidad).toLocaleDateString("es-CL")}. Ya está
             restado en los precios de esta pantalla y se gasta con el primer cobro, sin necesidad de código.
           </div>

@@ -37,6 +37,18 @@ export function descuentoGastadoPor(cupon: Pick<Cupon, "usado" | "unUsoPorPatent
   return (cupon.patentesUsadas || []).some((x) => normPlate(x) === p);
 }
 
+/** true si el descuento se puede cobrar por este canal. Un cupón sin `canal`
+ * (los emitidos antes del campo) o con "ambos" vale en los dos, así que el
+ * default nunca restringe nada que hoy funcione.
+ *
+ * Único lugar donde se decide: lo consultan las DOS puertas por las que entra
+ * un descuento a un cobro — resolverDescuento (código tipeado en el mesón) y
+ * cuponDescuentoDePatente (el que se aplica solo con leer la patente, tanto en
+ * el mesón como en los cobros web). */
+export function cuponValeEnCanal(cupon: Pick<Cupon, "canal">, canal: "web" | "local"): boolean {
+  return !cupon.canal || cupon.canal === "ambos" || cupon.canal === canal;
+}
+
 /** Valida un código de descuento (tipo "descuento") para una patente dada, antes de aplicarlo a una venta.
  * Si el cupón no tiene patenteAsignada, es "abierto": lo puede usar cualquier patente.
  *
@@ -59,6 +71,13 @@ export function resolverDescuento(
   if (new Date(cupon.fechaCaducidad) < new Date()) return { ok: false, msg: "Este descuento está caducado" };
   if (cupon.patenteAsignada && cupon.patenteAsignada !== patente) {
     return { ok: false, msg: "Este descuento fue asignado a otra patente" };
+  }
+  // El canal va fijo en "local": los tres caminos que llaman acá son del
+  // perfil operador (mesón). La web nunca pide tipear un código — aplica el
+  // descuento por patente vía cuponDescuentoDePatente, que filtra por su
+  // cuenta.
+  if (!cuponValeEnCanal(cupon, "local")) {
+    return { ok: false, msg: "Este descuento es solo para pagos por la web" };
   }
   // "Cliente nuevo" = patente sin ficha, la misma definición que usa el
   // descuento de bienvenida (/api/cliente/descuento-bienvenida): es lo único
@@ -102,10 +121,24 @@ export function montoDescuento(cupon: Pick<Cupon, "esPorcentaje" | "valor">, pre
  *
  * Mismo criterio en los cuatro sitios que lo cobran — mesón (sobre `data.cupones`
  * ya cargado) y los tres caminos de cobro web, que primero lo buscan en la base
- * (ver buscarCuponDescuentoPlan en @/lib/pagos). */
-export function cuponDescuentoDePatente(lista: Cupon[], patente: string, ahora: Date = new Date()): Cupon | undefined {
+ * (ver buscarCuponDescuentoPlan en @/lib/pagos). `canal` va obligatorio (y no
+ * con default) justo porque son esos dos mundos: un default dejaría pasar en
+ * silencio un descuento "solo local" a un cobro por web. */
+export function cuponDescuentoDePatente(
+  lista: Cupon[],
+  patente: string,
+  canal: "web" | "local",
+  ahora: Date = new Date()
+): Cupon | undefined {
   return lista
-    .filter((c) => c.tipo === "descuento" && !c.usado && c.patenteAsignada === patente && new Date(c.fechaCaducidad) > ahora)
+    .filter(
+      (c) =>
+        c.tipo === "descuento" &&
+        !c.usado &&
+        c.patenteAsignada === patente &&
+        new Date(c.fechaCaducidad) > ahora &&
+        cuponValeEnCanal(c, canal)
+    )
     .sort((a, b) => new Date(a.fechaCaducidad).getTime() - new Date(b.fechaCaducidad).getTime())[0];
 }
 

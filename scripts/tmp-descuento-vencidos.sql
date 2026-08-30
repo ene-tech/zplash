@@ -1,5 +1,7 @@
--- One-off: $2.000 de descuento a todo cliente con plan VENCIDO (LOCAL y WEB),
--- vigente hasta el 10-sep-2026. Se aplica a mano en Supabase (SQL Editor).
+-- One-off: $4.000 de descuento a todo cliente con plan VENCIDO, vigente hasta
+-- el 10-sep-2026 y SOLO POR WEB (canal='web'): el correo lo ofrece por
+-- suscribirse en la pagina, no para aplicarlo en el meson. Se aplica a mano en
+-- Supabase (SQL Editor).
 --
 -- No hace falta tocar código: un cupón tipo "descuento" con patente_asignada
 -- ya lo levanta buscarCuponDescuentoPlan (@/lib/pagos/cuponPlan) y Mi Cuenta
@@ -32,7 +34,7 @@ BEGIN;
 
 INSERT INTO cupones (
   id, codigo, nombre_lote, valor, numero_lote, total_lote, fecha_caducidad,
-  usado, creado_en, creado_por, tipo, es_porcentaje, patente_asignada
+  usado, creado_en, creado_por, tipo, es_porcentaje, patente_asignada, canal
 )
 SELECT
   'c' || (extract(epoch FROM now()) * 1000)::bigint::text || row_number() OVER (ORDER BY cl.patente),
@@ -49,7 +51,8 @@ SELECT
   'Administrador',
   'descuento',
   false,
-  cl.patente
+  cl.patente,
+  'web'
 FROM clientes cl
 CROSS JOIN LATERAL (
   SELECT string_agg(substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', (get_byte(u.b, i) % 32) + 1, 1), '' ORDER BY i) AS codigo

@@ -1,3 +1,7 @@
+/** Dónde se puede cobrar un descuento: "web" (Webpay/Oneclick/Mi Cuenta),
+ * "local" (mesón) o "ambos". Ver cuponValeEnCanal. */
+export type CanalCupon = "web" | "local" | "ambos";
+
 export interface Cupon {
   id: string;
   codigo: string;
@@ -48,6 +52,9 @@ export interface Cupon {
   // Solo aplica a "descuento": lo puede usar únicamente una patente sin ficha
   // de cliente (misma definición de "nuevo" que /api/cliente/descuento-bienvenida).
   soloClientesNuevos?: boolean;
+  // Solo aplica a "descuento": dónde se puede cobrar el código. Undefined en
+  // los cupones emitidos antes del campo = "ambos" (ver cuponValeEnCanal).
+  canal?: CanalCupon;
   // Email de quien compró el Pack Empresa por web — permite mostrar los
   // tickets en Mi Cuenta (portal cliente) buscando por el correo de la
   // sesión. Undefined en cupones generados a mano o sin email.

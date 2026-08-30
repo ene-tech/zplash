@@ -53,6 +53,30 @@ export default function CrearDescuentoForm({ dNombreRef, dCaducidadRef, dPatente
         )}
       </div>
       <div className="field">
+        <label>Dónde se puede usar</label>
+        <div style={{ display: "flex", gap: 10 }}>
+          {([
+            ["ambos", "Web y local"],
+            ["web", "Solo web"],
+            ["local", "Solo local"],
+          ] as const).map(([valor, texto]) => (
+            <button
+              key={valor}
+              type="button"
+              className={p.dCanal === valor ? "btn" : "btn ghost"}
+              style={{ flex: 1, marginTop: 0 }}
+              onClick={() => p.setDCanal(valor)}
+            >
+              {texto}
+            </button>
+          ))}
+        </div>
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12 }}>
+          &quot;Solo web&quot; se aplica únicamente al pagar por la página (Webpay, Oneclick, Mi Cuenta); &quot;solo
+          local&quot;, únicamente en el mesón.
+        </div>
+      </div>
+      <div className="field">
         <label>Fecha de caducidad</label>
         <input ref={dCaducidadRef} type="date" />
       </div>

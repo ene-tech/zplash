@@ -53,6 +53,11 @@ export const cupones = pgTable("cupones", {
   // ficha de cliente (misma definición de "nuevo" que el descuento de
   // bienvenida de la landing). Default false = cualquier patente.
   soloClientesNuevos: boolean("solo_clientes_nuevos").notNull().default(false),
+  // Solo aplica a "descuento": dónde se puede cobrar el código — "web" (los
+  // caminos de pago online: Webpay, Oneclick, Mi Cuenta), "local" (mesón) o
+  // "ambos". Un "vale" no lo usa: siempre se canjea en el mesón. Default
+  // "ambos" = el comportamiento que tenían todos los cupones ya emitidos.
+  canal: text("canal").notNull().default("ambos"),
   // Email de quien compró el Pack Empresa por web — permite mostrar los
   // tickets en Mi Cuenta (portal cliente) buscando por el correo de la
   // sesión, sin depender de que el comprador recuerde el RUT. Null en

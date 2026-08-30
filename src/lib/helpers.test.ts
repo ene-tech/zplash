@@ -1006,6 +1006,21 @@ describe("resolverDescuento", () => {
       expect(resolverDescuento("abc123", "AB1234", [conUsadoViejo], []).ok).toBe(true);
     });
   });
+
+  describe("canal", () => {
+    it("rechaza en el mesón un descuento solo web", () => {
+      const soloWeb: Cupon = { ...cuponBase, canal: "web" };
+      expect(resolverDescuento("abc123", "AB1234", [soloWeb], [])).toEqual({
+        ok: false,
+        msg: "Este descuento es solo para pagos por la web",
+      });
+    });
+
+    it("acepta uno solo local y uno de ambos", () => {
+      expect(resolverDescuento("abc123", "AB1234", [{ ...cuponBase, canal: "local" }], []).ok).toBe(true);
+      expect(resolverDescuento("abc123", "AB1234", [{ ...cuponBase, canal: "ambos" }], []).ok).toBe(true);
+    });
+  });
 });
 
 describe("marcarDescuentoUsado", () => {
@@ -1056,7 +1071,7 @@ describe("cuponDescuentoDePatente", () => {
   };
 
   it("toma el cupón vigente de esa patente", () => {
-    expect(cuponDescuentoDePatente([base], "AB1234")?.codigo).toBe("AAA111");
+    expect(cuponDescuentoDePatente([base], "AB1234", "local")?.codigo).toBe("AAA111");
   });
 
   it("ignora usados, caducados, de otra patente y los que no son descuento", () => {
@@ -1066,13 +1081,27 @@ describe("cuponDescuentoDePatente", () => {
       { ...base, id: "c", codigo: "OTRA01", patenteAsignada: "ZZ9999" },
       { ...base, id: "d", codigo: "VALE01", tipo: "vale" },
     ];
-    expect(cuponDescuentoDePatente(lista, "AB1234")).toBeUndefined();
+    expect(cuponDescuentoDePatente(lista, "AB1234", "local")).toBeUndefined();
   });
 
   it("con varios vigentes usa primero el que vence antes", () => {
     const lejano = { ...base, id: "lejano", codigo: "LEJOS1", fechaCaducidad: new Date(Date.now() + 60 * 86400000).toISOString() };
     const pronto = { ...base, id: "pronto", codigo: "PRONT1", fechaCaducidad: new Date(Date.now() + 2 * 86400000).toISOString() };
-    expect(cuponDescuentoDePatente([lejano, pronto], "AB1234")?.codigo).toBe("PRONT1");
+    expect(cuponDescuentoDePatente([lejano, pronto], "AB1234", "local")?.codigo).toBe("PRONT1");
+  });
+
+  it("filtra por canal: uno solo local no rebaja un cobro web y viceversa", () => {
+    const soloLocal: Cupon = { ...base, canal: "local" };
+    const soloWeb: Cupon = { ...base, canal: "web" };
+    expect(cuponDescuentoDePatente([soloLocal], "AB1234", "local")?.codigo).toBe("AAA111");
+    expect(cuponDescuentoDePatente([soloLocal], "AB1234", "web")).toBeUndefined();
+    expect(cuponDescuentoDePatente([soloWeb], "AB1234", "web")?.codigo).toBe("AAA111");
+    expect(cuponDescuentoDePatente([soloWeb], "AB1234", "local")).toBeUndefined();
+  });
+
+  it("un cupón sin canal (los ya emitidos) sigue valiendo en los dos", () => {
+    expect(cuponDescuentoDePatente([base], "AB1234", "web")?.codigo).toBe("AAA111");
+    expect(cuponDescuentoDePatente([{ ...base, canal: "ambos" }], "AB1234", "web")?.codigo).toBe("AAA111");
   });
 });
 

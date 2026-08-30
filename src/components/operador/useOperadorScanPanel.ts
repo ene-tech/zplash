@@ -250,7 +250,7 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       // reconoce solo por patente, el cliente no necesita mostrar ni tipear
       // ningún código (a diferencia del cupón de entrada de arriba).
       const patente = normPlate(plate);
-      const autoDescuento = cuponDescuentoDePatente(data.cupones, patente);
+      const autoDescuento = cuponDescuentoDePatente(data.cupones, patente, "local");
       if (autoDescuento) {
         setCuponErr({ msg: "Descuento vigente detectado para esta patente", ok: true });
         setCodigoDescuento(autoDescuento.codigo);

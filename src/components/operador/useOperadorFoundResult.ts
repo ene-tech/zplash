@@ -17,6 +17,8 @@ import {
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   cuponDescuentoDePatente,
   precioConCupon,
+  calcularOfertasPlan,
+  precioRenovacionCliente,
   PLANES,
   planStatus,
   precioConHeredado,
@@ -207,7 +209,37 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // cupón manual que sí se pide en OperadorNotFoundResult). Se aplica tanto al
   // Lavado Full Túnel (ver useIngresoActions.cobrarLavadoUnico) como a
   // cualquier plan que se cobre acá (ver conCupon más abajo y usePlanActions).
-  const cuponDescuentoVigente = cuponDescuentoDePatente(data.cupones, c.patente);
+  const cuponDescuentoVigente = cuponDescuentoDePatente(data.cupones, c.patente, "local");
+  // El descuento que esta patente TIENE pero el mesón NO puede aplicar: es de
+  // canal "web" (ver cuponValeEnCanal). No rebaja ningún precio de esta
+  // pantalla — se muestra arriba de todo para que el operador se lo ofrezca
+  // como el motivo para contratar por la web. Se compara por id y no con un
+  // simple `else`: si además tiene uno cobrable acá, el de la web sigue
+  // valiendo la pena mencionarlo cuando es otro cupón.
+  const cuponWeb = cuponDescuentoDePatente(data.cupones, c.patente, "web");
+  const cuponDescuentoSoloWeb = cuponWeb && cuponWeb.id !== cuponDescuentoVigente?.id ? cuponWeb : undefined;
+  // Cuánto termina pagando el cliente si contrata por la web con ese cupón:
+  // el operador tiene que poder decirle el monto final, no solo cuánto se
+  // ahorra. Sale de la MISMA oferta que el cliente va a ver en Mi Cuenta
+  // (calcularOfertasPlan, canal WEB por defecto) para que el mesón no anuncie
+  // un número y la web cobre otro; sin ninguna oferta de plan (típicamente el
+  // que nunca contrató) queda el precio con que /pagar cobra el plan (ver
+  // precioRenovacionCliente). El cupón se resta acá, igual que lo hace
+  // /api/pagos/webpay/crear sobre el ítem de plan.
+  const ofertaWeb = cuponDescuentoSoloWeb
+    ? calcularOfertasPlan(c, data.ventas, data.ingresos, data.config, data.precios)
+    : undefined;
+  const precioPlanWeb =
+    ofertaWeb && cuponDescuentoSoloWeb
+      ? precioConCupon(
+          ofertaWeb.reactivacion?.precio ??
+            ofertaWeb.pagoVencido?.precio ??
+            ofertaWeb.upgrade?.precio ??
+            ofertaWeb.renovacionAnticipada?.pPromo ??
+            precioRenovacionCliente(data.precios, c.plan || PLANES[0], c, data.config.diasGraciaPagoAtrasado),
+          cuponDescuentoSoloWeb
+        )
+      : undefined;
   // Al cliente con plan vigente que ya gastó las pasadas de su ciclo (ver
   // pasesRestantes) el paso extra le sale al precio de lavado adicional, no al
   // lavado único de lista: ese sigue siendo el precio de quien no tiene plan.
@@ -339,6 +371,8 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     precioUpgrade: precioUpgradeFinal,
     horasVentanaUpgrade,
     cuponDescuentoVigente,
+    cuponDescuentoSoloWeb,
+    precioPlanWeb,
     precioLavadoUnicoFinal,
     // Para contarle al cliente que todavía anda con el ilimitado viejo cómo
     // le queda el X5 al renovar (ver AvisoPasaAX5 en OperadorFoundOfertas).

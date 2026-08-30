@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
         tipo: "descuento",
         esPorcentaje: cupon.esPorcentaje,
         patenteAsignada: patente,
+        canal: cupon.canal,
         email,
       };
       // El append va en SQL y no reescribiendo la lista completa: dos patentes
