@@ -1,5 +1,5 @@
 import type { Cliente, ClientePatch, Ingreso, PlanStatus } from "@/types";
-import { ahoraEnSantiago, sumarMesesFecha } from "./fechas";
+import { ahoraEnSantiago, diaEnSantiago, sumarMesesFecha } from "./fechas";
 import { normPlate } from "./validadores";
 
 export const DIAS_AVISO_VENCIMIENTO = 7;
@@ -219,20 +219,37 @@ export function vencimientoAnclado(fechaContratacion: string | null | undefined)
 }
 
 /**
+ * Día en que arranca un ciclo de plan de este cliente, para anclar los ciclos
+ * mensuales (ver periodoPlan). Es `fechaContratacion`; cuando no la hay —hay
+ * clientes con plan vigente sin ella, de la carga histórica— se deduce del
+ * `vencimiento`, que NO es el borde del ciclo sino el último día vigente: el
+ * ciclo siguiente arranca al día siguiente (ver finCicloPlan). null = el
+ * cliente no tiene ningún ancla, o sea no tiene plan.
+ *
+ * Ojo con reusar esto para calcular vencimientos: `vencimientoAnclado` espera
+ * la fecha de contratación cruda (le resta el día por dentro), así que
+ * pasarle este ancla adelantaría el vencimiento un día.
+ */
+export function anclaCicloPlan(cliente: Pick<Cliente, "fechaContratacion" | "vencimiento">): Date | null {
+  if (cliente.fechaContratacion) return diaEnSantiago(cliente.fechaContratacion);
+  if (!cliente.vencimiento) return null;
+  const dia = diaEnSantiago(cliente.vencimiento);
+  if (dia) dia.setDate(dia.getDate() + 1);
+  return dia;
+}
+
+/**
  * Período de plan vigente hoy, anclado en ciclos mensuales (mismo ciclo que
  * vencimientoAnclado). P. ej. contratado el 12 de junio, el período vigente
  * el 5 de julio es [12 jun, 12 jul): vence el 11. `fin` es exclusivo — es el
  * inicio del ciclo siguiente, no el vencimiento.
  *
- * El ancla es `fechaContratacion`, y si no la hay, `vencimiento`: los dos
- * caen en el mismo borde de ciclo (el vencimiento se calcula avanzando meses
- * desde la contratación, ver vencimientoAnclado), así que el período sale
- * igual con cualquiera de los dos. El fallback importa porque hay clientes
- * con plan vigente y `fechaContratacion` en null (carga histórica): sin él
- * caían en la ventana móvil de abajo, que cuenta el último mes corrido en
- * vez del ciclo del plan — al cliente con plan X5 le sumaba pasadas de su
- * período anterior y el Operador le negaba el ingreso incluido con "ya usó
- * las 5" (ver pasesRestantes / estadoIngreso en useOperadorFoundResult).
+ * El ancla sale de anclaCicloPlan, que cubre al cliente con plan vigente y
+ * sin `fechaContratacion`: sin eso caía en la ventana móvil de abajo, que
+ * cuenta el último mes corrido en vez del ciclo del plan — al cliente con
+ * plan X5 le sumaba pasadas de su período anterior y el Operador le negaba el
+ * ingreso incluido con "ya usó las 5" (ver pasesRestantes / estadoIngreso en
+ * useOperadorFoundResult).
  *
  * Sin plan (ningún ancla) se usa una ventana del último mes.
  */
@@ -242,10 +259,8 @@ export function periodoPlan(
 ): { inicio: Date; fin: Date } {
   const hoy = new Date(ahora);
   hoy.setHours(0, 0, 0, 0);
-  const ancla = cliente.fechaContratacion || cliente.vencimiento;
-  const base = ancla ? new Date(ancla) : null;
-  if (!base || isNaN(base.getTime())) return { inicio: sumarMesesFecha(hoy, -1), fin: hoy };
-  base.setHours(0, 0, 0, 0);
+  const base = anclaCicloPlan(cliente);
+  if (!base) return { inicio: sumarMesesFecha(hoy, -1), fin: hoy };
   let ciclos = 0;
   while (sumarMesesFecha(base, ciclos + 1) <= hoy) ciclos++;
   // El ancla puede quedar en el futuro —`vencimiento` siempre lo está

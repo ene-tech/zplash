@@ -494,29 +494,49 @@ describe("vencimientoAnclado", () => {
 });
 
 describe("periodoPlan", () => {
+  // Las fechas esperadas se construyen locales (`new Date(2026, 5, 12)`) y no
+  // con `new Date(iso).toDateString()`: el ancla del ciclo es el día de
+  // calendario CHILENO de la fecha guardada (ver anclaCicloPlan/diaEnSantiago),
+  // así que una expectativa que se corre con la TZ del runner deja de calzar.
   it("contratado el 12 de junio, el período vigente el 5 de julio es 12 jun - 11 jul", () => {
     const ahora = new Date("2026-07-05T12:00:00Z");
-    const { inicio, fin } = periodoPlan({ fechaContratacion: "2026-06-12T00:00:00Z", vencimiento: null }, ahora);
-    expect(inicio.toDateString()).toBe(new Date("2026-06-12T00:00:00Z").toDateString());
+    const { inicio, fin } = periodoPlan({ fechaContratacion: "2026-06-12T15:00:00Z", vencimiento: null }, ahora);
+    expect(inicio.toDateString()).toBe(new Date(2026, 5, 12).toDateString());
     // `fin` es exclusivo: el último día vigente es el anterior (11 de julio).
-    expect(fin.toDateString()).toBe(new Date("2026-07-12T00:00:00Z").toDateString());
+    expect(fin.toDateString()).toBe(new Date(2026, 6, 12).toDateString());
   });
 
   it("el día en que arranca el ciclo siguiente ya pertenece al período siguiente", () => {
     const ahora = new Date("2026-07-12T12:00:00Z");
-    const { inicio } = periodoPlan({ fechaContratacion: "2026-06-12T00:00:00Z", vencimiento: null }, ahora);
-    expect(inicio.toDateString()).toBe(new Date("2026-07-12T00:00:00Z").toDateString());
+    const { inicio } = periodoPlan({ fechaContratacion: "2026-06-12T15:00:00Z", vencimiento: null }, ahora);
+    expect(inicio.toDateString()).toBe(new Date(2026, 6, 12).toDateString());
   });
 
   // Sin fechaContratacion (carga histórica) pero con plan vigente, el ciclo
   // se ancla al vencimiento: si no, la ventana móvil del último mes le
   // contaba pasadas del período anterior y el Operador le negaba el ingreso
   // incluido al cliente con plan (ver pasesRestantes).
-  it("sin fecha de contratación, se ancla al vencimiento", () => {
-    const ahora = new Date("2026-08-30T12:00:00Z");
-    const { inicio, fin } = periodoPlan({ fechaContratacion: null, vencimiento: "2026-09-22T18:00:00Z" }, ahora);
-    expect(inicio.toDateString()).toBe(new Date("2026-08-22T12:00:00Z").toDateString());
-    expect(fin.toDateString()).toBe(new Date("2026-09-22T12:00:00Z").toDateString());
+  //
+  // El ancla es el vencimiento MÁS UN DÍA: el vencimiento es el último día
+  // vigente, no el borde del ciclo (ver finCicloPlan). Por eso la prueba es
+  // de equivalencia contra el mismo cliente con fechaContratacion — un
+  // desfase de un día acá le regala una pasada extra el día del vencimiento.
+  it("sin fecha de contratación, se ancla al vencimiento y da el mismo ciclo", () => {
+    const conContratacion = { fechaContratacion: "2026-06-12T15:00:00Z", vencimiento: "2026-07-11T15:00:00Z" };
+    const sinContratacion = { fechaContratacion: null, vencimiento: "2026-07-11T15:00:00Z" };
+    for (const dia of ["2026-06-12", "2026-07-05", "2026-07-11"]) {
+      const ahora = new Date(`${dia}T15:00:00Z`);
+      const esperado = periodoPlan(conContratacion, ahora);
+      const obtenido = periodoPlan(sinContratacion, ahora);
+      expect([obtenido.inicio.toDateString(), obtenido.fin.toDateString()]).toEqual([
+        esperado.inicio.toDateString(),
+        esperado.fin.toDateString(),
+      ]);
+    }
+    // El día del vencimiento el plan sigue vigente: el ciclo todavía no rota.
+    expect(periodoPlan(sinContratacion, new Date("2026-07-11T15:00:00Z")).fin.toDateString()).toBe(
+      new Date(2026, 6, 12).toDateString()
+    );
   });
 
   it("sin fecha de contratación ni vencimiento, usa una ventana del último mes", () => {
@@ -1999,13 +2019,13 @@ describe("pasesRestantes", () => {
   // del ancla al vencimiento daban 0 pases y el Operador solo ofrecía
   // "comprar lavado adicional" en vez de "Registrar ingreso".
   it("sin fechaContratacion cuenta el ciclo anclado al vencimiento, no el último mes corrido", () => {
-    const hoy = new Date("2026-08-30T12:00:00Z");
-    const sinContratacion = { id: "c1", plan: PLAN_X5, fechaContratacion: null, vencimiento: "2026-09-29T14:37:00Z" };
+    const hoy = new Date("2026-08-30T15:00:00Z");
+    const sinContratacion = { id: "c1", plan: PLAN_X5, fechaContratacion: null, vencimiento: "2026-09-29T15:00:00Z" };
     const previas = ["2026-07-25", "2026-07-30", "2026-08-07", "2026-08-14", "2026-08-21"].map((f) =>
-      ingreso("c1", `${f}T19:00:00Z`)
+      ingreso("c1", `${f}T15:00:00Z`)
     );
     expect(pasesRestantes(previas, sinContratacion, hoy)).toBe(5);
-    expect(pasesRestantes([...previas, ingreso("c1", "2026-08-30T10:00:00Z")], sinContratacion, hoy)).toBe(4);
+    expect(pasesRestantes([...previas, ingreso("c1", "2026-08-30T15:00:00Z")], sinContratacion, hoy)).toBe(4);
   });
 
   it("el plan viejo y el cliente sin plan no tienen tope que contar", () => {

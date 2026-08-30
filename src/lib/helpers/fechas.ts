@@ -119,6 +119,18 @@ export function diaCaja(iso: string): string {
   return ymd(fechaEnSantiago(new Date(iso)));
 }
 
+/** Día de calendario chileno de una fecha ISO, como Date a medianoche local
+ * del proceso — la versión "Date" de diaCaja, para comparar/avanzar días sin
+ * arrastrar la hora guardada ni la zona del server. `clientes.vencimiento` y
+ * `fecha_contratacion` son timestamptz con hora: en Vercel (UTC) una fecha
+ * guardada a las 21:00 de Chile cae al día siguiente, y el ciclo de plan que
+ * se calcula a partir de ella se corre un día entre el server y el navegador
+ * del operador (ver anclaCicloPlan). null si la fecha no es válida. */
+export function diaEnSantiago(iso: string): Date | null {
+  if (isNaN(new Date(iso).getTime())) return null;
+  return new Date(`${diaCaja(iso)}T00:00:00`);
+}
+
 /** Primer día del mes actual, en formato YYYY-MM-DD. */
 export function primerDiaMesActualYMD(): string {
   const d = new Date();

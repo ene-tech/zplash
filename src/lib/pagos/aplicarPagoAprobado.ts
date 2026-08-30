@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, lt } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, ingresos, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
@@ -7,6 +7,7 @@ import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
 import { consumirCupon } from "./cuponPlan";
 import {
   PLANES,
+  diaEnSantiago,
   ilimitadoHastaAlRenovar,
   periodoPlan,
   movimientoContableDesdeVenta,
@@ -22,16 +23,27 @@ import { evaluarReglasPorCambioPatente, evaluarReglasPorVenta } from "@/lib/what
 import type { Cliente, Venta } from "@/types";
 
 
-/** Pasadas del cliente en su ciclo de plan vigente, contadas en la base (acá
- * no hay un AppData cargado como en el módulo Operador). Solo se usa en el
- * webhook de WooCommerce, para no tocarle el plan al cliente que no pasó ni
- * una vez (ver planResultante en /api/webhooks/woocommerce). */
+/** Pasadas del cliente en el ciclo de plan que se está renovando, contadas en
+ * la base (acá no hay un AppData cargado como en el módulo Operador). Solo se
+ * usa en el webhook de WooCommerce, para no tocarle el plan al cliente que no
+ * pasó ni una vez (ver planResultante en /api/webhooks/woocommerce).
+ *
+ * El período que interesa es el que CONTIENE el vencimiento viejo, no el que
+ * corre hoy: el webhook llega justo cuando el ciclo acaba de rotar (o días
+ * después, si el cobro se atrasó), así que contar desde hoy da siempre 0 y
+ * todo cliente parecería no haber venido nunca. */
 export async function visitasPeriodoActual(db: DbOrTx, cliente: { id: string; fechaContratacion: string | null; vencimiento: string | null }): Promise<number> {
-  const { inicio } = periodoPlan(cliente, new Date());
+  const { inicio, fin } = periodoPlan(cliente, (cliente.vencimiento && diaEnSantiago(cliente.vencimiento)) || new Date());
   const filas = await db
     .select({ id: ingresos.id })
     .from(ingresos)
-    .where(and(eq(ingresos.clienteId, cliente.id), gte(ingresos.fecha, inicio.toISOString())));
+    .where(
+      and(
+        eq(ingresos.clienteId, cliente.id),
+        gte(ingresos.fecha, inicio.toISOString()),
+        lt(ingresos.fecha, fin.toISOString())
+      )
+    );
   return filas.length;
 }
 
