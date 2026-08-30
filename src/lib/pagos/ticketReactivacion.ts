@@ -15,12 +15,20 @@ export const LOTE_TICKET_REACTIVACION = "Promo Reactivación Web";
 /** 30 días corridos desde el registro de la tarjeta. */
 export const DIAS_TICKET_REACTIVACION = 30;
 
+/** Campaña de reactivación ago-2026: el ticket vence el 30-sep para todos, no
+ * a los 30 días de cada pago — es la fecha que promete el correo que se les
+ * mandó, y así los que reactiven el último día no arrastran un lavado gratis
+ * hasta noviembre. Pasada esa fecha vuelve solo a DIAS_TICKET_REACTIVACION,
+ * para no quedar emitiendo tickets ya vencidos si nadie se acuerda de sacar
+ * esto. */
+export const FIN_PROMO_TICKET = new Date("2026-09-30T23:59:59-03:00");
+
 function htmlTicket(nombre: string, codigo: string, caducidad: string): string {
   return envolverHtmlBase(`
-    <p style="margin:0 0 20px;">Hola ${nombre}, gracias por reactivar tu plan con pago automático. Te regalamos un <strong>lavado full túnel gratis</strong>.</p>
+    <p style="margin:0 0 20px;">Hola ${nombre}, gracias por reactivar tu plan. Te regalamos un <strong>lavado full túnel gratis</strong>.</p>
     <p style="margin:0 0 8px;">Tu ticket es:</p>
     <p style="margin:0 0 20px; font-size:32px; font-weight:bold; letter-spacing:8px; color:#262320;">${codigo}</p>
-    <p style="margin:0 0 20px;">Lo puedes usar en <strong>cualquier vehículo</strong>: solo muéstralo en el local antes del <strong>${caducidad}</strong>.</p>
+    <p style="margin:0 0 20px;">Lo puedes usar en <strong>cualquier vehículo</strong> —el tuyo, o regálaselo a un amigo—: basta con mostrarlo en el local antes del <strong>${caducidad}</strong>.</p>
     <p style="margin:0;">También lo tienes siempre a mano en &quot;Mis tickets y cupones&quot;, dentro de Mi Cuenta.</p>
   `);
 }
@@ -88,7 +96,9 @@ export async function otorgarTicketReactivacion(opts: {
   const codigo = generarCodigoCupon(new Set(existentes.map((r) => r.codigo)));
 
   const ahora = new Date();
-  const fechaCaducidad = new Date(ahora.getTime() + DIAS_TICKET_REACTIVACION * 86400000).toISOString();
+  const fechaCaducidad = (
+    ahora < FIN_PROMO_TICKET ? FIN_PROMO_TICKET : new Date(ahora.getTime() + DIAS_TICKET_REACTIVACION * 86400000)
+  ).toISOString();
   await db.insert(cupones).values({
     id: uid(),
     codigo,

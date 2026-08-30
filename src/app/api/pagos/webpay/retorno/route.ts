@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { pagosWebpay, pagosWebpayItems, servicios } from "@/db/schema";
+import { clientes, pagosWebpay, pagosWebpayItems, servicios } from "@/db/schema";
 import { getConfig } from "@/lib/dataAccess/config";
-import { aplicarPagoAprobado, aplicarPagoPackEmpresa, aplicarUpgradePlan } from "@/lib/pagos";
+import { sigueVigenteHoy } from "@/lib/helpers";
+import { aplicarPagoAprobado, aplicarPagoPackEmpresa, aplicarUpgradePlan, otorgarTicketReactivacion } from "@/lib/pagos";
 import { webpayTransaction } from "@/lib/transbank";
 
 // Label de `ventas.tipo` para las 2 promociones de Mi Cuenta que se aplican
@@ -106,6 +107,11 @@ async function procesarRetorno(
     tipo: "ok" | "rechazado" | "ya-procesado" | "no-encontrado" | "monto-no-coincide";
     estadoPrevio?: string;
     volverCuenta?: boolean;
+    // Promo de reactivación: se decide DENTRO de la transacción (hay que mirar
+    // el vencimiento antes de que aplicarPagoAprobado lo extienda) pero se
+    // emite FUERA, porque otorgarTicketReactivacion abre su propia conexión y
+    // manda un correo — mismo criterio que los dos caminos Oneclick.
+    ticketPara?: { patente: string; email: string | null } | null;
   };
   try {
     resultado = await db.transaction(async (tx) => {
@@ -214,6 +220,7 @@ async function procesarRetorno(
         return { tipo: "ok" as const };
       }
 
+      let ticketPara: { patente: string; email: string | null } | null = null;
       // Carrito (1 o más ítems): cada uno genera su propia venta, en su
       // propio savepoint — si uno falla no se abortan los demás (Transbank
       // ya cobró el monto total de todas formas, así que no cobrarlo de
@@ -283,6 +290,27 @@ async function procesarRetorno(
 
         const esServicioAdicional = item.tipo === "servicio" || item.tipo === "lavado_unico" || item.tipo === "aspirado";
         const tipoVenta = esServicioAdicional ? `${item.nombre} (Web)` : TIPO_VENTA_PROMO_CUENTA[item.tipo];
+        // Pagar el plan vencido por la pasarela (OfertaPlan.pagoVencido, el
+        // único ítem de plan que todavía pasa por Webpay) deja el mismo lavado
+        // full túnel gratis que reactivarlo contra una tarjeta inscrita — ver
+        // /api/cliente/mi-cuenta/cobrar-oferta: es el mismo hecho, y sin esto
+        // la promo dependía de por cuál puerta entró el cliente.
+        //
+        // El vencimiento hay que MIRARLO antes de aplicar el pago (que es lo
+        // que lo extiende), pero el ticket recién se confirma si el ítem se
+        // aplicó de verdad: si el savepoint de abajo se cae, el plan no quedó
+        // extendido y mandarle "gracias por reactivar tu plan" con un lavado
+        // gratis quemaría la promo —que es una sola por cliente— por un plan
+        // que no existe.
+        let ticketDeEsteItem: { patente: string; email: string | null } | null = null;
+        if (!esServicioAdicional && !ticketPara) {
+          const [antes] = await tx
+            .select({ vencimiento: clientes.vencimiento, email: clientes.email })
+            .from(clientes)
+            .where(eq(clientes.patente, pago.patente))
+            .limit(1);
+          if (antes && !sigueVigenteHoy(antes.vencimiento)) ticketDeEsteItem = { patente: pago.patente, email: antes.email };
+        }
         try {
           await tx.transaction(async (tx2) => {
             await aplicarPagoAprobado(
@@ -306,6 +334,7 @@ async function procesarRetorno(
               tx2
             );
           });
+          if (ticketDeEsteItem) ticketPara = ticketDeEsteItem;
         } catch (errorAplicar) {
           console.error(
             "Pago Webpay aprobado por Transbank pero un ítem del carrito no se pudo aplicar en la base — requiere revisión manual",
@@ -328,11 +357,24 @@ async function procesarRetorno(
         })
         .where(eq(pagosWebpay.buyOrder, buyOrder));
 
-      return { tipo: "ok" as const, volverCuenta };
+      return { tipo: "ok" as const, volverCuenta, ticketPara };
     });
   } catch (error) {
     console.error("Error procesando el callback de pago Webpay", buyOrder, error);
     return redirectResultado(origin, "error", buyOrder);
+  }
+
+  // El cargo ya está hecho y el plan ya quedó aplicado: que no salga el
+  // ticket no puede tumbar nada, se registra y se sigue (mismo criterio que
+  // /api/pagos/oneclick/inscripcion/retorno). otorgarTicketReactivacion es
+  // una sola vez por cliente, así que no puede duplicar el del otro camino.
+  if (resultado.tipo === "ok" && resultado.ticketPara) {
+    const { patente, email } = resultado.ticketPara;
+    try {
+      await otorgarTicketReactivacion({ patente, email, creadoPor: "Promo reactivación (Webpay)" });
+    } catch (error) {
+      console.error("No se pudo emitir el ticket de la promo de reactivación", patente, error);
+    }
   }
 
   if (resultado.tipo === "no-encontrado") {

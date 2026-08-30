@@ -269,6 +269,12 @@ export function VehiculoCard({
           <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
             Sigue siendo tu mismo plan, con los días de atraso ya corridos: no arranca un ciclo nuevo desde hoy.
           </div>
+          {/* Lo emite /api/pagos/webpay/retorno al aplicar este pago. */}
+          {ticketReactivacion && (
+            <div className="hint" style={{ color: "var(--green)", fontSize: 13, marginBottom: 12 }}>
+              Incluye 1 lavado full túnel gratis, para usar en cualquier patente o regalárselo a quien quieras.
+            </div>
+          )}
           <button className="btn secondary" onClick={pagarPlanVencido} disabled={pagando !== null}>
             {pagando === "renovacion" ? "Procesando..." : `Pagar mi plan (${fmtCLP(oferta.pagoVencido.precio)})`}
           </button>

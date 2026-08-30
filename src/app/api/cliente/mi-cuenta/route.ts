@@ -127,11 +127,11 @@ export async function GET() {
   const ventasPorCliente = ventasClienteRows.map(ventaFromRow);
   const ingresosPorCliente = ingresosClienteRows.map(ingresoFromRow);
   const ofertas: Record<string, OfertaPlan> = {};
-  // Por patente con oferta de reactivación: todavía le queda el lavado full
-  // túnel gratis de la promo (una sola vez por cliente, ver
-  // otorgarTicketReactivacion). Lo emite el cobro contra la tarjeta guardada
-  // (/api/cliente/mi-cuenta/cobrar-oferta), así que VehiculoCard solo lo
-  // anuncia cuando además hay tarjeta activa.
+  // Por patente con oferta de plan vencido (reactivación o pagoVencido, que
+  // son excluyentes): todavía le queda el lavado full túnel gratis de la promo
+  // (una sola vez por cliente, ver otorgarTicketReactivacion). Lo emite el
+  // cobro contra la tarjeta guardada (/api/cliente/mi-cuenta/cobrar-oferta) y
+  // también el pago del plan vencido por Webpay (/api/pagos/webpay/retorno).
   const ticketsReactivacion: Record<string, boolean> = {};
   // Pasadas usadas en el ciclo vigente, solo para planes con tope (X5 —
   // pasesIncluidos devuelve null para el ilimitado viejo y para sin plan, y
@@ -155,10 +155,10 @@ export async function GET() {
       preciosMap
     );
     if (Object.keys(oferta).length) ofertas[c.patente] = ofertaConCupon(oferta, cuponesPorPatente.get(c.patente));
-    // Solo se pregunta por el ticket de la promo si hay reactivación que
-    // ofrecer: es la única tarjeta que lo anuncia, y es una consulta más por
-    // patente (ver yaTieneTicketReactivacion).
-    if (oferta.reactivacion) {
+    // Solo se pregunta por el ticket de la promo si hay algo que ofrecerle al
+    // vencido: son las únicas dos tarjetas que lo anuncian, y es una consulta
+    // más por patente (ver yaTieneTicketReactivacion).
+    if (oferta.reactivacion || oferta.pagoVencido) {
       ticketsReactivacion[c.patente] = !(await yaTieneTicketReactivacion(c.patente, (c.email || sesion.email).trim().toLowerCase()));
     }
   }
