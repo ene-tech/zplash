@@ -136,7 +136,7 @@ export function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaW
         </div>
         <textarea
           ref={mensajeRef}
-          rows={4}
+          rows={12}
           value={mensaje}
           onChange={(e) => setMensaje(e.target.value)}
           placeholder="Mensaje de WhatsApp"
@@ -194,7 +194,7 @@ export function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaW
 
         <div className="field" style={{ margin: "0 0 10px" }}>
           <label>Cuerpo del mensaje (variables numeradas)</label>
-          <textarea readOnly rows={4} value={cuerpoMeta} style={{ marginBottom: 6 }} />
+          <textarea readOnly rows={10} value={cuerpoMeta} style={{ marginBottom: 6 }} />
           <BotonCopiar texto={cuerpoMeta} />
         </div>
 
