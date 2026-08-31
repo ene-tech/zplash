@@ -1871,6 +1871,29 @@ describe("calcularOfertasPlan", () => {
     expect(promoPrimerCobroOneclick(calcularOfertasPlan(sinPlan, [{ ...venta, canjeadaEn: undefined }], [], config, precios))).toBeUndefined();
   });
 
+  it("el adicional del upgrade supera lo que cuesta contratar por web -> no se ofrece por WEB, sí por LOCAL", () => {
+    // Lavado único muy barato (promoción/cupón): faltan $20.000 para completar
+    // los $21.990 del plan, más que los $19.990 de contratarlo derecho con
+    // renovación automática (precioPlanOneclick, no configurado acá = default).
+    // Anunciarlo como "Promoción" en Mi Cuenta o en /pagar sería cobrarle de
+    // más al cliente por el camino que le vendemos como el barato.
+    const sinPlan = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
+    const venta: Venta = {
+      id: "v1",
+      clienteId: "c1",
+      patente: "AB1234",
+      nombre: "Juan",
+      plan: "",
+      precio: 1990,
+      tipo: "Lavado único",
+      fecha: horasDesdeAhora(2),
+    };
+    expect(calcularOfertasPlan(sinPlan, [venta], [], config, precios).upgrade).toBeUndefined();
+    // En el local la alternativa es contratar a $21.990, así que los $20.000
+    // sí son la opción barata y el Operador la sigue viendo.
+    expect(calcularOfertasPlan(sinPlan, [venta], [], config, precios, "LOCAL").upgrade).toEqual({ precio: 20000 });
+  });
+
   it("plan vigente sin precio configurado -> no ofrece renovación anticipada (pNormal = 0)", () => {
     const cliente = { id: "c1", plan: "Plan Fantasma", vencimiento: diasDesdeHoy(20), visitas: 0 };
     const oferta = calcularOfertasPlan(cliente, [], [], config, precios);

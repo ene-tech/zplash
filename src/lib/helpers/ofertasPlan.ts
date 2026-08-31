@@ -5,6 +5,7 @@ import { diasVencido, planStatus } from "./clientes";
 import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
 import {
   precioConHeredado,
+  precioPlanOneclick,
   precioRenovacionATiempo,
   precioPagoAtrasado,
   precioRenovacionLocal,
@@ -192,7 +193,18 @@ export function calcularOfertasPlan(
   if (st.cls === "bad") {
     const ventaUpgrade = ventaUpgradeElegible(ventasCliente, cliente.id, config.horasVentanaUpgradePlan);
     const precio = ventaUpgrade ? precioUpgradePlan(precios, ventaUpgrade, cliente) : 0;
-    if (precio > 0) {
+    // Por canal WEB el upgrade compite con contratar el plan derecho por
+    // /pagar, que es más barato que el precio de lista (precioPlanOneclick, el
+    // de la renovación automática): si el adicional no le gana a eso, no es
+    // una promoción y no se ofrece — mismo criterio que la comparación de más
+    // abajo contra reactivación/pagoVencido. Pasa cuando el lavado único salió
+    // muy barato (promoción, cupón de primera vez): el adicional que falta para
+    // completar el precio de contratación sube por encima del de contratar
+    // derecho, y Mi Cuenta lo anunciaba igual bajo el badge "Promoción". En
+    // LOCAL no aplica: ahí la alternativa es precioContratacion, contra el que
+    // el adicional siempre es menor por construcción.
+    const ganaAContratarPorWeb = canal !== "WEB" || precio < precioConHeredado(precioPlanOneclick(precios), cliente);
+    if (precio > 0 && ganaAContratarPorWeb) {
       oferta.upgrade = { precio };
     }
   }

@@ -16,6 +16,7 @@ import {
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
+import { preciosFromRows } from "@/lib/dataAccess/precios";
 import { buscarCuponDescuentoPlan, yaTieneTicketReactivacion } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
@@ -43,19 +44,22 @@ export async function GET(request: NextRequest) {
     if (!cliente) {
       return NextResponse.json({ encontrado: false });
     }
-    const [{ diasGraciaPagoAtrasado }, filasPrecios, cupon] = await Promise.all([
+    const [config, filasPrecios, cupon] = await Promise.all([
       getConfig(),
       db.select().from(precios),
       buscarCuponDescuentoPlan(patente, db),
     ]);
-    const preciosMap = Object.fromEntries(filasPrecios.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
+    // preciosFromRows y no un Object.fromEntries a mano: es el mismo armado
+    // que usa calcularOfertasPlanDeCliente, al que ahora se le pasa este mapa
+    // para que no vuelva a leer `precios` (ver más abajo).
+    const preciosMap = preciosFromRows(filasPrecios);
     // Cupón de descuento de la patente: se resta acá porque /api/pagos/webpay/
     // crear también lo resta al cobrar — si esta pantalla siguiera anunciando
     // el precio sin descuento, volvería a pasar justo lo que el comentario de
     // abajo trata de evitar, un monto distinto del que termina cobrando Webpay.
     // Solo se manda el monto rebajado, nunca el código: este endpoint es
     // público y se consulta con cualquier patente.
-    const precioBase = precioRenovacionCliente(preciosMap, cliente.plan || PLANES[0], cliente, diasGraciaPagoAtrasado);
+    const precioBase = precioRenovacionCliente(preciosMap, cliente.plan || PLANES[0], cliente, config.diasGraciaPagoAtrasado);
     const precioFinal = precioConCupon(precioBase, cupon);
 
     // Las dos cosas que cambian la oferta de renovación automática de /pagar:
@@ -76,7 +80,7 @@ export async function GET(request: NextRequest) {
     const vencido = diasVencido(cliente) !== null;
     const sinPlanVigente = planStatus(cliente).cls === "bad";
     const [oferta, yaUsoTicket] = await Promise.all([
-      sinPlanVigente ? calcularOfertasPlanDeCliente(cliente) : undefined,
+      sinPlanVigente ? calcularOfertasPlanDeCliente(cliente, { config, precios: preciosMap }) : undefined,
       vencido ? yaTieneTicketReactivacion(patente, (cliente.email || "").trim().toLowerCase()) : true,
     ]);
     // La promoción que va a cobrar la inscripción de tarjeta, resuelta con el
