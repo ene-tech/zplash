@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow, ventaFromRow } from "@/lib/dataAccess";
-import { PLANES, movimientoContableDesdeVenta, vencimientoPorDefectoISO, ventaUpgradeElegible } from "@/lib/helpers";
+import { PLANES, esVentaLavadoUnicoUpgradable, movimientoContableDesdeVenta, vencimientoPorDefectoISO, ventaUpgradeElegible } from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import { consumirCupon } from "./cuponPlan";
@@ -57,7 +57,7 @@ export async function aplicarUpgradePlan(p: AplicarUpgradeParams, db: DbOrTx = g
   const ventaUpgrade =
     ventaUpgradeElegible(ventasCliente, cliente.id, p.horasVentanaUpgrade) ??
     ventasCliente
-      .filter((v) => v.tipo === "Lavado único")
+      .filter(esVentaLavadoUnicoUpgradable)
       .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
   const fechaAnclaje = ventaUpgrade ? new Date(ventaUpgrade.fecha) : new Date();
 

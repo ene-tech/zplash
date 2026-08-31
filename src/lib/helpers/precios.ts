@@ -176,6 +176,17 @@ export function precioUpgradePlan(precios: Precios, ventaUpgrade: Venta, cliente
 }
 
 /**
+ * ¿Esta venta es el "Lavado único" del que puede nacer un upgrade? Extraído
+ * del filtro de ventaUpgradeElegible para que aplicarUpgradePlan use el mismo
+ * criterio al reconstruir la venta que ancla el vencimiento — ahí antes se
+ * miraba solo `tipo === "Lavado único"` y un lavado comprado por /pagar
+ * quedaba fuera del fallback.
+ */
+export function esVentaLavadoUnicoUpgradable(venta: Pick<Venta, "tipo" | "canjeadaEn">): boolean {
+  return venta.tipo === LAVADO_UNICO_KEY || (venta.tipo === LAVADO_UNICO_WEB_TIPO && !!venta.canjeadaEn);
+}
+
+/**
  * Venta de "Lavado único" del cliente elegible para convertirse en
  * contratación del Plan X5 vía la promoción de upgrade: la más
  * reciente, y solo si ocurrió hace menos de `horasVentana` (ver
@@ -197,11 +208,7 @@ export function ventaUpgradeElegible(
   ahora: Date = new Date()
 ): Venta | undefined {
   const ultima = ventas
-    .filter(
-      (v) =>
-        v.clienteId === clienteId &&
-        (v.tipo === LAVADO_UNICO_KEY || (v.tipo === LAVADO_UNICO_WEB_TIPO && !!v.canjeadaEn))
-    )
+    .filter((v) => v.clienteId === clienteId && esVentaLavadoUnicoUpgradable(v))
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
   if (!ultima) return undefined;
   const msDesde = ahora.getTime() - new Date(ultima.fecha).getTime();

@@ -70,18 +70,22 @@ export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | 
 }
 
 /**
- * La promoción que cobra el PRIMER cobro al inscribir la tarjeta con el plan
- * vencido (ver /api/pagos/oneclick/inscripcion/retorno) y que /pagar anuncia
+ * La promoción que cobra el PRIMER cobro al inscribir la tarjeta sin plan
+ * vigente (ver /api/pagos/oneclick/inscripcion/retorno) y que /pagar anuncia
  * antes de mandar al cliente a Transbank (ver /api/pagos/estado): las dos
  * salen de acá o la pantalla promete un precio y Transbank cobra otro.
  * `undefined` = sin promoción, paga el precio de siempre de la renovación
  * automática (cobrarSuscripcion).
  *
  * `reactivacion` y `upgrade` nunca vienen juntas —calcularOfertasPlan deja
- * solo la más barata— y las dos son de un plan ya vencido. La renovación
- * anticipada NO entra acá a propósito: con el plan vigente el primer cobro de
- * la inscripción es el de la renovación automática de siempre, que es
- * justamente lo que /pagar anuncia.
+ * solo la más barata— y las dos son de un cliente SIN plan vigente:
+ * `reactivacion` siempre de uno vencido, `upgrade` también del que nunca
+ * contrató y viene de pagar un lavado único (ver calcularOfertasPlan, que las
+ * dos las arma con `st.cls === "bad"`). Los dos llamadores tienen que abrirse
+ * con esa misma condición, no con `diasVencido`. La renovación anticipada NO
+ * entra acá a propósito: con el plan vigente el primer cobro de la inscripción
+ * es el de la renovación automática de siempre, que es justamente lo que
+ * /pagar anuncia.
  */
 export function promoPrimerCobroOneclick(oferta: OfertaPlan): { tipo: "reactivacion" | "upgrade_plan"; monto: number } | undefined {
   if (oferta.reactivacion) return { tipo: "reactivacion", monto: oferta.reactivacion.precio };

@@ -58,17 +58,27 @@ export async function GET(request: NextRequest) {
     const precioBase = precioRenovacionCliente(preciosMap, cliente.plan || PLANES[0], cliente, diasGraciaPagoAtrasado);
     const precioFinal = precioConCupon(precioBase, cupon);
 
-    // Plan vencido: las dos cosas que cambian la oferta de renovación
-    // automática de /pagar — la promoción de reactivación que le calza (lo
-    // que le va a cobrar la inscripción de tarjeta, ver
-    // /api/pagos/oneclick/inscripcion/retorno) y si todavía le queda el
-    // ticket de lavado gratis que regala inscribirla estando vencido. Solo
-    // para vencidos: calcular la oferta cuesta cuatro consultas más y este
-    // endpoint es público, un cliente al día no las necesita.
+    // Las dos cosas que cambian la oferta de renovación automática de /pagar:
+    // la promoción que le calza (lo que le va a cobrar la inscripción de
+    // tarjeta, ver /api/pagos/oneclick/inscripcion/retorno) y si todavía le
+    // queda el ticket de lavado gratis que regala inscribirla estando vencido.
+    //
+    // La oferta se calcula para todo cliente SIN PLAN VIGENTE, no solo para el
+    // vencido: el upgrade desde un "Lavado único" reciente también le toca al
+    // que nunca contrató plan (ver calcularOfertasPlan, que lo arma con
+    // `st.cls === "bad"`), y ese cliente tiene `vencimiento` null — con
+    // diasVencido() quedaba fuera y esta pantalla le anunciaba el precio de
+    // lista mientras el retorno de la inscripción le cobraba el adicional del
+    // upgrade. El ticket de lavado gratis sí sigue siendo solo del vencido: es
+    // la promo de reactivación, no la del upgrade. Al cliente con plan vigente
+    // no se le calcula nada — cuesta cuatro consultas más y este endpoint es
+    // público.
     const vencido = diasVencido(cliente) !== null;
-    const [oferta, yaUsoTicket] = vencido
-      ? await Promise.all([calcularOfertasPlanDeCliente(cliente), yaTieneTicketReactivacion(patente, (cliente.email || "").trim().toLowerCase())])
-      : [undefined, true];
+    const sinPlanVigente = planStatus(cliente).cls === "bad";
+    const [oferta, yaUsoTicket] = await Promise.all([
+      sinPlanVigente ? calcularOfertasPlanDeCliente(cliente) : undefined,
+      vencido ? yaTieneTicketReactivacion(patente, (cliente.email || "").trim().toLowerCase()) : true,
+    ]);
     // La promoción que va a cobrar la inscripción de tarjeta, resuelta con el
     // mismo helper que usa el cobro (ver promoPrimerCobroOneclick).
     const promoAuto = oferta ? promoPrimerCobroOneclick(oferta) : undefined;

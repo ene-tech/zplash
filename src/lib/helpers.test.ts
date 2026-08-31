@@ -59,6 +59,7 @@ import {
   ordenarPerfiles,
   patchDeCliente,
   planStatus,
+  promoPrimerCobroOneclick,
   precioContratacion,
   precioPagoAtrasado,
   precioRenovacionCliente,
@@ -1820,6 +1821,54 @@ describe("calcularOfertasPlan", () => {
     const oferta = calcularOfertasPlan(viejo, [lavado(9990)], [], config, precios);
     expect(oferta.upgrade).toEqual({ precio: 12000 });
     expect(oferta.pagoVencido).toBeUndefined();
+  });
+
+  it("cliente de lavado único que NUNCA tuvo plan -> promoPrimerCobroOneclick le da el upgrade", () => {
+    // El invariante del que dependen /api/pagos/estado y
+    // /api/pagos/oneclick/inscripcion/retorno para abrirse por
+    // `planStatus(...).cls === "bad"` y no por `diasVencido(...) !== null`:
+    // sin plan `vencimiento` es null, así que diasVencido devuelve null y ese
+    // cliente quedaba fuera del primer cobro promocional — inscribía la
+    // tarjeta desde "Upgrade a plan" en Mi Cuenta y Transbank le cobraba el
+    // plan completo en vez del adicional.
+    const sinPlan = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
+    const venta: Venta = {
+      id: "v1",
+      clienteId: "c1",
+      patente: "AB1234",
+      nombre: "Juan",
+      plan: "",
+      precio: 9990,
+      tipo: "Lavado único",
+      fecha: horasDesdeAhora(2),
+    };
+    expect(diasVencido(sinPlan)).toBeNull();
+    expect(planStatus(sinPlan).cls).toBe("bad");
+    expect(promoPrimerCobroOneclick(calcularOfertasPlan(sinPlan, [venta], [], config, precios))).toEqual({
+      tipo: "upgrade_plan",
+      monto: 12000,
+    });
+  });
+
+  it("un 'Lavado único (Web)' canjeado también habilita el primer cobro promocional", () => {
+    const sinPlan = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
+    const venta: Venta = {
+      id: "v1",
+      clienteId: "c1",
+      patente: "AB1234",
+      nombre: "Juan",
+      plan: "",
+      precio: 9990,
+      tipo: "Lavado único (Web)",
+      fecha: horasDesdeAhora(2),
+      canjeadaEn: horasDesdeAhora(1),
+    };
+    expect(promoPrimerCobroOneclick(calcularOfertasPlan(sinPlan, [venta], [], config, precios))).toEqual({
+      tipo: "upgrade_plan",
+      monto: 12000,
+    });
+    // Sin canjear sigue siendo un vale pendiente: no hay upgrade que cobrar.
+    expect(promoPrimerCobroOneclick(calcularOfertasPlan(sinPlan, [{ ...venta, canjeadaEn: undefined }], [], config, precios))).toBeUndefined();
   });
 
   it("plan vigente sin precio configurado -> no ofrece renovación anticipada (pNormal = 0)", () => {
