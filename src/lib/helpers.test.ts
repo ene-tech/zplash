@@ -6,6 +6,8 @@ import {
   buscarProveedorPorRut,
   calcularOfertasPlan,
   PLAN_X5,
+  PLAN_ONECLICK_KEY,
+  LAVADO_UNICO_WEB_KEY,
   PLAN_ILIMITADO_LEGACY,
   pasesIncluidos,
   pasesRestantes,
@@ -59,10 +61,14 @@ import {
   ordenarPerfiles,
   patchDeCliente,
   planStatus,
+  planVendible,
   precioContratacion,
   precioPagoAtrasado,
+  precioRenovacionATiempo,
   precioRenovacionCliente,
+  precioRenovacionLocal,
   precioReactivacionVencido,
+  tramoRenovacionVigente,
   proximoIngresoPermitido,
   puedeBorrarCategoriaInventario,
   puedeBorrarIngreso,
@@ -691,6 +697,61 @@ describe("precioContratacion", () => {
   });
 });
 
+describe("planVendible — el ilimitado legacy cotiza al precio del X5", () => {
+  // El ilimitado viejo no se vende ni se renueva: contratar, renovar y
+  // reactivar dejan al cliente en el X5 (ver renovarPlan / contratarPlan), así
+  // que el precio que se le muestra y se le cobra tiene que ser el del X5. Las
+  // filas legacy de `precios` quedaron congeladas ($29.990) y Configuración no
+  // las muestra, así que resolver contra ellas cobraba de más por un X5.
+  const precios = {
+    [PLAN_X5]: { normal: 24990, promo: 21990 },
+    [keyPrimeraContratacion(PLAN_X5)]: { normal: 19990, promo: 0 },
+    [PLAN_ILIMITADO_LEGACY]: { normal: 29990, promo: 21990 },
+  };
+  const vencido = { vencimiento: "2026-01-01T00:00:00Z" };
+
+  it("mapea el legacy (y el plan vacío) al plan que se vende hoy", () => {
+    expect(planVendible(PLAN_ILIMITADO_LEGACY)).toBe(PLAN_X5);
+    expect(planVendible("")).toBe(PLAN_X5);
+    expect(planVendible(null)).toBe(PLAN_X5);
+    expect(planVendible(PLAN_X5)).toBe(PLAN_X5);
+  });
+
+  it("contratar/pagar atrasado con plan legacy cobra el X5, no los $29.990 congelados", () => {
+    expect(precioContratacion(precios, PLAN_ILIMITADO_LEGACY, vencido)).toBe(24990);
+    expect(precioPagoAtrasado(precios, PLAN_ILIMITADO_LEGACY, vencido, 4)).toBe(24990);
+    expect(precioRenovacionCliente(precios, PLAN_ILIMITADO_LEGACY, vencido, 4)).toBe(24990);
+    // Y el que nunca tuvo plan sigue entrando por la 1ra contratación del X5.
+    expect(precioContratacion(precios, PLAN_ILIMITADO_LEGACY)).toBe(19990);
+  });
+
+  it("renovar a tiempo con plan legacy usa el preferencial del X5", () => {
+    expect(precioRenovacionATiempo(precios, PLAN_ILIMITADO_LEGACY, {})).toBe(21990);
+  });
+
+  it("los tramos de renovación anticipada del X5 le aplican al legacy", () => {
+    const config = {
+      ...CONFIG_DEFAULT,
+      tramosRenovacionLocal: {
+        [PLAN_X5]: [{ id: "t1", visitasMin: 0, visitasMax: 2, precio: 16990, canal: "AMBOS" as const }],
+      },
+    };
+    expect(precioRenovacionLocal(config, precios, PLAN_ILIMITADO_LEGACY, 1, "LOCAL")).toBe(16990);
+    expect(tramoRenovacionVigente(config, PLAN_ILIMITADO_LEGACY, 1, "LOCAL")).toBe(true);
+  });
+
+  it("sin tramos y con el preferencial en $0 cae al normal, no a renovación gratis", () => {
+    // Configuración guarda `Number(promoVals[p]) || 0` (ver PlanesSection), así
+    // que un preferencial sin cargar llega acá como 0. Devolverlo hacía pPromo
+    // = 0 en el mesón, y pedirPago(0) omite el modal de pago: el plan salía
+    // regalado.
+    const sinPromo = { ...precios, [PLAN_X5]: { normal: 24990, promo: 0 } };
+    const config = { ...CONFIG_DEFAULT, tramosRenovacionLocal: {} };
+    expect(precioRenovacionLocal(config, sinPromo, PLAN_ILIMITADO_LEGACY, 1, "LOCAL")).toBe(24990);
+    expect(precioRenovacionLocal(config, sinPromo, PLAN_X5, 1, "LOCAL")).toBe(24990);
+  });
+});
+
 describe("precioRenovacionCliente", () => {
   // Mismo helper que usan /api/pagos/estado (lo que ve el cliente en /pagar) y
   // /api/pagos/webpay/crear (lo que cobra Webpay): estos casos son el contrato
@@ -1134,6 +1195,15 @@ describe("ofertaConCupon", () => {
     expect(o.reactivacion?.precio).toBe(16000);
     expect(o.upgrade?.precio).toBe(10000);
     expect(o.pagoVencido?.precio).toBe(19990);
+  });
+
+  it("de la contratación solo rebaja el primer cobro: el mensual y el lavado suelto no llevan cupón", () => {
+    // El cupón es de un uso y se quema en ese primer cobro (ver
+    // cobrarSuscripcion), y /api/pagos/webpay/crear no lo resta de un lavado
+    // suelto — si acá se restara de los tres, la tarjeta anunciaría dos
+    // precios que nadie va a cobrar.
+    const o = ofertaConCupon({ contratacion: { primerCobro: 20990, mensual: 20990, lavadoUnico: 9990 } }, { valor: 4000, esPorcentaje: false });
+    expect(o.contratacion).toEqual({ primerCobro: 16990, mensual: 20990, lavadoUnico: 9990 });
   });
 
   it("sin cupón devuelve la misma oferta", () => {
@@ -1731,6 +1801,43 @@ describe("calcularOfertasPlan", () => {
     };
     const oferta = calcularOfertasPlan(cliente, [venta], [], config, precios);
     expect(oferta.upgrade).toEqual({ precio: 12000 });
+  });
+
+  it('cliente "Sin plan" -> ofrece contratar al precio de la renovación automática, más el lavado suelto', () => {
+    const preciosWeb: Precios = {
+      ...precios,
+      [PLAN_ONECLICK_KEY]: { normal: 20990, promo: 0 },
+      [LAVADO_UNICO_WEB_KEY]: { normal: 9990, promo: 0 },
+    };
+    // Sin vencimiento no hay renovación, reactivación ni pagoVencido que
+    // ofrecerle: sin `contratacion` su tarjeta en Mi Cuenta queda sin un solo
+    // botón de compra.
+    const oferta = calcularOfertasPlan({ id: "c1", plan: "", vencimiento: null }, [], [], config, preciosWeb);
+    expect(oferta.contratacion).toEqual({ primerCobro: 20990, mensual: 20990, lavadoUnico: 9990 });
+    expect(oferta.renovacionAnticipada).toBeUndefined();
+    expect(oferta.reactivacion).toBeUndefined();
+    expect(oferta.pagoVencido).toBeUndefined();
+    // Con plan —vigente o vencido— no aplica: ese ya tiene su propia tarjeta.
+    const vigente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
+    expect(calcularOfertasPlan(vigente, [], [], config, preciosWeb).contratacion).toBeUndefined();
+    const vencido = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-60), visitas: 0 };
+    expect(calcularOfertasPlan(vencido, [], [], config, preciosWeb).contratacion).toBeUndefined();
+  });
+
+  it("sin plan pero con upgrade vigente -> no se le anuncian dos puertas al mismo plan", () => {
+    const venta: Venta = {
+      id: "v1",
+      clienteId: "c1",
+      patente: "AB1234",
+      nombre: "Juan",
+      plan: "",
+      precio: 9990,
+      tipo: "Lavado único",
+      fecha: horasDesdeAhora(2),
+    };
+    const oferta = calcularOfertasPlan({ id: "c1", plan: "", vencimiento: null }, [venta], [], config, precios);
+    expect(oferta.upgrade).toBeDefined();
+    expect(oferta.contratacion).toBeUndefined();
   });
 
   it("el Lavado único se pagó con descuento -> el upgrade cobra la diferencia real, no un monto fijo", () => {

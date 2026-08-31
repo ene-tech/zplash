@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { MoreVertical } from "lucide-react";
-import { PLANES, fmtCLP, fmtFecha } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtFecha } from "@/lib/helpers";
 import type { OfertaPlan } from "@/lib/helpers";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ const NOMBRE_OFERTA: Record<TipoOfertaPlan, string> = {
   renovacion_temprana: "Renovación anticipada",
   reactivacion: "Reactivación de plan",
   upgrade_plan: "Upgrade a Plan X5",
+  contratacion: "Contratación de plan",
 };
 
 // "Tu plan vence en X días/hoy" — compartido entre el banner de oferta real y
@@ -73,13 +74,20 @@ export function VehiculoCard({
     cancelarConfirmacion,
     confirmarConTarjeta,
     pagarPlanVencido,
+    comprarLavadoUnico,
     // Sin tarjeta inscrita el plan no se puede cobrar: se manda a inscribir
     // una y ese retorno hace el primer cobro con el precio de la promoción
     // (ver promoPrimerCobroOneclick).
   } = useOfertaPlan(v.patente, tarjeta ?? null, onActualizado, () => registrarTarjeta(false));
 
   const montoOferta = (tipo: TipoOfertaPlan): number | undefined =>
-    tipo === "renovacion_temprana" ? oferta?.renovacionAnticipada?.pPromo : tipo === "reactivacion" ? oferta?.reactivacion?.precio : oferta?.upgrade?.precio;
+    tipo === "renovacion_temprana"
+      ? oferta?.renovacionAnticipada?.pPromo
+      : tipo === "reactivacion"
+        ? oferta?.reactivacion?.precio
+        : tipo === "contratacion"
+          ? oferta?.contratacion?.primerCobro
+          : oferta?.upgrade?.precio;
 
   const ra = oferta?.renovacionAnticipada;
   // Sin tramo promocional (ahorro <= 0, o sea la renovación no queda más
@@ -88,6 +96,11 @@ export function VehiculoCard({
   // — sin tarjeta, se reemplaza por un recordatorio simple invitando a
   // registrar una y renovar antes del vencimiento (ver render más abajo).
   const sinOfertaReal = !!ra && ra.ahorro <= 0;
+  // El cupón de la patente ya viene restado del primer cobro (ver
+  // ofertaConCupon): solo cuando queda por debajo del mensual hay algo que
+  // tachar y que explicar.
+  const co = oferta?.contratacion;
+  const conDescuento = !!co && co.primerCobro < co.mensual;
 
   const [inscribiendo, setInscribiendo] = useState(false);
   const [errInscripcion, setErrInscripcion] = useState("");
@@ -185,7 +198,7 @@ export function VehiculoCard({
                 <h4>{ra.diasRestantes === undefined ? "Tu plan está por vencer" : fraseVenceEn(ra.diasRestantes)}</h4>
               </div>
               <div className="msg">
-                Registra una tarjeta y renueva tu {v.plan} antes del vencimiento para mantener tu precio de compra ({fmtCLP(ra.pPromo)}).
+                Registra una tarjeta y renueva tu {PLANES[0]} antes del vencimiento para mantener tu precio de compra ({fmtCLP(ra.pPromo)}).
               </div>
               {errInscripcion && <div className="err">{errInscripcion}</div>}
               <div className="offer-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -200,7 +213,7 @@ export function VehiculoCard({
                 <span className="badge">Oferta</span>
                 <h4>{ra.diasRestantes === undefined ? "Renovación anticipada disponible" : fraseVenceEn(ra.diasRestantes)}</h4>
               </div>
-              <div className="msg">Renueva tu {v.plan} ahora mismo a precio preferencial.</div>
+              <div className="msg">Renueva tu {PLANES[0]} ahora mismo a precio preferencial.</div>
               <div className="price-row">
                 <span className="old">{fmtCLP(ra.pNormal)}</span>
                 <span className="new">{fmtCLP(ra.pPromo)}</span>
@@ -297,6 +310,48 @@ export function VehiculoCard({
               : inscribiendo
                 ? "Redirigiendo..."
                 : `Upgrade a plan (+${fmtCLP(oferta.upgrade.precio)})`}
+          </button>
+        </div>
+      )}
+      {/* Cliente "Sin plan": nunca contrató, así que ninguna de las tarjetas de
+          arriba le aplica (ver OfertaPlan.contratacion). Es la única puerta de
+          compra que tiene en Mi Cuenta — sin ella su tarjeta mostraba el cupón
+          de descuento y nada más. El plan se contrata inscribiendo la tarjeta,
+          igual que en /pagar: es la única forma de pagarlo por web. */}
+      {oferta?.contratacion && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Sin plan</span>
+            <h4>Contrata tu {PLANES[0]}</h4>
+          </div>
+          <div className="msg">Son {PASES_INCLUIDOS_X5} pasadas por el túnel al mes, sin filas y sin tocar el auto.</div>
+          <div className="price-row">
+            {conDescuento && <span className="old">{fmtCLP(oferta.contratacion.mensual)}</span>}
+            <span className="new">{fmtCLP(oferta.contratacion.primerCobro)}</span>
+          </div>
+          {conDescuento && (
+            <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+              Tu descuento se aplica en este primer mes. Desde el siguiente, {fmtCLP(oferta.contratacion.mensual)}/mes.
+            </div>
+          )}
+          {avisoInscripcion}
+          {errInscripcion && <div className="err">{errInscripcion}</div>}
+          {/* pedir(), no registrarTarjeta() directo: con tarjeta guardada
+              cobra contra ella (confirmación + /cobrar-oferta) y solo manda a
+              inscribir cuando no hay ninguna, vía onSinTarjeta — igual que las
+              otras ofertas de esta tarjeta. Llamar a registrarTarjeta siempre
+              le dejaba la tarjeta activa en "pendiente" al cliente que
+              abandonaba Transbank. */}
+          <button className="btn secondary" onClick={() => pedir("contratacion")} disabled={ocupado}>
+            {inscribiendo ? "Redirigiendo..." : `Contratar plan (${fmtCLP(oferta.contratacion.primerCobro)})`}
+          </button>
+          {/* Alternativa sin compromiso, por Webpay y sin el cupón (que es del
+              plan, ver ofertaConCupon): pagar un lavado suelto para esta misma
+              patente sin tener que ir a /pagar a tipearla de nuevo. */}
+          <button className="btn ghost" onClick={comprarLavadoUnico} disabled={ocupado}>
+            {pagando === "lavado_unico"
+              ? "Redirigiendo..."
+              : `Solo un lavado full túnel (${fmtCLP(oferta.contratacion.lavadoUnico)})`}
           </button>
         </div>
       )}

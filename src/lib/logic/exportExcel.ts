@@ -1,5 +1,5 @@
 import type { AppData, Cliente } from "@/types";
-import { esTarjetaWeb, fmtTelefono, normPlate, PLANES, planStatus, precioNormal } from "@/lib/helpers";
+import { esTarjetaWeb, fmtTelefono, normPlate, planStatus, planVendible, precioNormal } from "@/lib/helpers";
 
 function inRangeLocal(iso: string | null | undefined, desde: string, hasta: string): boolean {
   if (!iso) return false;
@@ -118,7 +118,7 @@ export function montoAFacturar(c: Cliente, montoVentas: number, precios: AppData
   if (montoVentas > 0) return montoVentas;
   const st = planStatus(c);
   if (st.label !== "Vigente" && st.label !== "Por vencer") return 0;
-  return precioNormal(precios, c.plan || PLANES[0]);
+  return precioNormal(precios, planVendible(c.plan));
 }
 
 export function descargarFacturables(data: AppData, listaClientes: Cliente[], desde: string, hasta: string) {

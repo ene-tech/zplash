@@ -3,7 +3,8 @@ import { isValidPatente, normPlate } from "@/lib/helpers";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
-import { cobrarOfertaOneclick, otorgarTicketReactivacion, type TipoOfertaCuenta } from "@/lib/pagos";
+import { obtenerSuscripcionOneclickCobrablePorPatente } from "@/lib/dataAccess/oneclick";
+import { cobrarOfertaOneclick, cobrarSuscripcion, otorgarTicketReactivacion, type TipoOfertaCuenta } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -11,7 +12,10 @@ export const runtime = "nodejs";
 const LIMITE_REQUESTS = 10;
 const VENTANA_MS = 5 * 60 * 1000;
 
-const TIPOS_VALIDOS = new Set<TipoOfertaCuenta>(["renovacion_temprana", "reactivacion", "upgrade_plan"]);
+// "contratacion" no va contra cobrarOfertaOneclick sino contra
+// cobrarSuscripcion (ver más abajo), así que no es un TipoOfertaCuenta.
+type TipoCobrable = TipoOfertaCuenta | "contratacion";
+const TIPOS_VALIDOS = new Set<TipoCobrable>(["renovacion_temprana", "reactivacion", "upgrade_plan", "contratacion"]);
 
 // Cobra una de las 3 promociones de Mi Cuenta (ver @/lib/helpers/ofertasPlan)
 // directo contra la tarjeta que esa patente ya tiene inscrita en Oneclick —
@@ -40,10 +44,10 @@ export async function POST(request: NextRequest) {
     if (!isValidPatente(patente)) {
       return NextResponse.json({ error: "Patente inválida" }, { status: 400 });
     }
-    if (!TIPOS_VALIDOS.has(body.tipo as TipoOfertaCuenta)) {
+    if (!TIPOS_VALIDOS.has(body.tipo as TipoCobrable)) {
       return NextResponse.json({ error: "Tipo de promoción inválido" }, { status: 400 });
     }
-    const tipo = body.tipo as TipoOfertaCuenta;
+    const tipoPedido = body.tipo as TipoCobrable;
 
     const cliente = await buscarClientePorPatente(patente);
     if (!cliente || !sesion.clienteIds.includes(cliente.id)) {
@@ -53,6 +57,39 @@ export async function POST(request: NextRequest) {
     // Igual que /api/pagos/webpay/crear: el monto se recalcula acá con datos
     // frescos, nunca se confía en la oferta que el cliente vio en pantalla.
     const oferta = await calcularOfertasPlanDeCliente(cliente);
+
+    // Contratar el plan contra la tarjeta que el cliente YA tiene guardada.
+    // Va por cobrarSuscripcion —la misma función que llama el retorno de
+    // inscripción cuando el cliente contrata inscribiendo una tarjeta nueva—
+    // para que las dos puertas escriban filas idénticas: mismo tipo de venta,
+    // mismo advisory lock anti-doble-cobro, y el monto recalculado adentro
+    // (precioPlanOneclick con el precio heredado y el cupón de la patente,
+    // que es exactamente lo que muestra la tarjeta en Mi Cuenta), así que no
+    // hace falta pasárselo desde acá.
+    //
+    // Antes este botón mandaba a re-inscribir SIEMPRE, aunque la patente ya
+    // tuviera una tarjeta activa; /api/pagos/oneclick/inscribir le baja el
+    // estado a "pendiente" antes de redirigir a Transbank, así que el cliente
+    // que abandonaba esa página quedaba con la tarjeta invisible en Mi Cuenta
+    // (solo lista "activa"/"suspendida") y sin cobro automático posible.
+    if (tipoPedido === "contratacion") {
+      if (!oferta.contratacion) {
+        return NextResponse.json({ error: "Esta promoción ya no está disponible, actualiza la página." }, { status: 400 });
+      }
+      const suscripcion = await obtenerSuscripcionOneclickCobrablePorPatente(patente);
+      if (!suscripcion) {
+        return NextResponse.json({ error: "Esta patente no tiene una tarjeta registrada activa" }, { status: 400 });
+      }
+      try {
+        const { estado } = await cobrarSuscripcion(suscripcion);
+        return NextResponse.json({ ok: true, estado });
+      } catch (error) {
+        const mensaje = error instanceof Error ? error.message : "No se pudo cobrar la tarjeta";
+        return NextResponse.json({ error: mensaje }, { status: 400 });
+      }
+    }
+    const tipo = tipoPedido;
+
     const monto =
       tipo === "renovacion_temprana" ? oferta.renovacionAnticipada?.pPromo : tipo === "reactivacion" ? oferta.reactivacion?.precio : oferta.upgrade?.precio;
     if (monto === undefined) {

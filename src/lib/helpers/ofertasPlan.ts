@@ -5,6 +5,8 @@ import { diasVencido, planStatus } from "./clientes";
 import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
 import {
   precioConHeredado,
+  precioLavadoUnicoWeb,
+  precioPlanOneclick,
   precioRenovacionATiempo,
   precioPagoAtrasado,
   precioRenovacionLocal,
@@ -41,6 +43,21 @@ export interface OfertaPlan {
   // vencimiento a fechaContratacion (ver vencimientoAnclado), así que el
   // cliente recupera SU plan con los días de atraso ya perdidos.
   pagoVencido?: { precio: number; diasVencido: number };
+  // Cliente de la categoría "Sin plan" (`vencimiento` nulo, ver planStatus):
+  // nunca contrató, así que no le calza ninguna de las de arriba —todas nacen
+  // de un plan vigente o vencido— y su tarjeta en Mi Cuenta quedaba sin un
+  // solo botón para comprar, incluso mostrándole el cupón de descuento de su
+  // patente "ya aplicado en los precios de abajo" con nada abajo.
+  //
+  // No es una promoción: es el precio de siempre de entrar al plan por web.
+  // `primerCobro` es lo que cobra la inscripción de tarjeta (ver
+  // cobrarSuscripcion: precioPlanOneclick con el cupón de la patente restado,
+  // el mismo número que anuncia /pagar) y `mensual` lo que cobra el cron
+  // desde el mes siguiente, cuando el cupón ya se quemó. `lavadoUnico` es la
+  // alternativa sin compromiso de la misma tarjeta — va acá, y no por una vía
+  // de datos aparte, porque es la otra mitad de esa única decisión que se le
+  // ofrece a quien todavía no es cliente de plan.
+  contratacion?: { primerCobro: number; mensual: number; lavadoUnico: number };
 }
 
 /**
@@ -66,6 +83,11 @@ export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | 
   if (o.reactivacion) o.reactivacion = { ...o.reactivacion, precio: precioConCupon(o.reactivacion.precio, cupon) };
   if (o.upgrade) o.upgrade = { ...o.upgrade, precio: precioConCupon(o.upgrade.precio, cupon) };
   if (o.pagoVencido) o.pagoVencido = { ...o.pagoVencido, precio: precioConCupon(o.pagoVencido.precio, cupon) };
+  // Solo el primer cobro: el cupón es de un uso y se quema ahí (ver
+  // cobrarSuscripcion), así que `mensual` sigue siendo el precio de lista.
+  // `lavadoUnico` tampoco se toca — /api/pagos/webpay/crear resta el cupón
+  // únicamente del ítem de plan (TIPOS_PLAN), nunca de un lavado suelto.
+  if (o.contratacion) o.contratacion = { ...o.contratacion, primerCobro: precioConCupon(o.contratacion.primerCobro, cupon) };
   return o;
 }
 
@@ -206,6 +228,19 @@ export function calcularOfertasPlan(
     } else {
       delete oferta.upgrade;
     }
+  }
+
+  // Nunca tuvo plan: se le ofrece contratarlo (o un lavado suelto). Va después
+  // del upgrade y excluido de él a propósito — quien acaba de pagar un lavado
+  // único entra al mismo plan pagando solo el adicional, y anunciarle las dos
+  // puertas con precios distintos se lee como error (mismo criterio que la
+  // dedupe de reactivacion/upgrade de arriba).
+  if (!cliente.vencimiento && !oferta.upgrade) {
+    // El precio de la renovación automática, que es la única forma de contratar
+    // el plan por web (ver ResultadoBusqueda en /pagar): el cupón de la patente
+    // lo resta después ofertaConCupon, igual que en el resto de las ofertas.
+    const mensual = precioConHeredado(precioPlanOneclick(precios), cliente);
+    if (mensual > 0) oferta.contratacion = { primerCobro: mensual, mensual, lavadoUnico: precioLavadoUnicoWeb(precios) };
   }
 
   return oferta;

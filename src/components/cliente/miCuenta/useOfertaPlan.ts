@@ -3,14 +3,18 @@
 import { useState } from "react";
 import { redirigirAWebpay } from "@/lib/webpayClient";
 
-export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "upgrade_plan";
+export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "upgrade_plan" | "contratacion";
 
 // "renovacion" no es una promoción de cuenta: es el único plan que todavía se
 // paga por Webpay (ver TIPOS_VALIDOS en /api/pagos/webpay/crear) — el plan
 // vencido que quedó fuera de todos los tramos de reactivación (ver
 // OfertaPlan.pagoVencido). Las 3 promociones se cobran contra la tarjeta
 // inscrita, nunca por Webpay.
-type TipoCobro = TipoOfertaPlan | "renovacion";
+// "lavado_unico" es la alternativa sin compromiso de la tarjeta de contratación
+// (ver OfertaPlan.contratacion): un lavado suelto se paga por Webpay como
+// cualquier ítem de /pagar, y a propósito NO lleva el cupón de descuento de la
+// patente — ese es del plan (ver TIPOS_PLAN en /api/pagos/webpay/crear).
+type TipoCobro = TipoOfertaPlan | "renovacion" | "lavado_unico";
 
 export interface TarjetaGuardada {
   cardTipo: string | null;
@@ -38,7 +42,7 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
 
   // Solo para el plan vencido sin promoción (ver TipoCobro): las 3
   // promociones no pasan por Webpay.
-  async function pagarWebpay(tipo: "renovacion") {
+  async function pagarWebpay(tipo: "renovacion" | "lavado_unico") {
     setErr("");
     setPagando(tipo);
     try {
@@ -121,5 +125,6 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
     cancelarConfirmacion,
     confirmarConTarjeta,
     pagarPlanVencido: () => pagarWebpay("renovacion"),
+    comprarLavadoUnico: () => pagarWebpay("lavado_unico"),
   };
 }

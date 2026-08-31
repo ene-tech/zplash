@@ -54,6 +54,20 @@ export async function obtenerSuscripcionOneclickPorId(id: string) {
   return suscripcion || null;
 }
 
+/** La misma fila cruda pero buscada por patente, para contratar el plan desde
+ * Mi Cuenta contra la tarjeta que el cliente ya tiene guardada (ver
+ * /api/cliente/mi-cuenta/cobrar-oferta). Devuelve null si no hay una tarjeta
+ * cobrable: sin fila, no activa, o sin tbkUser. */
+export async function obtenerSuscripcionOneclickCobrablePorPatente(patente: string) {
+  const [suscripcion] = await getDb()
+    .select()
+    .from(suscripcionesOneclick)
+    .where(eq(suscripcionesOneclick.patente, patente))
+    .limit(1);
+  if (!suscripcion || suscripcion.estado !== "activa" || !suscripcion.tbkUser) return null;
+  return suscripcion;
+}
+
 const ESTADO_ORDEN: Record<string, number> = { activa: 0, suspendida: 1, pendiente: 2, cancelada: 3 };
 
 /** Todas las suscripciones Oneclick para la pestaña Admin → Suscripciones,

@@ -13,6 +13,27 @@ export const PLAN_ILIMITADO_LEGACY = "Plan Ilimitado Mensual";
 
 export const PLANES = [PLAN_X5];
 
+/**
+ * Plan contra el que hay que resolver un PRECIO. El ilimitado viejo ya no se
+ * vende ni se renueva: toda renovación, reactivación y contratación escribe
+ * PLAN_X5 (ver renovarPlan en @/lib/logic/ingresos y contratarPlan en
+ * @/components/operador/usePlanActions), así que lo que se cotiza y se cobra
+ * es el X5 aunque el cliente tenga guardado el plan viejo.
+ *
+ * Sin esto los precios salían de las filas legacy de la tabla `precios`, que
+ * Configuración ni siquiera muestra —PlanesSection solo edita `PLANES`— y que
+ * quedaron congeladas: "Plan Ilimitado Mensual".normal seguía en $29.990
+ * cuando el X5 ya vale $24.990, y el mesón cobraba los $29.990 por venderle
+ * un X5.
+ *
+ * OJO: es solo para precios. Lo que el cliente YA compró se sigue decidiendo
+ * con su plan guardado —pasesIncluidos, planVigente, ilimitadoHastaAlRenovar
+ * no pasan por acá— para no quitarle el mes sin tope que pagó.
+ */
+export function planVendible(plan: string | null | undefined): string {
+  return !plan || plan === PLAN_ILIMITADO_LEGACY ? PLANES[0] : plan;
+}
+
 /** Pasadas por túnel incluidas en el ciclo mensual del plan vigente (las
  * cuenta visitasPeriodoPlan en ./ingresos). */
 export const PASES_INCLUIDOS_X5 = 5;
@@ -366,7 +387,7 @@ export function precioRenovacionCliente(
   // contratar (ver precioContratacion).
   return cliente.vencimiento
     ? precioRenovacionATiempo(precios, plan, cliente)
-    : precioConHeredado(precioNormal(precios, plan), cliente);
+    : precioConHeredado(precioNormal(precios, planVendible(plan)), cliente);
 }
 
 /**
@@ -388,7 +409,7 @@ export function precioPagoAtrasado(
   cliente: Pick<Cliente, "vencimiento" | "precioPlanHeredado">,
   diasGracia: number
 ): number {
-  if (!enPlazoDePagoPlan(cliente, diasGracia)) return precioNormal(precios, plan);
+  if (!enPlazoDePagoPlan(cliente, diasGracia)) return precioNormal(precios, planVendible(plan));
   return precioRenovacionATiempo(precios, plan, cliente);
 }
 
@@ -411,7 +432,8 @@ export function precioRenovacionATiempo(
   plan: string,
   cliente: Pick<Cliente, "precioPlanHeredado">
 ): number {
-  return precioConHeredado(precioPreferencial(precios, plan) || precioNormal(precios, plan), cliente);
+  const p = planVendible(plan);
+  return precioConHeredado(precioPreferencial(precios, p) || precioNormal(precios, p), cliente);
 }
 
 export function precioPreferencial(precios: Precios, plan: string): number {
@@ -437,8 +459,9 @@ export const keyPrimeraContratacion = (plan: string) => `${plan} (1ra contrataci
  * escribe `precioPlanHeredado` (ver precioConHeredado).
  */
 export function precioContratacion(precios: Precios, plan: string, cliente?: Pick<Cliente, "vencimiento"> | null): number {
-  const primera = precios[keyPrimeraContratacion(plan)]?.normal || 0;
-  return !cliente?.vencimiento && primera > 0 ? primera : precioNormal(precios, plan);
+  const p = planVendible(plan);
+  const primera = precios[keyPrimeraContratacion(p)]?.normal || 0;
+  return !cliente?.vencimiento && primera > 0 ? primera : precioNormal(precios, p);
 }
 
 /**
@@ -465,7 +488,13 @@ export function precioContratacion(precios: Precios, plan: string, cliente?: Pic
  * configurado, que es el comportamiento previo a que existiera la escala.
  */
 function tramosRenovacionLocalPorCanal(config: ConfigGlobal, plan: string, canal: CanalPromo) {
-  return (config.tramosRenovacionLocal[plan] || [])
+  // Mismo fallback que precioReactivacionVencido: un plan sin escala propia
+  // usa la del plan que se vende hoy. El cliente del ilimitado legacy renueva
+  // hacia el X5 (ver planVendible), así que le corresponde la escala del
+  // producto que está comprando — antes su `plan` no matcheaba ninguna clave
+  // de tramosRenovacionLocal (guardados bajo "Plan X5") y se quedaba sin
+  // ninguna promoción por tramos, ni en el mesón ni en la web.
+  return (config.tramosRenovacionLocal[plan] || config.tramosRenovacionLocal[planVendible(plan)] || [])
     .filter((t) => canalTramo(t) === "AMBOS" || canalTramo(t) === canal)
     .sort((a, b) => a.visitasMin - b.visitasMin || Number(canalTramo(a) === "AMBOS") - Number(canalTramo(b) === "AMBOS"));
 }
@@ -478,7 +507,14 @@ export function precioRenovacionLocal(
   canal: CanalPromo
 ): number | undefined {
   const tramos = tramosRenovacionLocalPorCanal(config, plan, canal);
-  if (!tramos.length) return precioPreferencial(precios, plan);
+  // Mismo respaldo que precioRenovacionATiempo: si el preferencial quedó sin
+  // cargar cae al normal. Un promo guardado en $0 es "todavía no lo
+  // configuré", no "renovación gratis" — Configuración guarda
+  // `Number(promoVals[p]) || 0` (ver PlanesSection), y devolver ese 0 hacía
+  // que el mesón entrara por la rama de promoción con pPromo = 0, donde
+  // pedirPago(0) omite el modal de pago y regalaba el plan.
+  const p = planVendible(plan);
+  if (!tramos.length) return precioPreferencial(precios, p) || precioNormal(precios, p);
   const match = tramos.find((t) => visitasPeriodo >= t.visitasMin && (t.visitasMax === null || visitasPeriodo <= t.visitasMax));
   return match?.precio;
 }
@@ -536,7 +572,7 @@ export function precioReactivacionVencido(
   visitas: number,
   canal: CanalPromo
 ): number | undefined {
-  const tramos = [...(config.tramosReactivacionVencido[plan] || config.tramosReactivacionVencido[PLAN_X5] || [])].sort(
+  const tramos = [...(config.tramosReactivacionVencido[plan] || config.tramosReactivacionVencido[planVendible(plan)] || [])].sort(
     (a, b) =>
       a.diasVencidoMin - b.diasVencidoMin ||
       a.visitasMin - b.visitasMin ||

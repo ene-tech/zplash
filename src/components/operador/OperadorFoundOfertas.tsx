@@ -9,11 +9,21 @@ import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 // ofrecerse y cualquier pago lo deja en el X5 (ver renovarPlan en
 // @/lib/logic), así que el cliente no puede enterarse del tope después de
 // haber pagado. Se muestra solo si el plan guardado no es el que se vende hoy.
-function AvisoPasaAX5({ plan, precioAdicional }: { plan: string | null | undefined; precioAdicional: number }) {
+function AvisoPasaAX5({
+  plan,
+  precioAdicional,
+  // Las tarjetas "solo online" no cobran acá, así que ahí el aviso es para que
+  // se lo mencione, no una instrucción de qué decir antes de pasar la tarjeta.
+  lead = "Cuéntale antes de cobrarle:",
+}: {
+  plan: string | null | undefined;
+  precioAdicional: number;
+  lead?: string;
+}) {
   if (!plan || plan === PLANES[0]) return null;
   return (
     <div style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-      <b>Cuéntale antes de cobrarle:</b> su {plan} deja de ofrecerse y al pagar queda en el {PLANES[0]} —{" "}
+      <b>{lead}</b> su {plan} deja de ofrecerse y al pagar queda en el {PLANES[0]} —{" "}
       {PASES_INCLUIDOS_X5} lavados Full Túnel en el mes (uno cada 24 horas, con aspirado incluido después de cada uno)
       y, si necesita más, el lavado adicional a {fmtCLP(precioAdicional)}. Renovando antes de que se le venza mantiene
       su precio.
@@ -157,11 +167,17 @@ export default function OperadorFoundOfertas(props: Props) {
                 igual puedes renovarle su {c.plan} ahora al precio normal.
               </div>
               <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
+              {/* pPromo, no pNormal: `renovar` cobra pPromo (ver
+                  usePlanActions), que acá NO es igual a pNormal — trae el
+                  cupón de descuento aplicado, y si el admin dejó un tramo por
+                  encima del preferencial el ahorro sale negativo y también cae
+                  en esta rama. Pintar pNormal anunciaba un precio y cobraba
+                  otro. */}
               <div className="price-row">
-                <span className="new">{fmtCLP(props.pNormal)}</span>
+                <span className="new">{fmtCLP(props.pPromo)}</span>
               </div>
               <button className="btn secondary" onClick={props.renovar} disabled={guardando}>
-                Renovar plan ({fmtCLP(props.pNormal)})
+                Renovar plan ({fmtCLP(props.pPromo)})
               </button>
             </>
           )}
@@ -178,6 +194,7 @@ export default function OperadorFoundOfertas(props: Props) {
             <b>solo online</b> — no se puede cobrar acá. Menciónaselo: entrando a su cuenta en la web con su patente lo
             renueva al tiro a ese precio, sin perder los días que le quedan.
           </div>
+          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} lead="Cuéntale:" />
           <div className="price-row">
             <span className="old">{fmtCLP(props.pNormal)}</span>
             <span className="new">{fmtCLP(props.pPromoWeb!)}</span>
@@ -225,6 +242,7 @@ export default function OperadorFoundOfertas(props: Props) {
             por este primer mes
             {props.pNormal > 0 && <> — después su renovación vale {fmtCLP(props.pNormal)} pagándola antes del vencimiento</>}.
           </div>
+          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} lead="Cuéntale:" />
           <div className="price-row">
             <span className="new">{fmtCLP(props.precioReactivacionWeb!)}</span>
             <span className="save">solo por la web</span>
