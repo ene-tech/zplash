@@ -43,10 +43,10 @@ const PREGUNTAS_FULL_TUNNEL = [
 const FOTOS_TUNEL = [
   { src: "/tunel-bn.webp", alt: "Auto cubierto de espuma entre los cepillos del túnel de lavado" },
   { src: "/tunel/barrera-qr.jpg", alt: "Barrera de entrada con lector QR para pagar desde el celular" },
-  { src: "/tunel/prelavado.jpg", alt: "Operario enjuagando a presión un auto antes de entrar al túnel" },
-  { src: "/tunel/espuma.jpg", alt: "El mismo auto cubierto de espuma, listo para pasar al túnel" },
+  { src: "/tunel/prelavado-agua.jpg", alt: "Operario enjuagando a presión un auto antes de entrar al túnel" },
+  { src: "/tunel/espuma-volvo.jpg", alt: "El mismo auto cubierto de espuma, listo para pasar al túnel" },
   { src: "/tunel/entrada-tunel.jpg", alt: "Entrada del túnel de lavado Zplash con sus cepillos" },
-  { src: "/tunel/tunel-camioneta.jpg", alt: "Camioneta enjuagándose dentro del túnel de lavado" },
+  { src: "/tunel/camioneta-tunel.jpg", alt: "Camioneta enjuagándose dentro del túnel de lavado" },
   { src: "/tunel/aspirado.jpg", alt: "Zona de aspirado autoservicio con aspiradoras y pistolas de aire" },
 ];
 
