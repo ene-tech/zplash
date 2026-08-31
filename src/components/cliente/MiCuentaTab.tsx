@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fmtCLP, fmtDate, fmtFecha } from "@/lib/helpers";
+import { fmtCLP, fmtDate, fmtFecha, patentesQueRecibenTarjeta } from "@/lib/helpers";
 import type { OfertaPlan } from "@/lib/helpers";
 import { useSesionCliente } from "@/hooks/useSesionCliente";
 import { TicketsYCuponesSection, type CuponCuenta } from "@/components/cliente/miCuenta/TicketsYCuponesSection";
@@ -13,6 +13,7 @@ import { FilaEnVivo } from "@/components/cliente/miCuenta/FilaEnVivo";
 import { RenovacionLegacyCard } from "@/components/cliente/miCuenta/RenovacionLegacyCard";
 import { AgregarTarjeta } from "@/components/cliente/miCuenta/AgregarTarjeta";
 import { EliminarTarjeta } from "@/components/cliente/miCuenta/EliminarTarjeta";
+import { CompartirTarjeta } from "@/components/cliente/miCuenta/CompartirTarjeta";
 import { DatosFacturacionSection } from "@/components/cliente/miCuenta/DatosFacturacionSection";
 import { AvisoPoliticas } from "@/components/cliente/miCuenta/AvisoPoliticas";
 import { PromoModal } from "@/components/cliente/miCuenta/PromoModal";
@@ -208,6 +209,21 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
               <div className="plan-nombre">
                 {t.cardTipo} terminada en {t.cardUltimosDigitos}
               </div>
+              {t.estado === "activa" && (
+                <CompartirTarjeta
+                  patente={t.patente}
+                  // Misma regla que aplica el servidor al copiarla. `tarjetas`
+                  // ya viene filtrado a activa/suspendida desde la API.
+                  cuantosSinTarjeta={
+                    patentesQueRecibenTarjeta(
+                      t.patente,
+                      sesion.vehiculos.map((v) => v.patente),
+                      tarjetas.map((otra) => otra.patente)
+                    ).length
+                  }
+                  onCompartida={cargarMiCuenta}
+                />
+              )}
               <EliminarTarjeta patente={t.patente} onEliminada={cargarMiCuenta} />
             </div>
           ))}

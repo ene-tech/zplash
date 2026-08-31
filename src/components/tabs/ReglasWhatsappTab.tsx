@@ -2,20 +2,14 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, uid } from "@/lib/helpers";
+import { PLANES, TIPOS_VENTA_PLAN, uid } from "@/lib/helpers";
 import type { AccionReglaWhatsapp, ReglaWhatsapp, TipoEventoReglaWhatsapp } from "@/types";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
 
-const TIPOS_VENTA_CONOCIDOS = [
-  "Lavado único",
-  "Plan nuevo",
-  "Renovación preferencial",
-  "Renovación atrasada",
-  "Reactivación promocional",
-  "Plan nuevo (Web)",
-  "Renovación (Web)",
-  "Renovación automática (Oneclick)",
-];
+// Mismo selector que ReglasCorreoTab, misma razón: sale de TIPOS_VENTA_PLAN
+// para que un canal de cobro nuevo no quede sin poder disparar reglas.
+// "Lavado único" se agrega aparte porque no es una venta de plan.
+const TIPOS_VENTA_CONOCIDOS = ["Lavado único", ...TIPOS_VENTA_PLAN];
 
 function resumenCondicion(r: ReglaWhatsapp): string {
   if (r.tipoEvento === "venta_creada") {

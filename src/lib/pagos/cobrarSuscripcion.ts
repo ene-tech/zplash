@@ -67,7 +67,7 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
     // es el caso de los clientes que vienen migrando desde la suscripción de
     // WooCommerce a $19.990.
     const [cliente] = await tx
-      .select({ precioPlanHeredado: clientes.precioPlanHeredado })
+      .select({ id: clientes.id, precioPlanHeredado: clientes.precioPlanHeredado })
       .from(clientes)
       .where(eq(clientes.patente, suscripcion.patente))
       .limit(1);
@@ -177,7 +177,7 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
       .set({ proximoCobro: proximoCicloISO(suscripcion.proximoCobro), actualizadoEn: new Date().toISOString() })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
 
-    return { estado, buyOrder, monto };
+    return { estado, buyOrder, monto, clienteId: cliente?.id ?? null };
   });
 
   // Fuera de la transacción/lock a propósito (avisar por WhatsApp no debe
@@ -187,7 +187,12 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
   // de un `.catch()` suelto: garantiza que Vercel mantenga la función viva
   // hasta que termine el envío, en vez de arriesgarse a que se congele a
   // medio camino y el disparo quede pegado en "programado" para siempre.
-  const clienteId = suscripcion.clienteId;
+  // El cliente se resuelve por patente dentro de la transacción, no por
+  // `suscripcion.clienteId`: esa columna nunca se llena al inscribir (la
+  // tarjeta se inscribe antes de que exista necesariamente la ficha, ver
+  // listarSuscripcionesOneclick), así que mientras esto miraba clienteId el
+  // aviso de cobro rechazado no salía NUNCA — ni por WhatsApp ni por correo.
+  const clienteId = resultado.clienteId ?? suscripcion.clienteId;
   if (resultado.estado === "rechazada" && clienteId) {
     after(() =>
       evaluarReglasPorCobroFallido({

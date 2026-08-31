@@ -21,6 +21,7 @@ export * from "./inventario";
 export * from "./mail";
 export * from "./mantencion";
 export * from "./ofertasPlan";
+export * from "./oneclick";
 export * from "./perfiles";
 export * from "./precios";
 export * from "./servicios";

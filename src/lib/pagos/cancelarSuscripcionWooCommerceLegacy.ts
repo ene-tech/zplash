@@ -1,5 +1,10 @@
 import "server-only";
+import { after } from "next/server";
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { clientes } from "@/db/schema";
 import { normPlate } from "@/lib/helpers";
+import type { Cliente } from "@/types";
 
 // NO hardcodear esto: "https://zplash.cl" dejó de servir WordPress/WooCommerce
 // desde el corte de dominio del 12-ago-2026 (ver next.config.ts,
@@ -122,4 +127,49 @@ export async function cancelarSuscripcionWooCommerceLegacy(
     throw new Error(`WooCommerce API ${res.status} cancelando suscripción #${sub.id}: ${await res.text()}`);
   }
   return { cancelada: true, subscriptionId: sub.id };
+}
+
+/**
+ * Corta el cobro viejo de WooCommerce de una patente que ya no debe cobrarse
+ * por allá y limpia `renovacionAutoWooDesde`. Mientras esa marca siga puesta,
+ * WooCommerce le cobra su próximo ciclo con la tarjeta anterior — al mismo
+ * tiempo que el cron nuevo cobra con la inscrita, o después de que se le
+ * terminó el plan sin tope. Limpiarla es además lo que evita reintentar la
+ * cancelación en cada pasada siguiente.
+ *
+ * Best-effort y nunca lanza: si falla queda loggeado fuerte para revisión a
+ * mano (ver cancelarSuscripcionWooCommerceLegacy). `motivo` va al log, que es
+ * lo único que distingue los dos casos que cortan el cobro.
+ */
+export async function cortarCobroWooCommerceLegacy(
+  cliente: Pick<Cliente, "id" | "email" | "renovacionAutoWooDesde"> | null | undefined,
+  patente: string,
+  motivo: string
+): Promise<void> {
+  if (!cliente?.renovacionAutoWooDesde) return;
+  try {
+    const { cancelada, subscriptionId } = await cancelarSuscripcionWooCommerceLegacy(patente, cliente.email || "");
+    if (!cancelada) return;
+    console.log(`Suscripción WooCommerce #${subscriptionId} cancelada: ${patente} — ${motivo}`);
+    await getDb().update(clientes).set({ renovacionAutoWooDesde: null }).where(eq(clientes.id, cliente.id));
+  } catch (error) {
+    console.error(`ERROR cancelando la suscripción de WooCommerce de ${patente} (${motivo}) — revisar a mano`, error);
+  }
+}
+
+/**
+ * cortarCobroWooCommerceLegacy en segundo plano, para los caminos que le
+ * están respondiendo a alguien y no pueden esperar a WooCommerce.
+ *
+ * La llaman TODOS los caminos que dejan una patente con Oneclick propio:
+ * /api/pagos/oneclick/inscripcion/retorno (inscribió tarjeta) y
+ * /api/cliente/mi-cuenta/compartir-tarjeta ("Usar en mis otros autos", que
+ * activa el cobro sin pasar por Transbank y por eso es fácil de olvidar).
+ */
+export function migrarDeWooCommerceLegacy(
+  cliente: Pick<Cliente, "id" | "email" | "renovacionAutoWooDesde"> | null | undefined,
+  patente: string
+): void {
+  if (!cliente?.renovacionAutoWooDesde) return;
+  after(() => cortarCobroWooCommerceLegacy(cliente, patente, "migró a Oneclick propio"));
 }

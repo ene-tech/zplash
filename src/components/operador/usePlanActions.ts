@@ -2,7 +2,17 @@
 
 import { useApp } from "@/context/AppContext";
 import { registrarIngreso, renovarPlan } from "@/lib/logic";
-import { PLANES, isValidEmail, isValidTelefono, marcarDescuentoUsado, vencimientoAnclado, vencimientoPorDefectoISO } from "@/lib/helpers";
+import {
+  PLANES,
+  fmtCLP,
+  fmtHora,
+  isValidEmail,
+  isValidTelefono,
+  marcarDescuentoUsado,
+  vencimientoAnclado,
+  ventaPlanReciente,
+  cicloPlanDesde,
+} from "@/lib/helpers";
 import type { AppData, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
@@ -20,6 +30,14 @@ const faltanDatosContactoPlan = (cliente: Cliente): boolean =>
 
 const MSG_FALTAN_DATOS_CONTACTO_PLAN =
   "Para contratar un plan, el cliente debe tener teléfono y correo válidos registrados (se usan para el aviso de contratación). Complétalos en la ficha antes de continuar.";
+
+// El operador no puede borrar ventas (deleteVentas exige "permisos" o
+// "arqueo", ver @/lib/serverActions/ventas), así que el mensaje lo manda a
+// pedir la corrección en vez de sugerirle algo que no va a poder hacer.
+const msgPlanDuplicado = (venta: Venta): string =>
+  `A este cliente ya se le vendió un plan hace instantes: "${venta.tipo}" por ${fmtCLP(venta.precio)} a las ${fmtHora(venta.fecha)}` +
+  `${venta.creadoPor ? ` (${venta.creadoPor})` : ""}. No se puede vender otro: el cobro anterior ya le dejó el plan vigente, y un segundo ` +
+  `le corre el vencimiento un mes de más. Si la venta anterior quedó mal, pídele a Administración que la corrija.`;
 
 // Acciones que cambian el plan del cliente: renovación anticipada a precio
 // preferencial, pago atrasado dentro de los días de gracia, reactivación
@@ -67,7 +85,19 @@ export function usePlanActions(
   // Si el precio con descuento queda en $0, no corresponde pedir método de
   // pago (el cliente no está pagando nada) — mismo criterio que en
   // useIngresoActions.cobrarLavadoUnico y useOperadorNotFoundResult.
-  const pedirPago = (monto: number, descripcion: string, onConfirm: (pago: PagoInfo) => void) => {
+  const pedirPago = (cliente: Cliente, monto: number, descripcion: string, onConfirm: (pago: PagoInfo) => void) => {
+    // Bloqueo de plan duplicado. Va acá y no en cada acción porque las seis
+    // pasan por este mismo paso, y da lo mismo cuál se haya cobrado primero:
+    // la segunda venta de plan al mismo cliente dentro de la ventana es
+    // siempre el clic de más (ver ventaPlanReciente en @/lib/helpers). El
+    // backstop server-side está en insertVentas (@/lib/serverActions/ventas):
+    // dos operadores en máquinas distintas no comparten este `data.ventas`.
+    const reciente = ventaPlanReciente(data.ventas, cliente.id);
+    if (reciente) {
+      setGuardarErr(msgPlanDuplicado(reciente));
+      return;
+    }
+    setGuardarErr("");
     if (monto <= 0) {
       onConfirm({ metodo: undefined });
       return;
@@ -76,7 +106,7 @@ export function usePlanActions(
   };
 
   const renovar = (cliente: Cliente = c) => {
-    pedirPago(pPromo, `Renovación temprana del plan de ${cliente.nombre} a precio preferencial`, async (pago) => {
+    pedirPago(cliente, pPromo, `Renovación temprana del plan de ${cliente.nombre} a precio preferencial`, async (pago) => {
       const patch = conDescuento(renovarPlan(data, cliente, ui.perfilActual?.nombre, pPromo, pago), cliente);
       const ok = await commit(patch);
       if (!ok) {
@@ -96,7 +126,7 @@ export function usePlanActions(
   // vencimiento, que renovarPlan ancla al vencimiento original en vez de
   // arrancar un ciclo nuevo desde hoy.
   const pagarAtrasado = (cliente: Cliente = c) => {
-    pedirPago(precioAtrasado, `Pago atrasado del plan de ${cliente.nombre} (mantiene su fecha de vencimiento)`, async (pago) => {
+    pedirPago(cliente, precioAtrasado, `Pago atrasado del plan de ${cliente.nombre} (mantiene su fecha de vencimiento)`, async (pago) => {
       const patch = conDescuento(renovarPlan(data, cliente, ui.perfilActual?.nombre, precioAtrasado, pago, "Renovación atrasada", true), cliente);
       const ok = await commit(patch);
       if (!ok) {
@@ -111,7 +141,7 @@ export function usePlanActions(
 
   const reactivar = (cliente: Cliente = c) => {
     if (precioReactivacion === undefined) return;
-    pedirPago(precioReactivacion, `Reactivación promocional del plan de ${cliente.nombre} a precio preferencial`, async (pago) => {
+    pedirPago(cliente, precioReactivacion, `Reactivación promocional del plan de ${cliente.nombre} a precio preferencial`, async (pago) => {
       const patch = conDescuento(renovarPlan(data, cliente, ui.perfilActual?.nombre, precioReactivacion, pago, "Reactivación promocional"), cliente);
       const ok = await commit(patch);
       if (!ok) {
@@ -130,7 +160,7 @@ export function usePlanActions(
   // en useOperadorFoundResult—; la tarjeta tampoco se muestra en ese caso.
   const renovarWeb = (cliente: Cliente = c) => {
     if (precioAtrasado <= 0) return;
-    pedirPago(precioAtrasado, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
+    pedirPago(cliente, precioAtrasado, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
       const nuevoVencimiento = vencimientoAnclado(cliente.fechaContratacion || cliente.vencimiento);
       // Misma migración al X5 que hace renovarPlan en el mesón: renovar deja
       // al cliente en el plan que se vende hoy, traiga el que traiga.
@@ -174,8 +204,11 @@ export function usePlanActions(
     // useOperadorFoundResult): valor de 1ra contratación si nunca tuvo plan, ya
     // con el cupón de descuento restado.
     const precio = pContratacion;
-    pedirPago(precio, `Contratación de plan (${plan}) para ${cliente.nombre}`, async (pago) => {
-      const updated = { ...cliente, vencimiento: vencimientoPorDefectoISO(), plan };
+    pedirPago(cliente, precio, `Contratación de plan (${plan}) para ${cliente.nombre}`, async (pago) => {
+      // El ciclo arranca hoy, así que vencimiento y contratación se escriben
+      // juntos (ver cicloPlanDesde): sin la contratación, periodoPlan deduce mal
+      // la ventana de pases del X5.
+      const updated = { ...cliente, plan, ...cicloPlanDesde() };
       const venta: Venta = {
         id: "v" + Date.now(),
         clienteId: cliente.id,
@@ -228,8 +261,8 @@ export function usePlanActions(
     // varios días, ver ConfigGlobal.horasVentanaUpgradePlan), el cliente está
     // volviendo a pasar físicamente hoy y sí corresponde un Ingreso nuevo.
     const distintoDia = new Date(ventaUpgrade.fecha).toDateString() !== new Date().toDateString();
-    pedirPago(precioUpgrade, `Upgrade a ${plan} para ${cliente.nombre} (adicional al lavado ya pagado)`, async (pago) => {
-      const updated = { ...cliente, plan, vencimiento: vencimientoPorDefectoISO(new Date(ventaUpgrade.fecha)) };
+    pedirPago(cliente, precioUpgrade, `Upgrade a ${plan} para ${cliente.nombre} (adicional al lavado ya pagado)`, async (pago) => {
+      const updated = { ...cliente, plan, ...cicloPlanDesde(new Date(ventaUpgrade.fecha)) };
       const ventaAdicional: Venta = {
         id: "v" + Date.now(),
         clienteId: cliente.id,

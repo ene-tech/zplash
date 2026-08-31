@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import {
-  cancelarSuscripcionOneclick,
+  anularSuscripcion,
   cobrarSuscripcionManual,
   obtenerDetallePagosVentas,
   obtenerSuscripcionOneclick,
@@ -186,15 +186,19 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     });
   }
 
-  function cancelar() {
-    if (!suscripcion) return;
+  // Corta el cobro automático por los dos frentes (Oneclick + la suscripción
+  // vieja de WooCommerce) y manda el correo de respaldo — todo eso vive en
+  // anularSuscripcion, ver ahí por qué la tarjeta NO se da de baja en
+  // Transbank. No hace falta refrescar `suscripcion` después: el ConfirmModal
+  // global reemplaza esta ficha.
+  function anular() {
     patchUi({
       modal: {
         type: "confirm",
-        mensaje: `¿Cancelar la renovación automática de ${c.nombre}? Se elimina la tarjeta inscrita en Transbank y no se puede reactivar después.`,
+        mensaje: `¿Cancelar la suscripción de ${c.nombre}? Deja de cobrarse automáticamente (acá y en WooCommerce si arrastra una del sistema anterior) y se le manda un correo de respaldo. La tarjeta le queda guardada en su cuenta.`,
         confirmLabel: "Cancelar suscripción",
         danger: true,
-        onConfirm: () => cancelarSuscripcionOneclick(suscripcion.id),
+        onConfirm: () => anularSuscripcion(c.id),
       },
     });
   }
@@ -265,28 +269,37 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           </div>
         </div>
 
-        {suscripcion && (
+        {/* También se muestra sin fila Oneclick cuando el cliente arrastra una
+            suscripción de WooCommerce (ver renovacionAutoWooDesde): ahí el cobro
+            automático vive allá y es el que hay que poder cortar desde acá. */}
+        {(suscripcion || c.renovacionAutoWooDesde) && (
           <div className="grid grid-cols-2 gap-x-5 gap-y-2.5 border-t border-border pt-3.5 text-sm">
             <div>
               <div className="text-xs uppercase tracking-wide text-muted-foreground">Renovación automática</div>
               <div className="font-medium">
-                {suscripcion.estado === "activa"
-                  ? "Activa"
-                  : suscripcion.estado === "suspendida"
-                    ? "Suspendida"
-                    : suscripcion.estado === "cancelada"
-                      ? "Cancelada"
-                      : "Pendiente"}
-                {suscripcion.cardUltimosDigitos ? ` (tarjeta ${suscripcion.cardUltimosDigitos})` : ""}
+                {!suscripcion
+                  ? "WooCommerce (sistema anterior)"
+                  : suscripcion.estado === "activa"
+                    ? "Activa"
+                    : suscripcion.estado === "suspendida"
+                      ? // Mismo texto venga de "Suspender" o de "Cancelar suscripción": las dos
+                        // dejan la fila igual (el cron solo cobra "activa") y la tarjeta inscrita,
+                        // así que decir "Suspendida" después de cancelar se leería como que la
+                        // cancelación no se aplicó.
+                        "Sin cobro automático (tarjeta guardada)"
+                      : suscripcion.estado === "cancelada"
+                        ? "Cancelada"
+                        : "Pendiente"}
+                {suscripcion?.cardUltimosDigitos ? ` (tarjeta ${suscripcion.cardUltimosDigitos})` : ""}
               </div>
             </div>
-            {suscripcion.proximoCobro && (
+            {suscripcion?.proximoCobro && (
               <div>
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">Próximo cobro</div>
                 <div className="font-medium">{fmtDate(suscripcion.proximoCobro)}</div>
               </div>
             )}
-            {suscripcion.ultimoCobro && (
+            {suscripcion?.ultimoCobro && (
               <div>
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">Último intento</div>
                 <div className="font-medium">
@@ -294,7 +307,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                 </div>
               </div>
             )}
-            {(suscripcion.estado === "activa" || suscripcion.estado === "suspendida") && (
+            {(suscripcion?.estado === "activa" || suscripcion?.estado === "suspendida" || c.renovacionAutoWooDesde) && (
               <div className="col-span-2 flex flex-wrap items-center gap-2">
                 {/* Antes solo aparecía si el último intento había sido
                     rechazado, así que el caso más común de "tiene tarjeta y no
@@ -302,7 +315,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                     previo) se quedaba sin botón. Confirmación en dos pasos acá
                     mismo en vez del ConfirmModal global: ese reemplaza esta
                     ficha y se perdería el resultado del cobro. */}
-                {suscripcion.estado === "activa" &&
+                {suscripcion?.estado === "activa" &&
                   (confirmarCobro ? (
                     <>
                       <Button
@@ -323,19 +336,21 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                       {cobrando ? "Cobrando..." : "Cobrar ahora"}
                     </Button>
                   ))}
-                {suscripcion.estado === "activa" && (
+                {suscripcion?.estado === "activa" && (
                   <Button variant="secondary" onClick={suspender} disabled={cobrando}>
                     Suspender
                   </Button>
                 )}
-                {suscripcion.estado === "suspendida" && (
+                {suscripcion?.estado === "suspendida" && (
                   <Button variant="secondary" onClick={reactivar} disabled={cobrando}>
                     {cobrando ? "Reactivando..." : "Reactivar"}
                   </Button>
                 )}
-                <Button variant="destructive" onClick={cancelar} disabled={cobrando}>
-                  Cancelar suscripción
-                </Button>
+                {(suscripcion?.estado === "activa" || c.renovacionAutoWooDesde) && (
+                  <Button variant="destructive" onClick={anular} disabled={cobrando}>
+                    Cancelar suscripción
+                  </Button>
+                )}
                 {errSuscripcion && <p className="w-full text-sm text-destructive">{errSuscripcion}</p>}
               </div>
             )}

@@ -119,9 +119,16 @@ export async function insertarMensaje(m: NuevoMensaje): Promise<MensajeWhatsapp>
   return mensajeFromRow(row as MensajeRow);
 }
 
-export async function actualizarEstadoMensaje(whatsappMessageId: string, estado: EstadoMensajeWhatsapp): Promise<void> {
+// `motivo` solo llega cuando el webhook de status trae un fallo (estado
+// "fallido"); en un status normal (enviado -> entregado -> leido) va undefined y
+// NO se toca la columna `error`, para no borrar el motivo que ya haya dejado
+// enviarMensajePlantilla al momento del envio.
+export async function actualizarEstadoMensaje(whatsappMessageId: string, estado: EstadoMensajeWhatsapp, motivo?: string): Promise<void> {
   try {
-    await getDb().update(mensajesWhatsapp).set({ estado }).where(eq(mensajesWhatsapp.whatsappMessageId, whatsappMessageId));
+    await getDb()
+      .update(mensajesWhatsapp)
+      .set(motivo ? { estado, error: motivo } : { estado })
+      .where(eq(mensajesWhatsapp.whatsappMessageId, whatsappMessageId));
   } catch (error) {
     console.error("Error actualizando estado de mensaje WhatsApp", whatsappMessageId, error);
   }

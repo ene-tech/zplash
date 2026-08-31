@@ -82,11 +82,17 @@ export const plantillasWhatsapp = pgTable("plantillas_whatsapp", {
   // el motor de reglas (@/lib/whatsapp/reglas) arme los `parametros` en el
   // orden correcto al llamar enviarMensajePlantilla.
   metaVariables: jsonb("meta_variables").$type<string[]>(),
-  // Marca manual (no verificada contra la Graph API — el token actual no
-  // expone el listado de templates del WABA, ver comentario en
-  // ReglasWhatsappTab) de que `metaNombre` corresponde a un template
-  // realmente aprobado en Meta Business Manager, no solo guardado acá.
-  // Editable desde Web Settings → WhatsApp Plantillas.
+  // Marca MANUAL de que `metaNombre` corresponde a un template realmente
+  // aprobado en Meta Business Manager, no solo guardado acá. Editable desde
+  // Web Settings → WhatsApp Plantillas.
+  //
+  // Decía acá que no se podía verificar contra la Graph API porque al token le
+  // faltaba el permiso. Es falso: `debug_token` muestra que el token SÍ tiene
+  // el scope whatsapp_business_management. Lo que está mal es META_WABA_ID —
+  // guarda el App ID (1404535298398587), no el WhatsApp Business Account ID, y
+  // por eso GET /{META_WABA_ID}/message_templates responde "(#100) Tried
+  // accessing nonexisting field (message_templates)". Corregida esa variable,
+  // este flag se puede verificar de verdad contra Meta en vez de a ciegas.
   metaAprobado: boolean("meta_aprobado").notNull().default(false),
 });
 

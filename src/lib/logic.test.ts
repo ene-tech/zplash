@@ -534,6 +534,37 @@ describe("renovarPlan", () => {
     expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
   });
 
+  it("al reiniciar el ciclo mueve también la contratación, para que las pasadas se repongan con el mes pagado", () => {
+    // periodoPlan/pasesRestantes anclan la ventana de pases en
+    // fechaContratacion: dejándola en la vieja, el mes recién pagado quedaba
+    // partido por el aniversario y le reponía los 5 pases a mitad de camino.
+    const data = appDataVacia();
+    const vencido = new Date();
+    vencido.setDate(vencido.getDate() - 40);
+    const cliente = clienteBase({ vencimiento: vencido.toISOString(), fechaContratacion: "2025-01-15T00:00:00.000Z" });
+    data.clientes = [cliente];
+
+    const patch = renovarPlan(data, cliente, "Operador X", 19990, undefined, "Reactivación promocional");
+    const actualizado = patch.clientes!.find((c) => c.id === cliente.id)!;
+
+    expect(new Date(actualizado.fechaContratacion!).toDateString()).toBe(new Date().toDateString());
+    // El vencimiento sigue siendo el borde de esa misma ventana de pases.
+    expect(new Date(actualizado.vencimiento!).toDateString()).toBe(finCicloPlan(new Date()).toDateString());
+  });
+
+  it("el pago atrasado anclado NO mueve la contratación: es el ciclo de siempre", () => {
+    const data = appDataVacia();
+    data.config = { ...CONFIG_DEFAULT, diasGraciaPagoAtrasado: 7 };
+    const vencido = new Date();
+    vencido.setDate(vencido.getDate() - 3);
+    const cliente = clienteBase({ vencimiento: vencido.toISOString(), fechaContratacion: "2025-01-15T00:00:00.000Z" });
+    data.clientes = [cliente];
+
+    const patch = renovarPlan(data, cliente, "Operador X", 21990, undefined, "Renovación atrasada", true);
+
+    expect(patch.clientes!.find((c) => c.id === cliente.id)!.fechaContratacion).toBe("2025-01-15T00:00:00.000Z");
+  });
+
   it("registra la venta con el precio recibido", () => {
     const data = appDataVacia();
     const cliente = clienteBase();

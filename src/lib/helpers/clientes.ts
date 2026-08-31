@@ -159,16 +159,57 @@ export function resolverPatentePendiente(
  * `ciclos` se cuenta siempre desde la contratación en vez de encadenar ciclo
  * sobre ciclo, para que un plan contratado un 31 no vaya perdiendo días cada
  * vez que pasa por un mes corto.
+ *
+ * El día se resta DESPUÉS de sumar los meses, no antes: restándolo antes, un
+ * plan contratado el día 1 anclaba el ciclo en el último día del mes anterior,
+ * que puede ser más corto que el mes destino — contratado el 1 de marzo vencía
+ * el 28 de marzo (28 feb + 1 mes) en vez del 31, tres días menos de plan. Pasa
+ * también, con un día, el 1 de mayo, julio, octubre y diciembre.
  */
 export function finCicloPlan(inicio: Date, ciclos = 1): Date {
-  const d = new Date(inicio);
-  d.setDate(d.getDate() - 1);
-  return sumarMesesFecha(d, ciclos);
+  const venc = sumarMesesFecha(inicio, ciclos);
+  // Cuando sumarMesesFecha ya recortó el día (contratado un 31, mes destino de
+  // 30) no se resta nada: es la regla del negocio —"pagué el 31, vigente hasta
+  // el 30"—, así que el cliente se queda con ese día.
+  // ponytail: el precio es que en esos ciclos el último día vigente coincide
+  // con el primero del ciclo siguiente, o sea le reponen las pasadas un día
+  // antes. Son las anclas 29/30/31 y es un día; si molesta, la salida es
+  // guardar el borde del ciclo en vez de derivarlo del vencimiento.
+  if (venc.getDate() === inicio.getDate()) venc.setDate(venc.getDate() - 1);
+  return venc;
 }
 
 /** Vencimiento de un plan contratado en `desde` (por defecto ahora), como ISO. Kept outside component bodies since it is not a pure computation. */
 export function vencimientoPorDefectoISO(desde: Date = new Date()): string {
   return finCicloPlan(desde).toISOString();
+}
+
+/**
+ * Los DOS campos con que queda un plan cuyo ciclo arranca en `desde`. Se
+ * devuelven juntos a propósito: escribir `vencimiento` sin `fechaContratacion`
+ * es lo que rompe la ventana de pases, y con un solo spread
+ * (`{ ...cliente, ...cicloPlanDesde() }`) no hay forma de acordarse de uno y
+ * olvidar el otro.
+ *
+ * Sin `fechaContratacion`, anclaCicloPlan tiene que DEDUCIR el borde del ciclo
+ * del vencimiento (`vencimiento + 1 día`), y esa deducción no es inversa de
+ * finCicloPlan cuando el día quedó recortado — anclas 29/30/31 sobre un mes
+ * más corto, donde finCicloPlan no resta el día. Caso real (HYRL56,
+ * 31-ago-2026): reactivación el 31-ago → vencimiento 30-sep → ancla deducida
+ * 1-oct → periodoPlan retrocede de mes en mes y da la ventana [1-ago, 1-sep),
+ * o sea el ciclo ANTERIOR, ya gastado. La clienta pagó su mes y el mesón le
+ * negó el ingreso con "ya usó las 5 pasadas".
+ *
+ * No hay forma de arreglarlo del lado de la deducción: un vencimiento 30-sep
+ * es igual de compatible con una contratación el 31-ago (recortada) que con
+ * una el 1-sep (con el día restado). El dato hay que guardarlo.
+ *
+ * Solo para ciclos que arrancan de cero. Renovar sobre un plan vigente apila
+ * un mes más sobre el MISMO ciclo y ahí `fechaContratacion` no se toca (ver
+ * renovarPlan en @/lib/logic/ingresos y vencimientoAnclado acá arriba).
+ */
+export function cicloPlanDesde(desde: Date = new Date()): { vencimiento: string; fechaContratacion: string } {
+  return { vencimiento: vencimientoPorDefectoISO(desde), fechaContratacion: desde.toISOString() };
 }
 
 /**
@@ -225,6 +266,13 @@ export function vencimientoAnclado(fechaContratacion: string | null | undefined)
  * `vencimiento`, que NO es el borde del ciclo sino el último día vigente: el
  * ciclo siguiente arranca al día siguiente (ver finCicloPlan). null = el
  * cliente no tiene ningún ancla, o sea no tiene plan.
+ *
+ * De acá sale el invariante que sostiene todo el ciclo: el vencimiento SIEMPRE
+ * se calcula desde esta misma fecha (finCicloPlan/vencimientoAnclado), así que
+ * la ventana de pases y el mes pagado son el mismo intervalo por construcción.
+ * Por eso, cuando un cobro reinicia el ciclo desde hoy, hay que mover también
+ * `fechaContratacion` — si no, el aniversario viejo parte el mes recién pagado
+ * en dos ventanas y el cliente recibe 10 pasadas por un mes.
  *
  * Ojo con reusar esto para calcular vencimientos: `vencimientoAnclado` espera
  * la fecha de contratación cruda (le resta el día por dentro), así que

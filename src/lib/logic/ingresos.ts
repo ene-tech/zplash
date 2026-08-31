@@ -256,6 +256,12 @@ export function renovarPlan(
     plan,
     ilimitadoHasta,
     vencimiento: base.toISOString(),
+    // Si el ciclo arranca de hoy hay que mover también la contratación: es el
+    // ancla con que periodoPlan cuenta las pasadas incluidas (ver
+    // anclaCicloPlan), y dejarla en la vieja parte el mes recién pagado en dos
+    // ventanas —el cliente compra un mes y recibe 10 pasadas—. Anclado al
+    // vencimiento no se toca: es el ciclo de siempre, un mes más largo.
+    ...(anclarAlVencimiento ? {} : { fechaContratacion: new Date().toISOString() }),
     ultimaRenovacion: new Date().toISOString(),
   };
   const venta: Venta = {

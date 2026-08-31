@@ -323,6 +323,13 @@ async function procesarRetorno(
                 esServicioAdicional,
                 tipoVentaNuevo: tipoVenta ?? "Plan nuevo (Web)",
                 tipoVentaExistente: tipoVenta ?? "Renovación (Web)",
+                // Solo alcanza a filas viejas: webpay/crear ya no acepta
+                // "reactivacion" (esa promo se cobra por Oneclick, ver
+                // cobrarOfertaOneclick). Va igual porque el mapeo de tipos de
+                // arriba tampoco lo dejó atrás. El vencido que SÍ paga por
+                // Webpay hoy entra como "renovacion" (OfertaPlan.pagoVencido)
+                // y ese conserva su ciclo a propósito.
+                reiniciarCiclo: item.tipo === "reactivacion",
                 tipoDocumento: item.tipoDocumento,
                 razonSocial: item.razonSocial,
                 rut: item.rut,

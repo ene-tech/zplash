@@ -14,7 +14,8 @@ import {
   recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
-import { insertAuditoria, loadCore, loadHistorial, loadPerfilesLogin } from "@/lib/serverActions";
+import { hayVentaPlanDuplicada, insertAuditoria, loadCore, loadHistorial, loadPerfilesLogin } from "@/lib/serverActions";
+import { diffPorId } from "./commit/shared";
 import {
   commitAlertasMantencion,
   commitBloqueosAgenda,
@@ -305,6 +306,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // carga de perfiles antes del login, y la de AppData justo después.
   const loading = cargandoPerfiles || (!!perfilId && perfilCargado !== perfilId);
 
+  // Un commit puede fallar simplemente porque la sesión de 12h (ver
+  // @/lib/session) venció con la pestaña abierta: desde ese momento el
+  // servidor rechaza TODA Server Action y la app lo mostraba como "no se pudo
+  // guardar (sin conexión)", así que el usuario reintentaba para siempre sin
+  // que nada le dijera que solo tenía que volver a entrar. Caso reportado:
+  // no se podían guardar las plantillas de WhatsApp en Web Settings.
+  const volverAlLoginSiVencio = useCallback(async () => {
+    try {
+      const res = await fetch("/api/perfiles/sesion");
+      if (!res.ok || (await res.json()).ok) return;
+    } catch {
+      return; // Sin red: ahí "sin conexión" sí es el mensaje correcto.
+    }
+    setUi((prev) => ({
+      ...prev,
+      view: "login",
+      loginMode: "pin",
+      perfilSeleccionadoId: prev.perfilActual?.id || prev.perfilSeleccionadoId,
+      perfilActual: null,
+      loginErr: "Tu sesión venció. Ingresa tu contraseña de nuevo para poder guardar.",
+    }));
+    // Igual que logout(): obliga a recargar AppData en el próximo ingreso.
+    setPerfilCargado(null);
+  }, []);
+
   const commitInterno = useCallback(async (patch: Partial<AppData>): Promise<boolean> => {
     const previous = dataRef.current;
     patch = derivarMovimientosDesdeVentas(previous, patch);
@@ -320,6 +346,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ops.push(...r.ops);
       auditoria.push(...r.auditoria);
     };
+
+    // El guard de venta de plan duplicada (dos operadores en máquinas
+    // distintas vendiéndole el mismo plan) vive server-side en insertVentas,
+    // que por las FK corre DESPUÉS del cliente: si rechazara recién ahí, la
+    // base quedaría con el mes de más ya escrito y sin venta que lo delate.
+    // Por eso se pregunta antes de escribir nada — mismo criterio que el corte
+    // por clientesOk de más abajo, y sobre el mismo diff que después manda
+    // commitVentas.
+    const ventasNuevas = patch.ventas ? diffPorId(previous.ventas, patch.ventas).cambiados : [];
+    if (ventasNuevas.length && (await hayVentaPlanDuplicada(ventasNuevas))) {
+      console.error("Venta de plan duplicada (otra máquina ya la registró): se aborta el commit completo");
+      dataRef.current = previous;
+      setData(previous);
+      return false;
+    }
 
     // clientes se resuelve y espera ANTES de tocar ingresos/ventas (ver
     // comentario en commitClientes, @/context/commit/clientes): ambas tablas
@@ -340,6 +381,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       dataRef.current = previous;
       setData(previous);
       setStorageReady(false);
+      volverAlLoginSiVencio();
       return false;
     }
 
@@ -405,6 +447,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStorageReady(ok);
     if (!ok) {
       console.error("No se pudo guardar toda la información en el almacenamiento persistente");
+      volverAlLoginSiVencio();
       // Revertimos el estado local: si no se guardó en Supabase, la app no debe
       // seguir mostrando el cambio como aplicado (otras sesiones nunca lo verán).
       dataRef.current = previous;
@@ -417,7 +460,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return ok;
     // Deps: lee siempre lo último vía dataRef, solo necesita re-crearse si
     // cambia el usuario que queda registrado en la auditoría.
-  }, [ui.perfilActual]);
+  }, [ui.perfilActual, volverAlLoginSiVencio]);
 
   // Envoltorio que expone `guardando`: el único lugar donde se sabe que hay
   // una escritura en vuelo, para que cualquier botón pueda bloquearse sin

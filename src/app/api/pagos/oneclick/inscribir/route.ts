@@ -46,12 +46,21 @@ export async function POST(request: NextRequest) {
     const respuesta = await oneclickInscription().start(patente, email, returnUrl);
 
     // Si ya había una inscripción pendiente/cancelada para esta patente, se
-    // reemplaza (upsert por username, que es único); una "activa" también se
-    // puede re-inscribir (ej. cambiar de tarjeta).
+    // reemplaza; una "activa" también se puede re-inscribir (ej. cambiar de
+    // tarjeta). El upsert va por `patente`, que es lo que la fila representa
+    // (un ciclo de cobro) y lo que tiene el índice único — `username` dejó de
+    // ser único al permitir que varias patentes compartan una tarjeta (ver
+    // migración 0090).
+    //
+    // `username` NO se toca acá aunque start() ya se llamó con la patente: si
+    // esta fila venía usando la tarjeta compartida de otro auto y el cliente
+    // abandona Transbank, tiene que seguir cobrable con el par (username,
+    // tbkUser) viejo. Lo reescribe /inscripcion/retorno recién cuando llega
+    // el tbkUser nuevo, que es cuando los dos campos cambian juntos.
     const [existente] = await db
       .select()
       .from(suscripcionesOneclick)
-      .where(eq(suscripcionesOneclick.username, patente))
+      .where(eq(suscripcionesOneclick.patente, patente))
       .limit(1);
 
     if (existente) {

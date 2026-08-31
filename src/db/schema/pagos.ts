@@ -75,15 +75,25 @@ export const pagosWebpayItems = pgTable("pagos_webpay_items", {
   nombreLote: text("nombre_lote"),
 });
 
-// Tarjeta inscrita en Oneclick Mall para renovación automática mensual. Una
-// sola fila por patente (username exigido por Transbank, usamos la patente
-// normalizada). tokenInscripcion solo se usa mientras está "pendiente"
-// (correlaciona el callback de MallInscription.finish con esta fila).
+// Ciclo de cobro automático mensual de UNA patente, contra una tarjeta
+// inscrita en Oneclick Mall. Una sola fila por patente (índice único en
+// `patente`, ver migración 0090), pero varias filas pueden compartir la misma
+// tarjeta: el par (username, tbkUser) es lo que identifica la inscripción en
+// Transbank y se copia tal cual a los otros autos de la misma persona desde
+// "Usar en mis otros autos" en Mi Cuenta. Por eso `username` ya NO es único —
+// lo era cuando valía siempre la patente y cada auto obligaba a inscribir la
+// tarjeta de nuevo.
+//
+// Al dar de baja hay que mirar los hermanos: cancelarSuscripcionOneclick solo
+// llama al delete de Transbank si es la última fila viva con ese tbkUser.
+//
+// tokenInscripcion solo se usa mientras está "pendiente" (correlaciona el
+// callback de MallInscription.finish con esta fila).
 export const suscripcionesOneclick = pgTable("suscripciones_oneclick", {
   id: text("id").primaryKey(),
   patente: text("patente").notNull(),
   clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
-  username: text("username").notNull().unique(),
+  username: text("username").notNull(),
   email: text("email").notNull(),
   tokenInscripcion: text("token_inscripcion"),
   tbkUser: text("tbk_user"),

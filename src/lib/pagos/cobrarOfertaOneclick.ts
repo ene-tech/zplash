@@ -139,6 +139,7 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
                   esServicioAdicional: false,
                   tipoVentaNuevo: TIPO_VENTA_ONECLICK[tipo],
                   tipoVentaExistente: TIPO_VENTA_ONECLICK[tipo],
+                  reiniciarCiclo: tipo === "reactivacion",
                   cuponCodigo: cupon?.codigo,
                 },
                 tx2

@@ -82,6 +82,52 @@ export const TIPOS_VENTA_PLAN = new Set([
   "Renovación manual",
 ]);
 
+/**
+ * Minutos dentro de los cuales NO se le puede volver a vender un plan al mismo
+ * cliente desde el mesón (ver ventaPlanReciente).
+ *
+ * Dos ventas de plan seguidas al mismo auto nunca son un cliente pagando dos
+ * meses: son el segundo clic del operador. Apenas la primera venta se guarda,
+ * la ficha se repinta con el plan ya vigente y aparece la tarjeta de
+ * renovación anticipada (ver showOffer en useOperadorFoundResult), así que el
+ * error se ofrece solo. El cliente paga una vez, pero quedan dos ventas y un
+ * mes de más en el vencimiento, porque renovarPlan ancla sobre el vencimiento
+ * recién escrito.
+ *
+ * 15 minutos con holgura sobre los 6 casos encontrados en la base (mar-ago
+ * 2026), todos entre 0 y 4 minutos: VYPY77, PRYV45, TYXB79, PRBP86, JPBX89,
+ * HBXZ38. No hay ningún flujo legítimo que venda dos planes seguidos al mismo
+ * cliente — dos vehículos son dos fichas, y adelantar un mes es una sola
+ * renovación anticipada.
+ */
+export const MINUTOS_BLOQUEO_PLAN_DUPLICADO = 15;
+
+/**
+ * Venta de plan ya registrada para este cliente dentro de la ventana (ver
+ * MINUTOS_BLOQUEO_PLAN_DUPLICADO), o undefined si no hay ninguna.
+ *
+ * Mira TODOS los canales, no solo el mesón: si la web acaba de cobrarle la
+ * renovación, cobrársela de nuevo en el local es el mismo duplicado. Lo que sí
+ * es asimétrico es a quién se BLOQUEA (ver duplicaVentaPlanReciente en
+ * @/lib/dataAccess): una venta automática nunca se rechaza, porque Transbank
+ * ya cobró la plata y quedaría cobrada sin venta registrada.
+ */
+export function ventaPlanReciente<T extends { clienteId?: string | null; tipo: string; fecha: string }>(
+  ventas: T[],
+  clienteId: string,
+  ahora: Date = new Date(),
+  minutos: number = MINUTOS_BLOQUEO_PLAN_DUPLICADO
+): T | undefined {
+  if (!clienteId) return undefined;
+  const hasta = ahora.getTime();
+  const desde = hasta - minutos * 60_000;
+  return ventas.find((v) => {
+    if (v.clienteId !== clienteId || !TIPOS_VENTA_PLAN.has(v.tipo)) return false;
+    const t = new Date(v.fecha).getTime();
+    return t >= desde && t <= hasta;
+  });
+}
+
 
 export const DATOS_TRANSFERENCIA = [
   { label: "Nombre", valor: "SERVICIOS E INVERSIONES LAS AGUILAS SPA" },

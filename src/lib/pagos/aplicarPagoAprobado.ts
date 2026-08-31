@@ -16,6 +16,7 @@ import {
   sumarMesesFecha,
   uid,
   vencimientoAnclado,
+  cicloPlanDesde,
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
@@ -58,6 +59,12 @@ interface AplicarPagoParams {
   // se extiende (o inicia) el ciclo mensual como cualquier renovación web.
   tipoVentaNuevo: string;
   tipoVentaExistente: string;
+  // true solo en la reactivación promocional de un plan vencido: el ciclo
+  // arranca de nuevo hoy y el cliente recibe el mes completo que le anuncia la
+  // tarjeta ("precio promocional solo por este primer mes"), en vez de saltar
+  // al próximo aniversario de su contratación —que puede caer en dos días—.
+  // Mismo criterio que el mesón, ver `anclarAtraso` en renovarPlan.
+  reiniciarCiclo?: boolean;
   // Boleta/Factura elegida en el checkout (ver DatosDocumento en
   // usePagarForm) — snapshot al momento del pago, igual que ya hace
   // aplicarPagoPackEmpresa con estas mismas columnas de `ventas`.
@@ -90,6 +97,33 @@ interface AplicarPagoParams {
  * extendería de nuevo, gratis). Los tres llamadores (webpay/retorno,
  * cobrarSuscripcion x2) ahora pasan su propia transacción.
  */
+/** Dispara las reglas de WhatsApp y de correo de una venta confirmada por un
+ * pago externo, pero SOLO si la venta sobrevivió a la transacción del
+ * llamador. Devuelve false cuando decidió no avisar.
+ *
+ * Existe como función aparte para poder probar ese guard sin montar toda la
+ * transacción de aplicarPagoAprobado — ver aplicarPagoAprobado.test.ts. */
+export async function evaluarReglasSiLaVentaPersistio(
+  venta: Venta,
+  cambio?: { cliente: Cliente; patenteAnterior: string }
+): Promise<boolean> {
+  const [persistida] = await getDb().select({ id: ventas.id }).from(ventas).where(eq(ventas.id, venta.id)).limit(1);
+  if (!persistida) {
+    console.error("Venta revertida después de aplicar el pago: no se avisa nada al cliente", venta.id, venta.patente);
+    return false;
+  }
+  await Promise.all([
+    evaluarReglasPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta (pago externo)", error)),
+    evaluarReglasCorreoPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de correo por venta (pago externo)", error)),
+    cambio
+      ? evaluarReglasPorCambioPatente(cambio.cliente, cambio.patenteAnterior).catch((error) =>
+          console.error("Error evaluando reglas de WhatsApp por cambio de patente (pago externo)", error)
+        )
+      : null,
+  ]);
+  return true;
+}
+
 export async function aplicarPagoAprobado(
   p: AplicarPagoParams,
   db: DbOrTx = getDb()
@@ -129,12 +163,30 @@ export async function aplicarPagoAprobado(
     // vigencia de un plan Web es siempre la fecha de contratación, nunca la
     // del pago, aunque este llegue tarde. Mismo criterio que usePlanActions::
     // renovarWeb (renovación manual de un cliente Web con cobro automático
-    // fallido).
+    // fallido). La excepción es `reiniciarCiclo` (reactivación promocional):
+    // ahí el cliente compró un mes, no lo que quede de su ciclo viejo.
     // sigueVigenteHoy (día-granular) en vez de comparar por hora exacta — ver
     // el comentario en esa función para el bug real que causó en producción.
-    const nuevoVencimiento = sigueVigenteHoy(existente.vencimiento)
+    const vigente = sigueVigenteHoy(existente.vencimiento);
+    // `reiniciarCiclo` solo manda sobre un plan ya vencido: si entre que se
+    // calculó la oferta y este punto el plan volvió a estar vigente (se lo
+    // renovaron en el mesón, otro pago en otra pestaña), gana el apilado. Un
+    // solo booleano para las dos escrituras —vencimiento y contratación—, que
+    // tienen que salir del mismo ciclo o la ventana de pases queda corrida.
+    //
+    // Un cliente sin NINGUNA ancla previa (fila "Sin plan" que contrata desde
+    // Mi Cuenta, ver OfertaPlan.contratacion) también arranca de cero aunque
+    // el caller no pida reiniciar: no hay ciclo viejo al que anclarse, y
+    // vencimientoAnclado(null) le daba el mismo mes pero sin dejar la
+    // contratación escrita — o sea la ventana de pases deducida del
+    // vencimiento, que es justo lo que rompe en las anclas 29/30/31 (ver
+    // cicloPlanDesde y el caso HYRL56).
+    const reinicia = (!!p.reiniciarCiclo || (!existente.fechaContratacion && !existente.vencimiento)) && !vigente;
+    // Los dos campos del ciclo nuevo salen de acá o de ningún lado.
+    const ciclo = reinicia ? cicloPlanDesde() : null;
+    const nuevoVencimiento = vigente
       ? sumarMesesFecha(new Date(existente.vencimiento!), 1).toISOString()
-      : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
+      : (ciclo?.vencimiento ?? vencimientoAnclado(existente.fechaContratacion || existente.vencimiento));
     vencimientoResultante = nuevoVencimiento;
     clienteId = existente.id;
     const anterior = clienteFromRow(existente);
@@ -150,6 +202,13 @@ export async function aplicarPagoAprobado(
         patentePendiente: fila.patentePendiente || null,
         patentePendienteDesde: fila.patentePendienteDesde || null,
         vencimiento: nuevoVencimiento,
+        // Reiniciar el ciclo mueve también la contratación: es el ancla con
+        // que periodoPlan cuenta las pasadas incluidas (ver anclaCicloPlan) y
+        // el mes recién pagado tiene que ser una sola ventana de pases, no dos.
+        // Mismo trato que la recontratación del webhook de WooCommerce. Reescribe
+        // `vencimiento` con el mismo valor que la línea de arriba: los dos campos
+        // salen del mismo `ciclo` a propósito (ver cicloPlanDesde).
+        ...(ciclo ?? {}),
         // Misma migración al X5 que en el mesón: el ilimitado viejo dejó de
         // ofrecerse, así que renovar deja al cliente en el plan vigente —
         // respetándole sin tope el mes que ya tenía comprado si renovó antes
@@ -245,16 +304,27 @@ export async function aplicarPagoAprobado(
   // after() en vez de un `.catch()` suelto: garantiza que Vercel mantenga la
   // función viva hasta que termine el envío (ver mismo fix en dataAccess/
   // ventas.ts::insertVentas).
-  after(() => evaluarReglasPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta (pago externo)", error)));
-  after(() => evaluarReglasCorreoPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de correo por venta (pago externo)", error)));
-  if (cambioPatente) {
-    const { cliente: clienteCambiado, patenteAnterior } = cambioPatente;
-    after(() =>
-      evaluarReglasPorCambioPatente(clienteCambiado, patenteAnterior).catch((error) =>
-        console.error("Error evaluando reglas de WhatsApp por cambio de patente (pago externo)", error)
-      )
-    );
-  }
+  //
+  // Releer la venta antes de avisar NO es paranoia: los cuatro llamadores
+  // invocan esta función DENTRO de una transacción, y after() no participa de
+  // ella — queda registrado apenas corre esta línea y se ejecuta igual aunque
+  // la transacción revierta después. cobrarSuscripcion (@/lib/pagos) es el
+  // caso grave: abre un savepoint anidado y atrapa su error para seguir, así
+  // que el rollback es silencioso, y el cliente recibía un WhatsApp
+  // confirmando una renovación que no ocurrió, con el vencimiento viejo —
+  // Transbank ya le cobró la tarjeta y encima le mandábamos evidencia escrita
+  // en contra nuestra. Un SELECT distingue "se guardó" de "se revirtió": para
+  // cuando after() corre, la transacción ya resolvió. Va contra getDb() y no
+  // contra `db`, que a esa altura es una transacción cerrada.
+  const cambio = cambioPatente;
+  after(() =>
+    // El SELECT que abre evaluarReglasSiLaVentaPersistio no está guardado por
+    // dentro: sin esto, una caída de conexión ahí queda como rejection sin
+    // manejar en vez de un log.
+    evaluarReglasSiLaVentaPersistio(venta, cambio).catch((error) =>
+      console.error("Error avisando al cliente tras aplicar el pago", venta.id, venta.patente, error)
+    )
+  );
 
   // Genera/actualiza el movimiento contable de ingreso ligado a esta venta
   // en la misma transacción — ver movimientoContableDesdeVenta en helpers.ts.

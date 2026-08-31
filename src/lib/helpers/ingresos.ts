@@ -130,8 +130,11 @@ export function visitasUltimoPeriodoVencido(ingresos: Ingreso[], cliente: Pick<C
  * Cantidad de ingresos del cliente desde que contrató su plan actual
  * (fechaContratacion), sin acotar al ciclo mensual vigente — a diferencia
  * de visitasPeriodoPlan, que solo cuenta el período vigente. Puede abarcar
- * varias renovaciones, ya que fechaContratacion no se actualiza en cada
- * renovación (ver renovarPlan en @/lib/logic).
+ * varias renovaciones, ya que fechaContratacion no se mueve mientras el ciclo
+ * siga anclado (ver renovarPlan en @/lib/logic). Sí se mueve cuando el ciclo
+ * reinicia —reactivación de un vencido, recontratación por WooCommerce—, y ahí
+ * este contador arranca de cero: es la antigüedad del PLAN vigente, no la del
+ * cliente. Para esa otra usar `creadoEn`.
  */
 export function visitasDesdeContratacion(ingresos: Ingreso[], cliente: Pick<Cliente, "id" | "fechaContratacion">): number {
   if (!cliente.fechaContratacion) return 0;

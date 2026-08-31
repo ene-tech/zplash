@@ -13,6 +13,7 @@ import {
   pasesRestantes,
   planVigente,
   ilimitadoHastaAlRenovar,
+  superoTopeIlimitado,
   CATEGORIA_DETAILING,
   CONFIG_DEFAULT,
   cuponDelLoteUsadoPorPatente,
@@ -30,6 +31,8 @@ import {
   esAjusteCierre,
   esVentaAutomatica,
   esVentaNuevaWeb,
+  ventaPlanReciente,
+  MINUTOS_BLOQUEO_PLAN_DUPLICADO,
   fechaEfectiva,
   fmtCLP,
   LAVADO_ADICIONAL_KEY,
@@ -45,9 +48,13 @@ import {
   fmtHora,
   fmtTelefono,
   formatTelefono,
+  cicloPlanDesde,
   finCicloPlan,
+  vencimientoPorDefectoISO,
   periodoPlan,
   isValidPatente,
+  patentesQueRecibenTarjeta,
+  tieneTarjetaViva,
   isValidRut,
   isValidTelefono,
 
@@ -483,6 +490,13 @@ describe("finCicloPlan", () => {
   it("varios ciclos se cuentan desde la contratación, sin ir perdiendo días en los meses cortos", () => {
     // 31 ene: el ciclo 1 se recorta a febrero, pero el 2 vuelve al 30 de marzo.
     expect(finCicloPlan(new Date(2026, 0, 31), 2).toDateString()).toBe(new Date(2026, 2, 30).toDateString());
+  });
+
+  it("contratado el 1 después de un mes más corto, vence igual el último día del mes", () => {
+    // 1 mar: el mes anterior (febrero, 28) no puede acortar este ciclo — vence
+    // el 31, no el 28. Idem el 1 de mayo, julio, octubre y diciembre.
+    expect(finCicloPlan(new Date(2026, 2, 1)).toDateString()).toBe(new Date(2026, 2, 31).toDateString());
+    expect(finCicloPlan(new Date(2026, 4, 1)).toDateString()).toBe(new Date(2026, 4, 31).toDateString());
   });
 });
 
@@ -1995,6 +2009,43 @@ describe("esTarjetaWeb / esVentaNuevaWeb", () => {
   });
 });
 
+describe("ventaPlanReciente (bloqueo de plan duplicado en el mesón)", () => {
+  const ahora = new Date("2026-08-28T15:50:00Z");
+  const venta = (over: Partial<{ clienteId: string; tipo: string; fecha: string }> = {}) => ({
+    clienteId: "c1",
+    tipo: "Reactivación promocional",
+    fecha: "2026-08-28T15:47:00Z",
+    ...over,
+  });
+
+  it("detecta la segunda venta de plan a los 3 minutos (el caso VYPY77)", () => {
+    expect(ventaPlanReciente([venta()], "c1", ahora)?.tipo).toBe("Reactivación promocional");
+  });
+
+  it("no bloquea pasada la ventana", () => {
+    const viejo = venta({ fecha: new Date(ahora.getTime() - (MINUTOS_BLOQUEO_PLAN_DUPLICADO + 1) * 60_000).toISOString() });
+    expect(ventaPlanReciente([viejo], "c1", ahora)).toBeUndefined();
+  });
+
+  it("no bloquea por un lavado único ni por la venta de plan de otro cliente", () => {
+    // El upgrade a plan se apoya justamente en un "Lavado único" recién
+    // cobrado (ver ventaUpgradeElegible): si contara, la promoción no se
+    // podría tomar nunca.
+    expect(ventaPlanReciente([venta({ tipo: "Lavado único" })], "c1", ahora)).toBeUndefined();
+    expect(ventaPlanReciente([venta({ clienteId: "c2" })], "c1", ahora)).toBeUndefined();
+  });
+
+  it("cubre los tipos de plan de todos los canales, no solo los del mesón", () => {
+    expect(ventaPlanReciente([venta({ tipo: "Renovación (Web)" })], "c1", ahora)).toBeDefined();
+    expect(ventaPlanReciente([venta({ tipo: "Renovación automática (Oneclick)" })], "c1", ahora)).toBeDefined();
+  });
+
+  it("ignora una venta futura y el cliente vacío (lavado sin registro)", () => {
+    expect(ventaPlanReciente([venta({ fecha: "2026-08-28T16:10:00Z" })], "c1", ahora)).toBeUndefined();
+    expect(ventaPlanReciente([venta({ clienteId: "" })], "", ahora)).toBeUndefined();
+  });
+});
+
 describe("esVentaAutomatica (qué se puede corregir en el arqueo)", () => {
   it("marca como automática toda venta cobrada por Transbank, venga de donde venga", () => {
     expect(esVentaAutomatica({ creadoPor: "Automático (Webpay)", tipo: "Lavado único" })).toBe(true);
@@ -2150,6 +2201,32 @@ describe("planVigente / ilimitadoHastaAlRenovar", () => {
   });
 });
 
+describe("superoTopeIlimitado", () => {
+  const enDias = (dias: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + dias);
+    return d.toISOString();
+  };
+  const legacy = { plan: PLAN_ILIMITADO_LEGACY, ilimitadoHasta: null, vencimiento: enDias(10) };
+
+  it("avisa recién en la pasada 6, no en la 5", () => {
+    expect(superoTopeIlimitado(legacy, 5)).toBe(false);
+    expect(superoTopeIlimitado(legacy, 6)).toBe(true);
+  });
+
+  it("no aplica al que ya está en X5 — a ese lo topa el mesón", () => {
+    expect(superoTopeIlimitado({ plan: PLAN_X5, ilimitadoHasta: null, vencimiento: enDias(10) }, 9)).toBe(false);
+  });
+
+  it("sí aplica al que arrastra el mes sin tope", () => {
+    expect(superoTopeIlimitado({ plan: PLAN_X5, ilimitadoHasta: enDias(5), vencimiento: enDias(35) }, 6)).toBe(true);
+  });
+
+  it("al vencido no — le toca la promo de reactivación", () => {
+    expect(superoTopeIlimitado({ ...legacy, vencimiento: enDias(-1) }, 9)).toBe(false);
+  });
+});
+
 describe("pasesRestantes", () => {
   const ingreso = (clienteId: string, fecha: string): Ingreso => ({
     id: "i" + fecha,
@@ -2184,8 +2261,59 @@ describe("pasesRestantes", () => {
     expect(pasesRestantes([...previas, ingreso("c1", "2026-08-30T15:00:00Z")], sinContratacion, hoy)).toBe(4);
   });
 
+  // HYRL56 (31-ago-2026): reactivación un día 31. finCicloPlan recorta a
+  // 30-sep y por eso NO resta el día, así que deducir el ancla del vencimiento
+  // (30-sep + 1 = 1-oct) arma la grilla en el día 1 y la ventana vigente cae
+  // en [1-ago, 1-sep): el ciclo anterior, ya gastado. La clienta pagó su mes y
+  // el mesón le negó el ingreso con "ya usó las 5 pasadas". La contratación
+  // guardada (ver cicloPlanDesde) es lo que lo evita.
+  it("un ciclo que arranca un 31 cuenta desde ese día, no desde el 1 del mes", () => {
+    const hoy = new Date("2026-08-31T18:20:00Z");
+    const ciclo = { fechaContratacion: "2026-08-31T18:15:07.083Z", vencimiento: "2026-09-30T17:15:07.082Z" };
+    const reactivado = { id: "c1", plan: PLAN_X5, ...ciclo };
+    const cicloAnterior = ["2026-08-04", "2026-08-07", "2026-08-12", "2026-08-17", "2026-08-24"].map((f) =>
+      ingreso("c1", `${f}T18:00:00Z`)
+    );
+    expect(pasesRestantes(cicloAnterior, reactivado, hoy)).toBe(5);
+    expect(pasesRestantes(cicloAnterior, { ...reactivado, fechaContratacion: null }, hoy)).toBe(0);
+  });
+
+  it("cicloPlanDesde deja los dos campos del mismo ciclo", () => {
+    const desde = new Date("2026-08-31T18:15:07.083Z");
+    const ciclo = cicloPlanDesde(desde);
+    expect(ciclo.fechaContratacion).toBe(desde.toISOString());
+    expect(ciclo.vencimiento).toBe(vencimientoPorDefectoISO(desde));
+    expect(pasesRestantes([], { id: "c1", plan: PLAN_X5, ...ciclo }, desde)).toBe(5);
+  });
+
   it("el plan viejo y el cliente sin plan no tienen tope que contar", () => {
     expect(pasesRestantes(pasadas(9), { ...base, plan: PLAN_ILIMITADO_LEGACY }, ahora)).toBeNull();
     expect(pasesRestantes(pasadas(9), { ...base, plan: undefined }, ahora)).toBeNull();
+  });
+});
+
+describe("patentesQueRecibenTarjeta / tieneTarjetaViva", () => {
+  const mias = ["ABCD11", "EFGH22", "IJKL33"];
+
+  it("copia la tarjeta a los autos de la cuenta que no tienen la suya", () => {
+    expect(patentesQueRecibenTarjeta("ABCD11", mias, ["ABCD11"])).toEqual(["EFGH22", "IJKL33"]);
+  });
+
+  it("nunca se copia a sí misma ni pisa un auto con tarjeta propia", () => {
+    expect(patentesQueRecibenTarjeta("ABCD11", mias, ["ABCD11", "EFGH22"])).toEqual(["IJKL33"]);
+    expect(patentesQueRecibenTarjeta("ABCD11", mias, mias)).toEqual([]);
+  });
+
+  it("con un solo auto en la cuenta no hay a quién copiarla", () => {
+    expect(patentesQueRecibenTarjeta("ABCD11", ["ABCD11"], ["ABCD11"])).toEqual([]);
+  });
+
+  it("solo activa y suspendida cuentan como tarjeta guardada", () => {
+    expect(tieneTarjetaViva("activa")).toBe(true);
+    expect(tieneTarjetaViva("suspendida")).toBe(true);
+    expect(tieneTarjetaViva("pendiente")).toBe(false);
+    expect(tieneTarjetaViva("pendiente_solo_tarjeta")).toBe(false);
+    expect(tieneTarjetaViva("cancelada")).toBe(false);
+    expect(tieneTarjetaViva(undefined)).toBe(false);
   });
 });

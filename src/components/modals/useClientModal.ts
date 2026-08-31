@@ -2,7 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, esAdministracionOGerencia, esExentoFormatoCliente, fmtTelefono, formatRut, isValidRut, precioContratacion, precioLavadoUnico, vencimientoPorDefectoISO } from "@/lib/helpers";
+import { PLANES, esAdministracionOGerencia, esExentoFormatoCliente, fmtFecha, fmtTelefono, formatRut, isValidRut, precioContratacion, precioLavadoUnico, sigueVigenteHoy, cicloPlanDesde } from "@/lib/helpers";
 import { guardarClienteModal } from "@/lib/logic";
 import type { Cliente, PagoInfo } from "@/types";
 import { validarClienteModal } from "./validarClienteModal";
@@ -47,6 +47,9 @@ export function useClientModal(
   const [planSeleccionado, setPlanSeleccionado] = useState(cli.plan || PLANES[0]);
   const [origenSeleccionado, setOrigenSeleccionado] = useState<"LOCAL" | "WEB">(cli.origen === "WEB" ? "WEB" : "LOCAL");
   const [err, setErr] = useState("");
+  // Ver el guard en guardar(): quitarle el plan a alguien que lo tiene
+  // vigente y pagado pide un segundo Guardar.
+  const [bajaPlanConfirmada, setBajaPlanConfirmada] = useState(false);
 
   const cerrar = () => patchUi({ modal: null });
 
@@ -97,10 +100,16 @@ export function useClientModal(
 
     let plan: string;
     let vencimiento: string | null;
+    // Contratar desde el punto de venta arranca un ciclo nuevo, así que el
+    // vencimiento va con su contratación (ver cicloPlanDesde): sin ella
+    // periodoPlan deduce la ventana de pases del vencimiento y puede quedar
+    // corrida un mes entero. En el admin el vencimiento lo tipea una persona a
+    // mano y no hay ciclo que anclar, por eso ahí queda undefined.
+    let fechaContratacion: string | undefined;
     if (contexto === "operador") {
       plan = tipoCliente === "plan" ? PLANES[0] : "";
       if (tipoCliente === "plan") {
-        vencimiento = vencimientoPorDefectoISO();
+        ({ vencimiento, fechaContratacion } = cicloPlanDesde());
       } else {
         vencimiento = null;
       }
@@ -113,15 +122,24 @@ export function useClientModal(
       vencimiento = null;
     }
 
+    // Guardar la ficha en "lavado único" borra plan y vencimiento. Cuando el
+    // cliente tiene un plan vigente que YA PAGÓ eso casi nunca es la
+    // intención: es el formulario abierto para corregir otra cosa (auditoría
+    // del 31-ago-2026 — dos clientes con Plan X5 al día hasta septiembre
+    // quedaron sin plan así, y la ficha no volvía a reconocerles el mes
+    // pagado). Se avisa y se pide un segundo Guardar; darlo de baja a
+    // propósito sigue siendo posible.
+    if (!plan && cli.plan && sigueVigenteHoy(cli.vencimiento) && !bajaPlanConfirmada) {
+      setBajaPlanConfirmada(true);
+      setErr(`${cli.nombre || "Este cliente"} tiene ${cli.plan} vigente hasta el ${fmtFecha(cli.vencimiento!)}. Guardar como "Lavado único" se lo quita. Presiona Guardar de nuevo para confirmar.`);
+      return;
+    }
+
     const origen: "WEB" | "LOCAL" = contexto === "operador" ? "LOCAL" : origenSeleccionado;
 
     // Sin el campo en pantalla (operador, perfil sin permiso, o cliente sin
-    // plan) se devuelve el valor que ya tenía: guardar la ficha nunca borra
-    // en silencio el precio que se le venía respetando.
-    const precioPlanHeredado =
-      puedeEditarHeredado && heredadoRef.current
-        ? Number(heredadoRef.current.value) || null
-        : cli.precioPlanHeredado ?? null;
+    // plan) no se manda: guardarClienteModal deja el que ya tenía.
+    const heredado = puedeEditarHeredado && heredadoRef.current ? { precioPlanHeredado: Number(heredadoRef.current.value) || null } : {};
 
     const persistir = async (pago?: PagoInfo) => {
       const patch = guardarClienteModal(data, {
@@ -140,8 +158,9 @@ export function useClientModal(
         giro,
         plan,
         vencimiento,
+        fechaContratacion,
         origen,
-        precioPlanHeredado,
+        ...heredado,
         pago,
       });
       const ok = await commit(patch);

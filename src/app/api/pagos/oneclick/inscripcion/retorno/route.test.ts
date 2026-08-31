@@ -34,6 +34,7 @@ vi.mock("@/lib/pagos", () => ({
   cobrarSuscripcion: () => cobrarSuscripcion(),
   otorgarTicketReactivacion: () => Promise.resolve(null),
   cancelarSuscripcionWooCommerceLegacy: () => Promise.resolve({ cancelada: false }),
+  migrarDeWooCommerceLegacy: () => {},
 }));
 
 import { GET } from "./route";

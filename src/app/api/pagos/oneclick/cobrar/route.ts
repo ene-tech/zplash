@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rechazoSiNoEsCron } from "@/lib/cron";
-import { and, eq, lte } from "drizzle-orm";
+import { and, asc, eq, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { suscripcionesOneclick } from "@/db/schema";
 import { cobrarSuscripcion } from "@/lib/pagos";
 
 export const runtime = "nodejs";
+// Cada suscripción es un viaje a Transbank en serie (~2-5s). Con el default
+// de la plataforma, una tanda grande se corta a la mitad y las suscripciones
+// que quedaron al final de la lista no se cobran nunca — el cron vuelve a
+// armar la misma lista al día siguiente y las vuelve a dejar fuera.
+export const maxDuration = 300;
 
 // Disparado por el cron de Vercel (vercel.json) una vez al día. Vercel manda
 // automáticamente "Authorization: Bearer $CRON_SECRET" en la llamada cuando
@@ -25,7 +30,10 @@ export async function GET(request: NextRequest) {
   const suscripciones = await db
     .select()
     .from(suscripcionesOneclick)
-    .where(and(eq(suscripcionesOneclick.estado, "activa"), lte(suscripcionesOneclick.proximoCobro, ahora)));
+    .where(and(eq(suscripcionesOneclick.estado, "activa"), lte(suscripcionesOneclick.proximoCobro, ahora)))
+    // Deuda más vieja primero: si la tanda se corta, que lo que quede sin
+    // cobrar sea lo recién vencido y no lo que lleva semanas esperando.
+    .orderBy(asc(suscripcionesOneclick.proximoCobro));
 
   const resultados: { suscripcionId: string; patente: string; estado?: string; error?: string }[] = [];
   for (const suscripcion of suscripciones) {

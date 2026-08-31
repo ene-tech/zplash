@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow, ventaFromRow } from "@/lib/dataAccess";
-import { PLANES, movimientoContableDesdeVenta, vencimientoPorDefectoISO, ventaUpgradeElegible } from "@/lib/helpers";
+import { PLANES, cicloPlanDesde, movimientoContableDesdeVenta, ventaUpgradeElegible } from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import { consumirCupon } from "./cuponPlan";
@@ -62,8 +62,11 @@ export async function aplicarUpgradePlan(p: AplicarUpgradeParams, db: DbOrTx = g
   const fechaAnclaje = ventaUpgrade ? new Date(ventaUpgrade.fecha) : new Date();
 
   const plan = PLANES[0];
-  const nuevoVencimiento = vencimientoPorDefectoISO(fechaAnclaje);
-  await db.update(clientes).set({ plan, vencimiento: nuevoVencimiento, origen: cliente.origen || "LOCAL" }).where(eq(clientes.id, cliente.id));
+  // El ciclo arranca en el lavado que se está convirtiendo, no hoy: los dos
+  // campos salen del mismo anclaje (ver cicloPlanDesde).
+  const ciclo = cicloPlanDesde(fechaAnclaje);
+  const nuevoVencimiento = ciclo.vencimiento;
+  await db.update(clientes).set({ plan, ...ciclo, origen: cliente.origen || "LOCAL" }).where(eq(clientes.id, cliente.id));
 
   const tipoVenta = p.tipoVenta || "Upgrade a Plan X5 (Web)";
   const fecha = new Date().toISOString();

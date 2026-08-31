@@ -74,6 +74,30 @@ export function ilimitadoHastaAlRenovar(cliente: Pick<Cliente, "plan" | "vencimi
   return cliente.ilimitadoHasta || (sigueVigenteHoy(cliente.vencimiento) ? cliente.vencimiento || null : null);
 }
 
+/**
+ * ¿Este cliente del ilimitado viejo se pasó del tope del X5 en su ciclo?
+ * Regla de la política de rescate de ago-2026: al cliente de WooCommerce que
+ * usa PASES_INCLUIDOS_X5 pasadas o menos se le mantiene su plan sin tope y se
+ * le sigue cobrando allá (ver planResultante en /api/webhooks/woocommerce); al
+ * que se pasa se le termina — se le avisa en el momento y se le ofrece el X5
+ * para que lo contrate él (ver evaluarReglasCorreoPorTopeIlimitado en
+ * @/lib/mailing/reglas/disparadores).
+ *
+ * Pide el plan al día: al vencido le corresponde la promo de reactivación, no
+ * esta. Y mira planVigente y no `plan` a secas, para que incluya también al
+ * que arrastra el mes sin tope (ver planVigente arriba).
+ */
+export function superoTopeIlimitado(
+  cliente: Pick<Cliente, "plan" | "ilimitadoHasta" | "vencimiento">,
+  pasadasDelCiclo: number
+): boolean {
+  return (
+    planVigente(cliente) === PLAN_ILIMITADO_LEGACY &&
+    sigueVigenteHoy(cliente.vencimiento) &&
+    pasadasDelCiclo > PASES_INCLUIDOS_X5
+  );
+}
+
 export const PRECIOS_DEFAULT: Precios = {
   [PLAN_X5]: { normal: 21990, promo: 19990 },
   [PLAN_ILIMITADO_LEGACY]: { normal: 21990, promo: 19990 },

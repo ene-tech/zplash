@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
 import {
+  PASES_INCLUIDOS_X5,
   PLANES,
   formatTelefono,
   movimientoContableDesdeVenta,
@@ -163,15 +164,19 @@ export async function POST(request: NextRequest) {
     // Contratar y renovar dejan al cliente en el plan que se vende hoy: el
     // ilimitado viejo dejó de ofrecerse.
     //
-    // Excepción: al cliente de WooCommerce que no pasó NI UNA VEZ en su
-    // período no se le toca el plan, ni siquiera recontratando. Su cobro lo
-    // sigue haciendo el sistema viejo (ver renovacionAutoWooDesde), así que
-    // un cambio de plan de este lado no lo podemos gestionar con él; y el
-    // tope de pasadas no le cambia nada a alguien que no viene. Solo aplica
-    // acá, en el webhook: en el mesón y en la web propia el cambio se hace
-    // con el cliente delante.
+    // Excepción: al cliente de WooCommerce que pasó PASES_INCLUIDOS_X5 veces
+    // o menos en su período no se le toca el plan, ni siquiera recontratando.
+    // Su cobro lo sigue haciendo el sistema viejo (ver renovacionAutoWooDesde),
+    // así que un cambio de plan de este lado no lo podemos gestionar con él; y
+    // el tope del X5 no le cambia nada a quien ya viene menos que eso — es la
+    // política de rescate de ago-2026: al que usa poco se le mantiene su
+    // ilimitado viejo, y al que se pasa se le termina (ver
+    // evaluarReglasCorreoPorTopeIlimitado, que además le cancela la
+    // suscripción en WooCommerce para que no se le renueve a un plan que no
+    // aceptó). Solo aplica acá, en el webhook: en el mesón y en la web propia
+    // el cambio se hace con el cliente delante.
     const visitasPeriodo = await visitasPeriodoActual(db, existente);
-    planResultante = visitasPeriodo === 0 ? existente.plan || PLANES[0] : PLANES[0];
+    planResultante = visitasPeriodo <= PASES_INCLUIDOS_X5 ? existente.plan || PLANES[0] : PLANES[0];
     try {
       await db
         .update(clientes)

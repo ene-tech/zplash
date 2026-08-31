@@ -17,5 +17,6 @@ Antes de dar por cerrado un cambio, según el tipo de trabajo:
 - **Antes de mergear cualquier rama de feature/fix** → correr skill `code-review` sobre el diff.
 - **Cambio visual en landing, portal cliente (`/cliente`) u operador** → usar skill `run` para levantar la app y verificar el cambio en el navegador antes de darlo por bueno (no asumir por el código).
 - **Después de una tanda de commits rápidos/parches sueltos** (ej. varios ajustes de mobile seguidos) → correr skill `simplify` antes de cerrar la rama.
+- **Pregunta de negocio, no de código** (a quién mandar una campaña, si funcionó un descuento, cuánto se vendió en planes, qué clientes están en riesgo) → delegar al agente `comercial` (`.claude/agents/comercial.md`), que consulta la base en solo-lectura con `scripts/q.mts` y trae codificadas las trampas de clasificación de ventas. No improvisar SQL sobre `ventas` sin leerlo primero.
 
 No aplica a este proyecto: `claude-api` (no hay SDK de Anthropic ni integración LLM en el stack).

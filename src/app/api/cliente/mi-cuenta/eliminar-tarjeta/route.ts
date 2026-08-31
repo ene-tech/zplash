@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { suscripcionesOneclick } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
-import { cancelarSuscripcionOneclick } from "@/lib/dataAccess/oneclick";
 import { normPlate } from "@/lib/helpers";
+import { cancelarSuscripcionOneclick } from "@/lib/dataAccess/oneclick";
+import { evaluarReglasCorreoPorSuscripcionCancelada } from "@/lib/mailing/reglas";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,8 @@ export async function POST(request: NextRequest) {
 
   const patente = normPlate(body.patente);
   const clientesEncontrados = await getClientesByIds(sesion.clienteIds);
-  if (!clientesEncontrados.some((c) => normPlate(c.patente) === patente)) {
+  const cliente = clientesEncontrados.find((c) => normPlate(c.patente) === patente);
+  if (!cliente) {
     return NextResponse.json({ ok: false, error: "Ese vehículo no está en tu cuenta" }, { status: 404 });
   }
 
@@ -40,5 +42,12 @@ export async function POST(request: NextRequest) {
   }
 
   await cancelarSuscripcionOneclick(suscripcion.id);
+
+  // El mismo correo de respaldo que manda anularSuscripcion (@/lib/serverActions/
+  // oneclick) cuando la baja la hace el admin desde la ficha: el cliente que se
+  // da de baja solo también necesita su comprobante, y es la misma ReglaCorreo
+  // ("suscripcion_cancelada") para no tener dos textos que mantener. En after()
+  // para no hacerle esperar el envío, igual que el resto de los correos de reglas.
+  after(() => evaluarReglasCorreoPorSuscripcionCancelada(cliente));
   return NextResponse.json({ ok: true });
 }

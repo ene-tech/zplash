@@ -1,18 +1,8 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { inRange, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
+import { TIPOS_VENTA_PLAN, inRange, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
 import type { Cliente } from "@/types";
-
-const TIPOS_VENTA_PLAN = new Set([
-  "Plan nuevo",
-  "Renovación preferencial",
-  "Renovación atrasada",
-  "Reactivación promocional",
-  "Plan nuevo (Web)",
-  "Renovación (Web)",
-  "Renovación Web (manual)",
-]);
 
 // Calcula todos los datos derivados del dashboard de Estadísticas: el
 // resumen global (planes vigentes/vencidos), el resumen del período

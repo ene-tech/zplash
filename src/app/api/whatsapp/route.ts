@@ -30,7 +30,22 @@ type MetaMensaje = {
 type MetaStatus = {
   id: string;
   status: string;
+  // Solo viene cuando status="failed". Sin esto el motivo se perdia y la fila
+  // quedaba con estado="fallido" y `error` null — que es como quedaron los 36
+  // destinatarios del rellamado del 8-ago-2026 que nunca recibieron el mensaje:
+  // la Graph API acepto el envio (estado "enviado") y el fallo llego despues por aca.
+  errors?: Array<{ code?: number; title?: string; message?: string }>;
 };
+
+// Mismo formato "(#code) mensaje" que ya guarda llamarGraphApi para los
+// rechazos sincronicos (ver @/lib/whatsapp/enviar), asi los dos origenes se
+// leen igual en el hilo de MensajesView.
+function motivoDeStatus(status: MetaStatus): string | undefined {
+  const e = status.errors?.[0];
+  if (!e) return undefined;
+  const texto = e.message || e.title || "Error sin detalle";
+  return e.code ? `(#${e.code}) ${texto}` : texto;
+}
 
 type MetaContacto = {
   wa_id: string;
@@ -151,7 +166,7 @@ export async function POST(request: NextRequest) {
 
       for (const status of value.statuses || []) {
         const estado = ESTADO_META_A_LOCAL[status.status];
-        if (estado) await actualizarEstadoMensaje(status.id, estado);
+        if (estado) await actualizarEstadoMensaje(status.id, estado, estado === "fallido" ? motivoDeStatus(status) : undefined);
       }
     }
   }

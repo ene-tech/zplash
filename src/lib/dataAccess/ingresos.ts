@@ -8,6 +8,7 @@ import { ingresos } from "@/db/schema";
 // de imports, mismo motivo que dataAccess/ventas.ts al llamar
 // evaluarReglasPorVenta.
 import { evaluarReglasPorIngreso } from "@/lib/whatsapp/reglas";
+import { evaluarReglasCorreoPorTopeIlimitado } from "@/lib/mailing/reglas/disparadores";
 import type { Ingreso } from "@/types";
 
 type IngresoRow = typeof ingresos.$inferSelect;
@@ -61,6 +62,14 @@ export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
     // la respuesta), dejando el disparo pegado en "programado" para siempre.
     // Un error acá nunca debe tumbar el ingreso que lo originó.
     after(() => evaluarReglasPorIngreso(rows).catch((error) => console.error("Error evaluando reglas de WhatsApp por ingreso", error)));
+    // Mismo after() y mismo criterio de best-effort: avisa al cliente del
+    // ilimitado viejo que se pasó del tope del X5 (ver
+    // evaluarReglasCorreoPorTopeIlimitado).
+    after(() =>
+      evaluarReglasCorreoPorTopeIlimitado(rows).catch((error) =>
+        console.error("Error evaluando reglas de correo por tope de ilimitado", error)
+      )
+    );
     return true;
   } catch (error) {
     console.error("Error guardando ingresos", error);

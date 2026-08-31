@@ -1,10 +1,10 @@
 import "server-only";
 
-import { inArray } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
-import { esVentaAutomatica } from "@/lib/helpers";
+import { MINUTOS_BLOQUEO_PLAN_DUPLICADO, TIPOS_VENTA_PLAN, esVentaAutomatica } from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Venta } from "@/types";
@@ -107,6 +107,49 @@ export async function reclasificaVentaAutomatica(rows: Venta[]): Promise<boolean
       r.tipo !== previa.tipo || r.metodoPago !== previa.metodoPago || r.precio !== previa.precio || r.creadoPor !== previa.creadoPor
     );
   });
+}
+
+/**
+ * true si alguna de las filas nuevas es una venta de plan TIPEADA POR UNA
+ * PERSONA para un cliente que ya tiene otra venta de plan guardada dentro de
+ * la ventana (ver MINUTOS_BLOQUEO_PLAN_DUPLICADO en @/lib/helpers).
+ *
+ * Es el backstop del bloqueo que usePlanActions ya hace en pantalla: ese mira
+ * el `data.ventas` del navegador, así que no ve la venta que acaba de hacer
+ * OTRO operador en otra máquina — que es exactamente como pasó con JPBX89
+ * (jul-2026: dos "Plan nuevo" con 4 minutos de diferencia, uno de Verónica y
+ * otro de Cristian). Este mira la base, así que cubre las dos.
+ *
+ * Solo bloquea lo manual, a propósito: rechazar acá un cobro que Transbank ya
+ * procesó (Webpay, Oneclick, webhook de WooCommerce — ver esVentaAutomatica)
+ * dejaría la plata cobrada al cliente y sin venta registrada, que es peor que
+ * el duplicado que se quiere evitar.
+ */
+export async function duplicaVentaPlanReciente(rows: Venta[]): Promise<boolean> {
+  const manuales = rows.filter((v) => v.clienteId && TIPOS_VENTA_PLAN.has(v.tipo) && !esVentaAutomatica(v));
+  if (!manuales.length) return false;
+  const tiposPlan = [...TIPOS_VENTA_PLAN];
+  for (const v of manuales) {
+    const hasta = new Date(v.fecha);
+    const desde = new Date(hasta.getTime() - MINUTOS_BLOQUEO_PLAN_DUPLICADO * 60_000);
+    const [previa] = await getDb()
+      .select({ id: ventas.id })
+      .from(ventas)
+      .where(
+        and(
+          // ne() sobre el propio id: un reintento del mismo commit manda la
+          // misma fila, y sin esto se bloquearía a sí mismo.
+          ne(ventas.id, v.id),
+          eq(ventas.clienteId, v.clienteId),
+          inArray(ventas.tipo, tiposPlan),
+          gte(ventas.fecha, desde.toISOString()),
+          lte(ventas.fecha, hasta.toISOString())
+        )
+      )
+      .limit(1);
+    if (previa) return true;
+  }
+  return false;
 }
 
 export async function insertVentas(rows: Venta[]): Promise<boolean> {

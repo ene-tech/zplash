@@ -2,20 +2,16 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, uid } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, TIPOS_VENTA_PLAN, uid } from "@/lib/helpers";
 import { enviarInvitacionesMigracionWoo } from "@/lib/serverActions";
 import type { ReglaCorreo, ResultadoEnvioMasivoCorreo, TipoEventoReglaCorreo } from "@/types";
 
-const TIPOS_VENTA_CONOCIDOS = [
-  "Lavado único",
-  "Plan nuevo",
-  "Renovación preferencial",
-  "Renovación atrasada",
-  "Reactivación promocional",
-  "Plan nuevo (Web)",
-  "Renovación (Web)",
-  "Renovación automática (Oneclick)",
-];
+// Opciones del selector "al vender X". Salen de TIPOS_VENTA_PLAN para que un
+// canal nuevo no quede sin poder disparar reglas: esta lista era una copia a
+// mano y se había quedado sin las promos cobradas por Webpay/Oneclick, así que
+// no había forma de mandarle un correo a quien reactivaba su plan por la web.
+// "Lavado único" se agrega aparte porque no es una venta de plan.
+const TIPOS_VENTA_CONOCIDOS = ["Lavado único", ...TIPOS_VENTA_PLAN];
 
 function resumenCondicion(r: ReglaCorreo): string {
   if (r.tipoEvento === "venta_creada" || r.tipoEvento === "venta_creada_presencial") {
@@ -37,6 +33,12 @@ function resumenCondicion(r: ReglaCorreo): string {
   }
   if (r.tipoEvento === "migracion_woo_legacy") {
     return `Solo al apretar "Enviar invitaciones" más abajo (no automático)`;
+  }
+  if (r.tipoEvento === "tope_ilimitado_superado") {
+    return `Cuando un cliente del ilimitado viejo pasa más de ${PASES_INCLUIDOS_X5} veces en su mes, al registrarse esa pasada`;
+  }
+  if (r.tipoEvento === "suscripcion_cancelada") {
+    return `Cuando se corta el cobro automático de un cliente: "Cancelar suscripción" en su ficha, o el propio cliente eliminando su tarjeta en Mi Cuenta`;
   }
   if (r.tipoEvento === "envio_manual") {
     return `No dispara sola — la crea "Correos Únicos" para poder registrar ahí sus envíos puntuales`;
@@ -213,6 +215,8 @@ export default function ReglasCorreoTab() {
             <option value="plan_proximo_vencer">El plan de un cliente está por vencer</option>
             <option value="plan_vencido">El plan de un cliente acaba de vencer</option>
             <option value="migracion_woo_legacy">Campaña &quot;Migrar clientes de WooCommerce&quot; (manual, ver arriba)</option>
+            <option value="tope_ilimitado_superado">Un cliente del ilimitado viejo se pasó del tope del X5</option>
+            <option value="suscripcion_cancelada">Se cancela la suscripción de un cliente (ficha o Mi Cuenta)</option>
           </select>
         </div>
 

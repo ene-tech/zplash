@@ -25,6 +25,12 @@ export const reglasCorreo = pgTable("reglas_correo", {
   // a evaluarReglasPorCobroFallido). "plan_proximo_vencer" y "plan_vencido":
   // se evalúan en el cron diario (/api/correo/reglas/evaluar) escaneando
   // clientes por vencimiento — ver procesarVencimientosCorreo.
+  // "tope_ilimitado_superado": la dispara insertIngresos (ver
+  // evaluarReglasCorreoPorTopeIlimitado en @/lib/mailing/reglas/disparadores)
+  // cuando un cliente del ilimitado viejo se pasa del tope del X5 dentro de su
+  // ciclo — le avisa que ese plan se le termina al final del mes que ya pagó y
+  // le ofrece el X5. Un aviso por ciclo (origenId lleva el vencimiento).
+  //
   // "migracion_woo_legacy": no la evalúa ningún hook automático, la dispara a
   // mano un admin desde Web Settings (ver enviarInvitacionesMigracionWoo en
   // @/lib/mailing/migracionWoo) contra clientes con renovacionAutoWooDesde

@@ -7,7 +7,7 @@ import {
   precioLavadoUnico,
   resolverDescuento,
   uid,
-  vencimientoPorDefectoISO,
+  cicloPlanDesde,
 } from "@/lib/helpers";
 import { registrarIngreso } from "./ingresos";
 import type { AppData, Cliente, Cupon, Empresa, PagoInfo, Venta } from "@/types";
@@ -51,10 +51,10 @@ export type PreparadoClienteRapido =
  */
 export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): PreparadoClienteRapido {
   const plan = PLANES[0];
-  let vencimiento: string | null = null;
-  if (d.tipoCliente === "plan") {
-    vencimiento = vencimientoPorDefectoISO();
-  }
+  // Contratar acá siempre arranca un ciclo nuevo: vencimiento y contratación
+  // van juntos (ver cicloPlanDesde), si no la ventana de pases del X5 se
+  // deduce del vencimiento y puede caer corrida un mes.
+  const ciclo = d.tipoCliente === "plan" ? cicloPlanDesde() : null;
   const nuevo: Cliente = {
     id: uid(),
     nombre: d.nombre,
@@ -68,7 +68,8 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
     rut: d.rut,
     direccion: d.direccion,
     giro: d.giro,
-    vencimiento,
+    vencimiento: ciclo?.vencimiento ?? null,
+    fechaContratacion: ciclo?.fechaContratacion ?? null,
     origen: "LOCAL",
     visitas: 0,
     creadoEn: new Date().toISOString(),

@@ -34,6 +34,13 @@ export type TipoEventoReglaCorreo =
   | "plan_vencido"
   | "cobro_fallido"
   | "migracion_woo_legacy"
+  | "tope_ilimitado_superado"
+  // "suscripcion_cancelada": el respaldo por escrito de que ya no se le va a
+  // cobrar más. La disparan los dos caminos por los que se corta el cobro
+  // automático: anularSuscripcion (@/lib/serverActions/oneclick, botón
+  // "Cancelar suscripción" de la ficha) y /api/cliente/mi-cuenta/eliminar-tarjeta
+  // (el cliente dándose de baja solo desde Mi Cuenta).
+  | "suscripcion_cancelada"
   | "envio_manual";
 
 // Regla de negocio ("cuándo mandar qué correo") — motor en paralelo al de

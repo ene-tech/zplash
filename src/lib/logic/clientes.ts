@@ -17,12 +17,18 @@ export interface DatosClienteModal {
   giro: string;
   plan: string;
   vencimiento: string | null;
+  /** Ancla del ciclo de pases cuando este guardado arranca un plan nuevo (ver
+   * cicloPlanDesde en @/lib/helpers). undefined = no se toca: es una edición
+   * de ficha, o un vencimiento tipeado a mano desde el admin. */
+  fechaContratacion?: string;
   origen: "WEB" | "LOCAL";
   /** Precio de plan que se le respeta al renovar a tiempo (ver
    * precioConHeredado en @/lib/helpers) — null = paga el precio vigente.
-   * Solo lo edita Administración/Gerencia desde la ficha; el resto de los
-   * contextos lo devuelve tal como venía. */
-  precioPlanHeredado: number | null;
+   * Solo lo manda la ficha de admin, que es la única que muestra el campo:
+   * ausente (undefined) el cliente conserva el que ya tenía, para que
+   * guardar la ficha desde el operador no le borre en silencio el precio que
+   * se le venía respetando en cada renovación. */
+  precioPlanHeredado?: number | null;
   pago?: PagoInfo;
 }
 
@@ -57,8 +63,9 @@ export function guardarClienteModal(data: AppData, d: DatosClienteModal): Partia
       direccion: d.direccion,
       giro: d.giro,
       vencimiento: d.vencimiento,
+      ...(d.fechaContratacion ? { fechaContratacion: d.fechaContratacion } : {}),
       origen: d.origen,
-      precioPlanHeredado: d.precioPlanHeredado,
+      ...(d.precioPlanHeredado !== undefined ? { precioPlanHeredado: d.precioPlanHeredado } : {}),
     };
     clientes = data.clientes.map((x) => (x.id === actualizado.id ? actualizado : x));
     if (d.tipoDocumento === "Factura" && d.rut && !data.empresas.some((e) => formatRut(e.rut) === d.rut)) {
@@ -97,8 +104,9 @@ export function guardarClienteModal(data: AppData, d: DatosClienteModal): Partia
     direccion: d.direccion,
     giro: d.giro,
     vencimiento: d.vencimiento,
+    fechaContratacion: d.fechaContratacion ?? null,
     origen: d.origen,
-    precioPlanHeredado: d.precioPlanHeredado,
+    precioPlanHeredado: d.precioPlanHeredado ?? null,
     // El alta desde el punto de venta del operador ("+ Agregar vehículo
     // nuevo") es el vehículo entrando físicamente en ese momento, así que ya
     // cuenta como su primera visita (ver Ingreso más abajo). Un alta desde el

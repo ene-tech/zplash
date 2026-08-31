@@ -1,8 +1,9 @@
 import "server-only";
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, suscripcionesOneclick } from "@/db/schema";
+import { tieneTarjetaViva, uid } from "@/lib/helpers";
 import { oneclickInscription } from "@/lib/transbank";
 
 export interface SuscripcionOneclickInfo {
@@ -68,6 +69,59 @@ export async function obtenerSuscripcionOneclickCobrablePorPatente(patente: stri
   return suscripcion;
 }
 
+/**
+ * Deja la tarjeta ya inscrita de `patenteOrigen` cobrando también los otros
+ * autos de la misma persona, sin volver a pasar por Transbank: copia el par
+ * (username, tbkUser) —que es lo que identifica la inscripción— a la fila de
+ * cada patente destino. authorize() acepta el mismo tbkUser para cobros
+ * distintos, así que cada auto sigue teniendo su propio ciclo (`proximoCobro`
+ * con SU vencimiento) y su propio estado; lo único compartido es la tarjeta.
+ *
+ * Quien llama tiene que haber verificado que las patentes son de la sesión
+ * (ver /api/cliente/mi-cuenta/compartir-tarjeta). Nunca pisa un auto que ya
+ * tiene tarjeta propia viva: eso es cambiar de medio de pago, y para eso está
+ * inscribir de nuevo.
+ *
+ * Devuelve las patentes que efectivamente quedaron con la tarjeta.
+ */
+export async function compartirTarjetaOneclick(patenteOrigen: string, patentesDestino: string[]): Promise<string[]> {
+  const db = getDb();
+  const [origen] = await db.select().from(suscripcionesOneclick).where(eq(suscripcionesOneclick.patente, patenteOrigen)).limit(1);
+  if (!origen || origen.estado !== "activa" || !origen.tbkUser) return [];
+
+  const copiadas: string[] = [];
+  for (const patente of patentesDestino) {
+    if (patente === patenteOrigen) continue;
+    const [existente] = await db.select().from(suscripcionesOneclick).where(eq(suscripcionesOneclick.patente, patente)).limit(1);
+    if (tieneTarjetaViva(existente?.estado)) continue;
+
+    // Mismo criterio que la rama "solo tarjeta" de /inscripcion/retorno: se
+    // agenda el cobro para el vencimiento real del auto, nunca antes (no
+    // duplicar lo que ya pagó por otro medio), y sin plan vigente queda
+    // guardada sin fecha — el cron solo mira proximoCobro <= ahora.
+    const [cliente] = await db.select({ vencimiento: clientes.vencimiento }).from(clientes).where(eq(clientes.patente, patente)).limit(1);
+    const proximoCobro = cliente?.vencimiento && new Date(cliente.vencimiento) > new Date() ? cliente.vencimiento : null;
+    const tarjeta = {
+      username: origen.username,
+      tbkUser: origen.tbkUser,
+      cardTipo: origen.cardTipo,
+      cardUltimosDigitos: origen.cardUltimosDigitos,
+      email: origen.email,
+      estado: "activa",
+      proximoCobro,
+      tokenInscripcion: null,
+      actualizadoEn: new Date().toISOString(),
+    };
+    if (existente) {
+      await db.update(suscripcionesOneclick).set(tarjeta).where(eq(suscripcionesOneclick.id, existente.id));
+    } else {
+      await db.insert(suscripcionesOneclick).values({ id: uid(), patente, ...tarjeta });
+    }
+    copiadas.push(patente);
+  }
+  return copiadas;
+}
+
 const ESTADO_ORDEN: Record<string, number> = { activa: 0, suspendida: 1, pendiente: 2, cancelada: 3 };
 
 /** Todas las suscripciones Oneclick para la pestaña Admin → Suscripciones,
@@ -108,13 +162,32 @@ export async function listarSuscripcionesOneclick(): Promise<SuscripcionOneclick
 /** Cancela una suscripción: da de baja la tarjeta en Transbank (si alcanzó a
  * quedar "activa" alguna vez) y marca el estado localmente. Es terminal — a
  * diferencia de suspenderSuscripcionOneclick, no se puede reactivar después
- * porque el token de tarjeta ya no existe en Transbank. */
+ * porque el token de tarjeta ya no existe en Transbank.
+ *
+ * La baja en Transbank es del par (username, tbkUser), o sea de la TARJETA, y
+ * desde que una misma tarjeta puede cobrar varias patentes (ver
+ * compartirTarjetaOneclick) eso dejaría sin cobro a los otros autos de la
+ * persona. Por eso solo se da de baja cuando esta es la última fila viva que
+ * la usa; si quedan hermanas, se cancela nada más que localmente. */
 export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> {
   const db = getDb();
   const suscripcion = await obtenerSuscripcionOneclickPorId(id);
   if (!suscripcion) return false;
 
-  if (suscripcion.tbkUser) {
+  const hermanasVivas = suscripcion.tbkUser
+    ? await db
+        .select({ id: suscripcionesOneclick.id })
+        .from(suscripcionesOneclick)
+        .where(
+          and(
+            eq(suscripcionesOneclick.tbkUser, suscripcion.tbkUser),
+            ne(suscripcionesOneclick.id, id),
+            inArray(suscripcionesOneclick.estado, ["activa", "suspendida"])
+          )
+        )
+    : [];
+
+  if (suscripcion.tbkUser && hermanasVivas.length === 0) {
     try {
       await oneclickInscription().delete(suscripcion.tbkUser, suscripcion.username);
     } catch (error) {

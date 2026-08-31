@@ -1,39 +1,12 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, suscripcionesOneclick } from "@/db/schema";
+import { suscripcionesOneclick } from "@/db/schema";
 import { diasVencido, planStatus, promoPrimerCobroOneclick } from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
-import { cancelarSuscripcionWooCommerceLegacy, cobrarOfertaOneclick, cobrarSuscripcion, otorgarTicketReactivacion } from "@/lib/pagos";
+import { cobrarOfertaOneclick, cobrarSuscripcion, migrarDeWooCommerceLegacy, otorgarTicketReactivacion } from "@/lib/pagos";
 import { oneclickInscription } from "@/lib/transbank";
-import type { Cliente } from "@/types";
-
-// Si la patente que acaba de activar su tarjeta Oneclick propia todavía
-// tiene marca de renovación automática por WooCommerce (ver
-// renovacionAutoWooDesde en @/db/schema/clientes), dispara la cancelación de
-// esa suscripción vieja — si no, WooCommerce le sigue cobrando su próximo
-// ciclo con la tarjeta anterior al mismo tiempo que el cron nuevo cobra con
-// la tarjeta recién inscrita (doble cobro real). Se llama después de que la
-// suscripción Oneclick ya quedó "activa" en la base, con after() para no
-// retrasar la respuesta al cliente — ver cancelarSuscripcionWooCommerceLegacy
-// para el detalle de por qué es best-effort.
-function dispararMigracionLegacySiCorresponde(
-  db: ReturnType<typeof getDb>,
-  cliente: Pick<Cliente, "id" | "email" | "renovacionAutoWooDesde"> | null,
-  patente: string
-) {
-  if (!cliente?.renovacionAutoWooDesde) return;
-  after(() =>
-    cancelarSuscripcionWooCommerceLegacy(patente, cliente.email || "")
-      .then(async ({ cancelada, subscriptionId }) => {
-        if (!cancelada) return;
-        console.log(`Suscripción WooCommerce #${subscriptionId} cancelada tras migrar ${patente} a Oneclick propio`);
-        await db.update(clientes).set({ renovacionAutoWooDesde: null }).where(eq(clientes.id, cliente.id));
-      })
-      .catch((error) => console.error("Error cancelando suscripción WooCommerce tras migración de tarjeta", patente, error))
-  );
-}
 
 export const runtime = "nodejs";
 
@@ -107,6 +80,11 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     await db
       .update(suscripcionesOneclick)
       .set({
+        // username junto con tbkUser: start() se llamó con la patente, y si
+        // esta fila venía compartiendo la tarjeta de otro auto (ver
+        // compartir-tarjeta) el par tiene que quedar consistente — authorize()
+        // exige el mismo username con el que se inscribió ese tbkUser.
+        username: suscripcion.patente,
         tbkUser: resultado.tbk_user,
         cardTipo: resultado.card_type || null,
         cardUltimosDigitos: resultado.card_number || null,
@@ -117,12 +95,15 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
       })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
 
-    dispararMigracionLegacySiCorresponde(db, cliente, suscripcion.patente);
+    migrarDeWooCommerceLegacy(cliente, suscripcion.patente);
     return redirectResultado(origin, "tarjeta_guardada");
   }
 
   const activada = {
     ...suscripcion,
+    // Ver el comentario del username en la rama de arriba: el cobro que sigue
+    // usa este objeto, así que el par (username, tbkUser) tiene que ir junto.
+    username: suscripcion.patente,
     tbkUser: resultado.tbk_user,
     estado: "activa" as const,
     proximoCobro: new Date().toISOString(),
@@ -130,6 +111,7 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   await db
     .update(suscripcionesOneclick)
     .set({
+      username: suscripcion.patente,
       tbkUser: resultado.tbk_user,
       cardTipo: resultado.card_type || null,
       cardUltimosDigitos: resultado.card_number || null,
@@ -140,7 +122,7 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     })
     .where(eq(suscripcionesOneclick.id, suscripcion.id));
 
-  dispararMigracionLegacySiCorresponde(db, cliente, suscripcion.patente);
+  migrarDeWooCommerceLegacy(cliente, suscripcion.patente);
 
   // ¿El plan venía vencido? Se mira ANTES de cobrar, porque el cobro de acá
   // abajo es justamente lo que lo reactiva (ver aplicarPagoAprobado).
