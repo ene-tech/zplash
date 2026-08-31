@@ -40,6 +40,16 @@ const PREGUNTAS_FULL_TUNNEL = [
   },
 ];
 
+const FOTOS_TUNEL = [
+  { src: "/tunel-bn.webp", alt: "Auto cubierto de espuma entre los cepillos del túnel de lavado" },
+  { src: "/tunel/barrera-qr.jpg", alt: "Barrera de entrada con lector QR para pagar desde el celular" },
+  { src: "/tunel/prelavado.jpg", alt: "Operario enjuagando a presión un auto antes de entrar al túnel" },
+  { src: "/tunel/espuma.jpg", alt: "El mismo auto cubierto de espuma, listo para pasar al túnel" },
+  { src: "/tunel/entrada-tunel.jpg", alt: "Entrada del túnel de lavado Zplash con sus cepillos" },
+  { src: "/tunel/tunel-camioneta.jpg", alt: "Camioneta enjuagándose dentro del túnel de lavado" },
+  { src: "/tunel/aspirado.jpg", alt: "Zona de aspirado autoservicio con aspiradoras y pistolas de aire" },
+];
+
 // Ver nota en /cliente/page.tsx: precios siempre frescos desde la base.
 export const dynamic = "force-dynamic";
 
@@ -58,7 +68,7 @@ export default async function FullTunnelPage() {
           eyebrow="Lavado por túnel"
           titulo="Lavado Full Tunnel"
           descripcion="Nosotros lavamos el exterior de tu auto en minutos y luego puedes usar todo el tiempo que quieras la zona de aspirado autoservicio para limpiar el interior."
-          imagen="/fondo-producto.jpg"
+          imagen={FOTOS_TUNEL}
           features={[
             { icon: <Droplets />, titulo: "Lavado completo", detalle: "Prelavado, jabón, cepillado, enjuague y secado en un solo pase." },
             { icon: <Clock />, titulo: "Sin reserva de hora", detalle: "Llega directo al local cuando quieras, sin agendar." },
