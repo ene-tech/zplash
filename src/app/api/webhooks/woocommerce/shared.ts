@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { and, eq, gte, ilike, inArray, lte } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, ventas } from "@/db/schema";
-import { normPlate } from "@/lib/helpers";
+import { TIPOS_VENTA_PLAN, normPlate } from "@/lib/helpers";
 
 // Compartido entre los dos endpoints de WooCommerce (pedidos y suscripción):
 // ambos verifican la misma firma HMAC y extraen la patente/email del mismo
@@ -60,16 +60,35 @@ export async function buscarClienteExistente(patente: string, email: string): Pr
 // tiene un orderId legítimo, así que el chequeo de "mismo orderId ya
 // procesado" en route.ts no lo detecta, y cada uno apilaba un mes más de
 // vencimiento sin que hubiera 2 pagos reales de por medio en todos los casos.
-// 3 días de ventana porque ningún ciclo real de renovación (un mes) debería
-// generar dos pedidos "Renovación"/"Plan nuevo" tan seguidos para la misma
-// patente.
-const VENTANA_RENOVACION_SOSPECHOSA_MS = 3 * 24 * 60 * 60 * 1000;
-const TIPOS_RENOVACION_WEB = ["Renovación (Web)", "Plan nuevo (Web)"];
+// 7 días de ventana: un ciclo real es de un mes, así que dos ventas de plan
+// para la misma patente en la misma semana no son dos ciclos.
+//
+// Estuvo en 3 y se escapaban duplicados reales. Calibrado sobre los pares de
+// ventas de plan consecutivas en producción (ago-2026, excluyendo la carga
+// histórica de WooCommerce): hay un pico de 31 pares entre 0 y 4 días, sigue
+// habiendo duplicados cruzados en 6 (LDLY46: "Renovación preferencial" del
+// mesón y "Renovación (Web)" del webhook) y en 7 (KTRT11: webhook y Webpay
+// nativo), y recién en 8-9 días los pares dejan de parecer ecos —ahí ya son
+// una fila histórica sin canal seguida de una renovación real. El corte va
+// justo en ese cambio.
+const VENTANA_RENOVACION_SOSPECHOSA_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * true si ya existe otra venta de renovación/plan-nuevo Web para este
- * cliente a menos de 3 días de `fechaOrden` — señal de que este pedido puede
- * ser un eco/duplicado de WooCommerce en vez de un ciclo nuevo real.
+ * true si ya existe otra venta de PLAN para este cliente a menos de una
+ * semana de `fechaOrden` — señal de que este pedido puede ser un eco de
+ * WooCommerce (o el pedido que llega después de que el operador ya cobró en
+ * el mesón) en vez de un ciclo nuevo real.
+ *
+ * Mira TIPOS_VENTA_PLAN, o sea CUALQUIER canal. Antes solo miraba
+ * ["Renovación (Web)", "Plan nuevo (Web)"] —los tipos que escribe este mismo
+ * webhook— así que un cobro registrado en el mesón le era invisible y el
+ * pedido de WooCommerce apilaba un mes más encima: en agosto-2026 pasó con
+ * TPJZ97, TZPY12, JFCF40, VRHY85 y PKFL78, todos con un "Plan nuevo" o
+ * "Renovación Web (manual)" del mesón a 0-2 días.
+ *
+ * La lista vive en @/lib/helpers/ventas a propósito y no como copia local:
+ * cada canal nuevo agrega su tipo allá, y una copia acá se queda atrás en
+ * silencio — que es exactamente cómo se abrió este agujero.
  */
 export async function huboRenovacionWebReciente(clienteId: string, fechaOrden: string): Promise<boolean> {
   const centro = new Date(fechaOrden).getTime();
@@ -78,7 +97,7 @@ export async function huboRenovacionWebReciente(clienteId: string, fechaOrden: s
   const [previa] = await getDb()
     .select({ id: ventas.id })
     .from(ventas)
-    .where(and(eq(ventas.clienteId, clienteId), inArray(ventas.tipo, TIPOS_RENOVACION_WEB), gte(ventas.fecha, desde), lte(ventas.fecha, hasta)))
+    .where(and(eq(ventas.clienteId, clienteId), inArray(ventas.tipo, [...TIPOS_VENTA_PLAN]), gte(ventas.fecha, desde), lte(ventas.fecha, hasta)))
     .limit(1);
   return !!previa;
 }

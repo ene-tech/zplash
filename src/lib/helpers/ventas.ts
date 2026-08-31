@@ -46,6 +46,42 @@ export function esVentaAutomatica(venta: { creadoPor?: string | null; tipo: stri
   return esTarjetaWeb(venta.creadoPor) || TIPOS_VENTA_NO_MANUAL.has(venta.tipo);
 }
 
+/**
+ * Tipos de venta que son plata de PLAN — contratación, renovación,
+ * reactivación y upgrade, en cualquier canal. Es la lista contra la que se
+ * responde "cuánto vendimos en planes"; filtrar por texto (`tipo` que
+ * contenga "plan") se pierde "Renovación preferencial", "Reactivación
+ * promocional" y toda la familia Web/Oneclick.
+ *
+ * Vive acá y no en la pantalla que la consume porque cada canal nuevo agrega
+ * su propio tipo —ver TIPO_VENTA_PROMO_CUENTA en /api/pagos/webpay/retorno,
+ * TIPO_VENTA_ONECLICK en @/lib/pagos/cobrarSuscripcion y aplicarUpgradePlan—
+ * y una copia local se queda atrás en silencio: Estadísticas estuvo sin contar
+ * las promos cobradas por Webpay/Oneclick ($1.073.450 en 90 días) sin que nada
+ * fallara. Si agregas un tipo de venta de plan, agrégalo acá.
+ *
+ * El orden es el de un selector: mesón, web, Oneclick, y al final el tipo
+ * histórico. "Renovación manual" ya no lo escribe nadie (carga de jul-2026,
+ * `creado_por` nulo) — se queda para que los períodos viejos sigan cuadrando.
+ */
+export const TIPOS_VENTA_PLAN = new Set([
+  "Plan nuevo",
+  "Renovación preferencial",
+  "Renovación atrasada",
+  "Reactivación promocional",
+  "Renovación Web (manual)",
+  "Plan nuevo (Web)",
+  "Renovación (Web)",
+  "Renovación anticipada (Web)",
+  "Reactivación promocional (Web)",
+  "Upgrade a Plan X5 (Web)",
+  "Renovación automática (Oneclick)",
+  "Renovación anticipada (Oneclick)",
+  "Reactivación promocional (Oneclick)",
+  "Upgrade a Plan X5 (Oneclick)",
+  "Renovación manual",
+]);
+
 
 export const DATOS_TRANSFERENCIA = [
   { label: "Nombre", valor: "SERVICIOS E INVERSIONES LAS AGUILAS SPA" },

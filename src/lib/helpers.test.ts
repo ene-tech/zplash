@@ -62,6 +62,7 @@ import {
   patchDeCliente,
   planStatus,
   planVendible,
+  TIPOS_VENTA_PLAN,
   precioContratacion,
   precioPagoAtrasado,
   precioRenovacionATiempo,
@@ -749,6 +750,25 @@ describe("planVendible — el ilimitado legacy cotiza al precio del X5", () => {
     const config = { ...CONFIG_DEFAULT, tramosRenovacionLocal: {} };
     expect(precioRenovacionLocal(config, sinPromo, PLAN_ILIMITADO_LEGACY, 1, "LOCAL")).toBe(24990);
     expect(precioRenovacionLocal(config, sinPromo, PLAN_X5, 1, "LOCAL")).toBe(24990);
+  });
+});
+
+describe("TIPOS_VENTA_PLAN", () => {
+  // El dedup del webhook de WooCommerce (huboRenovacionWebReciente en
+  // api/webhooks/woocommerce/shared) filtra por esta lista para decidir si un
+  // pedido es un eco. Si se le sacan los tipos del mesón, un cobro registrado
+  // en el local vuelve a ser invisible y el pedido de WooCommerce apila otro
+  // mes de vencimiento encima — que es el agujero de agosto-2026.
+  it("incluye los tipos de plan del mesón, no solo los Web", () => {
+    for (const tipo of [
+      "Plan nuevo",
+      "Renovación preferencial",
+      "Renovación atrasada",
+      "Reactivación promocional",
+      "Renovación Web (manual)",
+    ]) {
+      expect(TIPOS_VENTA_PLAN.has(tipo)).toBe(true);
+    }
   });
 });
 
