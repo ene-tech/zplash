@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, suscripcionesOneclick } from "@/db/schema";
-import { diasVencido, promoPrimerCobroOneclick } from "@/lib/helpers";
+import { diasVencido, planStatus, promoPrimerCobroOneclick } from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { cancelarSuscripcionWooCommerceLegacy, cobrarOfertaOneclick, cobrarSuscripcion, otorgarTicketReactivacion } from "@/lib/pagos";
@@ -147,14 +147,21 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   const veniaVencido = !!cliente && diasVencido(cliente) !== null;
 
   // Promoción que le calza a esta patente (ver promoPrimerCobroOneclick): el
-  // cliente que llega vencido e inscribe su tarjeta entra pagando ese precio
-  // y no el de lista de la renovación automática — es la misma oferta que Mi
-  // Cuenta cobra vía cobrarOfertaOneclick y la que /pagar le anunció antes de
-  // mandarlo a Transbank (ver /api/pagos/estado). Se recalcula acá con datos
-  // frescos, nunca se confía en lo que el cliente vio en pantalla. Es solo
-  // por este primer cobro: los meses siguientes los cobra el cron al precio
-  // normal de la renovación automática.
-  const promo = veniaVencido && cliente ? promoPrimerCobroOneclick(await calcularOfertasPlanDeCliente(cliente)) : undefined;
+  // cliente que llega sin plan vigente e inscribe su tarjeta entra pagando ese
+  // precio y no el de lista de la renovación automática — es la misma oferta
+  // que Mi Cuenta cobra vía cobrarOfertaOneclick y la que /pagar le anunció
+  // antes de mandarlo a Transbank (ver /api/pagos/estado). Se recalcula acá con
+  // datos frescos, nunca se confía en lo que el cliente vio en pantalla. Es
+  // solo por este primer cobro: los meses siguientes los cobra el cron al
+  // precio normal de la renovación automática.
+  //
+  // El filtro es planStatus "bad" y no `veniaVencido`: "Sin plan" (nunca
+  // contrató, `vencimiento` nulo, y por eso diasVencido devuelve null) también
+  // tiene promoción — el upgrade desde el lavado único que acaba de pagar (ver
+  // calcularOfertasPlan). Con el filtro por vencido, ese cliente veía el
+  // upgrade en Mi Cuenta, apretaba, iba a inscribir su tarjeta y volvía con el
+  // plan cobrado al precio completo en vez de la diferencia.
+  const promo = cliente && planStatus(cliente).cls === "bad" ? promoPrimerCobroOneclick(await calcularOfertasPlanDeCliente(cliente)) : undefined;
 
   // Tarjeta inscrita: cobra ya mismo en vez de esperar al cron del día
   // siguiente, para que el plan quede activo de inmediato.
