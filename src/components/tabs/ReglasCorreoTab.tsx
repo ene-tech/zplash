@@ -49,7 +49,7 @@ function resumenCondicion(r: ReglaCorreo): string {
   return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}${soloSinAutopago}${soloConPromo}`;
 }
 
-function ReglaRow({ regla, puedeBorrar }: { regla: ReglaCorreo; puedeBorrar: boolean }) {
+function ReglaRow({ regla, puedeBorrar, verTexto }: { regla: ReglaCorreo; puedeBorrar: boolean; verTexto: boolean }) {
   const { data, commit } = useApp();
   const plantilla = data.plantillasCorreo.find((p) => p.id === regla.plantillaCorreoId);
 
@@ -67,6 +67,19 @@ function ReglaRow({ regla, puedeBorrar }: { regla: ReglaCorreo; puedeBorrar: boo
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 8 }}>
         {resumenCondicion(regla)} · Plantilla: {plantilla?.nombre || "(eliminada)"}
       </div>
+      {plantilla && (
+        <details open={verTexto} style={{ marginBottom: 8 }}>
+          <summary style={{ cursor: "pointer", fontSize: 13 }}>Ver el correo que recibe el cliente</summary>
+          <div style={{ marginTop: 6, fontSize: 13, borderLeft: "3px solid var(--gray)", paddingLeft: 10 }}>
+            <div style={{ fontWeight: 600 }}>Asunto: {plantilla.asunto}</div>
+            <div style={{ whiteSpace: "pre-wrap", marginTop: 6 }}>{plantilla.cuerpo}</div>
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12, marginTop: 6 }}>
+              Sale dentro de la plantilla base: logo arriba, botón &quot;Ir a Mi Cuenta&quot; y pie con
+              info@zplash.cl. Las {"{{variables}}"} se reemplazan con los datos del cliente al enviar.
+            </div>
+          </div>
+        </details>
+      )}
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button className="icon-btn" onClick={toggleActiva}>
           {regla.activa ? "Desactivar" : "Reactivar"}
@@ -122,6 +135,7 @@ function MigracionWooCard() {
 export default function ReglasCorreoTab() {
   const { data, ui, commit } = useApp();
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [verTextos, setVerTextos] = useState(false);
   const puedeBorrar = ui.perfilActual?.modulos.includes("permisos") || false;
 
   const nombreRef = useRef<HTMLInputElement>(null);
@@ -334,7 +348,19 @@ export default function ReglasCorreoTab() {
       {data.reglasCorreo.length === 0 ? (
         <div className="hint">Todavía no hay reglas configuradas.</div>
       ) : (
-        data.reglasCorreo.map((r) => <ReglaRow key={r.id} regla={r} puedeBorrar={puedeBorrar} />)
+        <>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, fontSize: 13 }}>
+            <input type="checkbox" checked={verTextos} onChange={(e) => setVerTextos(e.target.checked)} />
+            Ver todos los textos que reciben los clientes
+          </label>
+          {/* Activas primero: las apagadas (campañas de "Correos Únicos" ya usadas, duplicados) son
+              historial, no lo que le llega hoy a un cliente. */}
+          {[...data.reglasCorreo]
+            .sort((a, b) => Number(b.activa) - Number(a.activa) || a.tipoEvento.localeCompare(b.tipoEvento))
+            .map((r) => (
+              <ReglaRow key={r.id} regla={r} puedeBorrar={puedeBorrar} verTexto={verTextos} />
+            ))}
+        </>
       )}
     </div>
   );
