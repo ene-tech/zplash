@@ -33,9 +33,14 @@ export function filtrarClientesMensajeMasivo(clientes: Cliente[], f: FiltrosMens
     // Sin ultimaVisita (nunca ha venido) cuenta como "siempre inactivo" —
     // cualquier mínimo de días exigido lo deja adentro.
     if (f.inactivoDiasMin && c.ultimaVisita && diasDesde(c.ultimaVisita) < Number(f.inactivoDiasMin)) return false;
-    if (f.clienteDesdeDiasMin) {
-      if (!c.fechaContratacion || diasDesde(c.fechaContratacion) < Number(f.clienteDesdeDiasMin)) return false;
-    }
+    // Antigüedad del CLIENTE, o sea `creadoEn`, no `fechaContratacion`. Esta
+    // última es el ancla del ciclo de plan vigente y se mueve en cada reinicio
+    // (ver anclaCicloPlan / cicloPlanDesde en @/lib/helpers/clientes): con ella,
+    // un cliente de dos años que reactivó ayer contaba como cliente de un día,
+    // justo al revés de lo que dice la etiqueta del filtro. Y el
+    // `!c.fechaContratacion` dejaba fuera en silencio a los 389 clientes con
+    // plan que no tienen ancla guardada (carga histórica del mesón).
+    if (f.clienteDesdeDiasMin && diasDesde(c.creadoEn) < Number(f.clienteDesdeDiasMin)) return false;
     if (q && !c.nombre.toLowerCase().includes(q) && !c.patente.toLowerCase().includes(q)) return false;
     return true;
   });

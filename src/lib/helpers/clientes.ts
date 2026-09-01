@@ -285,6 +285,21 @@ export function vencimientoAnclado(cliente: Pick<Cliente, "fechaContratacion" | 
  * Ojo con reusar esto para calcular vencimientos: `vencimientoAnclado` espera
  * la fecha de contratación cruda (le resta el día por dentro), así que
  * pasarle este ancla adelantaría el vencimiento un día.
+ *
+ * NO intentar rellenar `fechaContratacion` de las filas viejas que la tienen
+ * en null (389 al 1-sep-2026, la carga histórica del mesón). Se midió dos
+ * veces y las dos se descartaron:
+ * - Reconstruirla desde `ventas` acierta 36% contra las 746 filas que sí
+ *   tienen ancla, y aplicarla movía la ventana de pases de 214 clientes y le
+ *   quitaba una pasada YA PAGADA a 5. El tipo de venta no dice si el ciclo
+ *   reinició: eso se decide en runtime (`reinicia = reiniciarCiclo &&
+ *   !vigente`, ver aplicarPagoAprobado), así que una reactivación cobrada a un
+ *   cliente todavía vigente apila y se graba con el mismo tipo.
+ * - Guardar el valor que esta función deduce es peor que el null: para un
+ *   cliente vigente es una fecha FUTURA, y la columna la leen en crudo
+ *   ClienteInfoModal, visitasDesdeContratacion y dos auditorías de calidad.
+ * El null es seguro justamente porque esta función lo cubre. Lo que sí quedó
+ * roto es de presentación: la ficha muestra "Contrató el plan: -".
  */
 export function anclaCicloPlan(cliente: Pick<Cliente, "fechaContratacion" | "vencimiento">): Date | null {
   if (cliente.fechaContratacion) return diaEnSantiago(cliente.fechaContratacion);
