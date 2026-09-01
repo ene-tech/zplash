@@ -25,6 +25,16 @@ import type { Cliente } from "@/types";
 
 type ClienteCiclo = Pick<Cliente, "id" | "plan" | "ilimitadoHasta" | "fechaContratacion" | "vencimiento">;
 
+/** ¿El vencimiento cae el último día de su mes en Chile? Es el único caso en
+ * que deducir el ancla del vencimiento es ambiguo (ver más abajo). */
+function esUltimoDiaDelMes(vencimiento: string): boolean {
+  const dia = diaEnSantiago(vencimiento);
+  if (!dia) return false;
+  const siguiente = new Date(dia);
+  siguiente.setDate(siguiente.getDate() + 1);
+  return siguiente.getMonth() !== dia.getMonth();
+}
+
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false, max: 1 });
 
@@ -58,15 +68,18 @@ for (const c of clientes) {
     fechaContratacion: c.fecha_contratacion,
     vencimiento: c.vencimiento,
   };
+  // OJO: el plan legacy no tiene tope (pasesIncluidos devuelve null), pero NO
+  // se saltea. Su ancla igual importa: en cuanto renueva migra al X5 y hereda
+  // la deducción que tenga guardada. Saltearlos fue lo que dejó 386 filas
+  // fuera del backfill del 1-sep-2026.
   const incluidos = pasesIncluidos(planVigente(cli));
-  if (incluidos === null) continue;
 
   const pasadas = (ingresosPorCliente.get(c.id) ?? []).map((i) => new Date(i.fecha));
   const usadosEn = ({ inicio, fin }: { inicio: Date; fin: Date }) => pasadas.filter((f) => f >= inicio && f < fin).length;
 
   const ventana = periodoPlan(cli);
   const usados = usadosEn(ventana);
-  if (usados >= incluidos) {
+  if (incluidos !== null && usados >= incluidos) {
     bloqueados.push({ patente: c.patente, usados, ventana: `${ymd(ventana.inicio)}→${ymd(ventana.fin)}`, sinAncla: !c.fecha_contratacion });
   }
   if (c.fecha_contratacion) continue;
@@ -85,11 +98,18 @@ for (const c of clientes) {
   if (!ancla) continue;
 
   const ventanaReal = periodoPlan({ ...cli, fechaContratacion: ancla.toISOString() });
-  const pasesAhora = Math.max(0, incluidos - usados);
-  const pasesDespues = Math.max(0, incluidos - usadosEn(ventanaReal));
+  const pasesAhora = incluidos === null ? null : Math.max(0, incluidos - usados);
+  const pasesDespues = incluidos === null ? null : Math.max(0, incluidos - usadosEn(ventanaReal));
   sinAncla.push({
     patente: c.patente,
+    plan: planVigente(cli),
     origen: reconstruida ? "venta" : "deducida",
+    // Sin ambigüedad no hay nada que reconstruir: si el vencimiento NO cae el
+    // último día de su mes, `vencimiento + 1 día` es exactamente el inicio del
+    // ciclo y la deducción no puede fallar. La ambigüedad es solo de fin de
+    // mes, donde ese mismo vencimiento sale igual de un ancla 29/30/31
+    // recortada que de una el 1 del mes siguiente.
+    ambiguo: esUltimoDiaDelMes(c.vencimiento),
     ancla: ymd(ancla),
     mueveVentana: ymd(ventanaReal.inicio) !== ymd(ventana.inicio) ? `${ymd(ventana.inicio)} → ${ymd(ventanaReal.inicio)}` : "",
     pasesAhora,
@@ -101,11 +121,15 @@ for (const c of clientes) {
 console.log(`\n== Sin pases hoy (${bloqueados.length}) ==`);
 console.table(bloqueados);
 
+const ambiguas = sinAncla.filter((x) => x.ambiguo);
 const mueven = sinAncla.filter((x) => x.mueveVentana);
-const quitan = sinAncla.filter((x) => (x.pasesDespues as number) < (x.pasesAhora as number));
+const quitan = sinAncla.filter((x) => x.pasesDespues !== null && (x.pasesDespues as number) < (x.pasesAhora as number));
 console.log(`\n== Con plan vigente y ancla sin guardar: ${sinAncla.length} ==`);
-console.log(`   de esas, le mueven la ventana a: ${mueven.length}  ·  le quitan pasadas a: ${quitan.length}`);
-console.table(mueven);
+console.log(`   ambiguas (vencimiento a fin de mes, unico caso que puede fallar): ${ambiguas.length}`);
+console.log(`   con la ventana ya corrida: ${mueven.length}  ·  a las que corregir les quita pasadas: ${quitan.length}`);
+// Solo se listan las que importan: el resto tiene el vencimiento a mitad de
+// mes, donde `vencimiento + 1 dia` es exacto y guardarlo es puro tramite.
+console.table([...new Set([...ambiguas, ...mueven])]);
 
 if (sinAncla.length) {
   // Ojo con las que aparecen en `quitan`: corregirles el ancla le saca una
