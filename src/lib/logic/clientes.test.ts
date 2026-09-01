@@ -60,6 +60,32 @@ describe("guardarClienteModal — precio heredado", () => {
   });
 });
 
+describe("guardarClienteModal — ancla del ciclo de pases", () => {
+  // Un cliente con plan no puede quedar sin fecha_contratacion: sin ella
+  // periodoPlan deduce la ventana del vencimiento, y esa deducción se rompe en
+  // las anclas 29/30/31 (ver anclaCicloAGuardar y el caso HYRL56).
+  it("el vencimiento tipeado a mano por el admin igual deja el ancla escrita", () => {
+    const guardadoAdmin = guardado({ vencimiento: "2026-09-30T15:00:00.000Z" });
+    expect(guardadoAdmin.fechaContratacion).toBeTruthy();
+    // El día siguiente al vencimiento: la misma ventana que se venía
+    // deduciendo, ahora guardada.
+    expect(guardadoAdmin.fechaContratacion!.slice(0, 10)).toBe("2026-10-01");
+  });
+
+  it("no le mueve el ciclo a quien ya tiene ancla propia", () => {
+    const conAncla = { ...cliente, fechaContratacion: "2026-08-31T18:15:07.083Z" };
+    const patch = guardarClienteModal(
+      { ...data, clientes: [conAncla] } as unknown as AppData,
+      datos({ clienteExistente: conAncla, vencimiento: "2026-09-30T15:00:00.000Z" })
+    );
+    expect(patch.clientes!.find((c) => c.id === "c1")!.fechaContratacion).toBe("2026-08-31T18:15:07.083Z");
+  });
+
+  it("sin plan no hay ancla que guardar", () => {
+    expect(guardado({ plan: "", vencimiento: null }).fechaContratacion).toBeNull();
+  });
+});
+
 describe("quién ve el campo", () => {
   it("solo Administración y Gerencia", () => {
     expect(esAdministracionOGerencia("Gerencia")).toBe(true);

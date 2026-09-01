@@ -1,4 +1,4 @@
-import { formatRut, planStatus, precioContratacion, precioLavadoUnico, uid } from "@/lib/helpers";
+import { anclaCicloPlan, formatRut, planStatus, precioContratacion, precioLavadoUnico, uid } from "@/lib/helpers";
 import type { AppData, Cliente, Empresa, Ingreso, PagoInfo, Venta } from "@/types";
 
 export interface DatosClienteModal {
@@ -42,6 +42,30 @@ export interface DatosClienteModal {
  * alta uno desde el admin, nunca genera Venta/Ingreso ni cobra: es un cambio
  * de ficha, no un movimiento de caja.
  */
+/**
+ * Ancla del ciclo de pases con la que tiene que quedar guardado este cliente.
+ *
+ * La regla es que un cliente con plan NUNCA queda sin ella: si falta,
+ * periodoPlan la deduce del vencimiento (`vencimiento + 1 día`) y esa
+ * deducción se rompe en las anclas 29/30/31, donde finCicloPlan recortó el día
+ * y no lo restó — la ventana de pases queda corrida un mes entero y el mesón
+ * le niega el ingreso a alguien que pagó (caso HYRL56, 31-ago-2026).
+ *
+ * Tres casos, en orden:
+ * 1. El guardado arranca un ciclo nuevo y trae la suya (ver cicloPlanDesde).
+ * 2. El cliente ya tenía una: se respeta, editar la ficha no mueve su ciclo.
+ * 3. No hay ninguna y el admin tipeó un vencimiento a mano: se guarda la que
+ *    hoy se deduciría de ese vencimiento. La ventana de pases queda idéntica
+ *    a la de antes —es la misma cuenta, solo que escrita— pero deja de ser
+ *    ambigua, que es lo que la hacía fallar.
+ */
+function anclaCicloAGuardar(d: DatosClienteModal, anterior: Cliente | null): string | null {
+  if (d.fechaContratacion) return d.fechaContratacion;
+  if (anterior?.fechaContratacion) return anterior.fechaContratacion;
+  if (!d.vencimiento) return null;
+  return anclaCicloPlan({ fechaContratacion: null, vencimiento: d.vencimiento })?.toISOString() ?? null;
+}
+
 export function guardarClienteModal(data: AppData, d: DatosClienteModal): Partial<AppData> {
   let clientes: Cliente[];
   let ventas = data.ventas;
@@ -63,7 +87,7 @@ export function guardarClienteModal(data: AppData, d: DatosClienteModal): Partia
       direccion: d.direccion,
       giro: d.giro,
       vencimiento: d.vencimiento,
-      ...(d.fechaContratacion ? { fechaContratacion: d.fechaContratacion } : {}),
+      fechaContratacion: anclaCicloAGuardar(d, d.clienteExistente),
       origen: d.origen,
       ...(d.precioPlanHeredado !== undefined ? { precioPlanHeredado: d.precioPlanHeredado } : {}),
     };
@@ -104,7 +128,7 @@ export function guardarClienteModal(data: AppData, d: DatosClienteModal): Partia
     direccion: d.direccion,
     giro: d.giro,
     vencimiento: d.vencimiento,
-    fechaContratacion: d.fechaContratacion ?? null,
+    fechaContratacion: anclaCicloAGuardar(d, null),
     origen: d.origen,
     precioPlanHeredado: d.precioPlanHeredado ?? null,
     // El alta desde el punto de venta del operador ("+ Agregar vehículo
