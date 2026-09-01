@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Bubble, BubbleContent, BubbleGroup } from "@/components/ui/bubble";
+import { FichaClienteChat } from "@/components/mensajes/FichaClienteChat";
 import { enviarMensajeManual, listarConversaciones, listarMensajes, marcarLeida, probarPushGerencia } from "@/lib/serverActions";
-import { fmtFecha, fmtHora } from "@/lib/helpers";
+import { fmtFecha, fmtHora, formatTelefono, indexarClientesPorTelefono } from "@/lib/helpers";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
-import type { ConversacionWhatsapp, MensajeWhatsapp } from "@/types";
+import type { Cliente, ConversacionWhatsapp, MensajeWhatsapp } from "@/types";
 import { ArrowLeft, Bell, MessageCircle, Send } from "lucide-react";
 
 function textoDiagnosticoPush(diag: Awaited<ReturnType<typeof probarPushGerencia>>): string {
@@ -22,6 +24,17 @@ function textoDiagnosticoPush(diag: Awaited<ReturnType<typeof probarPushGerencia
 
 const INTERVALO_POLL_MS = 10000;
 const VENTANA_24H_MS = 24 * 60 * 60 * 1000;
+
+// Agrupa mensajes consecutivos de la misma direccion para dibujarlos como un
+// bloque de burbujas con la hora solo en la ultima, igual que WhatsApp.
+function agruparPorDireccion(mensajes: MensajeWhatsapp[]): MensajeWhatsapp[][] {
+  return mensajes.reduce<MensajeWhatsapp[][]>((grupos, m) => {
+    const ultimo = grupos.at(-1);
+    if (ultimo && ultimo[0].direccion === m.direccion) ultimo.push(m);
+    else grupos.push([m]);
+    return grupos;
+  }, []);
+}
 
 function fueraDeVentana24h(mensajes: MensajeWhatsapp[]): boolean {
   const ultimoEntrante = [...mensajes].reverse().find((m) => m.direccion === "entrante");
@@ -41,6 +54,22 @@ export default function MensajesView() {
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // La conversacion solo guarda clienteId cuando nace (o cuando el flujo de
+  // registro del bot la enlaza): si la ficha se creo despues, ese enlace queda
+  // nulo para siempre. Por eso el dueno se resuelve por telefono, la misma
+  // llave que usa el router del bot (existeClienteConTelefono), y clienteId
+  // queda como respaldo para el caso raro de una ficha con OTRO numero.
+  // Indices y no un find por fila: la lista se repinta con cada poll (10s) y
+  // son 2000+ clientes.
+  const clientesPorTelefono = useMemo(() => indexarClientesPorTelefono(data.clientes), [data.clientes]);
+  const clientesPorId = useMemo(() => new Map(data.clientes.map((c) => [c.id, c])), [data.clientes]);
+  const fichasDe = (c: ConversacionWhatsapp): Cliente[] => {
+    const porTelefono = clientesPorTelefono.get(formatTelefono(c.telefono)) ?? [];
+    if (porTelefono.length) return porTelefono;
+    const enlazada = c.clienteId ? clientesPorId.get(c.clienteId) : undefined;
+    return enlazada ? [enlazada] : [];
+  };
 
   useEffect(() => {
     let cancelado = false;
@@ -77,7 +106,8 @@ export default function MensajesView() {
   }, [mensajes]);
 
   const conversacionActual = conversaciones.find((c) => c.id === seleccionada);
-  const clienteActual = conversacionActual?.clienteId ? data.clientes.find((c) => c.id === conversacionActual.clienteId) : undefined;
+  const fichasActuales = conversacionActual ? fichasDe(conversacionActual) : [];
+  const clienteActual = fichasActuales[0];
   const puedeEnviarLibre = !fueraDeVentana24h(mensajes);
 
   const seleccionar = (c: ConversacionWhatsapp) => {
@@ -142,7 +172,7 @@ export default function MensajesView() {
               <div className="p-4 text-sm text-muted-foreground">Sin conversaciones todavía.</div>
             )}
             {conversaciones.map((c) => {
-              const cliente = c.clienteId ? data.clientes.find((cl) => cl.id === c.clienteId) : undefined;
+              const cliente = fichasDe(c)[0];
               const nombre = cliente?.nombre || c.nombreContacto || c.telefono;
               return (
                 <button
@@ -198,25 +228,38 @@ export default function MensajesView() {
                   </div>
                 </div>
 
-                <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
-                  {mensajes.map((m) => (
-                    <div key={m.id} className={`flex ${m.direccion === "saliente" ? "justify-end" : "justify-start"}`}>
-                      <div
-                        className={`max-w-[70%] rounded-lg px-3 py-1.5 text-sm ${
-                          m.direccion === "saliente" ? "bg-primary text-primary-foreground" : "bg-muted"
-                        }`}
-                      >
-                        <div className="whitespace-pre-wrap">{m.texto}</div>
-                        <div className="mt-0.5 text-right text-[10px] opacity-70">
-                          {fmtFecha(m.creadoEn)} {fmtHora(m.creadoEn)}
-                          {m.direccion === "saliente" && m.estado === "fallido" && " · Error"}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+                  {agruparPorDireccion(mensajes).map((grupo) => {
+                    const saliente = grupo[0].direccion === "saliente";
+                    return (
+                      <BubbleGroup key={grupo[0].id}>
+                        {grupo.map((m, i) => {
+                          const fallido = saliente && m.estado === "fallido";
+                          return (
+                            <Bubble
+                              key={m.id}
+                              align={saliente ? "end" : "start"}
+                              variant={fallido ? "destructive" : saliente ? "default" : "muted"}
+                            >
+                              <BubbleContent className="whitespace-pre-wrap">{m.texto}</BubbleContent>
+                              {i === grupo.length - 1 && (
+                                <span
+                                  className="px-1 text-[10px] text-muted-foreground group-data-[align=end]/bubble:self-end"
+                                  title={fallido ? m.error : undefined}
+                                >
+                                  {fmtFecha(m.creadoEn)} {fmtHora(m.creadoEn)}
+                                  {fallido && " · Error"}
+                                </span>
+                              )}
+                            </Bubble>
+                          );
+                        })}
+                      </BubbleGroup>
+                    );
+                  })}
                 </div>
 
-                <div className="border-t border-border p-3">
+                <div className="shrink-0 border-t border-border p-3">
                   {!puedeEnviarLibre && (
                     <div className="mb-2 text-xs text-muted-foreground">
                       Pasaron más de 24h desde el último mensaje del cliente — WhatsApp solo permite responder con una plantilla aprobada.
@@ -240,6 +283,8 @@ export default function MensajesView() {
                     </Button>
                   </div>
                 </div>
+
+                <FichaClienteChat key={conversacionActual.id} conversacion={conversacionActual} fichas={fichasActuales} />
               </>
             )}
           </div>

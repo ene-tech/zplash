@@ -138,3 +138,8 @@ export async function deleteCupones(ids: string[]): Promise<boolean> {
     return false;
   }
 }
+
+export async function obtenerCuponPorCodigo(codigo: string): Promise<Cupon | null> {
+  const [row] = await getDb().select().from(cupones).where(eq(cupones.codigo, codigo)).limit(1);
+  return row ? cuponFromRow(row) : null;
+}

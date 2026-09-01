@@ -5,6 +5,7 @@ import { useAppData } from "@/context/AppContext";
 import {
   anularSuscripcion,
   cobrarSuscripcionManual,
+  enviarCuponAlCliente,
   obtenerDetallePagosVentas,
   obtenerSuscripcionOneclick,
   reactivarSuscripcionOneclick,
@@ -14,6 +15,7 @@ import type { DetallePagoVenta, SuscripcionOneclickInfo } from "@/lib/dataAccess
 import {
   beneficioCupon,
   cuponDescuentoDePatente,
+  cuponesVigentesDeCliente,
   fmtCLP,
   fmtDate,
   fmtFecha,
@@ -53,6 +55,29 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
       cuponDescuentoDePatente(appData.cupones, c.patente, "web"),
     [appData.cupones, c.patente]
   );
+
+  // Los códigos que este cliente tiene vivos ahora mismo. Sale de
+  // appData.cupones, que `commit` actualiza en el acto: el código aparece acá
+  // apenas se genera con el atajo de más abajo, sin cerrar la ficha ni ir a
+  // B2B/Tickets a buscarlo.
+  const cuponesVigentes = useMemo(
+    () => cuponesVigentesDeCliente(appData.cupones, { patente: c.patente, email: c.email, rut: c.rut }),
+    [appData.cupones, c.patente, c.email, c.rut]
+  );
+  const [enviandoCodigo, setEnviandoCodigo] = useState("");
+  const [envios, setEnvios] = useState<Record<string, string>>({});
+
+  async function enviarCodigo(codigo: string) {
+    setEnviandoCodigo(codigo);
+    try {
+      const r = await enviarCuponAlCliente(c.id, codigo);
+      setEnvios((prev) => ({ ...prev, [codigo]: `${r.whatsapp} · ${r.correo}` }));
+    } catch {
+      setEnvios((prev) => ({ ...prev, [codigo]: "No se pudo enviar (sin conexión)" }));
+    } finally {
+      setEnviandoCodigo("");
+    }
+  }
 
   // Atajo para entregarle un cupón desde acá mismo: se montan los MISMOS
   // formularios de B2B/Tickets (no una copia recortada), así cualquier
@@ -358,6 +383,29 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
         )}
 
         <div className="border-t border-border pt-3.5">
+          <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Códigos vigentes</div>
+          {cuponesVigentes.length === 0 ? (
+            <p className="mb-3 text-sm text-muted-foreground">No tiene códigos vigentes.</p>
+          ) : (
+            <div className="mb-3 space-y-1.5">
+              {cuponesVigentes.map((cup) => (
+                <div key={cup.id} className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-mono text-base font-semibold tracking-widest">{cup.codigo}</span>
+                  <span className="text-muted-foreground">
+                    {beneficioCupon(cup)} · vence {fmtFecha(cup.fechaCaducidad)}
+                    {/* El lote solo dice algo cuando el ticket viene de un
+                        pack (Pack Empresa por web, o un lote de cortesía): un
+                        descuento suelto siempre sería "1/1". */}
+                    {cup.totalLote > 1 && ` · ${cup.nombreLote} N° ${cup.numeroLote}/${cup.totalLote}`}
+                  </span>
+                  <Button size="sm" variant="secondary" onClick={() => enviarCodigo(cup.codigo)} disabled={enviandoCodigo === cup.codigo}>
+                    {enviandoCodigo === cup.codigo ? "Enviando…" : "Enviar por WhatsApp y correo"}
+                  </Button>
+                  {envios[cup.codigo] && <span className="text-xs text-muted-foreground">{envios[cup.codigo]}</span>}
+                </div>
+              ))}
+            </div>
+          )}
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="text-xs uppercase tracking-wide text-muted-foreground">Entregar cupón</span>
             <Button

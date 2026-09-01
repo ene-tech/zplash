@@ -1,9 +1,11 @@
+import { normPlate } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { ClienteRow } from "./ClienteRow";
 
 export function ClientesTable({
   clientes,
+  suscripciones,
   onSortHeader,
   flecha,
   onInfo,
@@ -11,6 +13,8 @@ export function ClientesTable({
   onEliminar,
 }: {
   clientes: Cliente[];
+  /** patente normalizada → estado de su suscripción Oneclick; null mientras carga. */
+  suscripciones: Map<string, string> | null;
   onSortHeader: (campo: "vencimiento" | "visitas") => void;
   flecha: (campo: "vencimiento" | "visitas") => string;
   onInfo: (c: Cliente) => void;
@@ -29,6 +33,7 @@ export function ClientesTable({
             <TableHead>Vehículo</TableHead>
             <TableHead>Origen</TableHead>
             <TableHead>Plan</TableHead>
+            <TableHead>Suscripción</TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => onSortHeader("vencimiento")}>
               Vencimiento{flecha("vencimiento")}
             </TableHead>
@@ -42,13 +47,20 @@ export function ClientesTable({
         <TableBody>
           {clientes.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={11}>
+              <TableCell colSpan={12}>
                 <div className="empty">No hay clientes que coincidan</div>
               </TableCell>
             </TableRow>
           ) : (
             clientes.map((c) => (
-              <ClienteRow key={c.id} cliente={c} onInfo={onInfo} onEditar={onEditar} onEliminar={onEliminar} />
+              <ClienteRow
+                key={c.id}
+                cliente={c}
+                estadoOneclick={suscripciones?.get(normPlate(c.patente))}
+                onInfo={onInfo}
+                onEditar={onEditar}
+                onEliminar={onEliminar}
+              />
             ))
           )}
         </TableBody>

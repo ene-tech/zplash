@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { fmtTelefono, planProgreso, planStatus, plateEstadoCls } from "@/lib/helpers";
+import { estadoRenovacion, fmtTelefono, normPlate, planProgreso, planStatus, plateEstadoCls } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import MobileRowMenu from "@/components/tabs/MobileRowMenu";
@@ -9,17 +9,20 @@ import { IconoCambioPatentePendiente } from "./IconoCambioPatentePendiente";
 
 const ClienteCard = memo(function ClienteCard({
   cliente: c,
+  estadoOneclick,
   onInfo,
   onEditar,
   onEliminar,
 }: {
   cliente: Cliente;
+  estadoOneclick?: string;
   onInfo: (c: Cliente) => void;
   onEditar: (c: Cliente) => void;
   onEliminar: (c: Cliente) => void;
 }) {
   const st = planStatus(c);
   const prog = planProgreso(c);
+  const ra = estadoRenovacion(c, estadoOneclick);
   return (
     <MobileRecordCard
       onClick={() => onInfo(c)}
@@ -46,6 +49,7 @@ const ClienteCard = memo(function ClienteCard({
           right={
             <>
               <div className="font-medium">{c.plan || "Sin plan"}</div>
+              <div className="text-muted-foreground">{ra.label}</div>
               <div className="text-muted-foreground">
                 {c.visitas || 0} visita{c.visitas === 1 ? "" : "s"}
               </div>
@@ -70,11 +74,14 @@ const ClienteCard = memo(function ClienteCard({
 // acciones) — así entran muchos más registros por pantalla.
 export function ClientesMobileList({
   clientes,
+  suscripciones,
   onInfo,
   onEditar,
   onEliminar,
 }: {
   clientes: Cliente[];
+  /** patente normalizada → estado de su suscripción Oneclick; null mientras carga. */
+  suscripciones: Map<string, string> | null;
   onInfo: (c: Cliente) => void;
   onEditar: (c: Cliente) => void;
   onEliminar: (c: Cliente) => void;
@@ -84,7 +91,16 @@ export function ClientesMobileList({
       {clientes.length === 0 ? (
         <div className="empty">No hay clientes que coincidan</div>
       ) : (
-        clientes.map((c) => <ClienteCard key={c.id} cliente={c} onInfo={onInfo} onEditar={onEditar} onEliminar={onEliminar} />)
+        clientes.map((c) => (
+          <ClienteCard
+            key={c.id}
+            cliente={c}
+            estadoOneclick={suscripciones?.get(normPlate(c.patente))}
+            onInfo={onInfo}
+            onEditar={onEditar}
+            onEliminar={onEliminar}
+          />
+        ))
       )}
     </div>
   );

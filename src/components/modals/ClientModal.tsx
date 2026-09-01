@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { PLANES, fmtTelefono, todayYMD, vencimientoPorDefectoISO } from "@/lib/helpers";
+import { PLANES, fmtTelefono, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -15,10 +15,12 @@ export default function ClientModal({
   data: c,
   contexto,
   patenteInicial,
+  telefonoInicial,
 }: {
   data: Cliente | null;
   contexto?: "operador" | "admin";
   patenteInicial?: string;
+  telefonoInicial?: string;
 }) {
   const nombreRef = useRef<HTMLInputElement>(null);
   const patenteRef = useRef<HTMLInputElement>(null);
@@ -75,7 +77,7 @@ export default function ClientModal({
             <Input
               id="cli-telefono"
               ref={telefonoRef}
-              defaultValue={cli.telefono ? fmtTelefono(cli.telefono) : "+569"}
+              defaultValue={fmtTelefono(cli.telefono || telefonoInicial) || "+569"}
               onBlur={r.onTelefonoBlur}
             />
           </div>
@@ -200,7 +202,10 @@ export default function ClientModal({
                     id="cli-venc"
                     ref={vencRef}
                     type="date"
-                    defaultValue={cli.vencimiento ? cli.vencimiento.substring(0, 10) : todayYMD()}
+                    // Un plan que arranca hoy vence en un mes, no hoy: todayYMD() acá
+                    // significaba literalmente "nace vencido" (ver el guard de guardar()
+                    // en useClientModal y el caso CKLW93 del 1-sep-2026).
+                    defaultValue={(cli.vencimiento || vencimientoPorDefectoISO()).substring(0, 10)}
                   />
                 </div>
               )}

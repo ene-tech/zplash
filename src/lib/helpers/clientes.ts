@@ -1,11 +1,31 @@
 import type { Cliente, ClientePatch, Ingreso, PlanStatus } from "@/types";
 import { ahoraEnSantiago, diaEnSantiago, sumarMesesFecha } from "./fechas";
-import { normPlate } from "./validadores";
+import { formatTelefono, normPlate } from "./validadores";
 
 export const DIAS_AVISO_VENCIMIENTO = 7;
 
 export function findClient(clientes: Cliente[], plate: string): Cliente | undefined {
   return clientes.find((c) => normPlate(c.patente) === normPlate(plate));
+}
+
+/**
+ * Indice telefono -> fichas, para resolver de quien es un numero de WhatsApp
+ * (ver FichaClienteChat). Devuelve una lista por telefono porque los clientes
+ * se guardan por patente: un mismo dueno con dos autos son dos fichas con el
+ * mismo celular. Se normaliza con formatTelefono porque las fichas viejas
+ * migradas de WooCommerce no siempre traen el "+569" canonico que si tienen
+ * conversaciones_whatsapp.telefono y los altas nuevas.
+ */
+export function indexarClientesPorTelefono(clientes: Cliente[]): Map<string, Cliente[]> {
+  const index = new Map<string, Cliente[]>();
+  for (const c of clientes) {
+    const tel = formatTelefono(c.telefono);
+    if (!tel) continue;
+    const previas = index.get(tel);
+    if (previas) previas.push(c);
+    else index.set(tel, [c]);
+  }
+  return index;
 }
 
 /** La carga masiva por Excel deja "Sin nombre" quemado cuando la fila no trae nombre. */

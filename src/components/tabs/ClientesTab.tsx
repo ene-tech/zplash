@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useApp } from "@/context/AppContext";
+import { normPlate } from "@/lib/helpers";
+import { listarSuscripcionesOneclick } from "@/lib/serverActions";
 import type { Cliente } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientesMobileList } from "./clientes/ClientesMobileList";
@@ -38,6 +40,29 @@ export default function ClientesTab() {
   const pasadasHasta = ui.clientesPasadasHasta || "";
   const orden = ui.clientesOrden || "estado";
   const search = ui.search || "";
+
+  // Las suscripciones Oneclick no viven en AppData/commit() (mismo criterio que
+  // SuscripcionesTab y Correos Únicos): se piden una vez al montar y se indexan
+  // por patente para la columna "Suscripción". Se queda con la PRIMERA fila de
+  // cada patente porque el listado ya viene ordenado por estado (activa <
+  // suspendida < pendiente < cancelada) — quien canceló y volvió a inscribir
+  // tiene más de una fila, y la que manda es la viva.
+  const [suscripciones, setSuscripciones] = useState<Map<string, string> | null>(null);
+  useEffect(() => {
+    let cancelado = false;
+    listarSuscripcionesOneclick().then((filas) => {
+      if (cancelado) return;
+      const porPatente = new Map<string, string>();
+      for (const s of filas) {
+        const key = normPlate(s.patente);
+        if (!porPatente.has(key)) porPatente.set(key, s.estado);
+      }
+      setSuscripciones(porPatente);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   // Sin memo, esto recorría y ordenaba los 2000+ clientes desde cero en cada
   // tecla del buscador (y en cualquier otro render de este tab por una razón
@@ -147,8 +172,8 @@ export default function ClientesTab() {
           : `${total.toLocaleString("es-CL")} ${total === 1 ? "cliente" : "clientes"}`}
       </div>
 
-      <ClientesMobileList clientes={filtered} onInfo={abrirInfo} onEditar={abrirEditar} onEliminar={eliminar} />
-      <ClientesTable clientes={filtered} onSortHeader={sortHeader} flecha={flecha} onInfo={abrirInfo} onEditar={abrirEditar} onEliminar={eliminar} />
+      <ClientesMobileList clientes={filtered} suscripciones={suscripciones} onInfo={abrirInfo} onEditar={abrirEditar} onEliminar={eliminar} />
+      <ClientesTable clientes={filtered} suscripciones={suscripciones} onSortHeader={sortHeader} flecha={flecha} onInfo={abrirInfo} onEditar={abrirEditar} onEliminar={eliminar} />
     </div>
   );
 }

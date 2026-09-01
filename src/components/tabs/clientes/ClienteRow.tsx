@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { fmtTelefono, planProgreso, planStatus, plateEstadoCls } from "@/lib/helpers";
+import { estadoRenovacion, fmtTelefono, planProgreso, planStatus, plateEstadoCls } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -14,17 +14,20 @@ import { IconoCambioPatentePendiente } from "./IconoCambioPatentePendiente";
 // cambió de referencia entre renders se salta por completo.
 export const ClienteRow = memo(function ClienteRow({
   cliente: c,
+  estadoOneclick,
   onInfo,
   onEditar,
   onEliminar,
 }: {
   cliente: Cliente;
+  estadoOneclick?: string;
   onInfo: (c: Cliente) => void;
   onEditar: (c: Cliente) => void;
   onEliminar: (c: Cliente) => void;
 }) {
   const st = planStatus(c);
   const prog = planProgreso(c);
+  const ra = estadoRenovacion(c, estadoOneclick);
   return (
     <TableRow className="cursor-pointer" onClick={() => onInfo(c)}>
       <TableCell className={`plate-tag ${plateEstadoCls(c)}`}>
@@ -39,6 +42,9 @@ export const ClienteRow = memo(function ClienteRow({
       <TableCell>{c.vehiculo || "-"}</TableCell>
       <TableCell>{c.origen || "LOCAL"}</TableCell>
       <TableCell>{c.plan || "-"}</TableCell>
+      <TableCell>
+        <span className={`status-pill ${ra.cls}`}>{ra.label}</span>
+      </TableCell>
       <TableCell>
         <div>{c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"}</div>
         {prog !== null && (

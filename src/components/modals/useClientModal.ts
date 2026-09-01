@@ -135,6 +135,23 @@ export function useClientModal(
       return;
     }
 
+    // Guardar la ficha tampoco debería vencerle el plan a alguien que lo tiene
+    // al día. Caso real (CKLW93, 1-sep-2026): la ficha se guardó con el
+    // vencimiento en "hoy" siete minutos después de que la clienta pagara
+    // $21.990 en el mesón, y el plan quedó vencido el mismo día que lo compró.
+    // Se compara contra la copia FRESCA de data.clientes y no contra `cli`, que
+    // es la que el modal capturó al abrirse y puede venir atrasada — que es
+    // justamente como el campo de fecha llegó a mostrar hoy.
+    const actual = data.clientes.find((x) => x.id === cli.id);
+    if (vencimiento && actual && sigueVigenteHoy(actual.vencimiento) && !sigueVigenteHoy(vencimiento) && !bajaPlanConfirmada) {
+      setBajaPlanConfirmada(true);
+      setErr(
+        `${cli.nombre || "Este cliente"} tiene el plan vigente hasta el ${fmtFecha(actual.vencimiento!)}. ` +
+          `Guardar con vencimiento ${fmtFecha(vencimiento)} se lo deja vencido. Presiona Guardar de nuevo para confirmar.`
+      );
+      return;
+    }
+
     const origen: "WEB" | "LOCAL" = contexto === "operador" ? "LOCAL" : origenSeleccionado;
 
     // Sin el campo en pantalla (operador, perfil sin permiso, o cliente sin

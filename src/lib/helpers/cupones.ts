@@ -1,7 +1,7 @@
 import type { Cliente, Cupon } from "@/types";
 import { findClient } from "./clientes";
 import { fmtCLP } from "./precios";
-import { normPlate } from "./validadores";
+import { limpiarRut, normPlate } from "./validadores";
 
 /** Alfabeto sin 0/O ni 1/I para evitar confusiones al leer o tipear el código. */
 const ALFABETO_CUPON = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -140,6 +140,38 @@ export function cuponDescuentoDePatente(
         cuponValeEnCanal(c, canal)
     )
     .sort((a, b) => new Date(a.fechaCaducidad).getTime() - new Date(b.fechaCaducidad).getTime())[0];
+}
+
+/** Todos los códigos vivos de un cliente, del más nuevo al más viejo: los
+ * descuentos atados a su patente, los tickets ("vale") cuyo lote la autoriza
+ * —los dos que emite el atajo "Entregar cupón" de la ficha de cliente— y los
+ * de un Pack Empresa comprado con su correo o su RUT, que no traen patente y
+ * hasta ahora solo se veían en el portal ("Mis tickets y cupones", ver
+ * cuponesDeLaCuenta en /api/cliente/mi-cuenta). El correo también ata los
+ * códigos que el propio cliente sumó desde el portal (ver /agregar-cupon).
+ *
+ * Un "vale" SIN patentes, correo ni RUT es un lote abierto (cualquiera lo
+ * canjea, ver patenteAutorizadaParaCupon): no es de este cliente y no se
+ * muestra en su ficha, si no cada ficha listaría el pack empresa entero. */
+export function cuponesVigentesDeCliente(
+  lista: Cupon[],
+  cliente: Pick<Cliente, "patente" | "email" | "rut">,
+  ahora: Date = new Date()
+): Cupon[] {
+  const p = normPlate(cliente.patente);
+  const email = (cliente.email || "").trim().toLowerCase();
+  const rut = limpiarRut(cliente.rut);
+  return lista
+    .filter(
+      (c) =>
+        !c.usado &&
+        new Date(c.fechaCaducidad) > ahora &&
+        (normPlate(c.patenteAsignada || "") === p ||
+          (c.tipo === "vale" && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)) ||
+          (!!email && (c.email || "").trim().toLowerCase() === email) ||
+          (!!rut && limpiarRut(c.rut) === rut))
+    )
+    .sort((a, b) => (a.creadoEn < b.creadoEn ? 1 : -1));
 }
 
 /** Precio final tras aplicar el cupón (nunca baja de $0). Se usa tanto para

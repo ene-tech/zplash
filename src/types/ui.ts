@@ -20,7 +20,7 @@ export type OperResult =
   | null;
 
 export type ModalState =
-  | { type: "client"; data: Cliente | null; contexto?: "operador" | "admin"; patenteInicial?: string }
+  | { type: "client"; data: Cliente | null; contexto?: "operador" | "admin"; patenteInicial?: string; telefonoInicial?: string }
   | { type: "confirm"; mensaje: string; onConfirm: () => void; confirmLabel?: string; danger?: boolean }
   | { type: "perfil"; data: PerfilPublico | null }
   | { type: "bulk" }

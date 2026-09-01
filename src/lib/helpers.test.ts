@@ -53,6 +53,7 @@ import {
   vencimientoPorDefectoISO,
   periodoPlan,
   isValidPatente,
+  estadoRenovacion,
   patentesQueRecibenTarjeta,
   tieneTarjetaViva,
   isValidRut,
@@ -83,6 +84,7 @@ import {
   soloCambiosSinPlata,
   beneficioCupon,
   cuponDescuentoDePatente,
+  cuponesVigentesDeCliente,
   ofertaConCupon,
   precioConCupon,
   marcarDescuentoUsado,
@@ -1215,6 +1217,61 @@ describe("cuponDescuentoDePatente", () => {
   });
 });
 
+describe("cuponesVigentesDeCliente", () => {
+  const base: Cupon = {
+    id: "cu1",
+    codigo: "AAA111",
+    nombreLote: "Lote",
+    numeroLote: 1,
+    totalLote: 1,
+    tipo: "descuento",
+    valor: 2000,
+    usado: false,
+    patenteAsignada: "AB1234",
+    creadoEn: "2026-01-01T10:00:00.000Z",
+    fechaCaducidad: new Date(Date.now() + 30 * 86400000).toISOString(),
+  };
+
+  it("junta el descuento de la patente y el ticket cuyo lote la autoriza, el más nuevo primero", () => {
+    const vale: Cupon = {
+      ...base,
+      id: "cu2",
+      codigo: "BBB222",
+      tipo: "vale",
+      patenteAsignada: undefined,
+      patentesAutorizadas: ["AB1234"],
+      creadoEn: "2026-02-01T10:00:00.000Z",
+    };
+    expect(cuponesVigentesDeCliente([base, vale], { patente: "AB1234" }).map((c) => c.codigo)).toEqual(["BBB222", "AAA111"]);
+  });
+
+  it("suma los tickets del Pack Empresa atados al correo o al RUT, aunque el lote no traiga patentes", () => {
+    const pack: Cupon = {
+      ...base,
+      id: "cu3",
+      codigo: "CCC333",
+      tipo: "vale",
+      patenteAsignada: undefined,
+      email: "Ana@Zplash.CL",
+      rut: "12.345.678-9",
+    };
+    expect(cuponesVigentesDeCliente([pack], { patente: "ZZ9999", email: "ana@zplash.cl" }).map((c) => c.codigo)).toEqual(["CCC333"]);
+    expect(cuponesVigentesDeCliente([pack], { patente: "ZZ9999", rut: "123456789" }).map((c) => c.codigo)).toEqual(["CCC333"]);
+    expect(cuponesVigentesDeCliente([pack], { patente: "ZZ9999" })).toEqual([]);
+  });
+
+  it("deja fuera usados, caducados, de otra patente y los lotes abiertos", () => {
+    const lista: Cupon[] = [
+      { ...base, id: "a", codigo: "USADO1", usado: true },
+      { ...base, id: "b", codigo: "VENC01", fechaCaducidad: new Date(Date.now() - 86400000).toISOString() },
+      { ...base, id: "c", codigo: "OTRA01", patenteAsignada: "ZZ9999" },
+      { ...base, id: "d", codigo: "ABIER1", tipo: "vale", patenteAsignada: undefined },
+      { ...base, id: "e", codigo: "FLOTA1", tipo: "vale", patenteAsignada: undefined, patentesAutorizadas: ["ZZ9999"] },
+    ];
+    expect(cuponesVigentesDeCliente(lista, { patente: "AB1234", email: "ana@zplash.cl", rut: "12.345.678-9" })).toEqual([]);
+  });
+});
+
 describe("precioConCupon", () => {
   it("resta un monto fijo y un porcentaje", () => {
     expect(precioConCupon(21990, { valor: 2000, esPorcentaje: false })).toBe(19990);
@@ -2321,6 +2378,19 @@ describe("patentesQueRecibenTarjeta / tieneTarjetaViva", () => {
 
   it("con un solo auto en la cuenta no hay a quién copiarla", () => {
     expect(patentesQueRecibenTarjeta("ABCD11", ["ABCD11"], ["ABCD11"])).toEqual([]);
+  });
+
+  it("el estado de la suscripción delata quién cortó la renovación", () => {
+    expect(estadoRenovacion({ origen: "WEB" }, "activa").label).toBe("Renovación automática");
+    expect(estadoRenovacion({ origen: "WEB", renovacionAutoWooDesde: "2025-01-01" }).label).toBe("Renovación automática");
+    expect(estadoRenovacion({ origen: "WEB" }, "suspendida").label).toBe("Cancelada desde admin");
+    expect(estadoRenovacion({ origen: "WEB" }, "cancelada").label).toBe("Cancelada por cliente");
+    expect(estadoRenovacion({ origen: "LOCAL" }).label).toBe("Local sin RA");
+    expect(estadoRenovacion({}).label).toBe("Local sin RA");
+    // Inscripción a medio camino: no cobra sola, así que no es "Renovación automática".
+    expect(estadoRenovacion({ origen: "WEB" }, "pendiente").label).toBe("Web sin RA");
+    // Una tarjeta viva nueva manda sobre la marca de Woo ya cancelada.
+    expect(estadoRenovacion({ origen: "WEB", renovacionAutoWooDesde: null }, "cancelada").label).toBe("Cancelada por cliente");
   });
 
   it("solo activa y suspendida cuentan como tarjeta guardada", () => {
