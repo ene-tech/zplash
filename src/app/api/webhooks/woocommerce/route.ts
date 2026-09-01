@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
         // tarde ese mismo día — ver sigueVigenteHoy para el caso real.
         nuevoVencimiento = sigueVigenteHoy(existente.vencimiento)
           ? sumarMesesFecha(new Date(existente.vencimiento!), 1).toISOString()
-          : vencimientoAnclado(existente.fechaContratacion || existente.vencimiento);
+          : vencimientoAnclado(existente);
       }
     }
     // Resuelve un cambio de patente pendiente (ver patentePendiente en

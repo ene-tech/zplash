@@ -131,15 +131,29 @@ console.log(`   con la ventana ya corrida: ${mueven.length}  ·  a las que corre
 // mes, donde `vencimiento + 1 dia` es exacto y guardarlo es puro tramite.
 console.table([...new Set([...ambiguas, ...mueven])]);
 
-if (sinAncla.length) {
-  // Ojo con las que aparecen en `quitan`: corregirles el ancla le saca una
-  // pasada a alguien que ya pagó. Suele convenir dejarlas —la ventana se
-  // realinea sola en la próxima renovación anclada— salvo que el cliente esté
-  // bloqueado hoy, que es lo que muestra la primera tabla.
-  console.log("\n-- backfill: pegar en el SQL Editor de Supabase (q.mts es solo-lectura) --");
-  for (const m of sinAncla) {
-    const aviso = (m.pasesDespues as number) < (m.pasesAhora as number) ? `  -- OJO: le quita ${(m.pasesAhora as number) - (m.pasesDespues as number)} pasada(s)` : "";
+// A propósito NO se emite un backfill en bloque. Auditado el 1-sep-2026: para
+// las filas de la carga histórica el ancla deducida es la MISMA cuenta que
+// anclaCicloPlan hace al vuelo, así que escribirla no cambia ninguna ventana —
+// y en cambio deja una fecha futura en una columna que ClienteInfoModal,
+// visitasDesdeContratacion, el filtro de antigüedad de la mensajería masiva y
+// dos auditorías de calidad leen en crudo. Reconstruirla de la venta es peor:
+// los vencimientos de esa población salieron de `fecha + 30 días` (hasta el
+// commit d232615), no de finCicloPlan, así que la coincidencia es aritmética
+// —jul/ago-2026 son meses de 31 días— y no prueba nada.
+//
+// Lo que sí importa es la columna `ambiguo`: mientras esté en 0, la deducción
+// no puede errar. Si alguna vez aparece una fila ambigua CON la ventana ya
+// corrida, esa sí hay que corregirla a mano, y su UPDATE sale acá abajo.
+const corregibles = mueven.filter((x) => x.ambiguo);
+if (corregibles.length) {
+  console.log("\n-- filas realmente corridas: pegar en el SQL Editor de Supabase (q.mts es solo-lectura) --");
+  for (const m of corregibles) {
+    const aviso = m.pasesDespues !== null && (m.pasesDespues as number) < (m.pasesAhora as number)
+      ? `  -- OJO: le quita ${(m.pasesAhora as number) - (m.pasesDespues as number)} pasada(s) a alguien que ya pago`
+      : "";
     console.log(`update clientes set fecha_contratacion = '${m.backfill}' where patente = '${m.patente}';${aviso}`);
   }
+} else {
+  console.log("\nNada que corregir: ninguna fila ambigua tiene la ventana corrida.");
 }
 await sql.end();

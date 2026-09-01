@@ -504,13 +504,28 @@ describe("vencimientoAnclado", () => {
   it("mantiene el ciclo mensual anclado a la fecha de contratación original", () => {
     const contratacion = sumarMesesFecha(new Date(), -2);
     contratacion.setDate(contratacion.getDate() - 5); // 2 ciclos vencidos, dentro del 3ro
-    const resultado = new Date(vencimientoAnclado(contratacion.toISOString()));
+    const resultado = new Date(vencimientoAnclado({ fechaContratacion: contratacion.toISOString(), vencimiento: null }));
     expect(resultado.toDateString()).toBe(finCicloPlan(contratacion, 3).toDateString());
   });
 
-  it("sin fecha de contratación, cuenta el mes desde hoy", () => {
-    const resultado = new Date(vencimientoAnclado(null));
+  it("sin ancla de ninguna clase, cuenta el mes desde hoy", () => {
+    const resultado = new Date(vencimientoAnclado({ fechaContratacion: null, vencimiento: null }));
     expect(resultado.toDateString()).toBe(finCicloPlan(new Date()).toDateString());
+  });
+
+  // Los tres caminos de cobro le pasaban `fechaContratacion || vencimiento`, o
+  // sea el VENCIMIENTO como si fuera la contratación: finCicloPlan le restaba
+  // el día por dentro y el ciclo nacía un día corto. Peor, el vencimiento nuevo
+  // se graba sin tocar fecha_contratacion, así que el día se perdía otra vez en
+  // cada renovación anclada. Son ~389 filas de la carga histórica del mesón.
+  it("sin contratación guardada usa el borde real del ciclo, no el vencimiento crudo", () => {
+    const vencimiento = sumarMesesFecha(new Date(), -1).toISOString();
+    const conAncla = new Date(vencimientoAnclado({ fechaContratacion: null, vencimiento }));
+    const comoAntes = new Date(vencimientoAnclado({ fechaContratacion: vencimiento, vencimiento: null }));
+    expect(conAncla.getTime()).toBeGreaterThan(comoAntes.getTime());
+    // Exactamente el día que se perdía, ni más ni menos.
+    const unDia = 24 * 3600 * 1000;
+    expect(Math.round((conAncla.getTime() - comoAntes.getTime()) / unDia)).toBe(1);
   });
 });
 

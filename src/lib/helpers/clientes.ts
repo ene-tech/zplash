@@ -241,12 +241,20 @@ export function sigueVigenteHoy(vencimiento: string | null | undefined): boolean
  * vez de reiniciar el ciclo desde la fecha en que el operador renueva
  * manualmente un cliente Web cuyo pago automático falló.
  */
-export function vencimientoAnclado(fechaContratacion: string | null | undefined): string {
+export function vencimientoAnclado(cliente: Pick<Cliente, "fechaContratacion" | "vencimiento">): string {
   // Mismo motivo que en planStatus: hora de Chile, no la del entorno donde
   // corre esta función.
   const hoy = ahoraEnSantiago();
   hoy.setHours(0, 0, 0, 0);
-  let base = fechaContratacion ? new Date(fechaContratacion) : new Date(hoy);
+  // El ancla sale de anclaCicloPlan y no de `fechaContratacion || vencimiento`,
+  // que es lo que hacían los tres callers. Ese `||` le pasaba el VENCIMIENTO
+  // como si fuera la contratación, y finCicloPlan le resta el día por dentro:
+  // el ciclo nacía un día corto. Y como el vencimiento nuevo se graba sin tocar
+  // `fecha_contratacion`, el error se acumulaba un día por cada renovación
+  // anclada, indefinidamente. anclaCicloPlan ya sabe deducir el borde real del
+  // ciclo (vencimiento + 1 día) cuando no hay contratación guardada, que es el
+  // caso de las ~389 filas de la carga histórica del mesón.
+  let base = anclaCicloPlan(cliente) ?? new Date(hoy);
   if (isNaN(base.getTime())) base = new Date(hoy);
   // `hoy` es día-granular (mismo criterio que planStatus), así que el ciclo
   // puede caer "hoy" con una hora ya pasada en el momento exacto en que corre

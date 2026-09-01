@@ -186,7 +186,7 @@ export async function aplicarPagoAprobado(
     const ciclo = reinicia ? cicloPlanDesde() : null;
     const nuevoVencimiento = vigente
       ? sumarMesesFecha(new Date(existente.vencimiento!), 1).toISOString()
-      : (ciclo?.vencimiento ?? vencimientoAnclado(existente.fechaContratacion || existente.vencimiento));
+      : (ciclo?.vencimiento ?? vencimientoAnclado(existente));
     vencimientoResultante = nuevoVencimiento;
     clienteId = existente.id;
     const anterior = clienteFromRow(existente);

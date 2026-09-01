@@ -64,12 +64,9 @@ describe("guardarClienteModal — ancla del ciclo de pases", () => {
   // Un cliente con plan no puede quedar sin fecha_contratacion: sin ella
   // periodoPlan deduce la ventana del vencimiento, y esa deducción se rompe en
   // las anclas 29/30/31 (ver anclaCicloAGuardar y el caso HYRL56).
-  it("el vencimiento tipeado a mano por el admin igual deja el ancla escrita", () => {
-    const guardadoAdmin = guardado({ vencimiento: "2026-09-30T15:00:00.000Z" });
-    expect(guardadoAdmin.fechaContratacion).toBeTruthy();
-    // El día siguiente al vencimiento: la misma ventana que se venía
-    // deduciendo, ahora guardada.
-    expect(guardadoAdmin.fechaContratacion!.slice(0, 10)).toBe("2026-10-01");
+  // Deliberadamente NO se inventa un ancla acá: ver anclaCicloAGuardar.
+  it("el vencimiento tipeado a mano por el admin no inventa una contratación", () => {
+    expect(guardado({ vencimiento: "2026-09-30T15:00:00.000Z" }).fechaContratacion).toBeNull();
   });
 
   it("no le mueve el ciclo a quien ya tiene ancla propia", () => {

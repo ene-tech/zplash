@@ -161,7 +161,7 @@ export function usePlanActions(
   const renovarWeb = (cliente: Cliente = c) => {
     if (precioAtrasado <= 0) return;
     pedirPago(cliente, precioAtrasado, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
-      const nuevoVencimiento = vencimientoAnclado(cliente.fechaContratacion || cliente.vencimiento);
+      const nuevoVencimiento = vencimientoAnclado(cliente);
       // Misma migración al X5 que hace renovarPlan en el mesón: renovar deja
       // al cliente en el plan que se vende hoy, traiga el que traiga.
       const plan = PLANES[0];
