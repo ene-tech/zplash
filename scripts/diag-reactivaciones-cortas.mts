@@ -30,9 +30,9 @@ const sql = postgres(process.env.DATABASE_URL!, { prepare: false, max: 1 });
 // Solo web y Oneclick: las del meson ("Reactivacion promocional" a secas) ya
 // pasaban por renovarPlan, que si reinicia el ciclo.
 const filas = await sql<
-  { patente: string; cliente_id: string; fecha: string; tipo: string; precio: number; vencimiento: string; posteriores: number }[]
+  { patente: string; patente_actual: string; cliente_id: string; fecha: string; tipo: string; precio: number; vencimiento: string; posteriores: number }[]
 >`
-  select v.patente, v.cliente_id, v.fecha, v.tipo, v.precio, c.vencimiento,
+  select v.patente, c.patente as patente_actual, v.cliente_id, v.fecha, v.tipo, v.precio, c.vencimiento,
          (select count(*) from ventas v2
            where v2.cliente_id = v.cliente_id and v2.plan <> '' and v2.fecha > v.fecha) as posteriores
     from ventas v join clientes c on c.id = v.cliente_id
@@ -50,7 +50,13 @@ for (const f of filas) {
   const diasFaltantes = Math.round((correcto.getTime() - actual.getTime()) / DIA);
   if (diasFaltantes <= 0) continue;
   cortas.push({
-    patente: f.patente,
+    // La patente de la VENTA es la que tenía el auto cuando pagó; el cliente
+    // pudo cambiarla después (ver patentePendiente). Se muestran las dos y el
+    // UPDATE va por `id`, que no se mueve: apuntarlo a la patente vieja
+    // actualiza CERO filas y no da error — falla en silencio.
+    patenteEnVenta: f.patente,
+    patente: f.patente_actual,
+    clienteId: f.cliente_id,
     pago: ymd(pago),
     precio: Number(f.precio),
     vence: ymd(actual),
@@ -79,8 +85,9 @@ if (limpias.length) {
   console.log("\n-- pegar en el SQL Editor de Supabase (q.mts es solo-lectura) --");
   for (const c of limpias) {
     console.log(
-      `update clientes set vencimiento = '${c.correctoISO}' where patente = '${c.patente}';` +
-        `  -- ${c.vence} -> ${c.deberiaVencer} (+${c.diasFaltantes}d)`
+      `update clientes set vencimiento = '${c.correctoISO}' where id = '${c.clienteId}';` +
+        `  -- ${c.patente}${c.patente !== c.patenteEnVenta ? ` (pago como ${c.patenteEnVenta})` : ""}: ` +
+        `${c.vence} -> ${c.deberiaVencer} (+${c.diasFaltantes}d)`
     );
   }
 }
