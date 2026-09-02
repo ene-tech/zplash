@@ -2380,17 +2380,17 @@ describe("patentesQueRecibenTarjeta / tieneTarjetaViva", () => {
     expect(patentesQueRecibenTarjeta("ABCD11", ["ABCD11"], ["ABCD11"])).toEqual([]);
   });
 
-  it("el estado de la suscripción delata quién cortó la renovación", () => {
+  it("solo la suspensión delata al admin; la baja de tarjeta queda sin dueño", () => {
     expect(estadoRenovacion({ origen: "WEB" }, "activa").label).toBe("Renovación automática");
     expect(estadoRenovacion({ origen: "WEB", renovacionAutoWooDesde: "2025-01-01" }).label).toBe("Renovación automática");
     expect(estadoRenovacion({ origen: "WEB" }, "suspendida").label).toBe("Cancelada desde admin");
-    expect(estadoRenovacion({ origen: "WEB" }, "cancelada").label).toBe("Cancelada por cliente");
+    expect(estadoRenovacion({ origen: "WEB" }, "cancelada").label).toBe("Cancelada");
     expect(estadoRenovacion({ origen: "LOCAL" }).label).toBe("Local sin RA");
     expect(estadoRenovacion({}).label).toBe("Local sin RA");
     // Inscripción a medio camino: no cobra sola, así que no es "Renovación automática".
     expect(estadoRenovacion({ origen: "WEB" }, "pendiente").label).toBe("Web sin RA");
     // Una tarjeta viva nueva manda sobre la marca de Woo ya cancelada.
-    expect(estadoRenovacion({ origen: "WEB", renovacionAutoWooDesde: null }, "cancelada").label).toBe("Cancelada por cliente");
+    expect(estadoRenovacion({ origen: "WEB", renovacionAutoWooDesde: null }, "cancelada").label).toBe("Cancelada");
   });
 
   it("solo activa y suspendida cuentan como tarjeta guardada", () => {

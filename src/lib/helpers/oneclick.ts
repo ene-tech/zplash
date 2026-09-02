@@ -33,12 +33,13 @@ export interface EstadoRenovacion {
  * activa < suspendida < pendiente < cancelada), o undefined si nunca inscribió
  * tarjeta.
  *
- * Quién canceló no se guarda en ninguna columna, pero el estado lo delata:
- * "suspendida" solo la produce el admin (anularSuscripcion desde la ficha y
- * "Suspender" en Admin → Suscripciones), mientras que "cancelada" es la baja
- * de tarjeta en Transbank, que sale de Mi Cuenta ("Eliminar plan" / "Eliminar
- * tarjeta"). La excepción es el botón "Cancelar" de Admin → Suscripciones, que
- * también deja "cancelada" y acá se lee como cancelada por el cliente.
+ * Quién canceló no se guarda en ninguna columna, y solo un estado lo delata:
+ * "suspendida" la produce únicamente el admin (anularSuscripcion desde la
+ * ficha y "Suspender" en Admin → Suscripciones). "cancelada" es la baja de
+ * tarjeta en Transbank, que sale tanto de Mi Cuenta ("Eliminar plan" /
+ * "Eliminar tarjeta") como del botón "Cancelar" de Admin → Suscripciones — por
+ * eso queda como "Cancelada" a secas y no "Cancelada por cliente": rotularla
+ * de una de las dos formas sería inventar el dato.
  *
  * WooCommerce solo aporta el caso positivo: renovacionAutoWooDesde ≠ null es
  * evidencia de que la suscripción vieja sigue viva (el webhook lo limpia al
@@ -52,6 +53,6 @@ export function estadoRenovacion(
 ): EstadoRenovacion {
   if (estadoOneclick === "activa" || (!estadoOneclick && c.renovacionAutoWooDesde)) return { label: "Renovación automática", cls: "ok" };
   if (estadoOneclick === "suspendida") return { label: "Cancelada desde admin", cls: "warn" };
-  if (estadoOneclick === "cancelada") return { label: "Cancelada por cliente", cls: "bad" };
+  if (estadoOneclick === "cancelada") return { label: "Cancelada", cls: "bad" };
   return { label: `${(c.origen || "LOCAL") === "WEB" ? "Web" : "Local"} sin RA`, cls: "" };
 }
