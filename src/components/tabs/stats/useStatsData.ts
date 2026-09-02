@@ -84,7 +84,9 @@ export function useStatsData() {
     visitasPorCliente.set(i.clienteId, (visitasPorCliente.get(i.clienteId) || 0) + 1);
   });
 
-  const clientesConPlan = data.clientes.filter((c) => c.plan);
+  // Solo planes vigentes (incluye "Por vencer"): un cliente con el plan ya vencido no debe
+  // diluir el promedio de pasadas — antes se contaba a cualquiera que alguna vez tuvo plan.
+  const clientesConPlan = vigentes;
   const totalVisitasPlan = clientesConPlan.reduce((s, c) => s + (visitasPorCliente.get(c.id) || 0), 0);
   const promedioVisitasPlan = clientesConPlan.length ? totalVisitasPlan / clientesConPlan.length : 0;
 
