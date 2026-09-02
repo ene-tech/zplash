@@ -81,6 +81,18 @@ export const reglasCorreo = pgTable("reglas_correo", {
   // mismo texto le ofrece MENOS lavados de los que usaba, y conviene dejarlo
   // fuera o mandarle otra plantilla.
   condicionPasadasMax: integer("condicion_pasadas_max"),
+  // Solo aplica a tipoEvento="plan_proximo_vencer": MINIMO de pasadas del
+  // ciclo en curso (periodoPlan, el mismo contador de superoTopeIlimitado) que
+  // el cliente tiene que llevar para que la regla le dispare. Null = sin
+  // filtro. Es el espejo de condicionPasadasMax, pero sobre el ciclo que corre
+  // ahora y no sobre el ultimo periodo vencido.
+  //
+  // Existe por la politica del ilimitado (ago-2026): al que usa
+  // PASES_INCLUIDOS_X5 pasadas o menos se le MANTIENE el plan viejo y se le
+  // sigue cobrando, asi que el aviso de "tu plan se termina" es mentira para
+  // el; solo le corresponde al que se paso del tope. Sin esta condicion la
+  // regla le llega a los dos grupos.
+  condicionPasadasMin: integer("condicion_pasadas_min"),
   // Solo aplica a tipoEvento="venta_creada": días de espera tras la venta
   // antes de mandar (0 = inmediato) — igual semántica que delayDias en
   // ReglaWhatsapp, pero sin el cron de "pendientes programados" de WhatsApp:

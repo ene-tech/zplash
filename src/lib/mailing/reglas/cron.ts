@@ -2,13 +2,13 @@ import "server-only";
 
 import { and, eq, gte, isNotNull, lt, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, suscripcionesOneclick } from "@/db/schema";
+import { clientes, ingresos, suscripcionesOneclick } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import { listarReglasCorreoActivas, obtenerPlantillaCorreo, registrarDisparoReglaCorreo } from "@/lib/dataAccess/mail";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { ofertaConCupon } from "@/lib/helpers/ofertasPlan";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos/cuponPlan";
-import { montoDescuento, planVigente, uid } from "@/lib/helpers";
+import { montoDescuento, periodoPlan, planVigente, uid } from "@/lib/helpers";
 import { construirVariables, ejecutarAccionReglaCorreo, MS_POR_DIA } from "./motor";
 import type { ReglaCorreo } from "@/types";
 
@@ -90,6 +90,30 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
       // tener cobro automático. Ver comentario del campo en
       // @/db/schema/mailReglas.
       if (regla.condicionSoloSinAutopago && row.patente && patentesConAutopago.has(row.patente)) continue;
+
+      // Mínimo de pasadas del ciclo EN CURSO (ver condicionPasadasMin en
+      // @/db/schema/mailReglas). Se cuenta acá y no en el bloque `promo` de más
+      // abajo porque aquel usa otro contador —visitasUltimoPeriodoVencido, el
+      // del período que ya se venció— y solo corre para "plan_vencido".
+      //
+      // Va antes de registrarDisparoReglaCorreo, igual que los otros filtros:
+      // al cliente que hoy no llega al mínimo no se le anota un disparo, así
+      // que mañana, con una pasada más, vuelve a ser elegible.
+      //
+      // ponytail: una consulta por cliente, como en
+      // evaluarReglasCorreoPorTopeIlimitado. Corre una vez al día y solo sobre
+      // los que vencen dentro de la ventana (~200); si algún día pesa, se
+      // reemplaza por un group by contra `ingresos` para todo el lote.
+      if (regla.condicionPasadasMin != null) {
+        const { inicio, fin } = periodoPlan(clienteFromRow(row));
+        const pasadas = (
+          await db
+            .select({ id: ingresos.id })
+            .from(ingresos)
+            .where(and(eq(ingresos.clienteId, row.id), gte(ingresos.fecha, inicio.toISOString()), lt(ingresos.fecha, fin.toISOString())))
+        ).length;
+        if (pasadas < regla.condicionPasadasMin) continue;
+      }
 
       let valores: { precio: number | undefined; pasadas?: number; descuento?: number } = { precio: undefined };
       if (promo) {
