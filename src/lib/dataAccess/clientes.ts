@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, politicasAceptadas, suscripcionesOneclick, ventas } from "@/db/schema";
 import { POLITICAS_VERSION } from "@/lib/politicas";
@@ -50,6 +50,7 @@ export function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
     vehiculo: c.vehiculo || null,
     plan: c.plan || null,
     ilimitadoHasta: c.ilimitadoHasta || null,
+    aceptoX5En: c.aceptoX5En || null,
     tipoDocumento: c.tipoDocumento || null,
     razonSocial: c.razonSocial || null,
     rut: c.rut || null,
@@ -81,6 +82,7 @@ export function clienteFromRow(r: ClienteRow): Cliente {
     vehiculo: r.vehiculo || undefined,
     plan: r.plan || undefined,
     ilimitadoHasta: r.ilimitadoHasta || null,
+    aceptoX5En: r.aceptoX5En || null,
     tipoDocumento: (r.tipoDocumento as Cliente["tipoDocumento"]) || undefined,
     razonSocial: r.razonSocial || undefined,
     rut: r.rut || undefined,
@@ -221,6 +223,39 @@ export async function limpiarEmailCliente(id: string, emailAnterior: string, mot
 // cancelarCambioPatente en @/lib/serverActions/clientes. `patentePendiente: null` limpia
 // también la fecha de solicitud (no tiene sentido guardarla sin una patente
 // pendiente asociada).
+/**
+ * Deja registrado que este cliente aceptó pasar del ilimitado viejo al X5, y
+ * con eso desbloquea el cobro (ver requiereValidacionX5).
+ *
+ * Reactiva de paso la suscripción Oneclick que el propio candado había pausado
+ * (ver cobrarSuscripcion): el cliente aceptó, así que su renovación automática
+ * vuelve a correr sola en el próximo ciclo. Solo toca las pausadas por esta
+ * razón — una cancelada por el cliente o una pendiente de inscripción se
+ * quedan como están.
+ *
+ * No pisa una aceptación anterior: `isNull` deja la fecha del primer sí, que es
+ * la que sirve como prueba de cuándo consintió.
+ */
+export async function registrarAceptacionX5(id: string): Promise<boolean> {
+  try {
+    const db = getDb();
+    const [cliente] = await db.select({ patente: clientes.patente }).from(clientes).where(eq(clientes.id, id)).limit(1);
+    if (!cliente) return false;
+    await db
+      .update(clientes)
+      .set({ aceptoX5En: new Date().toISOString() })
+      .where(and(eq(clientes.id, id), isNull(clientes.aceptoX5En)));
+    await db
+      .update(suscripcionesOneclick)
+      .set({ estado: "activa", actualizadoEn: new Date().toISOString() })
+      .where(and(eq(suscripcionesOneclick.patente, cliente.patente), eq(suscripcionesOneclick.estado, "pausada_validacion_x5")));
+    return true;
+  } catch (error) {
+    console.error("Error registrando la aceptación del paso al X5", id, error);
+    return false;
+  }
+}
+
 export async function actualizarPatentePendiente(id: string, patentePendiente: string | null): Promise<boolean> {
   try {
     await getDb()

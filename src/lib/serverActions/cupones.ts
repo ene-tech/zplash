@@ -24,8 +24,10 @@ export async function deleteCupones(ids: string[]): Promise<boolean> {
 // de ella se manda texto libre, que sale igual y no cuesta conversación). Las
 // variables van posicionales: {{1}} nombre, {{2}} beneficio, {{3}} código,
 // {{4}} fecha de caducidad — ver scripts/crear-template-entrega-cupon.mts,
-// que es con lo que se crea y se manda a aprobar en el WABA.
-const TEMPLATE_ENTREGA_CUPON = "entrega_cupon";
+// que es con lo que se crea y se manda a aprobar en el WABA, y que además
+// documenta por qué el template es MARKETING y por qué el cuerpo no puede
+// decir "Código: X" (Meta lo confunde con un OTP y lo rechaza).
+const TEMPLATE_ENTREGA_CUPON = "entrega_codigo_cupon";
 const IDIOMA_TEMPLATE = "es_CL";
 
 /** Entrega al cliente el código de un cupón recién generado desde su ficha,

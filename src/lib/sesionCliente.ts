@@ -7,6 +7,10 @@ export interface VehiculoSesion extends DatosFacturacion {
   vencimiento: string | null;
   patentePendiente: string | null;
   patentePendienteDesde: string | null;
+  // Sigue en el ilimitado viejo y todavía no acepta pasar al X5: los botones
+  // de Mi Cuenta tienen que decirle que lo que contrata es el Plan X5, no que
+  // "renueva su plan" (ver requiereValidacionX5).
+  requiereValidacionX5: boolean;
 }
 
 // La sesión real (ver @/lib/auth/clienteSession y @/app/api/cliente) vive en

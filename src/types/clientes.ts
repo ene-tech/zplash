@@ -23,6 +23,10 @@ export interface Cliente extends DatosFacturacion {
   // Ver ilimitadoHasta en db/schema/clientes.ts — hasta cuándo se le respetan
   // los lavados sin tope del ilimitado viejo a un cliente que ya pagó el X5.
   ilimitadoHasta?: string | null;
+  // Ver aceptoX5En en db/schema/clientes.ts — cuándo el cliente del ilimitado
+  // viejo aceptó explícitamente pasar al X5. null = todavía no lo acepta y
+  // ningún cobro puede migrarlo (ver requiereValidacionX5 en helpers/precios).
+  aceptoX5En?: string | null;
   vencimiento?: string | null;
   patentePendiente?: string | null;
   patentePendienteDesde?: string | null;

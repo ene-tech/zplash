@@ -1,0 +1,19 @@
+[
+  {
+    "tipo": "suscripcion",
+    "id": 7202,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "SDCR14",
+    "nombre": "RODRIGO FLORES",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8128,
+    "patente": "SDCR14",
+    "monto": 21990,
+    "resultado": "cancelado"
+  }
+]

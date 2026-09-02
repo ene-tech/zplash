@@ -17,6 +17,16 @@ export function parsearTamano(texto: string): TamanoVehiculo | null {
 }
 
 /**
+ * La nota 1-7 de una opinión, o null si no es eso. Estricto a propósito: solo
+ * el número solo. Un "excelente" o un "7/7" repregunta en vez de adivinar,
+ * porque una nota mal leída ensucia justo el promedio que se quiere mirar.
+ */
+export function parsearNotaOpinion(texto: string): number | null {
+  const n = Number(texto.trim());
+  return Number.isInteger(n) && n >= 1 && n <= 7 ? n : null;
+}
+
+/**
  * Pregunta por el tamaño del vehículo antes de cotizar. La lista se genera
  * desde TAMANOS_VEHICULO y no es texto libre editable, por lo mismo que la
  * lista de precios: si mañana se agrega un tamaño, el bot lo ofrece solo.

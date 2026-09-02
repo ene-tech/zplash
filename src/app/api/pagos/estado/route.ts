@@ -12,6 +12,7 @@ import {
   precioPlanOneclick,
   precioRenovacionCliente,
   promoPrimerCobroOneclick,
+  requiereValidacionX5,
 } from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
@@ -128,6 +129,12 @@ export async function GET(request: NextRequest) {
       // vencido sigue disponible para esta patente (es una sola vez por
       // cliente, ver otorgarTicketReactivacion).
       ticketReactivacion: vencido && !yaUsoTicket,
+      // true = este cliente sigue en el ilimitado viejo y todavía no acepta
+      // pasar al X5, así que el botón tiene que decirle que lo que contrata es
+      // el Plan X5 y no "renovar su plan" (ver AvisoPasaAX5). Se resuelve acá
+      // con el helper y no en la pantalla para que no tenga que adivinar cuál
+      // es el plan legacy.
+      requiereValidacionX5: requiereValidacionX5(cliente),
     });
   } catch (error) {
     console.error("Error en /api/pagos/estado", error);

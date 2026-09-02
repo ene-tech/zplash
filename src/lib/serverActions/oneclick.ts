@@ -17,7 +17,12 @@ export async function obtenerSuscripcionOneclick(patente: string): Promise<Suscr
 // cliente vencido cuyo cobro automático nunca llegó a ejecutarse. Usa la misma
 // cobrarSuscripcion() que el cron diario — si el ciclo del mes ya se cobró y
 // quedó aprobado, lanza y el modal muestra el error.
-export async function cobrarSuscripcionManual(suscripcionId: string): Promise<{ estado: "aprobada" | "rechazada" } | null> {
+// "pendiente_validacion" = el cliente sigue en el ilimitado viejo y no ha
+// aceptado pasar al X5, así que no se le cobró nada (ver requiereValidacionX5):
+// ni siquiera a mano se le puede forzar el cambio de plan desde acá.
+export async function cobrarSuscripcionManual(
+  suscripcionId: string
+): Promise<{ estado: "aprobada" | "rechazada" | "pendiente_validacion" } | null> {
   if (!(await tieneModulo("clientes"))) return null;
   const suscripcion = await dataAccess.obtenerSuscripcionOneclickPorId(suscripcionId);
   if (!suscripcion) return null;

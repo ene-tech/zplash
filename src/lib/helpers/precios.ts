@@ -75,6 +75,25 @@ export function ilimitadoHastaAlRenovar(cliente: Pick<Cliente, "plan" | "vencimi
 }
 
 /**
+ * ¿A este cliente hay que pedirle que acepte el paso al X5 antes de cobrarle?
+ *
+ * Mira `plan` a secas y NO planVigente: lo que se pregunta es si el cliente
+ * todavía no ha migrado. El que ya pagó el X5 arrastrando su mes sin tope
+ * tiene `plan` = PLAN_X5 y planVigente = ilimitado, y a ese ya no hay nada que
+ * preguntarle — su próxima renovación no le cambia el producto.
+ *
+ * Es el único test que deben usar todos los caminos de cobro (mesón, web,
+ * Oneclick): mientras devuelva true, ninguno puede escribir PLAN_X5 en este
+ * cliente. Ver cobrarSuscripcion, que directamente no le cobra.
+ */
+// El parámetro va suelto y no como Pick<Cliente>: lo llaman tanto con un
+// Cliente (plan?: string) como con una fila cruda de la base (plan: string |
+// null), y son tipos distintos para lo mismo.
+export function requiereValidacionX5(cliente: { plan?: string | null; aceptoX5En?: string | null }): boolean {
+  return cliente.plan === PLAN_ILIMITADO_LEGACY && !cliente.aceptoX5En;
+}
+
+/**
  * ¿Este cliente del ilimitado viejo se pasó del tope del X5 en su ciclo?
  * Regla de la política de rescate de ago-2026: al cliente de WooCommerce que
  * usa PASES_INCLUIDOS_X5 pasadas o menos se le mantiene su plan sin tope y se

@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtCLP, fmtFecha, precioConHeredado } from "@/lib/helpers";
+import { PLANES, fmtCLP, fmtFecha, precioConHeredado } from "@/lib/helpers";
 import { AvisoPasaAX5 } from "@/components/cliente/AvisoPasaAX5";
 import type { PreciosPublicos } from "@/components/cliente/types";
 import type { usePagarForm } from "./usePagarForm";
@@ -78,10 +78,17 @@ export function ResultadoBusqueda(p: Props) {
             {r.ticketReactivacion && <>Además te regalamos 1 lavado full túnel gratis por registrar tu tarjeta.</>}
           </div>
         )}
+        {/* El botón dice qué se está contratando, y apretarlo ES la aceptación
+            del cliente del ilimitado viejo a pasarse al X5 (ver
+            requiereValidacionX5 y su registro en /api/pagos/oneclick/inscribir).
+            Por eso al cliente legacy no le puede decir "renovación": lo que
+            firma acá es un producto distinto del que tenía. */}
         <button className="btn" style={{ marginTop: 10 }} onClick={p.activarAutomatica} disabled={p.inscribiendo}>
           {p.inscribiendo
             ? "Redirigiendo..."
-            : `Activar renovación automática — ${fmtCLP(precioAuto)}${promoPrimerMes ? " el primer mes" : "/mes"}`}
+            : r.requiereValidacionX5
+              ? `Contratar ${PLANES[0]} — ${fmtCLP(precioAuto)}${promoPrimerMes ? " el primer mes" : "/mes"}`
+              : `Activar renovación automática — ${fmtCLP(precioAuto)}${promoPrimerMes ? " el primer mes" : "/mes"}`}
         </button>
       </div>
     </div>

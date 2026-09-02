@@ -1,0 +1,1401 @@
+[
+  {
+    "tipo": "suscripcion",
+    "id": 7885,
+    "veredicto": "TOPE",
+    "motivo": "6 pasadas en el ciclo desde 2026-08-12",
+    "patente": "VXRJ44",
+    "nombre": "JAIRO ALVARADO SUAREZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7847,
+    "veredicto": "DUPLICADA",
+    "motivo": "2 suscripciones vivas para la misma patente (antes: MANTENER)",
+    "patente": "SVKR55",
+    "nombre": "NICOLAS ÁVILA LANDEROS",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7824,
+    "veredicto": "TOPE",
+    "motivo": "7 pasadas en el ciclo desde 2026-08-08",
+    "patente": "LWJK73",
+    "nombre": "GONZALO RODRIGUEZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7750,
+    "veredicto": "TOPE",
+    "motivo": "6 pasadas en el ciclo desde 2026-08-03",
+    "patente": "RKCJ67",
+    "nombre": "JOSÉ MELLADO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7624,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Renovación anticipada (Web) 19990",
+    "patente": "DHTX91",
+    "nombre": "OSCAR PEREIRA MORGADO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7534,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-19 Renovación anticipada (Web) 19990",
+    "patente": "TRJH51",
+    "nombre": "GUSTAVO HEUFEMANN CABRERA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7509,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "RSXC52",
+    "nombre": "PABLO SOTO GONZALEZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7504,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-24 Renovación (Web) 21990",
+    "patente": "GXHG66",
+    "nombre": "VALENTINA MARCHANT OLIVARES",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7239,
+    "veredicto": "TOPE",
+    "motivo": "6 pasadas en el ciclo desde 2026-08-03",
+    "patente": "SFLG13",
+    "nombre": "LEONEL ANGULO VEGA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7136,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "RFCY64",
+    "nombre": "LUIS BERNARDO VEGA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7123,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "PDWC92",
+    "nombre": "VANESSA LEMARIE",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7010,
+    "veredicto": "DUPLICADA",
+    "motivo": "2 suscripciones vivas para la misma patente (antes: MANTENER)",
+    "patente": "SVKR55",
+    "nombre": "NICOLAS ÁVILA LANDEROS",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6934,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Renovación Web (manual) 21990",
+    "patente": "VWJB27",
+    "nombre": "ISAAC RODRÍGUEZ MARCHANT",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6855,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-19 Renovación (Web) 21990",
+    "patente": "RVFH63",
+    "nombre": "FELIPE RUIZ FUENTES",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6824,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-19 Renovación anticipada (Web) 19990",
+    "patente": "TZCK25",
+    "nombre": "MARCELO MUÑOZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6806,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-17 Plan nuevo 21990",
+    "patente": "VWHX33",
+    "nombre": "CARLOS MENDOZA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6732,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-22 Plan nuevo 29990",
+    "patente": "VXHW97",
+    "nombre": "GONZALO ZAMBRANO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6733,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-07-07 Renovación preferencial 19990",
+    "patente": "LDLY46",
+    "nombre": "PATRICIO CHAVEZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6713,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-22 Plan nuevo 29990",
+    "patente": "PSTZ11",
+    "nombre": "RENE CARRASCO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6705,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "JGPF17",
+    "nombre": "ALVARO BUSTOS RUBILAR",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6626,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-21 Renovación anticipada (Web) 19990",
+    "patente": "KKDH63",
+    "nombre": "MARCELO TRONCOSO S",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6601,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "VVXY81",
+    "nombre": "GIOVANNI LOPEZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6580,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-08 Plan nuevo 21990",
+    "patente": "JFCF40",
+    "nombre": "JORGE MORENO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6578,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "TRJH57",
+    "nombre": "ROBERTO VEGA VILLA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6570,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-04 Reactivación promocional 18990",
+    "patente": "TVKK59",
+    "nombre": "FELIPE INOSTROZA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6560,
+    "veredicto": "TOPE",
+    "motivo": "11 pasadas en el ciclo desde 2026-08-08",
+    "patente": "CBLH20",
+    "nombre": "SERGIO FIGUEROA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6550,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-07-08 Renovación manual 21990",
+    "patente": "TZDK91",
+    "nombre": "RICHARD DIAZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6547,
+    "veredicto": "TOPE",
+    "motivo": "10 pasadas en el ciclo desde 2026-08-07",
+    "patente": "VGPD76",
+    "nombre": "RAUL VALENZUELA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6544,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-07-08 Plan nuevo 21990",
+    "patente": "JPBX89",
+    "nombre": "RAÚL CUEVAS GONZÁLEZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6536,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-21 Renovación Web (manual) 21990",
+    "patente": "RBBP85",
+    "nombre": "ELADIO FERNÁNDEZ CIFUENTES",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6530,
+    "veredicto": "DUPLICADA",
+    "motivo": "2 suscripciones vivas para la misma patente (antes: TOPE)",
+    "patente": "GXKT58",
+    "nombre": "NICOLAS AGUILAR",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6523,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-07-08 Renovación manual 21990",
+    "patente": "PDHT58",
+    "nombre": "GERARDO ASTETE NAVARRETE",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6512,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "RWPD55",
+    "nombre": "MARCELO MARTINEZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6485,
+    "veredicto": "TOPE",
+    "motivo": "6 pasadas en el ciclo desde 2026-08-06",
+    "patente": "LFCB32",
+    "nombre": "RAUL MUÑOZ ALVAREZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6456,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "KBRR94",
+    "nombre": "MARCELO MARCELO GÓMEZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6428,
+    "veredicto": "TOPE",
+    "motivo": "6 pasadas en el ciclo desde 2026-08-04",
+    "patente": "RSBK27",
+    "nombre": "CLAUDIA MATAMALA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6384,
+    "veredicto": "TOPE",
+    "motivo": "6 pasadas en el ciclo desde 2026-08-03",
+    "patente": "PJSC19",
+    "nombre": "WLADIMIR LEVIO AVILA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6245,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-10 Reactivación promocional 18990",
+    "patente": "DCYX66",
+    "nombre": "PABLO CHÁVEZ AVILA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6214,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "KRBZ65",
+    "nombre": "MAXIMILIANO MERINO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6185,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "LHXK60",
+    "nombre": "JUAN PABLO POBLETE",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6169,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "SDGJ21",
+    "nombre": "PALMENIA CASIVILLO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6130,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-11 Renovación Web (manual) 21990",
+    "patente": "HBSL75",
+    "nombre": "JAIME LEYTON",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6108,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Renovación anticipada (Web) 19990",
+    "patente": "RKVX81",
+    "nombre": "EDUARDO FERNANDEZ SEPULVEDA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6192,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "JKFF16",
+    "nombre": "ALEJANDRO CONTRERAS",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6013,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "SRGY99",
+    "nombre": "FERNANDO ALARCON",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5968,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "DTJJ34",
+    "nombre": "CRISTIAN SAN MARTIN",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5919,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-23 Reactivación promocional (Web) 19990",
+    "patente": "LRRL43",
+    "nombre": "BARBARA MILLANAO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5892,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-15 Renovación anticipada (Web) 21990",
+    "patente": "PDRF90",
+    "nombre": "PATRICIO CARRILLO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5861,
+    "veredicto": "DUPLICADA",
+    "motivo": "2 suscripciones vivas para la misma patente (antes: MANTENER)",
+    "patente": "TZCH85",
+    "nombre": "JORGE VELASQUEZ CEBALLOS",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5859,
+    "veredicto": "DUPLICADA",
+    "motivo": "2 suscripciones vivas para la misma patente (antes: MANTENER)",
+    "patente": "TZCH85",
+    "nombre": "JORGE VELASQUEZ CEBALLOS",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5856,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-22 Renovación anticipada (Web) 19990",
+    "patente": "KTRT11",
+    "nombre": "CARLOS DIAZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5812,
+    "veredicto": "TOPE",
+    "motivo": "8 pasadas en el ciclo desde 2026-08-03",
+    "patente": "RTZP43",
+    "nombre": "HERMAN CONSTANZO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5808,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-11 Renovación Web (manual) 21990",
+    "patente": "RSTH21",
+    "nombre": "JAVIER GARCIA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5776,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-07-30 Reactivación promocional 18990",
+    "patente": "VLXL81",
+    "nombre": "JORGE SILVA CERDA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5758,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-08 Plan nuevo 21990",
+    "patente": "TPJZ97",
+    "nombre": "PABLO GARCÍA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5732,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-09 Plan nuevo 21990",
+    "patente": "TZPY12",
+    "nombre": "JULIAN JARA FUENTES",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5697,
+    "veredicto": "TOPE",
+    "motivo": "8 pasadas en el ciclo desde 2026-08-08",
+    "patente": "TPJP25",
+    "nombre": "RODRIGO ARANEDA RAMÍREZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5687,
+    "veredicto": "TOPE",
+    "motivo": "12 pasadas en el ciclo desde 2026-08-07",
+    "patente": "RGCJ82",
+    "nombre": "FRANCISCO CASTILLO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5684,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-07-08 Renovación manual 21990",
+    "patente": "DSRC81",
+    "nombre": "ELISA MUÑOZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5677,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-07-08 Renovación manual 21990",
+    "patente": "VHFT57",
+    "nombre": "CECILIA FLORES",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5644,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-07-07 Plan nuevo 21990",
+    "patente": "PJPX82",
+    "nombre": "LUIS ORLANDO MIRANDA ILLANES",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5635,
+    "veredicto": "TOPE",
+    "motivo": "13 pasadas en el ciclo desde 2026-08-05",
+    "patente": "TBZS38",
+    "nombre": "TRANS SERVICIOS SUR SPA",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5629,
+    "veredicto": "TOPE",
+    "motivo": "7 pasadas en el ciclo desde 2026-08-04",
+    "patente": "KTGX40",
+    "nombre": "SANDRA TERAN",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5554,
+    "veredicto": "DUPLICADA",
+    "motivo": "2 suscripciones vivas para la misma patente (antes: TOPE)",
+    "patente": "GXKT58",
+    "nombre": "NICOLAS AGUILAR",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5408,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "HLXL70",
+    "nombre": "MIRIAM TEMUCO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5347,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "TLPG65",
+    "nombre": "DIEGO CAMPOS",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5298,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "HPWK75",
+    "nombre": "VICTOR RUIZ FIGUEROA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5259,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-23 Reactivación promocional (Web) 19990",
+    "patente": "LPVK19",
+    "nombre": "CARLOS SAENZ",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5227,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Renovación (Web) 19990",
+    "patente": "DVKX90",
+    "nombre": "DANIEL MARDONES PINARES",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5224,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-22 Renovación (Web) 19990",
+    "patente": "KXWK73",
+    "nombre": "GERMAN AGUAYO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5219,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "JBVH39",
+    "nombre": "LESLIE VILLARROEL",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5212,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-15 Renovación anticipada (Web) 19990",
+    "patente": "TJWL57",
+    "nombre": "PAULA MEDINA RESCHKE",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5208,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-27 Reactivación promocional (Web) 19990",
+    "patente": "TDBX64",
+    "nombre": "CRISTINA RIQUELME",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5209,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Renovación Web (manual) 19990",
+    "patente": "VVYX49",
+    "nombre": "ROBERTO ALFARO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5177,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "PZVD12",
+    "nombre": "CARLOS DEL VALLE",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5161,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-17 Reactivación promocional (Web) 19990",
+    "patente": "SPJJ42",
+    "nombre": "JORGE HENRIQUEZ ANDRADES",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5096,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-12 Renovación Web (manual) 19990",
+    "patente": "VRHY85",
+    "nombre": "KATHERINE BRAVO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5093,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-19 Renovación Web (manual) 19990",
+    "patente": "LVBK23",
+    "nombre": "FELIPE CASTRO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5066,
+    "veredicto": "TOPE",
+    "motivo": "6 pasadas en el ciclo desde 2026-08-13",
+    "patente": "LHXV14",
+    "nombre": "PATRICIO RIQUELME SOTO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5037,
+    "veredicto": "TOPE",
+    "motivo": "9 pasadas en el ciclo desde 2026-08-10",
+    "patente": "SFGG63",
+    "nombre": "MIGUEL ANGEL RODRIGUEZ",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5001,
+    "veredicto": "MUY VENCIDO",
+    "motivo": "sin vencimiento en la ficha",
+    "patente": "KHFS61",
+    "nombre": "ORACIÓN KLENNER",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4994,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-20 Renovación Web (manual) 19990",
+    "patente": "SJPF62",
+    "nombre": "NICOLAS CORREA BARROS",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4958,
+    "veredicto": "TOPE",
+    "motivo": "15 pasadas en el ciclo desde 2026-08-08",
+    "patente": "CZHS86",
+    "nombre": "JUAN IGNACIO CARRASCO BLANCAIRE",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4955,
+    "veredicto": "TOPE",
+    "motivo": "7 pasadas en el ciclo desde 2026-08-08",
+    "patente": "HKPS33",
+    "nombre": "RODRIGO OÑATE ANINAO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4936,
+    "veredicto": "TOPE",
+    "motivo": "6 pasadas en el ciclo desde 2026-08-08",
+    "patente": "RGDF13",
+    "nombre": "MARCO MANOSALVA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4930,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "GJLW88",
+    "nombre": "CÉSAR ENRIQUE MILLAPÁN BRAVO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4928,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-07-08 Renovación manual 21990",
+    "patente": "ZT2456",
+    "nombre": "MARIO GONZALEZ HERMOSILLA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4885,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-13 Plan nuevo 21990",
+    "patente": "LFYV21",
+    "nombre": "JOSÉ ARRIAGADA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4860,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "TVSC67",
+    "nombre": "TOMAS BUSTOS",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4835,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "RCZX64",
+    "nombre": "ALBERTO FERREIRA SALAZAR",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4800,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "THCZ33",
+    "nombre": "MOISÉS ALARCÓN",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4653,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "PZZJ73",
+    "nombre": "RODRIGO MEDINA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4554,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "LCYD85",
+    "nombre": "GUSTAVO SALGADO LEISCHNER",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4535,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-27 Reactivación promocional (Web) 17990",
+    "patente": "LFCB39",
+    "nombre": "JUAN CARLOS DÍAZ RIQUELME",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4522,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-12 Reactivación promocional 18990",
+    "patente": "HSRP79",
+    "nombre": "MARIO SANHUEZA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4519,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "PJYT88",
+    "nombre": "TANIA RAMOS",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4490,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "LHDT37",
+    "nombre": "PAULO VALLEJOS BAQUEDANO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4486,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "KKTB70",
+    "nombre": "SEBASTIÁN SEPÚLVEDA HERRERA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4476,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-23 Renovación (Web) 21990",
+    "patente": "VRHT17",
+    "nombre": "RENÉ EDUARDO SALDÍAS JAQUE",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4473,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "PXSL52",
+    "nombre": "ALEJANDRO ZURITA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4468,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "VJCL65",
+    "nombre": "CLAUDIO SANHUEZA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4443,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Reactivación promocional (Web) 19990",
+    "patente": "RPGT92",
+    "nombre": "DAVID CATALAN",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4424,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-27 Reactivación promocional (Web) 19990",
+    "patente": "SJFD60",
+    "nombre": "CAMILO SAN MARTÍN",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4414,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "JGPZ53",
+    "nombre": "RUTH ELIZABETH MUÑOZ",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4405,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Reactivación promocional (Web) 19990",
+    "patente": "LWZK99",
+    "nombre": "GABRIEL PINTO CORTEZ",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4399,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-27 Reactivación promocional (Web) 19990",
+    "patente": "RSSH50",
+    "nombre": "CAROLINA SEPULVEDA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4394,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Renovación (Web) 19990",
+    "patente": "RSLP30",
+    "nombre": "SHU XIN JIANG PULGAR",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4374,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Renovación Web (manual) 19990",
+    "patente": "TJFR40",
+    "nombre": "LAURA SOBARZO ALVAREZ",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4329,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-27 Reactivación promocional (Web) 17990",
+    "patente": "SXTF96",
+    "nombre": "RAUL MOLINA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4325,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "LBHR45",
+    "nombre": "VINCENZO DONARI",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4320,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-26 Reactivación promocional (Web) 19990",
+    "patente": "VKDP92",
+    "nombre": "AGRICOLA RIO CRUCES LIMITADA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7716,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "TRZZ19",
+    "nombre": "VALESKA GONZÁLEZ PEREZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 7195,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "KTYH36",
+    "nombre": "RODOLFO MUÑOZ CARTER",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6352,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "VPGK66",
+    "nombre": "JAIME ALFONSO PARRA GODOY",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6330,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-15 Renovación anticipada (Web) 19990",
+    "patente": "GVYV33",
+    "nombre": "JORGE ROBERTO NORAMBUENA CARRASCO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6268,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "RBSV62",
+    "nombre": "CLAUDIO CASTRO",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 6261,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-24 Renovación anticipada (Web) 19990",
+    "patente": "LGSB12",
+    "nombre": "PATRICIO CONTRERAS RÍOS",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 5535,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "VJCG34",
+    "nombre": "MARCO RAMIREZ",
+    "monto": 21990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4756,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "RCGD78",
+    "nombre": "ROBIN TIZNADO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4744,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "VTLY67",
+    "nombre": "MARIA TERESA GARRIDO AGÜERO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4736,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "TDVS35",
+    "nombre": "CLAUDIO CASTILLO SEPULVEDA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4733,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "TPXS64",
+    "nombre": "LUIS MOLINA AGUAYO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4689,
+    "veredicto": "MUY VENCIDO",
+    "motivo": "sin vencimiento en la ficha",
+    "patente": "FGVT23",
+    "nombre": "Chery",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4665,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "PDBZ97",
+    "nombre": "OMMAR MUÑOZ SALAZAR",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4634,
+    "veredicto": "RENOVO LOCAL",
+    "motivo": "2026-08-15 Renovación anticipada (Web) 19990",
+    "patente": "LSPP95",
+    "nombre": "MARCOS VALENZUELA HUENTRUTRIPAI",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4620,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "LHYC25",
+    "nombre": "INGRID VELASQUEZ",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4607,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "SGGB74",
+    "nombre": "HERNA INOSTROZA",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "suscripcion",
+    "id": 4516,
+    "veredicto": "MIGRADO",
+    "motivo": "Oneclick propio activo",
+    "patente": "TYGL56",
+    "nombre": "MARIA FRANCISCA BORNSCHEUER SALGADO",
+    "monto": 19990,
+    "resultado": "cancelada"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8132,
+    "patente": "RCGD78",
+    "monto": 19990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8131,
+    "patente": "VTLY67",
+    "monto": 19990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8130,
+    "patente": "TDVS35",
+    "monto": 19990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8129,
+    "patente": "TPXS64",
+    "monto": 19990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8127,
+    "patente": "VPGK66",
+    "monto": 21990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8125,
+    "patente": "KTYH36",
+    "monto": 21990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8121,
+    "patente": "GVYV33",
+    "monto": 21990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8119,
+    "patente": "FGVT23",
+    "monto": 19990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8116,
+    "patente": "TRZZ19",
+    "monto": 21990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8112,
+    "patente": "RBSV62",
+    "monto": 21990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8111,
+    "patente": "PDBZ97",
+    "monto": 19990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8110,
+    "patente": "LHYC25",
+    "monto": 19990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8107,
+    "patente": "LGSB12",
+    "monto": 21990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8102,
+    "patente": "VJCG34",
+    "monto": 21990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8101,
+    "patente": "SGGB74",
+    "monto": 19990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8100,
+    "patente": "LSPP95",
+    "monto": 19990,
+    "resultado": "cancelado"
+  },
+  {
+    "tipo": "pedido",
+    "id": 8098,
+    "patente": "TYGL56",
+    "monto": 19990,
+    "resultado": "cancelado"
+  }
+]

@@ -55,7 +55,15 @@ function PerfilPinForm() {
       const json = await res.json();
       if (res.ok && json.ok) {
         const perfilActual: PerfilPublico = { id: perfil.id, nombre: json.nombre, modulos: json.modulos };
-        patchUi({ perfilActual, loginMode: null, loginErr: "", view: "hub" });
+        // Si se entró desde la push de "piden hablar con una persona"
+        // (/admin?conversacion=<id>, que AppContext deja en
+        // conversacionWhatsappSeleccionada), el login lleva derecho a ese
+        // hilo en vez de al hub — son 24h de ventana de Meta para contestar,
+        // y hoy el promedio de respuesta es de 68 horas. Se respeta igual el
+        // permiso de módulo: un perfil sin "mensajes" entra al hub como
+        // siempre, aunque le pasen el link.
+        const irAMensajes = !!ui.conversacionWhatsappSeleccionada && perfilActual.modulos.includes("mensajes");
+        patchUi({ perfilActual, loginMode: null, loginErr: "", view: irAMensajes ? "mensajes" : "hub" });
       } else {
         patchUi({ loginErr: json.error || "Contraseña incorrecta" });
       }

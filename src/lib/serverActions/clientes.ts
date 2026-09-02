@@ -227,6 +227,23 @@ export async function solicitarCambioPatente(clienteId: string, nuevaPatente: st
   return dataAccess.actualizarPatentePendiente(clienteId, patente);
 }
 
+/**
+ * El operador apretó, con el aviso de AvisoPasaAX5 a la vista, el botón que le
+ * dice "Contratar Plan X5" para un cliente que venía del ilimitado viejo. Ese
+ * click es la aceptación del cliente y se registra antes de cobrar: es lo que
+ * destraba el cobro y lo que reactiva su renovación automática si el cron la
+ * había pausado (ver requiereValidacionX5 y registrarAceptacionX5).
+ *
+ * Pide el módulo "operador" y no "clientes": esto se marca en el mesón
+ * atendiendo, no desde la ficha del módulo de clientes.
+ */
+export async function aceptarPasoAX5(clienteId: string): Promise<boolean> {
+  if (!(await tieneModulo("operador"))) return false;
+  const sesion = await sesionActual();
+  if (!sesion) return false;
+  return dataAccess.registrarAceptacionX5(clienteId);
+}
+
 export async function cancelarCambioPatente(clienteId: string): Promise<boolean> {
   if (!(await tieneModulo("clientes"))) return false;
   return dataAccess.actualizarPatentePendiente(clienteId, null);

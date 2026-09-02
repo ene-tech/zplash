@@ -224,7 +224,13 @@ export function VehiculoCard({
               </div>
               {avisoInscripcion}
               <button className="btn secondary" onClick={() => pedir("renovacion_temprana")} disabled={ocupado}>
-                {pagando === "renovacion_temprana" ? "Procesando..." : inscribiendo ? "Redirigiendo..." : "Renovar a precio preferencial"}
+                {pagando === "renovacion_temprana"
+                  ? "Procesando..."
+                  : inscribiendo
+                    ? "Redirigiendo..."
+                    : v.requiereValidacionX5
+                      ? `Contratar ${PLANES[0]} a precio preferencial`
+                      : "Renovar a precio preferencial"}
               </button>
             </>
           )}
@@ -289,7 +295,9 @@ export function VehiculoCard({
             </div>
           )}
           <button className="btn secondary" onClick={pagarPlanVencido} disabled={pagando !== null}>
-            {pagando === "renovacion" ? "Procesando..." : `Pagar mi plan (${fmtCLP(oferta.pagoVencido.precio)})`}
+            {pagando === "renovacion"
+              ? "Procesando..."
+              : `${v.requiereValidacionX5 ? `Contratar ${PLANES[0]}` : "Pagar mi plan"} (${fmtCLP(oferta.pagoVencido.precio)})`}
           </button>
         </div>
       )}

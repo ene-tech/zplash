@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PreciosPublicos } from "@/components/cliente/types";
-import { parsearTamano, textoPedirTamano, textoPrecios } from "./contenido";
+import { parsearNotaOpinion, parsearTamano, textoPedirTamano, textoPrecios } from "./contenido";
 
 const PRECIOS: PreciosPublicos = {
   plan: { nombre: "Plan", precio: 23990 },
@@ -80,5 +80,19 @@ describe("textoPrecios", () => {
   it("pone Lavado Completo Detailing antes que las demás categorías", () => {
     const t = textoPrecios(PRECIOS, "m", "*Precios*");
     expect(t.indexOf("*Lavado Completo Detailing*")).toBeLessThan(t.indexOf("*Adicionales*"));
+  });
+});
+
+describe("parsearNotaOpinion", () => {
+  it("acepta las notas 1 a 7, con espacios alrededor", () => {
+    expect([1, 2, 3, 4, 5, 6, 7].map((n) => parsearNotaOpinion(` ${n} `))).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it("rechaza lo que no es una nota, en vez de adivinar", () => {
+    // "10" y "0" son los peligrosos: si se leyeran, un 10/10 entusiasta
+    // entraría como reclamo y dispararía el aviso a Gerencia.
+    for (const malo of ["", "0", "8", "10", "6.5", "excelente", "7/7", "un 7", "👍"]) {
+      expect(parsearNotaOpinion(malo), malo).toBeNull();
+    }
   });
 });

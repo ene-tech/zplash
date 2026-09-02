@@ -97,6 +97,14 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
     whatsappMessageId: msg.id,
   });
 
+  // Un pulgar arriba o un sticker no es una pregunta: contestarlos disparaba
+  // el menú completo de vuelta (19 reacciones y 5 stickers entre jun y ago
+  // 2026, porque msg.text llega vacío y el router lee vacío como "mostrar el
+  // menú"). Quedan igual guardados arriba, para que Gerencia los vea en el
+  // hilo. Fotos y audios SÍ siguen recibiendo el menú: ahí hay alguien
+  // tratando de decir algo y quedarse callado es peor.
+  if (msg.type === "reaction" || msg.type === "sticker") return;
+
   let respuesta;
   try {
     respuesta = await responderMensaje(textoEntrante, telefono, conversacion);
@@ -104,6 +112,10 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
     console.error("Error respondiendo mensaje de WhatsApp", error);
     respuesta = { texto: "Ocurrió un error de nuestro lado. Intenta de nuevo en unos minutos." };
   }
+
+  // El router devuelve null cuando no hay nada que decir (un emoji suelto, un
+  // "gracias"). El mensaje del cliente ya quedó guardado arriba.
+  if (!respuesta) return;
 
   if (respuesta.solicitaHumano) {
     const quien = nombreContacto || conversacion.nombreContacto || telefono;
@@ -117,7 +129,13 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
       await enviarPushAGerencia({
         title: "Piden hablar con una persona",
         body: `${quien} escribió por WhatsApp pidiendo hablar con alguien.`,
-        url: "/",
+        // Decía "/", que es la landing pública: tocar la notificación dejaba a
+        // Gerencia en la web de clientes, con el panel a varios pasos de
+        // distancia. El panel vive en /admin, y el parámetro abre derecho el
+        // hilo de quien escribió (lo traduce a la vista AppProvider, ver
+        // @/context/AppContext) — hay 24h de ventana de Meta para contestar
+        // gratis, así que cada clic de más cuenta.
+        url: `/admin?conversacion=${conversacion.id}`,
       });
     } catch (error) {
       console.error("Error avisando a Gerencia por push", error);

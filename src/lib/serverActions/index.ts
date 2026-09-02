@@ -38,6 +38,7 @@ export * from "./oneclick";
 export * from "./pagos";
 export * from "./perfiles";
 export * from "./precios";
+export * from "./recorrido";
 export * from "./servicios";
 export * from "./storage";
 export * from "./ventas";

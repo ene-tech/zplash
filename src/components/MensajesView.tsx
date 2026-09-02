@@ -49,7 +49,10 @@ export default function MensajesView() {
   const [probandoPush, setProbandoPush] = useState(false);
   const [resultadoPrueba, setResultadoPrueba] = useState<string | null>(null);
   const [conversaciones, setConversaciones] = useState<ConversacionWhatsapp[]>([]);
-  const [seleccionada, setSeleccionada] = useState<string | null>(null);
+  // Arranca en la conversación que pidió quien navegó hasta acá (ver
+  // conversacionWhatsappSeleccionada en @/types/ui): el embudo abre el chat de
+  // un prospecto directo, sin que haya que buscarlo en la lista.
+  const [seleccionada, setSeleccionada] = useState<string | null>(ui.conversacionWhatsappSeleccionada);
   const [mensajes, setMensajes] = useState<MensajeWhatsapp[]>([]);
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);

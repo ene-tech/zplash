@@ -123,6 +123,7 @@ const initialUI: UIState = {
   ingresosDesde: null,
   ingresosHasta: null,
   facturaSearch: "",
+  conversacionWhatsappSeleccionada: null,
   loginMode: null,
   perfilSeleccionadoId: null,
   perfilActual: null,
@@ -183,7 +184,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // actualiza en el mismo tick que setData(), así que cada commit() lee
   // siempre lo último, venga o no de un re-render todavía no aplicado.
   const dataRef = useRef(data);
-  const [ui, setUi] = useState<UIState>(initialUI);
+  // /admin?conversacion=<id> deja ese hilo de WhatsApp pre-seleccionado: es a
+  // donde apunta la notificación push de "piden hablar con una persona" (ver
+  // @/app/api/whatsapp/route.ts). Se lee acá, en el initializer, y no en un
+  // efecto, porque la app SIEMPRE parte en LoginScreen (perfilActual no se
+  // persiste entre recargas) — quien manda a la vista de mensajes es el
+  // propio login, mirando este valor. En el prerender del servidor no hay
+  // `window`, y ahí da lo mismo: lo que se pinta es la pantalla de login
+  // igual, así que no hay diferencia de hidratación.
+  const [ui, setUi] = useState<UIState>(() => {
+    if (typeof window === "undefined") return initialUI;
+    const conversacionId = new URLSearchParams(window.location.search).get("conversacion");
+    return conversacionId ? { ...initialUI, conversacionWhatsappSeleccionada: conversacionId } : initialUI;
+  });
   const [storageReady, setStorageReady] = useState(false);
   const [storageChecked, setStorageChecked] = useState(false);
   const [cargandoPerfiles, setCargandoPerfiles] = useState(true);

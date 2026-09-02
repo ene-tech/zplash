@@ -156,7 +156,15 @@ export async function loadCore(): Promise<AppDataCore> {
     contratosFuncionarioRows,
     reglasOperadorRows,
   ] = await Promise.all([
-    safe(db.select().from(clientes)),
+    // La única SIN safe(): que reviente. `clientes` no es una tabla opcional
+    // como las demás — sin ella el panel entero (estadísticas, listas,
+    // mensajería) se pinta en cero, que se lee como "el negocio no tiene
+    // clientes" en vez de como una falla. Dejándola tirar, AppContext la
+    // atrapa y muestra el aviso de conexión, que es lo que ese archivo ya
+    // promete ("en vez de un panel con todo en cero"). Pasó de verdad:
+    // una columna agregada al schema de drizzle y no a la base (ver
+    // scripts/sql/) tiraba 42703 acá y el error se perdía en la consola.
+    db.select().from(clientes),
     safe(db.select({ id: perfiles.id, nombre: perfiles.nombre, modulos: perfiles.modulos, icono: perfiles.icono }).from(perfiles)),
     safe(db.select().from(precios)),
     safe(db.select().from(preciosTamano)),

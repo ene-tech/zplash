@@ -8,10 +8,13 @@ export type EstadoMensajeWhatsapp = "enviado" | "entregado" | "leido" | "fallido
 // exitosa) y manejarPasoPreciosTamano (Opción 1, pregunta el tamaño del
 // vehículo antes de cotizar) en @/lib/whatsapp/router.
 export interface FlowStateWhatsapp {
-  tipo: "registro_descuento" | "cambio_patente" | "precios_tamano";
-  paso: "nombre" | "patente" | "mail" | "nueva_patente" | "tamano";
+  tipo: "registro_descuento" | "cambio_patente" | "precios_tamano" | "opinion";
+  paso: "nombre" | "patente" | "mail" | "nueva_patente" | "tamano" | "nota" | "comentario";
   nombre?: string;
   patente?: string;
+  // Solo en tipo="opinion", paso="comentario": la fila de `opiniones` que ya
+  // se creó con la nota, para completarle el comentario en el paso siguiente.
+  opinionId?: string;
 }
 
 // Hilo de conversación con un número de WhatsApp — ver comentario en
@@ -112,6 +115,11 @@ export interface TextosBotWhatsapp {
   textoCambioPatenteEsLaMisma: string;
   textoCambioPatenteYaExiste: string;
   textoCambioPatenteConfirmacion: string;
+  textoOpinionPedirNota: string;
+  textoOpinionNotaInvalida: string;
+  textoOpinionGracias: string;
+  textoOpinionPedirComentario: string;
+  textoOpinionGraciasReclamo: string;
 }
 
 // Plantilla de contenido (no una plantilla pre-aprobada de Meta, ver

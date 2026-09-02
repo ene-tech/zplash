@@ -22,6 +22,7 @@ Elige una opción escribiendo el número, o envía tu *patente* para consultar t
 3️⃣ Horario y ubicación
 4️⃣ Hablar con una persona
 5️⃣ Quiero un descuento para mi primera vez
+6️⃣ Dejar mi opinión del lavado
 
 Ejemplo: escribe *AB1234* para ver el estado de tu plan.`,
 
@@ -49,7 +50,7 @@ Sábado, domingo y festivos: 10:00 - 19:00`,
 
   contactoHumano: `Un miembro de nuestro equipo te va a contactar por este mismo WhatsApp. También puedes llamar al +56 9 3905 9611.`,
 
-  patenteNoEncontrada: `No encontramos ningún cliente con esa patente. Verifica que esté bien escrita (ej. AB1234) o escribe *3* para hablar con una persona.`,
+  patenteNoEncontrada: `No encontramos ningún cliente con esa patente. Verifica que esté bien escrita (ej. AB1234) o escribe *4* para hablar con una persona.`,
 
   textoDescuentoInstrucciones: `🎉 ¡Bienvenido a ZPlash!
 
@@ -81,7 +82,12 @@ Muéstralo en el local al momento de pagar.`,
   patenteEstadoLinea: `Estado: {{estado}}`,
   patenteEstadoVencimiento: `Vencimiento: {{fecha}}`,
   patenteEstadoAvisoPorVencer: `⚠️ Vence en {{dias}} día(s).`,
-  patenteEstadoAvisoVencido: `Tu plan no está vigente. Escribe *1* para ver precios de renovación.`,
+  // Manda al 2 y no al 1: la opción 1 es la lista de precios (muestra el
+  // valor del plan, pero sin link), y la 2 arma el checkout con la patente
+  // del cliente ya puesta cuando la conversación está enlazada a su ficha
+  // (ver textoContratarPlan en @/lib/whatsapp/router). Al vencido —que es
+  // justo al que se quiere recuperar— se le da el camino corto.
+  patenteEstadoAvisoVencido: `Tu plan no está vigente. Escribe *2* para renovarlo.`,
   patenteEstadoCambioInvitacion: `✏️ ¿Cambiaste de vehículo? Escribe *cambio de patente* para actualizar tu patente registrada.`,
 
   textoCambioPatenteSinCliente: `Primero envía tu patente actual para identificar tu cuenta, y luego escribe *cambio de patente*.`,
@@ -95,7 +101,31 @@ Muéstralo en el local al momento de pagar.`,
   textoCambioPatenteYaExiste: `Ya hay un vehículo registrado con esa patente. Si crees que es un error, escribe *4* para hablar con una persona.`,
 
   textoCambioPatenteConfirmacion: `✅ Listo, registramos tu solicitud para cambiar tu patente a *{{patente}}*. El cambio se aplicará automáticamente cuando termine tu plan actual e inicie el próximo período.`,
+
+  textoOpinionPedirNota: `¿Cómo estuvo tu lavado? 🚗✨
+
+Ponnos una nota del *1 al 7*. Responde solo con el número.`,
+
+  textoOpinionNotaInvalida: `Necesito un número del *1 al 7* (por ejemplo: *6*). También puedes escribir *menu* para volver.`,
+
+  // El link de reseña hay que pegarlo en Web Settings → Menú Bot WhatsApp:
+  // sale del perfil de Google Business del local ("Pedir reseñas" → copiar
+  // enlace). Mientras diga CAMBIAR-ESTE-LINK el link manda a una página rota.
+  textoOpinionGracias: `¡Gracias por tu nota! 🙌 Nos alegra que te haya gustado.
+
+¿Nos ayudas con una reseña en Google? Nos sirve muchísimo:
+https://g.page/r/CAMBIAR-ESTE-LINK/review`,
+
+  textoOpinionPedirComentario: `Gracias por la nota, y perdona que no diéramos el ancho 🙏
+
+¿Qué salió mal? Cuéntame en un mensaje y lo revisamos.`,
+
+  textoOpinionGraciasReclamo: `Gracias por contarnos 🙏 Ya le avisamos al equipo y alguien te va a escribir por acá.`,
 };
+
+/** Desde qué nota (escala 1-7) una opinión se considera buena: cierra
+ * agradeciendo y pidiendo reseña en vez de preguntar qué salió mal. */
+export const OPINION_NOTA_BUENA = 6;
 
 /** Reemplaza placeholders `{{clave}}` por su valor en `vars` — usado tanto
  * por TextosBotWhatsapp (ver @/lib/whatsapp/router) como, a futuro, por
@@ -242,3 +272,109 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     metaNombre: "mensaje_cliente_plan_review_google",
   },
 ];
+
+// Vocabulario del menú del bot. Vive acá y no en @/lib/whatsapp/router porque
+// ese archivo importa la capa de datos (server-only) y esto lo necesita
+// también el navegador, para clasificar por dónde entró un prospecto que
+// escribió y nunca dejó ficha (ver interesDeMensajes). El router lo importa de
+// acá: una sola definición de "qué significa escribir 5".
+// Las frases van SIN tilde y en minúscula: se comparan contra el texto ya
+// normalizado por normalizarTextoBot, que se las saca. Las de más de un
+// carácter matchean como palabra completa dentro del mensaje ("descuento
+// AB1234" entra al descuento, "quiero hablar con una persona" al humano);
+// los números solo valen si el mensaje ES el número, para que "quiero 1
+// lavado" no se lea como la opción 1.
+export const OPCIONES_BOT = {
+  precios: new Set(["1", "precios", "precio", "servicios"]),
+  contratar_plan: new Set(["2", "contratar", "quiero el plan", "quiero contratar el plan"]),
+  // Los manda la propia web con el texto ya puesto (ver RenovacionLegacyCard
+  // y las cards de detailing en @/components/cliente): son la intención más
+  // clara que llega por este canal y hasta ago-2026 se contestaban con el
+  // menú genérico. Ninguna de las dos se puede resolver sola —la renovación
+  // legacy la cobra WooCommerce y el detailing se agenda a mano— así que las
+  // dos avisan a Gerencia como la opción "hablar con una persona".
+  renovacion_auto: new Set(["renovacion automatica", "renovacion automática", "cancelar mi renovacion", "cambiar mi tarjeta"]),
+  agendar: new Set(["agendar", "reservar hora", "tomar hora"]),
+  horario: new Set(["3", "horario", "horarios", "ubicacion", "direccion"]),
+  humano: new Set(["4", "humano", "ayuda", "persona", "hablar con alguien", "ejecutivo"]),
+  descuento: new Set(["5", "descuento", "dscto"]),
+  cambio_patente: new Set(["cambio de patente", "cambio patente", "cambiar patente"]),
+  // Lo manda el QR del túnel con el texto ya puesto ("Hola, quiero dejar mi
+  // opinion del lavado"). Es además el que abre la ventana de servicio de
+  // 24h de Meta, dentro de la cual los templates UTILITY no se cobran.
+  opinion: new Set(["6", "opinion", "reclamo", "queja", "sugerencia"]),
+} as const;
+
+export type InteresBot = keyof typeof OPCIONES_BOT;
+
+export const ETIQUETA_INTERES: Record<InteresBot, string> = {
+  precios: "Preguntó precios",
+  contratar_plan: "Quiso contratar el plan",
+  renovacion_auto: "Quiere gestionar su renovación automática",
+  agendar: "Quiso agendar un servicio",
+  horario: "Preguntó horario o dirección",
+  humano: "Pidió hablar con una persona",
+  descuento: "Pidió el descuento",
+  cambio_patente: "Cambio de patente",
+  opinion: "Dejó su opinión",
+};
+
+/**
+ * Qué vino a buscar quien escribió, mirando todo lo que mandó. Devuelve el
+ * interés de MAYOR intención comercial de entre los que tocó, no el último:
+ * alguien que preguntó horario y después pidió el descuento es un prospecto
+ * de descuento, y ese es el orden en el que conviene trabajarlos.
+ */
+const PRIORIDAD_INTERES: InteresBot[] = [
+  "descuento",
+  "contratar_plan",
+  "renovacion_auto",
+  "agendar",
+  "precios",
+  "cambio_patente",
+  "humano",
+  // Sobre "horario" y bajo "humano": no es intención de compra, pero una
+  // queja pendiente pesa más para trabajar a ese cliente que una consulta
+  // de dirección.
+  "opinion",
+  "horario",
+];
+
+/**
+ * Minúsculas, sin tildes y sin puntuación, con un espacio a cada lado. Los
+ * espacios de los bordes son los que dejan buscar palabras completas con un
+ * `includes(" persona ")` sin armar una regex por frase — y sin que "persona"
+ * matchee dentro de "personalizado".
+ */
+export function normalizarTextoBot(texto: string): string {
+  const limpio = (texto || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return ` ${limpio} `;
+}
+
+/**
+ * Qué opción del menú pidió un mensaje suelto, o null si no calza con
+ * ninguna. Cuando toca más de una (p.ej. "precios y quiero el descuento")
+ * gana la de mayor intención comercial, mismo criterio que interesDeMensajes.
+ */
+export function opcionDeTexto(texto: string): InteresBot | null {
+  const t = normalizarTextoBot(texto);
+  const exacto = t.trim();
+  return (
+    PRIORIDAD_INTERES.find((i) =>
+      [...OPCIONES_BOT[i]].some((frase) => {
+        const f = normalizarTextoBot(frase).trim();
+        return f.length === 1 ? exacto === f : t.includes(` ${f} `);
+      })
+    ) ?? null
+  );
+}
+
+export function interesDeMensajes(textosEntrantes: string[]): InteresBot | null {
+  const encontrados = new Set(textosEntrantes.map(opcionDeTexto));
+  return PRIORIDAD_INTERES.find((i) => encontrados.has(i)) ?? null;
+}

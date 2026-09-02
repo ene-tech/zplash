@@ -17,6 +17,18 @@ export const clientes = pgTable("clientes", {
   // columna rige desde siempre, que es el caso de todo cliente que no venga
   // del ilimitado viejo.
   ilimitadoHasta: timestamptz("ilimitado_hasta"),
+  // Momento en que el cliente del ilimitado viejo ACEPTÓ pasar al Plan X5:
+  // alguien apretó, con el aviso a la vista, un botón que dice "Contratar Plan
+  // X5" — el cliente en la web o en Mi Cuenta, o el operador en el mesón. Lo
+  // escriben esos caminos interactivos (ver /api/pagos/oneclick/inscribir,
+  // /api/cliente/mi-cuenta/cobrar-oferta y aceptarPasoAX5); el cron de cobro
+  // automático NO lo escribe nunca, y por eso es el único camino que queda
+  // bloqueado (ver requiereValidacionX5 y cobrarSuscripcion).
+  //
+  // Existe porque hasta ago-2026 toda renovación lo pasaba al X5 sin que el
+  // cliente eligiera nada, incluso cobrándole la tarjeta inscrita sin que
+  // viera una pantalla: 150 clientes migrados así.
+  aceptoX5En: timestamptz("acepto_x5_en"),
   tipoDocumento: text("tipo_documento"),
   razonSocial: text("razon_social"),
   rut: text("rut"),

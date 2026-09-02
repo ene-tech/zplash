@@ -15,6 +15,7 @@ import {
   vencimientoAnclado,
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
+import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { visitasPeriodoActual } from "@/lib/pagos";
 import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
 import { buscarClienteExistente, extraerPatente, huboRenovacionWebReciente, verificarFirma } from "./shared";
@@ -251,7 +252,7 @@ export async function POST(request: NextRequest) {
     tipo: tipoVenta,
     fecha: fechaOrden,
     creadoPor: duplicadoSospechoso ? "Automático (Web) — posible duplicado, revisar vencimiento" : "Automático (Web)",
-    metodoPago: "tarjeta",
+    metodoPago: "tarjeta" as const,
     esServicioAdicional: false,
   };
   try {
@@ -285,6 +286,28 @@ export async function POST(request: NextRequest) {
     console.error("Error guardando venta desde webhook WooCommerce", error);
     return NextResponse.json({ error: "Error guardando venta" }, { status: 500 });
   }
+
+  // Correo de confirmación. Va explícito acá porque esta ruta NO pasa por
+  // insertVentas (@/lib/dataAccess/ventas) —el choke point que lo dispara para
+  // operador/Webpay/Oneclick/B2B—: el webhook necesita onConflictDoUpdate para
+  // ser idempotente ante reenvíos de WooCommerce, e insertVentas es solo altas.
+  // Sin esto, ninguna venta de WooCommerce mandaba comprobante: al 2-sep-2026
+  // no había un solo disparo de correo con origen "wc-".
+  //
+  // Un reenvío del mismo pedido no duplica el correo: el disparo se indexa por
+  // origenId = venta.id, que acá es `wc-<pedido>` y es estable (constraint
+  // único regla+origen, ver registrarDisparoReglaCorreo).
+  //
+  // after() y no un .catch() suelto, mismo motivo que en insertVentas: sin él
+  // Vercel congela la función al responder y el disparo queda en "programado".
+  // A propósito NO se llama acá a evaluarReglasPorVenta (WhatsApp): las
+  // renovaciones de WooCommerce nunca mandaron WhatsApp y prenderlo sería un
+  // cambio de comportamiento, no el arreglo de este hueco.
+  after(() =>
+    evaluarReglasCorreoPorVenta([{ id: ventaId, ...ventaData, cantidadItems: 1 }]).catch((error) =>
+      console.error("Error evaluando reglas de correo por venta de WooCommerce", error)
+    )
+  );
 
   console.log(`Pedido WooCommerce #${orderId} procesado: cliente ${clienteId} (${patente || "sin patente"})`);
   return NextResponse.json({ ok: true });

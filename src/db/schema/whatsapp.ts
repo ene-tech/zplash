@@ -1,4 +1,5 @@
-import { boolean, index, integer, jsonb, numeric, pgTable, text, unique } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, check, index, integer, jsonb, numeric, pgTable, text, unique } from "drizzle-orm/pg-core";
 import type { FlowStateWhatsapp } from "@/types";
 import { clientes } from "./clientes";
 import { cupones } from "./cupones";
@@ -187,4 +188,30 @@ export const disparosReglaWhatsapp = pgTable(
     creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   },
   (t) => [unique("disparos_regla_whatsapp_regla_origen_unq").on(t.reglaId, t.origenTipo, t.origenId)]
+);
+
+// Opinión del cliente sobre su lavado, capturada por el bot (Opción 6 / QR
+// del túnel — ver manejarPasoOpinion en @/lib/whatsapp/router). `nota` es
+// escala chilena 1-7 porque es la que un cliente de acá interpreta sin
+// explicación; `comentario` solo se pide cuando la nota es baja, así que
+// queda null en la mayoría de las filas. Sin FK a `ingresos`: el QR lo
+// escanea el cliente con su teléfono y no hay forma confiable de saber a qué
+// pasada corresponde — se cruza por cliente_id y fecha si hace falta.
+export const opiniones = pgTable(
+  "opiniones",
+  {
+    id: text("id").primaryKey(),
+    clienteId: text("cliente_id").references(() => clientes.id, { onDelete: "set null" }),
+    telefono: text("telefono").notNull(),
+    nota: integer("nota").notNull(),
+    comentario: text("comentario"),
+    creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  },
+  (t) => [
+    // El bot ya valida 1-7 (parsearNotaOpinion en @/lib/whatsapp/contenido);
+    // el check es la red por si mañana entra una opinión por otra vía.
+    check("opiniones_nota_rango", sql`${t.nota} between 1 and 7`),
+    index("opiniones_creado_en_idx").on(t.creadoEn.desc()),
+    index("opiniones_cliente_id_idx").on(t.clienteId),
+  ]
 );

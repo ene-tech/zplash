@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useAppData } from "@/context/AppContext";
-import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtHorasVentanaUpgradePlan } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtHorasVentanaUpgradePlan, requiereValidacionX5 } from "@/lib/helpers";
+import { aceptarPasoAX5 } from "@/lib/serverActions/clientes";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
 // Lo que el operador tiene que contarle al cliente que todavía anda con el
@@ -80,6 +82,19 @@ type Props = Pick<
 export default function OperadorFoundOfertas(props: Props) {
   const { c } = props;
   const { guardando } = useAppData();
+  // El cliente que sigue en el ilimitado viejo no se pasa solo al X5: se pasa
+  // cuando alguien aprieta un botón que dice "Contratar Plan X5" con el aviso
+  // a la vista. Ese click es la aceptación, y se registra ANTES de cobrar
+  // porque es lo que destraba el cobro (ver requiereValidacionX5) y lo que
+  // reactiva su renovación automática si el cron la había pausado.
+  const legacy = requiereValidacionX5(c);
+  const conAceptacion = (accion: () => void) => async () => {
+    if (legacy && !(await aceptarPasoAX5(c.id))) return;
+    accion();
+  };
+  // Al cliente legacy los botones no le pueden decir "renovar su plan": lo que
+  // se le está vendiendo es otro producto.
+  const rotulo = (normal: string) => (legacy ? `Contratar ${PLANES[0]}` : normal);
   return (
     <>
       {props.cuponDescuentoSoloWeb && (
@@ -156,8 +171,8 @@ export default function OperadorFoundOfertas(props: Props) {
                 <span className="new">{fmtCLP(props.pPromo)}</span>
                 <span className="save">Ahorra {fmtCLP(props.ahorro)}</span>
               </div>
-              <button className="btn secondary" onClick={props.renovar} disabled={guardando}>
-                Renovar plan a precio preferencial
+              <button className="btn secondary" onClick={conAceptacion(props.renovar)} disabled={guardando}>
+                {rotulo("Renovar plan")} a precio preferencial
               </button>
             </>
           ) : (
@@ -176,8 +191,8 @@ export default function OperadorFoundOfertas(props: Props) {
               <div className="price-row">
                 <span className="new">{fmtCLP(props.pPromo)}</span>
               </div>
-              <button className="btn secondary" onClick={props.renovar} disabled={guardando}>
-                Renovar plan ({fmtCLP(props.pPromo)})
+              <button className="btn secondary" onClick={conAceptacion(props.renovar)} disabled={guardando}>
+                {rotulo("Renovar plan")} ({fmtCLP(props.pPromo)})
               </button>
             </>
           )}
@@ -223,8 +238,8 @@ export default function OperadorFoundOfertas(props: Props) {
               antes del vencimiento.
             </div>
           )}
-          <button className="btn secondary" onClick={props.reactivar} disabled={guardando}>
-            Reactivar plan a precio preferencial ({fmtCLP(props.precioReactivacion!)})
+          <button className="btn secondary" onClick={conAceptacion(props.reactivar)} disabled={guardando}>
+            {rotulo("Reactivar plan")} a precio preferencial ({fmtCLP(props.precioReactivacion!)})
           </button>
         </div>
       )}
@@ -267,8 +282,8 @@ export default function OperadorFoundOfertas(props: Props) {
             {props.pNormal > props.precioAtrasado && <span className="old">{fmtCLP(props.pNormal)}</span>}
             <span className="new">{fmtCLP(props.precioAtrasado)}</span>
           </div>
-          <button className="btn secondary" onClick={props.pagarAtrasado} disabled={guardando}>
-            Pagar plan atrasado ({fmtCLP(props.precioAtrasado)})
+          <button className="btn secondary" onClick={conAceptacion(props.pagarAtrasado)} disabled={guardando}>
+            {rotulo("Pagar plan atrasado")} ({fmtCLP(props.precioAtrasado)})
           </button>
         </div>
       )}
@@ -286,7 +301,7 @@ export default function OperadorFoundOfertas(props: Props) {
           <div className="price-row">
             <span className="new">{fmtCLP(props.precioAtrasado)}</span>
           </div>
-          <button className="btn secondary" onClick={props.renovarWeb} disabled={guardando}>
+          <button className="btn secondary" onClick={conAceptacion(props.renovarWeb)} disabled={guardando}>
             Cobrar {PLANES[0]} ({fmtCLP(props.precioAtrasado)})
           </button>
         </div>

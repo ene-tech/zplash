@@ -43,7 +43,10 @@ export interface EstadoRenovacion {
  *
  * WooCommerce solo aporta el caso positivo: renovacionAutoWooDesde ≠ null es
  * evidencia de que la suscripción vieja sigue viva (el webhook lo limpia al
- * cancelarse). suscripcionCanceladaEn NO se usa para el lado negativo porque
+ * cancelarse), y va rotulado aparte como "RA WOO" porque ese cobro lo hace el
+ * sistema viejo y no se puede tocar desde acá. Gana sobre una fila Oneclick
+ * suspendida o cancelada —la que sigue cobrando es la de Woo— pero no sobre
+ * una activa. suscripcionCanceladaEn NO se usa para el lado negativo porque
  * ese webhook mezcla "cancelled" con "expired": un plan que simplemente venció
  * quedaría rotulado como cancelado por el cliente.
  */
@@ -51,7 +54,8 @@ export function estadoRenovacion(
   c: { origen?: "WEB" | "LOCAL"; renovacionAutoWooDesde?: string | null },
   estadoOneclick?: string
 ): EstadoRenovacion {
-  if (estadoOneclick === "activa" || (!estadoOneclick && c.renovacionAutoWooDesde)) return { label: "Renovación automática", cls: "ok" };
+  if (estadoOneclick === "activa") return { label: "Renovación automática", cls: "ok" };
+  if (c.renovacionAutoWooDesde) return { label: "RA WOO", cls: "ok" };
   if (estadoOneclick === "suspendida") return { label: "Cancelada desde admin", cls: "warn" };
   if (estadoOneclick === "cancelada") return { label: "Cancelada", cls: "bad" };
   return { label: `${(c.origen || "LOCAL") === "WEB" ? "Web" : "Local"} sin RA`, cls: "" };

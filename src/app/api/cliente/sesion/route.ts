@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
-import { planStatus } from "@/lib/helpers";
+import { planStatus, requiereValidacionX5 } from "@/lib/helpers";
 import type { SesionCliente } from "@/lib/sesionCliente";
 
 export const runtime = "nodejs";
@@ -24,6 +24,7 @@ export async function GET() {
         vencimiento: c.vencimiento || null,
         patentePendiente: c.patentePendiente || null,
         patentePendienteDesde: c.patentePendienteDesde || null,
+        requiereValidacionX5: requiereValidacionX5(c),
         // Datos de facturación vigentes (ver DatosFacturacion en @/types):
         // los usa DatosFacturacionSection para mostrar/editar la empresa
         // inscrita para Factura en vez de Boleta.

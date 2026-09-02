@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidPatente, normPlate } from "@/lib/helpers";
+import { isValidPatente, normPlate, requiereValidacionX5 } from "@/lib/helpers";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
-import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
+import { buscarClientePorPatente, registrarAceptacionX5 } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { obtenerSuscripcionOneclickCobrablePorPatente } from "@/lib/dataAccess/oneclick";
 import { cobrarOfertaOneclick, cobrarSuscripcion, otorgarTicketReactivacion, type TipoOfertaCuenta } from "@/lib/pagos";
@@ -57,6 +57,17 @@ export async function POST(request: NextRequest) {
     // Igual que /api/pagos/webpay/crear: el monto se recalcula acá con datos
     // frescos, nunca se confía en la oferta que el cliente vio en pantalla.
     const oferta = await calcularOfertasPlanDeCliente(cliente);
+
+    // El cliente del ilimitado viejo apretó, con su sesión iniciada, un botón
+    // que dice que contrata el Plan X5 (ver VehiculoCard) teniendo el aviso a
+    // la vista: eso es su aceptación del cambio de plan, y se registra antes de
+    // cobrar porque es lo que destraba el cobro (ver requiereValidacionX5, y
+    // los candados de cobrarSuscripcion y cobrarOfertaOneclick, que rechazan si
+    // esto falta). Lo que NUNCA registra aceptación es el cron: ahí no hay
+    // click de nadie, y por eso es el único camino que queda bloqueado.
+    if (requiereValidacionX5(cliente)) {
+      await registrarAceptacionX5(cliente.id);
+    }
 
     // Contratar el plan contra la tarjeta que el cliente YA tiene guardada.
     // Va por cobrarSuscripcion —la misma función que llama el retorno de

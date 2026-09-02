@@ -56,6 +56,10 @@ export interface UIState {
   ingresosDesde: string | null;
   ingresosHasta: string | null;
   facturaSearch: string;
+  // Conversación de WhatsApp a abrir al entrar a Mensajes. La usa el embudo
+  // (Recorrido del cliente) para caer directo en el chat de un prospecto en
+  // vez de dejar al operador buscándolo entre cientos de hilos.
+  conversacionWhatsappSeleccionada: string | null;
   loginMode: "select" | "pin" | null;
   perfilSeleccionadoId: string | null;
   perfilActual: PerfilPublico | null;

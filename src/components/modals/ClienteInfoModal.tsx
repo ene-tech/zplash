@@ -28,6 +28,7 @@ import type { Cliente } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { RecorridoCliente } from "@/components/modals/RecorridoCliente";
 import GenerarCuponesForm from "@/components/tabs/ventaEmpresa/GenerarCuponesForm";
 import CrearDescuentoForm from "@/components/tabs/ventaEmpresa/CrearDescuentoForm";
 import { useGenerarCupones } from "@/components/tabs/ventaEmpresa/useGenerarCupones";
@@ -495,6 +496,8 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             </div>
           )}
         </div>
+
+        <RecorridoCliente cliente={c} />
 
         <DialogFooter>
           <Button variant="ghost" onClick={cerrar}>

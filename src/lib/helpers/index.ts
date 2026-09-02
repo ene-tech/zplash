@@ -24,6 +24,7 @@ export * from "./ofertasPlan";
 export * from "./oneclick";
 export * from "./perfiles";
 export * from "./precios";
+export * from "./recorrido";
 export * from "./servicios";
 export * from "./validadores";
 export * from "./ventas";

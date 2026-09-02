@@ -40,6 +40,25 @@ const GRUPOS: Campo[][] = [
   [{ key: "patenteNoEncontrada", label: "Cuando la patente consultada no existe" }],
   [
     {
+      key: "textoOpinionPedirNota",
+      label: "Opción 6 — Pide la nota del lavado (paso 1)",
+      hint: "Es también lo que contesta el QR del túnel. Solo acepta un número del 1 al 7: si cambias el texto, deja claro que se responde con el número solo.",
+    },
+    { key: "textoOpinionNotaInvalida", label: "Opinión — repregunta si la nota no es un número del 1 al 7 (paso 1)" },
+    {
+      key: "textoOpinionGracias",
+      label: "Opinión — cierre de una nota buena (6 o 7)",
+      hint: "Acá va el link de reseña de Google. Sácalo de tu perfil de Google Business → 'Pedir reseñas' → copiar enlace, y reemplaza el CAMBIAR-ESTE-LINK que viene de fábrica.",
+    },
+    { key: "textoOpinionPedirComentario", label: "Opinión — pide el motivo cuando la nota es baja (1 a 5, paso 2)" },
+    {
+      key: "textoOpinionGraciasReclamo",
+      label: "Opinión — cierre de una nota baja (fin del flujo)",
+      hint: "Al llegar acá se avisa a Gerencia por notificación push, igual que la opción 'Hablar con una persona'.",
+    },
+  ],
+  [
+    {
       key: "textoDescuentoInstrucciones",
       label: "Opción 5 — Bienvenida e inicio del registro (paso 1: pide el nombre)",
       hint: "Variables disponibles: {{monto}}, {{dias}}. Es el primer mensaje del flujo: da la bienvenida y ya invita a responder con el nombre.",

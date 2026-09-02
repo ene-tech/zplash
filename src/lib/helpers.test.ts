@@ -2382,7 +2382,9 @@ describe("patentesQueRecibenTarjeta / tieneTarjetaViva", () => {
 
   it("solo la suspensión delata al admin; la baja de tarjeta queda sin dueño", () => {
     expect(estadoRenovacion({ origen: "WEB" }, "activa").label).toBe("Renovación automática");
-    expect(estadoRenovacion({ origen: "WEB", renovacionAutoWooDesde: "2025-01-01" }).label).toBe("Renovación automática");
+    expect(estadoRenovacion({ origen: "WEB", renovacionAutoWooDesde: "2025-01-01" }).label).toBe("RA WOO");
+    // La suscripción vieja sigue cobrando aunque la tarjeta Oneclick esté dada de baja.
+    expect(estadoRenovacion({ origen: "WEB", renovacionAutoWooDesde: "2025-01-01" }, "cancelada").label).toBe("RA WOO");
     expect(estadoRenovacion({ origen: "WEB" }, "suspendida").label).toBe("Cancelada desde admin");
     expect(estadoRenovacion({ origen: "WEB" }, "cancelada").label).toBe("Cancelada");
     expect(estadoRenovacion({ origen: "LOCAL" }).label).toBe("Local sin RA");

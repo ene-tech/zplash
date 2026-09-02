@@ -9,6 +9,7 @@ import {
   isValidEmail,
   isValidTelefono,
   marcarDescuentoUsado,
+  ilimitadoHastaAlRenovar,
   vencimientoAnclado,
   ventaPlanReciente,
   cicloPlanDesde,
@@ -163,9 +164,19 @@ export function usePlanActions(
     pedirPago(cliente, precioAtrasado, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
       const nuevoVencimiento = vencimientoAnclado(cliente);
       // Misma migración al X5 que hace renovarPlan en el mesón: renovar deja
-      // al cliente en el plan que se vende hoy, traiga el que traiga.
+      // al cliente en el plan que se vende hoy, traiga el que traiga. Y por lo
+      // mismo, el mismo resguardo: el mes sin tope que el cliente del
+      // ilimitado viejo ya tenía comprado se le respeta hasta que termine (ver
+      // ilimitadoHastaAlRenovar). Sin esto, renovarle acá antes de que venza lo
+      // dejaba con 5 pasadas ese mismo día, sobre un mes que pagó sin tope.
       const plan = PLANES[0];
-      const updated: Cliente = { ...cliente, plan, vencimiento: nuevoVencimiento, ultimaRenovacion: new Date().toISOString() };
+      const updated: Cliente = {
+        ...cliente,
+        plan,
+        ilimitadoHasta: ilimitadoHastaAlRenovar(cliente),
+        vencimiento: nuevoVencimiento,
+        ultimaRenovacion: new Date().toISOString(),
+      };
       const venta: Venta = {
         id: "v" + Date.now(),
         clienteId: cliente.id,

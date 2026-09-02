@@ -28,6 +28,10 @@ export interface EstadoPlan {
   // Le queda el lavado full túnel gratis por inscribir la tarjeta estando
   // vencido (una sola vez por cliente).
   ticketReactivacion?: boolean;
+  // Sigue en el ilimitado viejo y no ha aceptado pasar al X5: el botón tiene
+  // que decirle que lo que contrata es el X5, no "renovar su plan" (ver
+  // requiereValidacionX5).
+  requiereValidacionX5?: boolean;
 }
 
 // El plan NO está acá: solo se paga inscribiendo la tarjeta (ver
@@ -54,7 +58,16 @@ export interface DatosDocumento {
 export function usePagarForm() {
   const params = useSearchParams();
   const item = params.get("item");
-  const [patente, setPatente] = useState("");
+  // ?patente= la manda el bot de WhatsApp en el link de "quiero contratar el
+  // plan" (ver textoContratarPlan en @/lib/whatsapp/router): llega con la
+  // patente del cliente ya enlazado, para que no tenga que tipearla en el
+  // teléfono. Se valida igual que cualquier input — el parámetro viene de la
+  // URL y lo puede editar cualquiera, así que una patente mala se descarta y
+  // el campo queda vacío en vez de arrancar con basura.
+  const [patente, setPatente] = useState(() => {
+    const p = normPlate(params.get("patente") || "");
+    return isValidPatente(p) ? p : "";
+  });
   const [buscando, setBuscando] = useState(false);
   const [err, setErr] = useState("");
   const [resultado, setResultado] = useState<EstadoPlan | null>(null);

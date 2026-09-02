@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { suscripcionesOneclick } from "@/db/schema";
+import { clientes, suscripcionesOneclick } from "@/db/schema";
 import { isValidEmail, isValidPatente, normPlate, uid } from "@/lib/helpers";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { oneclickInscription } from "@/lib/transbank";
@@ -42,6 +42,28 @@ export async function POST(request: NextRequest) {
     const estadoPendiente = body.soloGuardar ? "pendiente_solo_tarjeta" : "pendiente";
 
     const db = getDb();
+
+    // Llegar acá es el consentimiento del cliente del ilimitado viejo: la
+    // pantalla le mostró el aviso (AvisoPasaAX5) y el botón que apretó dice
+    // "Contratar Plan X5", no "renovar tu plan". Eso es lo que se registra, y
+    // es lo que después deja cobrar — sin esta marca cobrarSuscripcion no le
+    // cobra ni el primer cargo de la inscripción.
+    //
+    // Se graba ACÁ y no al volver de Transbank porque el cobro ocurre en ese
+    // retorno: si la marca llegara después, el primer cargo se rechazaría solo.
+    // `isNull` no pisa una aceptación anterior: la fecha del primer sí es la
+    // que sirve de prueba.
+    //
+    // `soloGuardar` queda fuera: ese flujo es "Mis tarjetas", guardar un medio
+    // de pago sin contratar nada. Ahí el cliente nunca vio el aviso ni apretó
+    // un botón que dijera Plan X5, así que no aceptó nada.
+    if (!body.soloGuardar) {
+      await db
+        .update(clientes)
+        .set({ aceptoX5En: new Date().toISOString() })
+        .where(and(eq(clientes.patente, patente), isNull(clientes.aceptoX5En)));
+    }
+
     const returnUrl = new URL("/api/pagos/oneclick/inscripcion/retorno", request.nextUrl.origin).toString();
     const respuesta = await oneclickInscription().start(patente, email, returnUrl);
 

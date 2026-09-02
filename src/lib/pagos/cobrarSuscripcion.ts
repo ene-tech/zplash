@@ -4,7 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
-import { PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, precioConCupon, precioConHeredado, precioPlanOneclick, sumarMesesFecha } from "@/lib/helpers";
+import { PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, precioConCupon, precioConHeredado, precioPlanOneclick, requiereValidacionX5, sumarMesesFecha } from "@/lib/helpers";
 import { evaluarReglasCorreoPorCobroFallido } from "@/lib/mailing/reglas";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
@@ -39,8 +39,15 @@ type SuscripcionOneclick = typeof suscripcionesOneclick.$inferSelect;
  * Siempre avanza `proximoCobro` (aprobado o no): no hay reintento automático
  * por diseño, el cliente queda vencido si falla y un operador decide si
  * reintenta a mano.
+ *
+ * "pendiente_validacion" es el tercer resultado: no se cobró nada porque el
+ * cliente sigue en el ilimitado viejo y no ha aceptado pasar al X5 (ver
+ * requiereValidacionX5). No es un rechazo de la tarjeta — no se llegó a
+ * llamar a Transbank — así que no dispara los avisos de cobro fallido.
  */
-export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promise<{ estado: "aprobada" | "rechazada" }> {
+export async function cobrarSuscripcion(
+  suscripcion: SuscripcionOneclick
+): Promise<{ estado: "aprobada" | "rechazada" | "pendiente_validacion" }> {
   const tbkUser = suscripcion.tbkUser;
   if (!tbkUser) {
     throw new Error("Suscripción sin tbkUser, no se puede cobrar");
@@ -67,10 +74,32 @@ export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick): Promi
     // es el caso de los clientes que vienen migrando desde la suscripción de
     // WooCommerce a $19.990.
     const [cliente] = await tx
-      .select({ id: clientes.id, precioPlanHeredado: clientes.precioPlanHeredado })
+      .select({
+        id: clientes.id,
+        precioPlanHeredado: clientes.precioPlanHeredado,
+        plan: clientes.plan,
+        aceptoX5En: clientes.aceptoX5En,
+      })
       .from(clientes)
       .where(eq(clientes.patente, suscripcion.patente))
       .limit(1);
+
+    // Candado del paso al X5: cobrar acá renovaría el plan, y renovar migra al
+    // cliente al X5 (ver renovarPlan/aplicarPagoAprobado). Al cliente del
+    // ilimitado viejo que todavía no aceptó ese cambio NO se le cobra: este es
+    // el único camino de pago sin pantalla, así que es el único donde el
+    // cliente no puede enterarse de lo que está comprando. Se pausa la
+    // suscripción —el cron solo levanta las "activa", así que no reintenta
+    // todos los días— y queda esperando a que el cliente valide por la web o
+    // en el mesón, que es lo que vuelve a ponerla activa.
+    if (cliente && requiereValidacionX5(cliente)) {
+      await tx
+        .update(suscripcionesOneclick)
+        .set({ estado: "pausada_validacion_x5", actualizadoEn: new Date().toISOString() })
+        .where(eq(suscripcionesOneclick.id, suscripcion.id));
+      return { estado: "pendiente_validacion" as const, buyOrder: "", monto: 0, clienteId: cliente.id };
+    }
+
     const montoLista = precioConHeredado(precioPlanOneclick(preciosMap), cliente ?? {});
 
     // Cupón de descuento atado a la patente: el mismo que ya rebajan Webpay,

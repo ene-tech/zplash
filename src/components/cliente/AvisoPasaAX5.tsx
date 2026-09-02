@@ -17,11 +17,15 @@ export function AvisoPasaAX5({ plan, vencimiento }: { plan?: string | null; venc
   if (!plan || plan === PLANES[0] || plan === "Sin plan") return null;
   return (
     <div style={{ color: "var(--gold)", fontSize: 12.5, lineHeight: 1.5, marginTop: 10, marginBottom: 12 }}>
-      <b>Tu {plan} ya no se ofrece.</b> Lo que pagas acá es el {PLANES[0]}: {PASES_INCLUIDOS_X5} lavados Full Túnel al
-      mes (uno cada 24 horas, con aspirado incluido después de cada uno).
+      <b>Tu {plan} ya no se ofrece.</b> Lo que contratas acá es el {PLANES[0]}: {PASES_INCLUIDOS_X5} lavados Full Túnel
+      al mes (uno cada 24 horas, con aspirado incluido después de cada uno).
       {vencimiento
         ? ` El mes sin tope que ya tienes pagado se te respeta hasta el ${fmtFecha(vencimiento)} — el ${PLANES[0]} empieza a correr después.`
-        : ""}
+        : ""}{" "}
+      <a href="/politicas" target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "underline" }}>
+        Ver las políticas del plan
+      </a>
+      .
     </div>
   );
 }

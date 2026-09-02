@@ -2,8 +2,8 @@ import "server-only";
 import { TransactionDetail } from "transbank-sdk";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { cobrosOneclick, suscripcionesOneclick } from "@/db/schema";
-import { mesActualKey, precioConCupon } from "@/lib/helpers";
+import { clientes, cobrosOneclick, suscripcionesOneclick } from "@/db/schema";
+import { mesActualKey, precioConCupon, requiereValidacionX5 } from "@/lib/helpers";
 import { getConfig } from "@/lib/dataAccess/config";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
@@ -46,6 +46,21 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
     throw new Error("Esta patente no tiene una tarjeta registrada activa");
   }
   const tbkUser = suscripcion.tbkUser;
+
+  // Mismo candado que cobrarSuscripcion, y por la misma razón: estas ofertas
+  // (renovación anticipada, reactivación, upgrade) también renuevan el plan, y
+  // renovar migra al X5. Al que sigue en el ilimitado viejo sin haber aceptado
+  // el cambio no se le cobra. Va ANTES de la transacción y de autorizar en
+  // Transbank a propósito: rechazar después del cargo dejaría al cliente
+  // pagado y sin plan.
+  const [cliente] = await db
+    .select({ plan: clientes.plan, aceptoX5En: clientes.aceptoX5En })
+    .from(clientes)
+    .where(eq(clientes.patente, patente))
+    .limit(1);
+  if (cliente && requiereValidacionX5(cliente)) {
+    throw new Error("Antes de cobrar tienes que aceptar el paso al Plan X5 en tu cuenta");
+  }
 
   const resultado = await db.transaction(async (tx) => {
     // Mismo advisory lock por suscripción que cobrarSuscripcion(): sin esto,
