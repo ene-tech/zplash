@@ -8,7 +8,7 @@ import { listarReglasCorreoActivas, obtenerPlantillaCorreo, registrarDisparoRegl
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { ofertaConCupon } from "@/lib/helpers/ofertasPlan";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos/cuponPlan";
-import { montoDescuento, uid } from "@/lib/helpers";
+import { montoDescuento, planVigente, uid } from "@/lib/helpers";
 import { construirVariables, ejecutarAccionReglaCorreo, MS_POR_DIA } from "./motor";
 import type { ReglaCorreo } from "@/types";
 
@@ -42,11 +42,18 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
   // — se calcula una sola vez acá afuera porque es la misma consulta para
   // cualquier regla que la tenga marcada, y hoy son pocas filas (cobro
   // automático recién está migrando desde WooCommerce).
-  const patentesConAutopago = new Set(
-    (await db.select({ patente: suscripcionesOneclick.patente }).from(suscripcionesOneclick).where(eq(suscripcionesOneclick.estado, "activa"))).map(
-      (r) => r.patente
-    )
-  );
+  //
+  // Cuenta LOS DOS cobros automáticos, no solo el propio: al cliente que sigue
+  // en WooCommerce (renovacionAutoWooDesde) también se le renueva solo, así que
+  // el aviso de vencimiento le sobra igual. Mirar únicamente suscripcionesOneclick
+  // era inofensivo mientras el staging site lock tenía a WooCommerce sin cobrar
+  // (ago-2026), pero desde que se destrabó vuelve a renovar de verdad: sin esto,
+  // 46 clientes que WooCommerce va a cobrar igual reciben un "tu plan vence".
+  const [conOneclick, conWoo] = await Promise.all([
+    db.select({ patente: suscripcionesOneclick.patente }).from(suscripcionesOneclick).where(eq(suscripcionesOneclick.estado, "activa")),
+    db.select({ patente: clientes.patente }).from(clientes).where(isNotNull(clientes.renovacionAutoWooDesde)),
+  ]);
+  const patentesConAutopago = new Set([...conOneclick, ...conWoo].map((r) => r.patente));
 
   async function dispararParaClientes(
     regla: ReglaCorreo,
@@ -66,7 +73,17 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
     }
   ) {
     for (const row of rows) {
-      if (regla.condicionPlanes?.length && (!row.plan || !regla.condicionPlanes.includes(row.plan))) continue;
+      // planVigente y no `row.plan` a secas: al cliente que viene del ilimitado
+      // viejo la renovación le deja `plan` en "Plan X5" pero le conserva el mes
+      // sin tope que ya había pagado (ver ilimitadoHastaAlRenovar), así que la
+      // columna dice X5 mientras el plan que de verdad está usando es el
+      // ilimitado. Filtrar por la columna dejaba fuera justo a esa gente, que
+      // es a la que hay que avisarle que su plan se termina.
+      if (
+        regla.condicionPlanes?.length &&
+        !regla.condicionPlanes.includes(planVigente({ plan: row.plan ?? undefined, ilimitadoHasta: row.ilimitadoHasta ?? undefined }))
+      )
+        continue;
       // Cliente con tarjeta inscrita: el aviso de vencimiento es ruido
       // (Oneclick lo va a renovar solo). Sin mirar el origen — Mi Cuenta →
       // "Mis tarjetas" inscribe por patente, un cliente LOCAL también puede
