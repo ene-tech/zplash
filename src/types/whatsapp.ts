@@ -179,6 +179,7 @@ export interface ReglaWhatsapp {
   // @/db/schema/whatsapp.
   condicionExcluirConCupon?: boolean;
   condicionDiasAntesVencimiento?: number;
+  condicionPasadasMin?: number;
   delayDias: number;
   accion: AccionReglaWhatsapp;
   cuponEsPorcentaje?: boolean;

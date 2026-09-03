@@ -140,6 +140,12 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   // Solo aplica a tipoEvento="plan_proximo_vencer": cuántos días antes del
   // vencimiento se dispara.
   condicionDiasAntesVencimiento: integer("condicion_dias_antes_vencimiento"),
+  // Espejo de condicionPasadasMin en reglasCorreo (ver @/db/schema/mailReglas):
+  // minimo de pasadas del ciclo en curso para que la regla dispare. Null = sin
+  // filtro. Existe por la politica del ilimitado: al que usa PASES_INCLUIDOS_X5
+  // o menos se le MANTIENE el plan, asi que el aviso de "tu plan se termina"
+  // solo le corresponde al que se paso del tope.
+  condicionPasadasMin: integer("condicion_pasadas_min"),
   // Solo aplica a tipoEvento="venta_creada": días de espera tras la venta
   // antes de mandar (0 = inmediato). En "plan_proximo_vencer" el "cuándo" ya
   // lo define condicionDiasAntesVencimiento.

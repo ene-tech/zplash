@@ -1,8 +1,8 @@
 import "server-only";
 
-import { and, gte, isNotNull, lte } from "drizzle-orm";
+import { and, eq, gte, isNotNull, lt, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes } from "@/db/schema";
+import { clientes, ingresos } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import {
   listarDisparosProgramadosVencidos,
@@ -11,7 +11,7 @@ import {
   obtenerReglaWhatsapp,
   registrarDisparoReglaWhatsapp,
 } from "@/lib/dataAccess/whatsapp";
-import { uid } from "@/lib/helpers";
+import { periodoPlan, planVigente, uid } from "@/lib/helpers";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 
@@ -64,7 +64,30 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
       .where(and(isNotNull(clientes.vencimiento), gte(clientes.vencimiento, ahoraISO), lte(clientes.vencimiento, hastaISO)));
 
     for (const row of clientesRows) {
-      if (regla.condicionPlanes?.length && (!row.plan || !regla.condicionPlanes.includes(row.plan))) continue;
+      // planVigente y no `row.plan` a secas, mismo motivo que en el cron de
+      // correo (@/lib/mailing/reglas/cron): al que viene del ilimitado la
+      // renovación le deja `plan` en "Plan X5" aunque siga usando el mes sin
+      // tope que ya pagó, y filtrar por la columna deja fuera justo a esa gente.
+      if (
+        regla.condicionPlanes?.length &&
+        !regla.condicionPlanes.includes(planVigente({ plan: row.plan ?? undefined, ilimitadoHasta: row.ilimitadoHasta ?? undefined }))
+      )
+        continue;
+
+      // Mínimo de pasadas del ciclo en curso (ver condicionPasadasMin en
+      // @/db/schema/whatsapp). Va antes de registrarDisparoReglaWhatsapp: al
+      // que hoy no llega al mínimo no se le anota un disparo, así que mañana,
+      // con una pasada más, vuelve a ser elegible.
+      if (regla.condicionPasadasMin != null) {
+        const { inicio, fin } = periodoPlan(clienteFromRow(row));
+        const pasadas = (
+          await getDb()
+            .select({ id: ingresos.id })
+            .from(ingresos)
+            .where(and(eq(ingresos.clienteId, row.id), gte(ingresos.fecha, inicio.toISOString()), lt(ingresos.fecha, fin.toISOString())))
+        ).length;
+        if (pasadas < regla.condicionPasadasMin) continue;
+      }
       // origenId incluye el vencimiento exacto: si el cliente renueva y su
       // vencimiento cambia, vuelve a ser elegible para esta misma regla en el
       // ciclo nuevo en vez de quedar bloqueado para siempre por el histórico.
