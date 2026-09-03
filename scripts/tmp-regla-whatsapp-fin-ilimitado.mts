@@ -9,9 +9,14 @@
 //   - pasadas del ciclo en curso >= 6 (politica: al de 5 o menos se le mantiene)
 //   - 7 dias antes de que se le venza
 //
-// La regla se crea APAGADA y la plantilla queda con metaAprobado = false: hasta
-// que Meta apruebe el template, mandar seria un error de la Graph API. Cuando
-// scripts/templates-meta.mts diga APPROVED, correr con --prender.
+// Apunta a "fin_plan_ilimitado_aviso", que quedo APPROVED como UTILITY, y no al
+// primer intento "fin_plan_ilimitado", que Meta aprobo pero reclasificando a
+// MARKETING. La diferencia entre los dos textos es una frase: el primero decia
+// "ver las alternativas", que el clasificador lee como invitacion a comprar.
+// UTILITY cuesta menos y no lo bloquean los opt-out de promociones.
+//
+// La regla se crea APAGADA y la plantilla queda con metaAprobado = false hasta
+// que se corra con --prender.
 //
 // REQUIERE la columna condicion_pasadas_min en reglas_whatsapp. Se aplica a
 // mano en Supabase (las migraciones de drizzle estan desincronizadas):
@@ -23,7 +28,7 @@ import { PASES_INCLUIDOS_X5, PLAN_ILIMITADO_LEGACY } from "@/lib/helpers/precios
 
 const APLICAR = process.argv.includes("--aplicar");
 const PRENDER = process.argv.includes("--prender");
-const META_NOMBRE = "fin_plan_ilimitado";
+const META_NOMBRE = "fin_plan_ilimitado_aviso";
 const NOMBRE = "Fin del Plan Ilimitado";
 const DIAS_ANTES = 7;
 const PASADAS_MIN = PASES_INCLUIDOS_X5 + 1;
@@ -34,7 +39,7 @@ const PASADAS_MIN = PASES_INCLUIDOS_X5 + 1;
 const MENSAJE =
   "Hola {{nombre}} 👋 Te avisamos que el Plan Ilimitado Mensual de tu patente {{patente}} termina el {{fechaVencimiento}}.\n\n" +
   "Hasta esa fecha sigues lavando sin límite, como siempre.\n\n" +
-  "En Mi Cuenta puedes revisar tu plan, ver las alternativas y administrar tu cobro automático.";
+  "En Mi Cuenta puedes revisar tu plan y administrar tu cobro automático.";
 const META_VARIABLES = ["nombre", "patente", "fechavencimiento"];
 
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false, max: 1 });
