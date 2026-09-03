@@ -19,12 +19,13 @@ import {
   fmtCLP,
   fmtDate,
   fmtFecha,
+  formatTelefono,
   periodoPlan,
   visitasDesdeContratacion,
   visitasPeriodoPlan,
   visitasUltimos30Dias,
 } from "@/lib/helpers";
-import type { Cliente } from "@/types";
+import type { Cliente, Cupon } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -35,7 +36,7 @@ import { useGenerarCupones } from "@/components/tabs/ventaEmpresa/useGenerarCupo
 import { useCrearDescuento } from "@/components/tabs/ventaEmpresa/useCrearDescuento";
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
-  const { data: appData, patchUi, loadingHistorial } = useAppData();
+  const { data: appData, commit, patchUi, loadingHistorial } = useAppData();
   const { inicio: inicioPeriodo, fin } = periodoPlan(c);
   // `fin` es exclusivo (inicio del ciclo siguiente); el período se muestra
   // hasta el día anterior, que es el que el cliente ve como vencimiento.
@@ -78,6 +79,18 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     } finally {
       setEnviandoCodigo("");
     }
+  }
+
+  // Quitarle un descuento mal emitido sin ir a B2B/Tickets: mismo commit que
+  // usa esa tabla (useCuponesList.eliminar), que se lleva la fila de la base.
+  // Solo descuentos: los "vale" pueden venir de un Pack Empresa pagado, y esos
+  // se siguen borrando desde B2B/Tickets. Confirmación en dos pasos acá mismo
+  // (como "Cobrar ahora"): el ConfirmModal global reemplazaría esta ficha.
+  const [confirmarBorrar, setConfirmarBorrar] = useState("");
+
+  function eliminarDescuento(cup: Cupon) {
+    setConfirmarBorrar("");
+    commit({ cupones: appData.cupones.filter((x) => x.id !== cup.id) });
   }
 
   // Atajo para entregarle un cupón desde acá mismo: se montan los MISMOS
@@ -246,6 +259,12 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             <div className="font-medium">{c.patente}</div>
           </div>
           <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Teléfono</div>
+            {/* Mismo formato +569XXXXXXXX con el que sale el WhatsApp (ver
+                formatTelefono): lo que se lee acá es lo que se le manda. */}
+            <div className="font-medium">{formatTelefono(c.telefono) || "No disponible"}</div>
+          </div>
+          <div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground">Creado por</div>
             <div className="font-medium">{c.creadoPor || "No disponible"}</div>
           </div>
@@ -402,6 +421,26 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                   <Button size="sm" variant="secondary" onClick={() => enviarCodigo(cup.codigo)} disabled={enviandoCodigo === cup.codigo}>
                     {enviandoCodigo === cup.codigo ? "Enviando…" : "Enviar por WhatsApp y correo"}
                   </Button>
+                  {cup.tipo === "descuento" &&
+                    (confirmarBorrar === cup.id ? (
+                      <>
+                        <Button size="sm" variant="destructive" onClick={() => eliminarDescuento(cup)}>
+                          Sí, eliminar
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmarBorrar("")}>
+                          No
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setConfirmarBorrar(cup.id)}
+                      >
+                        Eliminar
+                      </Button>
+                    ))}
                   {envios[cup.codigo] && <span className="text-xs text-muted-foreground">{envios[cup.codigo]}</span>}
                 </div>
               ))}
