@@ -146,6 +146,59 @@ export async function evaluarReglasCorreoPorCobroFallido(opts: {
 }
 
 /**
+ * El candado del paso al X5 (ver cobrarSuscripcion en @/lib/pagos) acaba de
+ * dejar sin cobrar a un cliente del ilimitado viejo que no aceptó el cambio:
+ * se le avisa que su plan NO se renovó y por qué.
+ *
+ * Evento propio y no "cobro_fallido": esa regla le dice al cliente que revise
+ * su tarjeta, que es justo lo que acá está bien — no se llamó a Transbank
+ * siquiera. Lo que le corresponde es aceptar el X5 y renovar desde Mi Cuenta
+ * (ver /api/cliente/mi-cuenta/cobrar-oferta, que registra la aceptación y
+ * cobra con la misma tarjeta que ya tiene guardada).
+ *
+ * Un aviso por ciclo (origenId lleva el ciclo, igual que "cobro_fallido"
+ * lleva el id del cobro): mientras la suscripción siga pausada el cron ni
+ * siquiera vuelve a pasar por acá (ver /api/pagos/oneclick/cobrar), así que
+ * sin este correo el cliente se enteraba recién al llegar al mesón.
+ */
+export async function evaluarReglasCorreoPorValidacionX5(opts: {
+  clienteId: string;
+  patente: string;
+  suscripcionId: string;
+  cicloYm: string;
+}): Promise<void> {
+  let reglas: ReglaCorreo[];
+  try {
+    reglas = await listarReglasCorreoActivas("pendiente_validacion_x5");
+  } catch (error) {
+    console.error("Error cargando reglas de correo (pendiente_validacion_x5)", error);
+    return;
+  }
+  if (!reglas.length) return;
+
+  const cliente = await buscarCliente(opts.clienteId);
+  if (!cliente) return;
+
+  for (const regla of reglas) {
+    const disparo = await registrarDisparoReglaCorreo({
+      id: uid(),
+      reglaId: regla.id,
+      origenTipo: "cobro",
+      origenId: `${opts.suscripcionId}:${opts.cicloYm}`,
+      clienteId: cliente.id,
+      patente: opts.patente,
+      estado: "programado",
+      enviarEn: new Date().toISOString(),
+    });
+    if (!disparo) continue; // ya se avisó por este ciclo
+
+    await ejecutarAccionReglaCorreo(regla, disparo.id, cliente, construirVariables({ cliente })).catch((error) =>
+      console.error(`Error disparando regla de correo "${regla.nombre}" para la suscripción ${opts.suscripcionId}`, error)
+    );
+  }
+}
+
+/**
  * Cliente del ilimitado viejo (ver PLAN_ILIMITADO_LEGACY en @/lib/helpers/
  * precios) que acaba de pasarse del tope del X5 dentro de su ciclo: se le
  * avisa que ese plan se le termina al final del mes que ya pagó y se le

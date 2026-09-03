@@ -35,6 +35,12 @@ export type TipoEventoReglaCorreo =
   | "cobro_fallido"
   | "migracion_woo_legacy"
   | "tope_ilimitado_superado"
+  // "pendiente_validacion_x5": el cobro automático de un cliente del ilimitado
+  // viejo que no aceptó el paso al X5 — no se cobró y la suscripción quedó
+  // pausada (ver cobrarSuscripcion en @/lib/pagos). Separado de
+  // "cobro_fallido" porque la tarjeta está bien: el correo tiene que pedirle
+  // que acepte el X5, no que revise su medio de pago.
+  | "pendiente_validacion_x5"
   // "suscripcion_cancelada": el respaldo por escrito de que ya no se le va a
   // cobrar más. La disparan los dos caminos por los que se corta el cobro
   // automático: anularSuscripcion (@/lib/serverActions/oneclick, botón

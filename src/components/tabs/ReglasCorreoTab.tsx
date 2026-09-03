@@ -37,6 +37,9 @@ function resumenCondicion(r: ReglaCorreo): string {
   if (r.tipoEvento === "tope_ilimitado_superado") {
     return `Cuando un cliente del ilimitado viejo pasa más de ${PASES_INCLUIDOS_X5} veces en su mes, al registrarse esa pasada`;
   }
+  if (r.tipoEvento === "pendiente_validacion_x5") {
+    return `Cuando el cobro automático de un cliente del ilimitado viejo se salta porque todavía no acepta el Plan X5 (la tarjeta está bien)`;
+  }
   if (r.tipoEvento === "suscripcion_cancelada") {
     return `Cuando se corta el cobro automático de un cliente: "Cancelar suscripción" en su ficha, o el propio cliente eliminando su tarjeta en Mi Cuenta`;
   }
@@ -231,6 +234,7 @@ export default function ReglasCorreoTab() {
             <option value="migracion_woo_legacy">Campaña &quot;Migrar clientes de WooCommerce&quot; (manual, ver arriba)</option>
             <option value="tope_ilimitado_superado">Un cliente del ilimitado viejo se pasó del tope del X5</option>
             <option value="suscripcion_cancelada">Se cancela la suscripción de un cliente (ficha o Mi Cuenta)</option>
+            <option value="pendiente_validacion_x5">No se pudo cobrar porque el cliente no ha aceptado el Plan X5</option>
           </select>
         </div>
 

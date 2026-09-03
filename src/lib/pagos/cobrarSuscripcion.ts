@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
 import { PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, precioConCupon, precioConHeredado, precioPlanOneclick, requiereValidacionX5, sumarMesesFecha } from "@/lib/helpers";
-import { evaluarReglasCorreoPorCobroFallido } from "@/lib/mailing/reglas";
+import { evaluarReglasCorreoPorCobroFallido, evaluarReglasCorreoPorValidacionX5 } from "@/lib/mailing/reglas";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
 import type { Precios } from "@/types";
@@ -238,6 +238,21 @@ export async function cobrarSuscripcion(
         buyOrderId: resultado.buyOrder,
         monto: resultado.monto,
       }).catch((error) => console.error("Error evaluando reglas de correo por cobro fallido", suscripcion.id, error))
+    );
+  }
+
+  // Mismo aviso, otro motivo: acá la tarjeta está bien y no hay nada que
+  // arreglar salvo aceptar el X5, así que va por su propio evento y no por
+  // las reglas de cobro fallido (ver evaluarReglasCorreoPorValidacionX5).
+  // Solo correo: los templates de WhatsApp los tiene que aprobar Meta antes.
+  if (resultado.estado === "pendiente_validacion" && clienteId) {
+    after(() =>
+      evaluarReglasCorreoPorValidacionX5({
+        clienteId,
+        patente: suscripcion.patente,
+        suscripcionId: suscripcion.id,
+        cicloYm: mesActualKey(),
+      }).catch((error) => console.error("Error evaluando reglas de correo por validación X5 pendiente", suscripcion.id, error))
     );
   }
 

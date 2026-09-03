@@ -31,6 +31,12 @@ export const reglasCorreo = pgTable("reglas_correo", {
   // ciclo — le avisa que ese plan se le termina al final del mes que ya pagó y
   // le ofrece el X5. Un aviso por ciclo (origenId lleva el vencimiento).
   //
+  // "pendiente_validacion_x5": la dispara cobrarSuscripcion cuando se salta el
+  // cobro de un cliente del ilimitado viejo que no aceptó el X5 (ver
+  // evaluarReglasCorreoPorValidacionX5) — un aviso por ciclo, con origenTipo
+  // "cobro" y origenId `${suscripcionId}:${cicloYm}` porque no hay fila de
+  // cobro: no se llegó a llamar a Transbank.
+  //
   // "migracion_woo_legacy": no la evalúa ningún hook automático, la dispara a
   // mano un admin desde Web Settings (ver enviarInvitacionesMigracionWoo en
   // @/lib/mailing/migracionWoo) contra clientes con renovacionAutoWooDesde
