@@ -2,13 +2,14 @@ import "server-only";
 
 import { and, eq, gte, isNotNull, lt, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, ingresos, suscripcionesOneclick } from "@/db/schema";
+import { clientes, ingresos, precios, suscripcionesOneclick } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
+import { preciosFromRows } from "@/lib/dataAccess/precios";
 import { listarReglasCorreoActivas, obtenerPlantillaCorreo, registrarDisparoReglaCorreo } from "@/lib/dataAccess/mail";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { ofertaConCupon } from "@/lib/helpers/ofertasPlan";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos/cuponPlan";
-import { montoDescuento, periodoPlan, planVigente, uid } from "@/lib/helpers";
+import { montoDescuento, periodoPlan, planVigente, precioRenovacionATiempo, uid } from "@/lib/helpers";
 import { construirVariables, ejecutarAccionReglaCorreo, MS_POR_DIA } from "./motor";
 import type { ReglaCorreo } from "@/types";
 
@@ -54,6 +55,10 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
     db.select({ patente: clientes.patente }).from(clientes).where(isNotNull(clientes.renovacionAutoWooDesde)),
   ]);
   const patentesConAutopago = new Set([...conOneclick, ...conWoo].map((r) => r.patente));
+
+  // Una sola lectura para toda la corrida: los precios son una tabla de ~5
+  // filas y no cambian entre cliente y cliente (ver {{precioX5}} más abajo).
+  const preciosVigentes = preciosFromRows(await db.select().from(precios));
 
   async function dispararParaClientes(
     regla: ReglaCorreo,
@@ -170,6 +175,13 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
         // variables quedan vacías a propósito.
         const variables = construirVariables({
           cliente,
+          // {{precioX5}}: lo que le cuesta HOY contratar el plan que sí se
+          // vende, con su precio heredado aplicado (ver precioRenovacionATiempo,
+          // que además traduce "Plan Ilimitado Mensual" a Plan X5 vía
+          // planVendible). Va a todas las reglas de vencimiento, no solo a la
+          // del fin del ilimitado: es el mismo número que le mostraría Mi
+          // Cuenta, así que ninguna plantilla puede anunciar uno distinto.
+          precioX5: precioRenovacionATiempo(preciosVigentes, cliente.plan || "", cliente),
           ...(promo
             ? {
                 [promo.campo]: valores.precio,

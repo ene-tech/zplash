@@ -22,9 +22,9 @@ Te escribimos con tiempo para que no te tome por sorpresa: el **Plan Ilimitado M
 
 Hasta esa fecha sigues lavando sin límite, como siempre. No cambia nada antes.
 
-Desde ahí tenemos el **Plan X5**: 5 lavados al mes, mismo túnel, misma calidad.
+Desde ahí tenemos el **Plan X5**: 5 lavados al mes, mismo túnel, misma calidad, por **{{precioX5}}** al mes.
 
-Puedes activarlo entrando a Mi Cuenta con tu patente {{patente}}. Ahí ves tu precio, lo activas en un paso, y también puedes revisar o dar de baja tu cobro automático si lo tienes.
+Puedes activarlo entrando a Mi Cuenta con tu patente {{patente}}. Se hace en un paso, y ahí mismo puedes revisar o dar de baja tu cobro automático si lo tienes.
 
 Si prefieres seguir sin plan, no tienes que hacer nada. Tu lavado único te espera cuando quieras.
 
@@ -39,6 +39,9 @@ const EJEMPLO: Record<string, Record<string, string>> = {
     patente: "HSXR40",
     plan: "Plan Ilimitado Mensual",
     fechaVencimiento: "01-10-2026",
+    // Precio real que le saldria: tiene heredado de $19.990, asi que
+    // precioRenovacionATiempo le aplica ese y no los $21.990 vigentes.
+    precioX5: "$19.990",
   },
 };
 

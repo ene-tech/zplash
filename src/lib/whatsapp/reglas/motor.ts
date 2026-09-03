@@ -75,6 +75,13 @@ export function construirVariables(opts: {
   // @/lib/mailing/reglas/cron), que es también donde se le pone el tope con
   // que sale en el correo.
   pasadas?: number;
+  // Lo que le costaria HOY el plan que se vende (Plan X5) a ESE cliente, con su
+  // precio heredado ya aplicado — ver precioRenovacionATiempo. Existe porque
+  // {{precioRenovacion}} no sirve para el correo del fin del ilimitado: ese es
+  // el precio de renovar el plan que se esta discontinuando, y ademas sale
+  // vacio cuando no hay tramos de renovacion anticipada configurados (hoy no
+  // hay ninguno). Lo pasa procesarVencimientosCorreo.
+  precioX5?: number;
 }): Record<string, string> {
   return {
     nombre: opts.cliente.nombre || "",
@@ -92,6 +99,7 @@ export function construirVariables(opts: {
     precioRenovacion: opts.precioRenovacion !== undefined ? fmtCLP(opts.precioRenovacion) : "",
     precioUpgrade: opts.precioUpgrade !== undefined ? fmtCLP(opts.precioUpgrade) : "",
     pasadas: opts.pasadas !== undefined ? String(opts.pasadas) : "",
+    precioX5: opts.precioX5 !== undefined ? fmtCLP(opts.precioX5) : "",
   };
 }
 
