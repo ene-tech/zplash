@@ -250,32 +250,32 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && cerrar()}>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="gap-6 rounded-2xl p-6 sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Información adicional</DialogTitle>
+          <DialogTitle className="text-lg">Información adicional</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-x-5 gap-y-2.5 text-sm">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Cliente</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Cliente</div>
             <div className="font-medium">{c.nombre}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Patente</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Patente</div>
             <div className="font-medium">{c.patente}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Teléfono</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Teléfono</div>
             {/* Mismo formato +569XXXXXXXX con el que sale el WhatsApp (ver
                 formatTelefono): lo que se lee acá es lo que se le manda. */}
             <div className="font-medium">{formatTelefono(c.telefono) || "No disponible"}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Creado por</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Creado por</div>
             <div className="font-medium">{c.creadoPor || "No disponible"}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Fecha de creación</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Fecha de creación</div>
             <div className="font-medium">{c.creadoEn ? fmtDate(c.creadoEn) : "-"}</div>
           </div>
           <div>
@@ -283,15 +283,15 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                 mensual (ver vencimientoAnclado/periodoPlan), así que un pago
                 atrasado no la mueve. Null en la carga histórica de
                 WooCommerce, de ahí el guion. */}
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Contrató el plan</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Contrató el plan</div>
             <div className="font-medium">{c.fechaContratacion ? fmtDate(c.fechaContratacion) : "-"}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Vence</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Vence</div>
             <div className="font-medium">{c.vencimiento ? fmtDate(c.vencimiento) : "Sin plan"}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Visitas del mes de plan</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Visitas del mes de plan</div>
             <div className="font-medium">
               {/* Mes del PLAN (ciclo anclado a fechaContratacion, ver
                   periodoPlan), no el mes calendario. Sin plan no hay ciclo que
@@ -312,17 +312,17 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             </div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Visitas totales</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Visitas totales</div>
             <div className="font-medium">{c.visitas || 0}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
               {tienePlan ? "Visitas desde que contrató el plan" : "Visitas últimos 30 días"}
             </div>
             <div className="font-medium">{loadingHistorial ? "…" : visitasPlan}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Descuento disponible</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Descuento disponible</div>
             <div className="font-medium">
               {descuento
                 ? `${beneficioCupon(descuento)}${descuento.canal === "web" ? " (solo por la web)" : ""} — código ${descuento.codigo}, vence ${fmtDate(descuento.fechaCaducidad)}`
@@ -337,7 +337,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             —mandarle un código, escribirle por el chat— sigue andando. Para el
             cliente que pide "no me manden más mensajes" sin apagarle la regla
             a todos los demás. */}
-        <label className="flex items-start gap-2 border-t border-border pt-3.5 text-sm">
+        <label className="flex items-start gap-2 border-t border-border pt-5 text-sm">
           <Checkbox
             className="mt-0.5"
             checked={!cliente.sinComunicacionAuto}
@@ -358,9 +358,9 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             suscripción de WooCommerce (ver renovacionAutoWooDesde): ahí el cobro
             automático vive allá y es el que hay que poder cortar desde acá. */}
         {(suscripcion || c.renovacionAutoWooDesde) && (
-          <div className="grid grid-cols-2 gap-x-5 gap-y-2.5 border-t border-border pt-3.5 text-sm">
+          <div className="grid grid-cols-2 gap-x-5 gap-y-2.5 border-t border-border pt-5 text-sm">
             <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Renovación automática</div>
+              <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Renovación automática</div>
               <div className="font-medium">
                 {!suscripcion
                   ? "WooCommerce (sistema anterior)"
@@ -380,13 +380,13 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             </div>
             {suscripcion?.proximoCobro && (
               <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Próximo cobro</div>
+                <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Próximo cobro</div>
                 <div className="font-medium">{fmtDate(suscripcion.proximoCobro)}</div>
               </div>
             )}
             {suscripcion?.ultimoCobro && (
               <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">Último intento</div>
+                <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Último intento</div>
                 <div className="font-medium">
                   {suscripcion.ultimoCobro.estado === "aprobada" ? "Aprobado" : "Rechazado"} — {fmtDate(suscripcion.ultimoCobro.fecha)}
                 </div>
@@ -442,7 +442,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           </div>
         )}
 
-        <div className="border-t border-border pt-3.5">
+        <div className="border-t border-border pt-5">
           <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Códigos vigentes</div>
           {cuponesVigentes.length === 0 ? (
             <p className="mb-3 text-sm text-muted-foreground">No tiene códigos vigentes.</p>
@@ -518,7 +518,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           )}
         </div>
 
-        <div className="border-t border-border pt-3.5">
+        <div className="border-t border-border pt-5">
           <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Historial de compras</div>
           {loadingHistorial ? (
             <p className="text-sm text-muted-foreground">Cargando…</p>
@@ -578,7 +578,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
 
         <RecorridoCliente cliente={c} />
 
-        <DialogFooter>
+        <DialogFooter className="-mx-6 -mb-6 rounded-b-2xl">
           <Button variant="ghost" onClick={cerrar}>
             Cerrar
           </Button>

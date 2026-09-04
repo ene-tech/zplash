@@ -70,10 +70,15 @@
   --shadow-glow-primary-hover: 0 6px 20px -4px rgba(255, 199, 44, 0.6), 0 2px 4px -1px rgba(255, 199, 44, 0.35);
   --shadow-glow-danger: 0 4px 14px -4px rgba(229, 72, 77, 0.4), 0 1px 3px -1px rgba(229, 72, 77, 0.25);
 }
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* En @layer base: sin capa, este reset universal le gana en cascada a las
+   utilidades de Tailwind (que viven en @layer utilities) y deja p-*/m-* en 0
+   en toda la app. Dentro de base, las utilidades vuelven a ganar. */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 html,
 body {
