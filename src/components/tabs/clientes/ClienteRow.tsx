@@ -39,7 +39,6 @@ export const ClienteRow = memo(function ClienteRow({
       <TableCell className="max-w-[140px] truncate" title={c.nombre}>{c.nombre}</TableCell>
       <TableCell>{c.telefono ? fmtTelefono(c.telefono) : "-"}</TableCell>
       <TableCell className="col-mail" title={c.email || ""}>{c.email || "-"}</TableCell>
-      <TableCell>{c.vehiculo || "-"}</TableCell>
       <TableCell>{c.origen || "LOCAL"}</TableCell>
       <TableCell>{c.plan || "-"}</TableCell>
       <TableCell>
@@ -57,7 +56,7 @@ export const ClienteRow = memo(function ClienteRow({
       <TableCell>
         <span className={`status-pill ${st.cls}`}>{st.label}</span>
       </TableCell>
-      <TableCell>{c.visitas || 0}</TableCell>
+      <TableCell className="tabular-nums">{c.visitas || 0}</TableCell>
       <TableCell className="sticky right-0 z-10 bg-background">
         {/* stopPropagation: la fila entera ahora abre la ficha al pinchar
             (ver TableRow arriba) — sin esto, cualquiera de estos tres

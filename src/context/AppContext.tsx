@@ -129,6 +129,8 @@ const initialUI: UIState = {
   perfilActual: null,
   clientesFiltroEstado: "todos",
   clientesFiltroOrigen: "todos",
+  clientesFiltroSuscripcion: "todas",
+  clientesFiltroPlan: "todos",
   clientesPasadasDesde: "",
   clientesPasadasHasta: "",
   clientesOrden: "estado",

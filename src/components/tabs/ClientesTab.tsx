@@ -27,6 +27,18 @@ const ORIGENES: Record<string, string> = {
   LOCAL: "Solo Local",
 };
 
+// Los values son las etiquetas que muestra la columna "Suscripción"
+// (estadoRenovacion, ver @/lib/helpers/oneclick); "Sin RA" agrupa
+// "Web sin RA" y "Local sin RA".
+const SUSCRIPCIONES: Record<string, string> = {
+  todas: "Todas las suscripciones",
+  "Renovación automática": "Renovación automática",
+  "RA WOO": "RA WOO",
+  "Cancelada desde admin": "Cancelada desde admin",
+  Cancelada: "Cancelada",
+  "Sin RA": "Sin RA",
+};
+
 // .toolbar input es flex:1 con min-width 180px (globals.css) — los dos campos
 // del rango de pasadas tienen que salirse de esa regla para no comerse la
 // fila entera, y un className de Tailwind no le gana en especificidad.
@@ -36,6 +48,8 @@ export default function ClientesTab() {
   const { data, ui, patchUi, commit } = useApp();
   const filtroEstado = ui.clientesFiltroEstado || "todos";
   const filtroOrigen = ui.clientesFiltroOrigen || "todos";
+  const filtroSuscripcion = ui.clientesFiltroSuscripcion || "todas";
+  const filtroPlan = ui.clientesFiltroPlan || "todos";
   const pasadasDesde = ui.clientesPasadasDesde || "";
   const pasadasHasta = ui.clientesPasadasHasta || "";
   const orden = ui.clientesOrden || "estado";
@@ -69,13 +83,40 @@ export default function ClientesTab() {
   // ajena a la búsqueda) — con miles de filas es el costo dominante de cada
   // tecla tipeada.
   const filtered = useMemo(
-    () => filtrarYOrdenarClientes(data.clientes, { search, filtroEstado, filtroOrigen, pasadasDesde, pasadasHasta, orden }),
-    [data.clientes, search, filtroEstado, filtroOrigen, pasadasDesde, pasadasHasta, orden]
+    () =>
+      filtrarYOrdenarClientes(data.clientes, {
+        search,
+        filtroEstado,
+        filtroOrigen,
+        filtroSuscripcion,
+        filtroPlan,
+        suscripciones,
+        pasadasDesde,
+        pasadasHasta,
+        orden,
+      }),
+    [data.clientes, search, filtroEstado, filtroOrigen, filtroSuscripcion, filtroPlan, suscripciones, pasadasDesde, pasadasHasta, orden]
   );
+
+  // Un value por plan presente en la base; "-" agrupa a los sin plan (mismo
+  // fallback que muestra la columna).
+  const PLANES = useMemo(() => {
+    const items: Record<string, string> = { todos: "Todos los planes" };
+    for (const p of [...new Set(data.clientes.map((c) => c.plan || "-"))].sort()) {
+      items[p] = p === "-" ? "Sin plan asignado" : p;
+    }
+    return items;
+  }, [data.clientes]);
 
   const total = data.clientes.length;
   const hayFiltro =
-    Boolean(search) || filtroEstado !== "todos" || filtroOrigen !== "todos" || Boolean(pasadasDesde) || Boolean(pasadasHasta);
+    Boolean(search) ||
+    filtroEstado !== "todos" ||
+    filtroOrigen !== "todos" ||
+    filtroSuscripcion !== "todas" ||
+    filtroPlan !== "todos" ||
+    Boolean(pasadasDesde) ||
+    Boolean(pasadasHasta);
 
   const sortHeader = (campo: "vencimiento" | "visitas") => {
     const asc = `${campo}_asc`;
@@ -136,6 +177,30 @@ export default function ClientesTab() {
           </SelectTrigger>
           <SelectContent>
             {Object.entries(ORIGENES).map(([valor, etiqueta]) => (
+              <SelectItem key={valor} value={valor}>
+                {etiqueta}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select items={PLANES} value={filtroPlan} onValueChange={(v) => v && patchUi({ clientesFiltroPlan: v })}>
+          <SelectTrigger className="w-full max-w-[170px]">
+            <SelectValue className="justify-center text-center" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(PLANES).map(([valor, etiqueta]) => (
+              <SelectItem key={valor} value={valor}>
+                {etiqueta}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select items={SUSCRIPCIONES} value={filtroSuscripcion} onValueChange={(v) => v && patchUi({ clientesFiltroSuscripcion: v })}>
+          <SelectTrigger className="w-full max-w-[200px]">
+            <SelectValue className="justify-center text-center" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(SUSCRIPCIONES).map(([valor, etiqueta]) => (
               <SelectItem key={valor} value={valor}>
                 {etiqueta}
               </SelectItem>

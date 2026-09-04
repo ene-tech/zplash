@@ -30,7 +30,6 @@ export function ClientesTable({
             <TableHead className="max-w-[140px]">Nombre</TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead className="col-mail">Mail</TableHead>
-            <TableHead>Vehículo</TableHead>
             <TableHead>Origen</TableHead>
             <TableHead>Plan</TableHead>
             <TableHead>Suscripción</TableHead>
@@ -47,7 +46,7 @@ export function ClientesTable({
         <TableBody>
           {clientes.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={12}>
+              <TableCell colSpan={11}>
                 <div className="empty">No hay clientes que coincidan</div>
               </TableCell>
             </TableRow>

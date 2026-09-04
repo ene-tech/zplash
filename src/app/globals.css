@@ -1079,8 +1079,8 @@ tr:hover td {
   border-color: var(--white);
 }
 .col-mail {
-  width: 200px;
-  max-width: 200px;
+  width: 180px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -1,4 +1,4 @@
-import { normPlate, planStatus } from "@/lib/helpers";
+import { estadoRenovacion, normPlate, planStatus } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 export const ESTADO_PRIORIDAD: Record<string, number> = { Vencido: 0, "Por vencer": 1, "Sin plan": 2, Vigente: 3 };
@@ -64,12 +64,16 @@ export function filtrarYOrdenarClientes(
     search: string;
     filtroEstado: string;
     filtroOrigen?: string;
+    filtroSuscripcion?: string;
+    filtroPlan?: string;
+    /** patente normalizada → estado Oneclick; null mientras carga (ver ClientesTab). */
+    suscripciones?: Map<string, string> | null;
     pasadasDesde?: string;
     pasadasHasta?: string;
     orden: string;
   }
 ): Cliente[] {
-  const { search, filtroEstado, filtroOrigen = "todos", pasadasDesde, pasadasHasta, orden } = opts;
+  const { search, filtroEstado, filtroOrigen = "todos", filtroSuscripcion = "todas", filtroPlan = "todos", suscripciones, pasadasDesde, pasadasHasta, orden } = opts;
   const qPatente = normPlate(search);
   const qNombre = search.toLowerCase().trim();
   let filtered = clientes.filter((c) => !search || coincidePatente(c, qPatente) || coincideNombre(c, qNombre));
@@ -81,6 +85,22 @@ export function filtrarYOrdenarClientes(
     // "LOCAL" para filas viejas sin el campo seteado, mismo fallback que usa
     // ClienteRow para mostrarlo.
     filtered = filtered.filter((c) => (c.origen || "LOCAL") === filtroOrigen);
+  }
+  if (filtroPlan !== "todos") {
+    filtered = filtered.filter((c) => (c.plan || "-") === filtroPlan);
+  }
+  // `suscripciones` null = el fetch de Oneclick aún no resolvió: sin el mapa
+  // todo cliente sin marca Woo clasificaría como "sin RA" y la tabla quedaría
+  // vacía un instante para después cambiar sola; mejor no filtrar hasta tener
+  // el dato.
+  if (filtroSuscripcion !== "todas" && suscripciones) {
+    // Se filtra por la misma etiqueta que muestra la columna "Suscripción"
+    // (estadoRenovacion, ver ClienteRow). "Sin RA" agrupa "Web sin RA" y
+    // "Local sin RA": para separar por origen ya está el filtro de origen.
+    filtered = filtered.filter((c) => {
+      const label = estadoRenovacion(c, suscripciones?.get(normPlate(c.patente))).label;
+      return filtroSuscripcion === "Sin RA" ? label.endsWith("sin RA") : label === filtroSuscripcion;
+    });
   }
   const desde = limitePasadas(pasadasDesde, -Infinity);
   const hasta = limitePasadas(pasadasHasta, Infinity);
