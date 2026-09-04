@@ -28,6 +28,7 @@ import {
 import type { Cliente, Cupon } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { RecorridoCliente } from "@/components/modals/RecorridoCliente";
 import GenerarCuponesForm from "@/components/tabs/ventaEmpresa/GenerarCuponesForm";
@@ -149,6 +150,11 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     [appData.ventas, c.id]
   );
   const [detallePagos, setDetallePagos] = useState<Record<string, DetallePagoVenta>>({});
+
+  // `c` es la copia con la que se abrió el modal; lo que se edita desde acá se
+  // lee de la fila viva de appData, que `commit` actualiza en el acto (así el
+  // check queda marcado apenas se aprieta, sin cerrar y reabrir la ficha).
+  const cliente = appData.clientes.find((x) => x.id === c.id) ?? c;
 
   const cerrar = () => patchUi({ modal: null });
 
@@ -285,13 +291,24 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             <div className="font-medium">{c.vencimiento ? fmtDate(c.vencimiento) : "Sin plan"}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Visitas último período</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Visitas del mes de plan</div>
             <div className="font-medium">
-              {/* visitasPeriodo/visitasPlan salen de appData.ingresos, que
+              {/* Mes del PLAN (ciclo anclado a fechaContratacion, ver
+                  periodoPlan), no el mes calendario. Sin plan no hay ciclo que
+                  contar —periodoPlan cae a una ventana móvil de 30 días, que
+                  leída acá como "su mes" engaña—, y para ese caso ya está el
+                  campo de los últimos 30 días de más abajo.
+                  visitasPeriodo/visitasPlan salen de appData.ingresos, que
                   llega en la oleada "historial" (ver AppContext) — mientras
                   no esté, mostrarían 0 (parece "nunca viene") en vez de la
                   cifra real. Ver diagnóstico de performance 2026-08-10. */}
-              {loadingHistorial ? "…" : visitasPeriodo} ({fmtFecha(inicioPeriodo.toISOString())} - {fmtFecha(finPeriodo.toISOString())})
+              {!tienePlan ? (
+                "No aplica (sin plan)"
+              ) : loadingHistorial ? (
+                "…"
+              ) : (
+                `${visitasPeriodo} (${fmtFecha(inicioPeriodo.toISOString())} - ${fmtFecha(finPeriodo.toISOString())})`
+              )}
             </div>
           </div>
           <div>
@@ -313,6 +330,29 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             </div>
           </div>
         </div>
+
+        {/* Corta SOLO lo automático: las plantillas que mandan las reglas de
+            WhatsApp y de correo (aviso de vencimiento, ofertas, campañas), ver
+            sinComunicacionAuto en @/db/schema/clientes. Lo manual desde acá
+            —mandarle un código, escribirle por el chat— sigue andando. Para el
+            cliente que pide "no me manden más mensajes" sin apagarle la regla
+            a todos los demás. */}
+        <label className="flex items-start gap-2 border-t border-border pt-3.5 text-sm">
+          <Checkbox
+            className="mt-0.5"
+            checked={!cliente.sinComunicacionAuto}
+            onCheckedChange={(marcado) =>
+              commit({ clientes: appData.clientes.map((x) => (x.id === c.id ? { ...x, sinComunicacionAuto: marcado !== true } : x)) })
+            }
+          />
+          <span>
+            <span className="font-medium">Recibe mensajes automáticos</span>
+            <span className="block text-xs text-muted-foreground">
+              Plantillas de WhatsApp y correos que mandan las reglas. Desmarcado, este cliente queda fuera de todas; los envíos manuales
+              desde esta ficha siguen funcionando.
+            </span>
+          </span>
+        </label>
 
         {/* También se muestra sin fila Oneclick cuando el cliente arrastra una
             suscripción de WooCommerce (ver renovacionAutoWooDesde): ahí el cobro

@@ -207,6 +207,16 @@ export async function ejecutarAccionRegla(
   ventaMonto?: number,
   patenteAnterior?: string
 ): Promise<void> {
+  // Cliente marcado "no recibe mensajes automáticos" en su ficha (ver
+  // sinComunicacionAuto en @/db/schema/clientes). Se corta acá, el único
+  // punto por el que pasan TODAS las reglas de WhatsApp (cron, disparadores
+  // por venta, por cambio de patente), y no en cada disparador. El disparo
+  // queda "error" y no "enviado": la fila ya existe por idempotencia, así que
+  // dejarla marcada es justo lo que evita que el cron lo reintente mañana.
+  if (cliente.sinComunicacionAuto) {
+    await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
+    return;
+  }
   if (!cliente.telefono) {
     console.error(`Regla WhatsApp "${regla.nombre}": cliente ${cliente.id} sin teléfono, no se puede enviar`);
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });

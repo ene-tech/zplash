@@ -43,6 +43,10 @@ export interface Cliente extends DatosFacturacion {
   // Ver precioPlanHeredado en db/schema/clientes.ts — precio de plan que se le
   // respeta a este cliente al renovar antes de vencer, por debajo del vigente.
   precioPlanHeredado?: number | null;
+  // Ver sinComunicacionAuto en db/schema/clientes.ts — true deja a este
+  // cliente fuera de toda plantilla automática (reglas de WhatsApp y de
+  // correo). Se marca desde la ficha del cliente en el Operador.
+  sinComunicacionAuto?: boolean;
   origen?: "WEB" | "LOCAL";
   visitas?: number;
   ultimaVisita?: string;

@@ -1,4 +1,4 @@
-import { integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
 import { timestamptz } from "./shared";
 
 export const clientes = pgTable("clientes", {
@@ -72,6 +72,14 @@ export const clientes = pgTable("clientes", {
   // WooCommerce a $19.990 cuando el plan pasó a $21.990; de ahí en adelante
   // es un campo que se setea a mano si hace falta grandfatherear a alguien.
   precioPlanHeredado: integer("precio_plan_heredado"),
+  // true = a este cliente no se le manda ninguna plantilla automática: las
+  // reglas de WhatsApp y las de correo lo saltan (ver ejecutarAccionRegla y
+  // ejecutarAccionReglaCorreo). Se marca desde la ficha del cliente en el
+  // Operador, para el que pide "no me manden más mensajes" sin tener que
+  // apagarle la regla a todos. Opt-out (default false) y no opt-in: nadie
+  // queda mudo por un camino de escritura que no conozca el campo. Los envíos
+  // manuales (código desde la ficha, chat, ticket de reactivación) siguen.
+  sinComunicacionAuto: boolean("sin_comunicacion_auto").notNull().default(false),
   origen: text("origen").notNull().default("LOCAL"),
   visitas: integer("visitas").notNull().default(0),
   ultimaVisita: timestamptz("ultima_visita"),

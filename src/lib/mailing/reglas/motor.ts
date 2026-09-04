@@ -30,6 +30,15 @@ export async function ejecutarAccionReglaCorreo(
   cliente: Cliente,
   variables: Record<string, string>
 ): Promise<boolean> {
+  // Igual que en el motor de WhatsApp: este es el único punto por el que
+  // pasan todas las salidas automáticas de correo (cron de vencimientos,
+  // disparadores por venta, envío masivo de Correos Únicos y la campaña de
+  // migración Woo), así que el opt-out del cliente se respeta acá una sola
+  // vez. Ver sinComunicacionAuto en @/db/schema/clientes.
+  if (cliente.sinComunicacionAuto) {
+    await marcarDisparoReglaCorreo(disparoId, { estado: "error", error: "cliente sin comunicación automática" });
+    return false;
+  }
   if (!cliente.email) {
     console.error(`Regla de correo "${regla.nombre}": cliente ${cliente.id} sin email, no se puede enviar`);
     await marcarDisparoReglaCorreo(disparoId, { estado: "error", error: "cliente sin email" });

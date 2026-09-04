@@ -1,0 +1,12 @@
+-- Cliente que pidió no recibir más mensajes automáticos: las reglas de
+-- WhatsApp y las de correo lo saltan (ver ejecutarAccionRegla en
+-- @/lib/whatsapp/reglas/motor y ejecutarAccionReglaCorreo en
+-- @/lib/mailing/reglas/motor). Se marca a mano desde la ficha del cliente en
+-- el Operador.
+--
+-- Opt-out y no opt-in a propósito: con default false todo el mundo sigue
+-- recibiendo exactamente lo de siempre, y un cliente al que le falte el campo
+-- por cualquier camino de escritura nunca queda mudo sin que nadie lo pidiera.
+-- Los envíos manuales (mandar un código desde la ficha, el chat de Mensajes,
+-- el correo del ticket de reactivación) no miran este campo.
+ALTER TABLE "clientes" ADD COLUMN IF NOT EXISTS "sin_comunicacion_auto" boolean NOT NULL DEFAULT false;
