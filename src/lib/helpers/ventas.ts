@@ -30,6 +30,12 @@ export function esVentaNuevaWeb(creadoPor?: string | null): boolean {
   return esTarjetaWeb(creadoPor) && !esWooCommerce(creadoPor);
 }
 
+/** Contra-asiento de una devolución a la tarjeta (ver reembolsarVentaTarjeta
+ * en @/lib/pagos): precio negativo y fecha del día en que se devolvió la
+ * plata. Cierre de Caja le da su propia fila y lo excluye de "Venta nueva
+ * web" aunque su creadoPor ("Automático (Reembolso)") caiga en esa familia. */
+export const TIPO_VENTA_REEMBOLSO = "Reembolso";
+
 /** Tipos de venta que nadie tipea en el mesón: los generan el checkout web /
  * el webhook de WooCommerce (los "(Web)") o el módulo de Venta Empresa al
  * emitir un lote de cupones. */

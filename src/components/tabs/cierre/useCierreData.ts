@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import { esTarjetaWeb, esVentaNuevaWeb, inRange, normPlate, todayYMD } from "@/lib/helpers";
+import { esTarjetaWeb, esVentaNuevaWeb, inRange, normPlate, TIPO_VENTA_REEMBOLSO, todayYMD } from "@/lib/helpers";
 import { PRODUCTOS_CIERRE } from "./productos";
 
 // Los desgloses expandibles de cada fila (por medio de pago / por tipo de
@@ -53,7 +53,13 @@ export function useCierreData() {
     // registra con tipo "Plan nuevo" (ver usePlanActions.upgradeAPlan) y ya
     // suma en "Contratación de plan".
     const esUpgradePlan = (v: (typeof ventasPeriodo)[number]) => v.tipo.startsWith("Upgrade a Plan");
-    const ventaNuevaWebItems = ventasPeriodo.filter((v) => esVentaNuevaWeb(v.creadoPor) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v));
+    // Los reembolsos tienen creadoPor "Automático (Reembolso)" (caen en
+    // esVentaNuevaWeb) pero no son una venta: fila propia más abajo, con
+    // monto negativo, en la fecha en que se devolvió la plata.
+    const esReembolso = (v: (typeof ventasPeriodo)[number]) => v.tipo === TIPO_VENTA_REEMBOLSO;
+    const ventaNuevaWebItems = ventasPeriodo.filter(
+      (v) => esVentaNuevaWeb(v.creadoPor) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v) && !esReembolso(v)
+    );
     const ventasPeriodoBase = ventasPeriodo.filter((v) => !esVentaNuevaWeb(v.creadoPor));
 
     const ventasPorTipo = PRODUCTOS_CIERRE.map((p) => {
@@ -118,7 +124,29 @@ export function useCierreData() {
       items: upgradePlanItems,
     };
 
-    const filasVenta = [...ventasPorTipo, serviciosAdicionalesRow, ventaNuevaWebRow, upgradePlanRow, ingresoModuloContabilidadRow];
+    // Devoluciones a la tarjeta hechas EN el período (la fecha del
+    // contra-asiento es la del reembolso, no la de la venta original): monto
+    // negativo, así que restan del Total. En "Métodos de pago" no necesitan
+    // fila propia: entran solos restando en "Tarjetas Transbank" (metodoPago
+    // "tarjeta" + esTarjetaWeb + precio negativo). Solo aparece la fila
+    // cuando hubo alguno, para no ensuciar el reporte de todos los días.
+    const reembolsoItems = ventasPeriodo.filter(esReembolso);
+    const reembolsosRow = {
+      tipo: "reembolsos",
+      label: "Reembolso",
+      cantidad: reembolsoItems.length,
+      monto: reembolsoItems.reduce((s, v) => s + (v.precio || 0), 0),
+      items: reembolsoItems,
+    };
+
+    const filasVenta = [
+      ...ventasPorTipo,
+      serviciosAdicionalesRow,
+      ventaNuevaWebRow,
+      upgradePlanRow,
+      ...(reembolsoItems.length ? [reembolsosRow] : []),
+      ingresoModuloContabilidadRow,
+    ];
     const totalCantidadVentas = filasVenta.reduce((s, f) => s + f.cantidad, 0);
     const totalMontoVentas = filasVenta.reduce((s, f) => s + f.monto, 0);
 

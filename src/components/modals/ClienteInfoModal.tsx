@@ -9,6 +9,7 @@ import {
   obtenerDetallePagosVentas,
   obtenerSuscripcionOneclick,
   reactivarSuscripcionOneclick,
+  reembolsarVenta,
   suspenderSuscripcionOneclick,
 } from "@/lib/serverActions";
 import type { DetallePagoVenta, SuscripcionOneclickInfo } from "@/lib/dataAccess";
@@ -23,9 +24,10 @@ import {
   periodoPlan,
   visitasDesdeContratacion,
   visitasPeriodoPlan,
+  TIPO_VENTA_REEMBOLSO,
   visitasUltimos30Dias,
 } from "@/lib/helpers";
-import type { Cliente, Cupon } from "@/types";
+import type { Cliente, Cupon, Venta } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -150,6 +152,48 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     [appData.ventas, c.id]
   );
   const [detallePagos, setDetallePagos] = useState<Record<string, DetallePagoVenta>>({});
+
+  // Devolución a la tarjeta de un pago Transbank. El contra-asiento lo
+  // inserta la Server Action directo en la base (igual que "Cobrar ahora"
+  // registra su venta server-side); appData.ventas recién lo trae en la
+  // próxima carga, así que lo recién reembolsado se guarda acá para pintarlo
+  // al tiro y dejar el botón en "Reembolsada".
+  const [reembolsosHechos, setReembolsosHechos] = useState<Venta[]>([]);
+  const [reembolsoAbierto, setReembolsoAbierto] = useState("");
+  const [motivoReembolso, setMotivoReembolso] = useState("");
+  // Monto a devolver, editable para permitir devolución parcial. Se abre
+  // prellenado con el total de la venta; el tope real lo valida el servidor
+  // contra lo cobrado por Transbank.
+  const [montoReembolso, setMontoReembolso] = useState("");
+  const [reembolsando, setReembolsando] = useState(false);
+  const [errReembolso, setErrReembolso] = useState("");
+
+  const filasHistorial = useMemo(() => [...reembolsosHechos, ...ventasCliente], [reembolsosHechos, ventasCliente]);
+  // Ids de ventas que ya tienen su contra-asiento (id "reembolso-<ventaId>",
+  // ver idVentaReembolso en @/lib/pagos/reembolsarVenta).
+  const ventasReembolsadas = useMemo(
+    () => new Set(filasHistorial.filter((v) => v.tipo === TIPO_VENTA_REEMBOLSO).map((v) => v.id.replace(/^reembolso-/, ""))),
+    [filasHistorial]
+  );
+
+  async function ejecutarReembolso(v: Venta) {
+    setReembolsando(true);
+    setErrReembolso("");
+    try {
+      const r = await reembolsarVenta(v.id, motivoReembolso, Number(montoReembolso));
+      if (!r.ok) {
+        setErrReembolso(r.error);
+        return;
+      }
+      setReembolsosHechos((prev) => [r.venta, ...prev]);
+      setReembolsoAbierto("");
+      setMotivoReembolso("");
+    } catch {
+      setErrReembolso("No se pudo hacer el reembolso (sin conexión).");
+    } finally {
+      setReembolsando(false);
+    }
+  }
 
   // `c` es la copia con la que se abrió el modal; lo que se edita desde acá se
   // lee de la fila viva de appData, que `commit` actualiza en el acto (así el
@@ -546,15 +590,23 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                     <TableHead>Origen</TableHead>
                     <TableHead>Método</TableHead>
                     <TableHead>Comprobante</TableHead>
+                    <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {ventasCliente.map((v) => {
+                  {filasHistorial.map((v) => {
                     const detalle = detallePagos[v.id];
+                    // Solo pagos que Transbank cobró de verdad se pueden
+                    // devolver desde acá (efectivo/POS GETNET/transferencia
+                    // se devuelven por fuera y se registran a mano).
+                    const reembolsable =
+                      !!detalle && detalle.responseCode === 0 && v.tipo !== TIPO_VENTA_REEMBOLSO && (v.precio || 0) > 0;
                     return (
                       <TableRow key={v.id}>
                         <TableCell className="whitespace-nowrap">{fmtDate(v.fecha)}</TableCell>
-                        <TableCell className="whitespace-nowrap">{v.tipo}</TableCell>
+                        <TableCell className="whitespace-nowrap" title={v.notas || undefined}>
+                          {v.tipo}
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">{fmtCLP(v.precio)}</TableCell>
                         <TableCell className="whitespace-nowrap">{v.creadoPor || "-"}</TableCell>
                         <TableCell className="whitespace-nowrap capitalize">{v.metodoPago || "-"}</TableCell>
@@ -567,6 +619,73 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                             v.voucher || "-"
                           )}
                         </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {reembolsable &&
+                            (ventasReembolsadas.has(v.id) ? (
+                              <span className="text-xs text-muted-foreground">Reembolsada</span>
+                            ) : reembolsoAbierto === v.id ? (
+                              (() => {
+                                const montoNum = Number(montoReembolso);
+                                const montoValido = Number.isInteger(montoNum) && montoNum > 0 && montoNum <= (v.precio || 0);
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      className="h-8 w-48 rounded-md border border-border bg-transparent px-2 text-sm"
+                                      placeholder="Motivo del reembolso"
+                                      value={motivoReembolso}
+                                      onChange={(e) => setMotivoReembolso(e.target.value)}
+                                      disabled={reembolsando}
+                                      autoFocus
+                                    />
+                                    <input
+                                      type="number"
+                                      className="h-8 w-28 rounded-md border border-border bg-transparent px-2 text-sm"
+                                      title="Monto a devolver (puede ser parcial)"
+                                      min={1}
+                                      max={v.precio || 0}
+                                      value={montoReembolso}
+                                      onChange={(e) => setMontoReembolso(e.target.value)}
+                                      disabled={reembolsando}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => ejecutarReembolso(v)}
+                                      disabled={reembolsando || !motivoReembolso.trim() || !montoValido}
+                                    >
+                                      {reembolsando ? "Reembolsando…" : `Devolver ${montoValido ? fmtCLP(montoNum) : "…"}`}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      disabled={reembolsando}
+                                      onClick={() => {
+                                        setReembolsoAbierto("");
+                                        setMotivoReembolso("");
+                                        setErrReembolso("");
+                                      }}
+                                    >
+                                      No
+                                    </Button>
+                                  </div>
+                                );
+                              })()
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => {
+                                  setReembolsoAbierto(v.id);
+                                  setMotivoReembolso("");
+                                  setMontoReembolso(String(v.precio || ""));
+                                  setErrReembolso("");
+                                }}
+                              >
+                                Reembolsar
+                              </Button>
+                            ))}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -574,6 +693,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
               </Table>
             </div>
           )}
+          {errReembolso && <p className="mt-2 text-sm text-destructive">{errReembolso}</p>}
         </div>
 
         <RecorridoCliente cliente={c} />
