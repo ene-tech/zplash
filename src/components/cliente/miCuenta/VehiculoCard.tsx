@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SolicitudCambioPatente } from "@/components/cliente/miCuenta/SolicitudCambioPatente";
 import { QuitarVehiculo } from "@/components/cliente/miCuenta/QuitarVehiculo";
 import { EliminarPlan } from "@/components/cliente/miCuenta/EliminarPlan";
+import { WHATSAPP_SUSCRIPCIONES, WHATSAPP_SUSCRIPCIONES_URL } from "@/lib/whatsapp";
 import { AvisoPasaAX5 } from "@/components/cliente/AvisoPasaAX5";
 import { useOfertaPlan, type TarjetaGuardada, type TipoOfertaPlan } from "@/components/cliente/miCuenta/useOfertaPlan";
 import { redirigirAInscripcionOneclick } from "@/lib/webpayClient";
@@ -42,6 +43,7 @@ export function VehiculoCard({
   lavados,
   tarjeta,
   descuento,
+  renovacionWoo,
   email,
   onActualizado,
 }: {
@@ -56,6 +58,10 @@ export function VehiculoCard({
   // ofertaConCupon): acá solo se anuncia, para que el precio más bajo no se
   // lea como un error.
   descuento?: { codigo: string; beneficio: string };
+  // Su renovación automática todavía la cobra WooCommerce (ver
+  // renovacionesLegacy en /api/cliente/mi-cuenta): eliminar el plan acá no la
+  // daría de baja, así que la salida es escribirnos.
+  renovacionWoo?: boolean;
   email: string;
   onActualizado: () => void;
 }) {
@@ -64,7 +70,11 @@ export function VehiculoCard({
   // Dar de baja el plan solo tiene sentido con el plan ya vencido: vigente, el
   // cliente pagó por esos días (ver /api/cliente/mi-cuenta/eliminar-plan, que
   // valida lo mismo del lado del servidor).
-  const puedeEliminarPlan = v.estado.cls === "bad" && !!v.vencimiento;
+  const planVencido = v.estado.cls === "bad" && !!v.vencimiento;
+  // Con renovación Woo el botón mentiría: el endpoint solo cancela Oneclick y
+  // la suscripción de WordPress quedaría viva cobrando. El server valida lo
+  // mismo.
+  const puedeEliminarPlan = planVencido && !renovacionWoo;
   const {
     pagando,
     confirmando,
@@ -171,6 +181,17 @@ export function VehiculoCard({
         </div>
       </div>
       {v.vencimiento && <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>{v.estado.cls === "bad" ? "Venció" : "Vence"} el {fmtFecha(v.vencimiento)}</div>}
+      {/* Reemplaza a "Eliminar Plan" en el menú "⋮" para el cliente Woo: sin
+          esto el botón no aparece y no queda ninguna salida a la vista. */}
+      {planVencido && renovacionWoo && (
+        <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>
+          Tu renovación automática la maneja nuestro sistema anterior. Para darla de baja escríbenos al{" "}
+          <a href={WHATSAPP_SUSCRIPCIONES_URL} target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)" }}>
+            {WHATSAPP_SUSCRIPCIONES}
+          </a>
+          .
+        </div>
+      )}
       {/* Solo planes con tope (X5): el server manda `lavados` únicamente para
           esos (ver pasesIncluidos). Con el plan vencido el ciclo ya no corre,
           así que el contador confunde más de lo que informa. */}

@@ -153,6 +153,9 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
                 lavados={lavados[v.patente]}
                 descuento={descuentos[v.patente]}
                 tarjeta={tarjetaActiva ? { cardTipo: tarjetaActiva.cardTipo, cardUltimosDigitos: tarjetaActiva.cardUltimosDigitos } : undefined}
+                // Misma lista que pinta la RenovacionLegacyCard más abajo: ya
+                // viene sin los que migraron a una tarjeta Oneclick activa.
+                renovacionWoo={renovacionesLegacy.some((r) => r.patente === v.patente)}
                 email={sesion.email}
                 onActualizado={refrescar}
               />

@@ -7,6 +7,7 @@ import { insertAuditoria } from "@/lib/dataAccess/auditoria";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
 import { cancelarSuscripcionOneclick } from "@/lib/dataAccess/oneclick";
 import { normPlate, sigueVigenteHoy } from "@/lib/helpers";
+import { WHATSAPP_SUSCRIPCIONES } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
 
@@ -53,18 +54,32 @@ export async function POST(request: NextRequest) {
   }
 
   const db = getDb();
-  await db
-    .update(clientes)
-    .set({ plan: null, vencimiento: null, fechaContratacion: null, precioPlanHeredado: null })
-    .where(eq(clientes.id, objetivo.id));
 
   // El cron de /api/pagos/oneclick/cobrar cobra toda suscripción "activa" con
   // proximoCobro vencido sin mirar el estado del plan: sin dar de baja acá la
   // tarjeta guardada, el cliente que elimina su plan igual seguiría pagándolo.
   const suscripciones = await db
-    .select({ id: suscripcionesOneclick.id })
+    .select({ id: suscripcionesOneclick.id, estado: suscripcionesOneclick.estado })
     .from(suscripcionesOneclick)
     .where(and(eq(suscripcionesOneclick.patente, objetivo.patente), inArray(suscripcionesOneclick.estado, ["activa", "suspendida"])));
+
+  // Cliente que todavía renueva por WooCommerce Subscriptions: acá solo se
+  // cancela Oneclick, así que borrarle el plan lo dejaría "Sin plan" mientras
+  // WordPress le sigue cobrando. Misma regla que usa renovacionesLegacy en
+  // /api/cliente/mi-cuenta para esconder el botón — el que ya migró a una
+  // tarjeta Oneclick activa sí puede darse de baja solo.
+  if (objetivo.renovacionAutoWooDesde && !suscripciones.some((s) => s.estado === "activa")) {
+    return NextResponse.json(
+      { ok: false, error: `Tu renovación automática la maneja nuestro sistema anterior. Para darla de baja escríbenos al ${WHATSAPP_SUSCRIPCIONES}.` },
+      { status: 400 }
+    );
+  }
+
+  await db
+    .update(clientes)
+    .set({ plan: null, vencimiento: null, fechaContratacion: null, precioPlanHeredado: null })
+    .where(eq(clientes.id, objetivo.id));
+
   for (const s of suscripciones) {
     await cancelarSuscripcionOneclick(s.id);
   }

@@ -3,7 +3,7 @@
 // renovacionAutoWooDesde en db/schema/clientes.ts) — no se puede cancelar ni
 // cambiar la tarjeta desde acá mientras esa migración siga en curso, por eso
 // el link va a WhatsApp en vez de un botón.
-const WHATSAPP_URL = "https://wa.me/56957969446?text=" + encodeURIComponent("Hola, quiero gestionar mi renovación automática");
+import { WHATSAPP_SUSCRIPCIONES, WHATSAPP_SUSCRIPCIONES_URL } from "@/lib/whatsapp";
 
 export function RenovacionLegacyCard({ patente, desde }: { patente: string; desde: string }) {
   return (
@@ -16,8 +16,8 @@ export function RenovacionLegacyCard({ patente, desde }: { patente: string; desd
       <div style={{ color: "var(--gray)", fontSize: 12.5, marginBottom: 10 }}>
         Activa desde {new Date(desde).toLocaleDateString("es-CL")}
       </div>
-      <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", fontSize: 13 }}>
-        Cambiar tarjeta o cancelar por WhatsApp →
+      <a href={WHATSAPP_SUSCRIPCIONES_URL} target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", fontSize: 13 }}>
+        Cambiar tarjeta o cancelar: escríbenos al {WHATSAPP_SUSCRIPCIONES} →
       </a>
     </div>
   );
