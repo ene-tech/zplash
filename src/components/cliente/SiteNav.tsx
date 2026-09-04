@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Archivo_Black } from "next/font/google";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
 
 // Segunda prueba: Anton (tan condensada que a 16px las letras se pegaban y
@@ -62,9 +62,6 @@ export default function SiteNav() {
 
         <div className="site-nav-actions">
           <CarritoBadge />
-          <Link href="/cliente" className="site-nav-account-link" aria-label="Mi cuenta" onClick={() => setOpen(false)}>
-            <User />
-          </Link>
           <Link href="/cliente?registro=1" className={`btn ghost btn-mi-cuenta site-nav-btn ${navFont.className}`}>
             Registrarme
           </Link>

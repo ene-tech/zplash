@@ -1,15 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { User } from "lucide-react";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
 
 // Header compartido de todas las páginas de cliente fuera de la landing
 // (/cliente, /servicios/*, /cliente/detailing) — antes cada página repetía
 // este bloque a mano y dos de ellas (servicios/[id], cliente/detailing) se
-// habían quedado sin el ícono del carrito por el copy-paste. Mismas clases
-// que usa SiteNav (.site-nav-account-link, .btn-mi-cuenta) para que el
-// comportamiento responsive (ícono redondo en mobile, botón de texto en
-// desktop) sea idéntico en toda la app.
+// habían quedado sin el ícono del carrito por el copy-paste. Misma clase
+// que usa SiteNav (.btn-mi-cuenta: botón de texto en desktop y mobile,
+// compactado bajo 900px) para que el header sea idéntico en toda la app.
 export default function ClienteHeader({ titulo, ocultarMiCuenta }: { titulo: string; ocultarMiCuenta?: boolean }) {
   return (
     <div className="cliente-header">
@@ -22,14 +20,9 @@ export default function ClienteHeader({ titulo, ocultarMiCuenta }: { titulo: str
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <CarritoBadge />
         {!ocultarMiCuenta && (
-          <>
-            <Link href="/cliente" className="site-nav-account-link" aria-label="Mi cuenta">
-              <User />
-            </Link>
-            <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
-              Mi cuenta
-            </Link>
-          </>
+          <Link href="/cliente" className="btn secondary btn-mi-cuenta" style={{ marginTop: 0, textDecoration: "none" }}>
+            Mi cuenta
+          </Link>
         )}
       </div>
     </div>

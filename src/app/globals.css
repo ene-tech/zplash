@@ -1381,34 +1381,6 @@ tr:hover td {
   margin-top: 0;
   text-decoration: none;
 }
-/* Acceso rápido a "Mi cuenta" en mobile, al lado del carrito — el botón de
-   texto (.btn-mi-cuenta) se esconde bajo 900px y sin esto "Mi cuenta" solo
-   quedaba disponible abriendo el menú hamburguesa (en la landing) o no
-   quedaba disponible en absoluto (en el resto de las páginas de cliente,
-   que no tienen hamburguesa). Mismo componente/clase en SiteNav y en
-   ClienteHeader (el header compartido del resto de las páginas), para que
-   el formato de header sea igual en toda la app. Oculto por defecto y solo
-   se muestra en el mismo breakpoint que esconde el botón de texto (ver
-   media query más abajo), para no duplicar el link en desktop. */
-.site-nav-account-link {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  color: var(--silver);
-  flex-shrink: 0;
-}
-.site-nav-account-link:hover {
-  border-color: var(--gold);
-  color: var(--gold);
-}
-.site-nav-account-link svg {
-  width: 18px;
-  height: 18px;
-}
 .site-nav-mobile {
   display: flex;
   flex-direction: column;
@@ -1440,12 +1412,34 @@ tr:hover td {
   .site-nav-toggle {
     display: inline-flex;
   }
-  .btn-mi-cuenta {
+  /* En mobile queda el mismo botón "Mi cuenta" de desktop (antes era un
+     ícono de persona redondo), compactado para que entre junto al logo y
+     el carrito. "Registrarme" sí se esconde: ya está en el menú hamburguesa. */
+  .btn.ghost.btn-mi-cuenta {
     display: none;
   }
-  .site-nav-account-link {
-    display: inline-flex;
-    margin-right: 8px;
+  .btn-mi-cuenta {
+    padding: 9px 14px;
+    font-size: 12px;
+  }
+}
+/* En un teléfono (375px) el nav no da el ancho con hamburguesa + logo +
+   carrito + botón "Mi cuenta": se aprietan gaps/paddings y se achican logo
+   y botón para que entre todo sin cortarse. */
+@media (max-width: 640px) {
+  .site-nav-inner {
+    gap: 12px;
+    padding: 8px 12px;
+  }
+  .site-nav-actions {
+    gap: 8px;
+  }
+  .site-nav .logo-principal {
+    height: 52px;
+  }
+  .btn-mi-cuenta {
+    padding: 8px 10px;
+    font-size: 11px;
   }
 }
 @media (min-width: 901px) {
@@ -1524,7 +1518,7 @@ tr:hover td {
 }
 /* Mobile: el botón "Escribir por WhatsApp →" con texto ocupaba mucho ancho
    al lado del texto del banner — se reduce a un ícono redondo (mismo tamaño
-   38px que .carrito-link/.site-nav-account-link), manteniendo el fondo
+   38px que .carrito-link), manteniendo el fondo
    verde de marca como única señal de "acción principal" del banner. */
 @media (max-width: 640px) {
   .announce-bar-cta {
