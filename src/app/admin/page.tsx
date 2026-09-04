@@ -18,6 +18,7 @@ const FuncionarioView = dynamic(() => import("@/components/FuncionarioView"));
 const EquipoView = dynamic(() => import("@/components/EquipoView"));
 const MensajesView = dynamic(() => import("@/components/MensajesView"));
 const CorreoView = dynamic(() => import("@/components/CorreoView"));
+const LibroView = dynamic(() => import("@/components/LibroView"));
 const ServiciosAdicionalesView = dynamic(() => import("@/components/ServiciosAdicionalesView"));
 const WebSettingsView = dynamic(() => import("@/components/WebSettingsView"));
 const ModalRoot = dynamic(() => import("@/components/modals/ModalRoot"));
@@ -57,6 +58,7 @@ function ZplashApp() {
       {ui.view === "equipo" && <EquipoView />}
       {ui.view === "mensajes" && <MensajesView />}
       {ui.view === "correo" && <CorreoView />}
+      {ui.view === "libro" && <LibroView />}
       <ModalRoot />
     </>
   );

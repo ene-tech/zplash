@@ -41,7 +41,10 @@ export const TODOS_LOS_MODULOS: Modulo[] = [
 export const MODULO_LABELS: Record<Modulo, string> = {
   operador: "Operador (validar patente / ingreso)",
   servicios: "Servicios Adicionales",
-  clientes: "Clientes",
+  // El checklist de Perfiles es el único lugar donde quien asigna módulos ve
+  // qué abre cada uno: "clientes" también abre el Libro de Reclamos del hub
+  // (ver HubView y obtenerLibroComentarios), así que el label lo dice.
+  clientes: "Clientes (fichas y libro de reclamos)",
   suscripciones: "Suscripciones",
   ingresos: "Historial de Ingresos",
   cierre: "Cierre de Caja",

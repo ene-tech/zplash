@@ -7,6 +7,7 @@ import {
   cobrarSuscripcionManual,
   enviarCuponAlCliente,
   obtenerDetallePagosVentas,
+  obtenerLibroComentarios,
   obtenerSuscripcionOneclick,
   reactivarSuscripcionOneclick,
   reembolsarVenta,
@@ -27,7 +28,7 @@ import {
   TIPO_VENTA_REEMBOLSO,
   visitasUltimos30Dias,
 } from "@/lib/helpers";
-import type { Cliente, Cupon, Venta } from "@/types";
+import { TIPO_LIBRO_LABELS, type Cliente, type Cupon, type LibroComentario, type Venta } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -207,6 +208,28 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
       .then(setSuscripcion)
       .catch(() => setSuscripcion(null));
   }, [c.patente]);
+
+  // Lo que este cliente dejó en el libro de reclamos/sugerencias (matchea por
+  // email, ver @/db/schema/libro). Sin email no hay sesión de portal posible,
+  // así que tampoco hay nada que pedir. El estado guarda DE QUIÉN es la
+  // respuesta y el render solo la usa si sigue siendo el email de la ficha:
+  // el modal se reusa entre fichas (no lleva key en ModalRoot) y sin esto los
+  // reclamos de un cliente podían quedar pintados en la ficha del siguiente.
+  const [libroCargado, setLibroCargado] = useState<{ email: string; rows: LibroComentario[] } | null>(null);
+  useEffect(() => {
+    const email = c.email;
+    if (!email) return;
+    let obsoleto = false;
+    obtenerLibroComentarios(email)
+      .then((rows) => {
+        if (!obsoleto) setLibroCargado({ email, rows });
+      })
+      .catch(() => {});
+    return () => {
+      obsoleto = true;
+    };
+  }, [c.email]);
+  const comentariosLibro = libroCargado && libroCargado.email === c.email ? libroCargado.rows : [];
 
   // Comprobante real de Transbank (authorizationCode) para las ventas de
   // este cliente que tengan Webpay/Oneclick detrás — ver dataAccess/pagos.ts.
@@ -695,6 +718,23 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           )}
           {errReembolso && <p className="mt-2 text-sm text-destructive">{errReembolso}</p>}
         </div>
+
+        {comentariosLibro.length > 0 && (
+          <div className="border-t border-border pt-5">
+            <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Libro de reclamos y sugerencias</div>
+            <div className="space-y-2 text-sm">
+              {comentariosLibro.map((com) => (
+                <div key={com.id} className="rounded-md border border-border p-3">
+                  <div className="mb-1 flex items-center justify-between gap-3">
+                    <span className="font-medium">{TIPO_LIBRO_LABELS[com.tipo]}</span>
+                    <span className="text-xs text-muted-foreground">{fmtDate(com.creadoEn)}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap">{com.mensaje}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <RecorridoCliente cliente={c} />
 

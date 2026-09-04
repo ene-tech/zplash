@@ -142,6 +142,16 @@ export default function HubView() {
             <div className="desc">Bandeja de entrada de info@zplash.cl</div>
           </button>
         )}
+        {/* Gateado con "clientes" y no con un módulo nuevo: leer el libro es
+            leer lo que los clientes escriben, mismo permiso que gestiona sus
+            fichas (y el que exige obtenerLibroComentarios en el servidor). */}
+        {modulos.includes("clientes") && (
+          <button className="role-btn" onClick={() => patchUi({ view: "libro" })}>
+            <div className="icon">📖</div>
+            <div className="label">Libro de Reclamos y Sugerencias</div>
+            <div className="desc">Reclamos, sugerencias y felicitaciones que dejan los clientes</div>
+          </button>
+        )}
       </div>
       <button className="btn ghost" style={{ marginTop: 20 }} onClick={() => logout()}>
         Cerrar sesión

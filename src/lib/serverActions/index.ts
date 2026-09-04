@@ -30,6 +30,7 @@ export * from "./inventario/destinos";
 export * from "./inventario/insumos";
 export * from "./inventario/productos";
 export * from "./inventario/proveedores";
+export * from "./libro";
 export * from "./loadAll";
 export * from "./mail";
 export * from "./mantencion";

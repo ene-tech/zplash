@@ -16,6 +16,7 @@ import { EliminarTarjeta } from "@/components/cliente/miCuenta/EliminarTarjeta";
 import { CompartirTarjeta } from "@/components/cliente/miCuenta/CompartirTarjeta";
 import { DatosFacturacionSection } from "@/components/cliente/miCuenta/DatosFacturacionSection";
 import { AvisoPoliticas } from "@/components/cliente/miCuenta/AvisoPoliticas";
+import { LibroComentarios } from "@/components/cliente/miCuenta/LibroComentarios";
 import { PromoModal } from "@/components/cliente/miCuenta/PromoModal";
 
 interface Tarjeta {
@@ -241,6 +242,8 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
       )}
 
       <DatosFacturacionSection vehiculos={sesion.vehiculos} onActualizado={refrescar} />
+
+      <LibroComentarios />
 
       <h3 style={{ marginBottom: 12 }}>Historial de compras</h3>
       <div className="table-scroll">
