@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, pagosWebpay, pagosWebpayItems, servicios } from "@/db/schema";
+import { clientes, cupones, pagosWebpay, pagosWebpayItems, servicios } from "@/db/schema";
 import { getConfig } from "@/lib/dataAccess/config";
-import { sigueVigenteHoy } from "@/lib/helpers";
+import { cuponToRow } from "@/lib/dataAccess/cupones";
+import { cuponesPromo2Lavados, sigueVigenteHoy } from "@/lib/helpers";
 import { aplicarPagoAprobado, aplicarPagoPackEmpresa, aplicarUpgradePlan, otorgarTicketReactivacion } from "@/lib/pagos";
 import { webpayTransaction } from "@/lib/transbank";
 
@@ -288,7 +289,10 @@ async function procesarRetorno(
           continue;
         }
 
-        const esServicioAdicional = item.tipo === "servicio" || item.tipo === "lavado_unico" || item.tipo === "aspirado";
+        // La Promo 2 Lavados entra como servicio adicional a propósito: no
+        // toca plan ni vencimiento (son 2 tickets para la patente, ver abajo).
+        const esServicioAdicional =
+          item.tipo === "servicio" || item.tipo === "lavado_unico" || item.tipo === "aspirado" || item.tipo === "promo_2_lavados";
         const tipoVenta = esServicioAdicional ? `${item.nombre} (Web)` : TIPO_VENTA_PROMO_CUENTA[item.tipo];
         // Pagar el plan vencido por la pasarela (OfertaPlan.pagoVencido, el
         // único ítem de plan que todavía pasa por Webpay) deja el mismo lavado
@@ -340,6 +344,26 @@ async function procesarRetorno(
               },
               tx2
             );
+            if (item.tipo === "promo_2_lavados") {
+              // Los 2 tickets de la promo van en el mismo savepoint que la
+              // venta: o quedan los dos o no queda ninguno. El correo del
+              // checkout solo viene con Factura; con Boleta se toma el de la
+              // ficha (si tiene) para que igual los vea en "Mis tickets" de Mi
+              // Cuenta — en el túnel se canjean por patente, sin código (ver
+              // ticketsVigentesDePatente). Mismo barrido de códigos existentes
+              // que aplicarPagoPackEmpresa.
+              const [ficha] = await tx2.select({ email: clientes.email }).from(clientes).where(eq(clientes.patente, pago.patente)).limit(1);
+              const existentes = new Set((await tx2.select({ codigo: cupones.codigo }).from(cupones)).map((r) => r.codigo));
+              const tickets = cuponesPromo2Lavados({
+                patente: pago.patente,
+                email: item.email || ficha?.email,
+                precio: item.monto,
+                existentes,
+                creadoPor: "Automático (Webpay)",
+                idBase: item.id,
+              });
+              await tx2.insert(cupones).values(tickets.map(cuponToRow));
+            }
           });
           if (ticketDeEsteItem) ticketPara = ticketDeEsteItem;
         } catch (errorAplicar) {

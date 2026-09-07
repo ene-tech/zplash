@@ -18,7 +18,7 @@ export interface DatosValidacionQuickAdd {
   /** El cliente se negó a dar el correo: se guarda vacío en vez de uno inventado. */
   sinCorreo?: boolean;
   exentoValidacion: boolean;
-  tipoCliente: "plan" | "unico";
+  tipoCliente: "plan" | "unico" | "promo2";
   tipoDocumento: "Boleta" | "Factura";
   razonSocialRaw: string;
   rutRaw: string;

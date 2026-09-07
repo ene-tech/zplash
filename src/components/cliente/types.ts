@@ -25,6 +25,9 @@ export interface PreciosPublicos {
   // el precio unitario para calcular el total de cualquier cantidad, y los
   // días de vigencia configurados (ConfigGlobal.vigenciaDiasPackEmpresa).
   tickets: { cantidadMinima: number; cantidadMaxima: number; precioBase: number; precioUnitario: number; vigenciaDias: number };
+  // Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY): precio 0 = apagada, no se
+  // muestra en ninguna superficie pública.
+  promo2Lavados: { precio: number; lavados: number; vigenciaDias: number };
   // Descuento de primera vez que ofrece el pop-up de bienvenida de la landing
   // (ver DescuentoBienvenidaModal). Viaja acá y no por un getConfig() aparte
   // porque getPreciosPublicos() ya lee la fila `config` para vigenciaDias:

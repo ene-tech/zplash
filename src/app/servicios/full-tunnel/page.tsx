@@ -84,6 +84,18 @@ export default async function FullTunnelPage() {
             </Link>
             <AgregarCarritoButton item={{ key: "lavado_unico", tipo: "lavado_unico", nombre: "Lavado Full Tunnel", precio: precios.lavadoUnico.precio }} />
           </div>
+          {/* Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY): 2 tickets para un auto,
+              a usar en 30 días. Solo "Comprar" directo, sin carrito — se paga
+              sola en /pagar con la patente. Precio 0 = apagada. */}
+          {precios.promo2Lavados.precio > 0 && (
+            <div className="hint" style={{ textAlign: "left", marginTop: 14 }}>
+              <b>Promo:</b> {precios.promo2Lavados.lavados} lavados Full Tunnel para tu auto por{" "}
+              <b>{fmtCLP(precios.promo2Lavados.precio)}</b>, a usar dentro de {precios.promo2Lavados.vigenciaDias} días.{" "}
+              <Link href="/pagar?item=promo_2_lavados" className="btn secondary" style={{ marginTop: 8, textDecoration: "none" }}>
+                Comprar la promo
+              </Link>
+            </div>
+          )}
         </ProductoHero>
 
         <h3 style={{ margin: "22px 0 12px" }}>Preguntas frecuentes</h3>

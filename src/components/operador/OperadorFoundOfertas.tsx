@@ -45,6 +45,8 @@ type Props = Pick<
   | "registrarDetailing"
   | "lavadoWebPendiente"
   | "registrarLavadoWeb"
+  | "ticketsPatente"
+  | "usarTicket"
   | "showOffer"
   | "st"
   | "pNormal"
@@ -95,8 +97,29 @@ export default function OperadorFoundOfertas(props: Props) {
   // Al cliente legacy los botones no le pueden decir "renovar su plan": lo que
   // se le está vendiendo es otro producto.
   const rotulo = (normal: string) => (legacy ? `Contratar ${PLANES[0]}` : normal);
+  // Tickets que esta patente canjea sin código (ver ticketsVigentesDePatente),
+  // el que vence antes primero. El `?? []` es para los tests, que montan el
+  // componente con las props justas de cada tarjeta.
+  const tickets = props.ticketsPatente ?? [];
   return (
     <>
+      {tickets.length > 0 && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <span className="badge">Túnel</span>
+            <h4>{tickets.length === 1 ? "Tiene 1 lavado pagado" : `Tiene ${tickets.length} lavados pagados`}</h4>
+          </div>
+          <div className="msg">
+            {c.nombre} tiene {tickets.length === 1 ? "un ticket" : `${tickets.length} tickets`} de &quot;{tickets[0].nombreLote}
+            &quot; para esta patente{tickets.length > 1 ? "; el más próximo" : ", que"} vence el{" "}
+            {new Date(tickets[0].fechaCaducidad).toLocaleDateString("es-CL")}. Úsalo para dejarlo entrar — no genera un
+            cobro nuevo, ya se pagó.
+          </div>
+          <button className="btn secondary" onClick={() => props.usarTicket(tickets[0])} disabled={guardando}>
+            Usar 1 ticket e ingresar
+          </button>
+        </div>
+      )}
       {props.cuponDescuentoSoloWeb && (
         <div className="offer-card">
           <div className="offer-head">

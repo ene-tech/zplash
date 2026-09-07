@@ -19,6 +19,7 @@ const PRECIOS: PreciosPublicos = {
     { id: "tapiz", nombre: "Lavado de Tapiz", categoria: "Adicionales", precio: 30000 },
   ],
   tickets: { cantidadMinima: 10, cantidadMaxima: 100, precioBase: 79990, precioUnitario: 7999, vigenciaDias: 45 },
+  promo2Lavados: { precio: 14990, lavados: 2, vigenciaDias: 30 },
   descuentoBienvenida: { valor: 1000, diasValidez: 7 },
 };
 

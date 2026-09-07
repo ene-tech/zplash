@@ -1,8 +1,8 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { registrarIngreso, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { marcarDescuentoUsado, yaIngresoHoy, type EstadoReingresoPlan } from "@/lib/helpers";
+import { entregarPromo2Lavados, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
+import { PROMO_2_LAVADOS_KEY, marcarDescuentoUsado, precioPromo2Lavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan } from "@/lib/helpers";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
@@ -153,5 +153,57 @@ export function useIngresoActions(
     cobrarLavadoUnico(cliente);
   };
 
-  return { registrar, registrarDetailing, registrarLavadoWeb, registrarPagado, cobrarLavadoUnico };
+  // Promo 2 Lavados en el mesón (ver PROMO_2_LAVADOS_KEY): cobra, deja la
+  // Venta y entrega los 2 tickets con el primero ya canjeado — el auto entra
+  // ahora (ver entregarPromo2Lavados). El cupón de descuento de la patente no
+  // se le resta: ya es una promoción.
+  const cobrarPromo2Lavados = (cliente: Cliente = c) => {
+    const precio = precioPromo2Lavados(data.precios);
+    if (precio <= 0) return;
+    patchUi({
+      modal: {
+        type: "pago",
+        monto: precio,
+        descripcion: `Promo 2 lavados para ${cliente.nombre} (${cliente.patente})`,
+        onConfirm: async (pago: PagoInfo) => {
+          const venta: Venta = {
+            id: uidVenta(),
+            clienteId: cliente.id,
+            patente: cliente.patente,
+            nombre: cliente.nombre,
+            plan: cliente.plan || "",
+            precio,
+            tipo: PROMO_2_LAVADOS_KEY,
+            fecha: new Date().toISOString(),
+            creadoPor: ui.perfilActual?.nombre || "",
+            metodoPago: pago.metodo,
+            voucher: pago.voucher,
+          };
+          const patch = entregarPromo2Lavados(data, cliente, precio, ui.perfilActual?.nombre);
+          const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
+          if (!ok) {
+            setGuardarErr(ERROR_GUARDADO_INGRESO);
+            return;
+          }
+          clearPlate();
+          patchUi({ operResult: null });
+        },
+      },
+    });
+  };
+
+  // Canje sin código de un ticket que autoriza a esta patente (Promo 2
+  // Lavados, Pack de Tickets con flota — ver ticketsVigentesDePatente): el
+  // mismo registro que el canje por código del panel (registrarIngresoCupon).
+  const usarTicket = async (cliente: Cliente, ticket: Cupon) => {
+    const ok = await commit(registrarIngresoCupon(data, cliente, ticket, ui.perfilActual?.nombre));
+    if (!ok) {
+      setGuardarErr(ERROR_GUARDADO_INGRESO);
+      return;
+    }
+    clearPlate();
+    patchUi({ operResult: null });
+  };
+
+  return { registrar, registrarDetailing, registrarLavadoWeb, registrarPagado, cobrarLavadoUnico, cobrarPromo2Lavados, usarTicket };
 }

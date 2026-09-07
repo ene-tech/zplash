@@ -1,15 +1,17 @@
 import {
   PLANES,
+  PROMO_2_LAVADOS_KEY,
   formatRut,
   marcarDescuentoUsado,
   montoDescuento,
   precioContratacion,
   precioLavadoUnico,
+  precioPromo2Lavados,
   resolverDescuento,
   uid,
   cicloPlanDesde,
 } from "@/lib/helpers";
-import { registrarIngreso } from "./ingresos";
+import { entregarPromo2Lavados, registrarIngreso } from "./ingresos";
 import type { AppData, Cliente, Cupon, Empresa, PagoInfo, Venta } from "@/types";
 
 export interface DatosClienteRapido {
@@ -23,7 +25,9 @@ export interface DatosClienteRapido {
   rut: string;
   direccion: string;
   giro: string;
-  tipoCliente: "plan" | "unico";
+  // "promo2" = Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY): se cobra como un
+  // lavado suelto (sin plan ni ciclo) y deja 2 tickets para la patente.
+  tipoCliente: "plan" | "unico" | "promo2";
   codigoCupon: string;
   perfilNombre: string | undefined;
 }
@@ -78,7 +82,12 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
 
   // Patente no registrada: si contrata plan es siempre una 1ra contratación
   // (ver precioContratacion), por eso va sin cliente.
-  const precioBase = d.tipoCliente === "plan" ? precioContratacion(data.precios, plan) : precioLavadoUnico(data.precios);
+  const precioBase =
+    d.tipoCliente === "plan"
+      ? precioContratacion(data.precios, plan)
+      : d.tipoCliente === "promo2"
+        ? precioPromo2Lavados(data.precios)
+        : precioLavadoUnico(data.precios);
   let precio = precioBase;
   let cuponAplicado: Cupon | undefined;
   if (d.tipoCliente === "unico" && d.codigoCupon) {
@@ -87,8 +96,13 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
     cuponAplicado = resultado.cupon;
     precio = Math.max(0, precioBase - montoDescuento(resultado.cupon, precioBase));
   }
-  const tipoVenta = d.tipoCliente === "plan" ? "Plan nuevo" : "Lavado único";
-  const descripcion = d.tipoCliente === "plan" ? `Contratación de plan para ${d.nombre}` : `Lavado único para ${d.nombre}`;
+  const tipoVenta = d.tipoCliente === "plan" ? "Plan nuevo" : d.tipoCliente === "promo2" ? PROMO_2_LAVADOS_KEY : "Lavado único";
+  const descripcion =
+    d.tipoCliente === "plan"
+      ? `Contratación de plan para ${d.nombre}`
+      : d.tipoCliente === "promo2"
+        ? `Promo 2 lavados para ${d.nombre}`
+        : `Lavado único para ${d.nombre}`;
 
   // Si es Factura y el RUT no pertenece a ninguna empresa ya registrada, se
   // crea una nueva en Empresas con este cliente como persona de contacto.
@@ -145,14 +159,20 @@ export function finalizarClienteRapido(
   };
   const clientesConNuevo = [...data.clientes, nuevo];
   const ventasConNueva = [venta, ...data.ventas];
-  const esPasoFisico = tipoVenta === "Lavado único";
-  const ingresoPatch = esPasoFisico
-    ? registrarIngreso({ ...data, clientes: clientesConNuevo, ventas: ventasConNueva }, nuevo, perfilNombre)
-    : {};
+  // La Promo 2 Lavados también es un paso físico: se entrega con el primero
+  // de sus 2 tickets ya canjeado (ver entregarPromo2Lavados).
+  const datosConNuevo = { ...data, clientes: clientesConNuevo, ventas: ventasConNueva };
+  const ingresoPatch: Partial<AppData> =
+    tipoVenta === "Lavado único"
+      ? registrarIngreso(datosConNuevo, nuevo, perfilNombre)
+      : tipoVenta === PROMO_2_LAVADOS_KEY
+        ? entregarPromo2Lavados(datosConNuevo, nuevo, precio, perfilNombre)
+        : {};
   return {
     clientes: ingresoPatch.clientes ?? clientesConNuevo,
     ventas: ventasConNueva,
     ...(ingresoPatch.ingresos ? { ingresos: ingresoPatch.ingresos } : {}),
+    ...(ingresoPatch.cupones ? { cupones: ingresoPatch.cupones } : {}),
     ...(nuevaEmpresa ? { empresas: [...data.empresas, nuevaEmpresa] } : {}),
     ...(cuponAplicado
       ? {

@@ -649,6 +649,28 @@ export function precioLavadoUnicoWeb(precios: Precios): number {
   return (precios[LAVADO_UNICO_WEB_KEY] && precios[LAVADO_UNICO_WEB_KEY].normal) || PRECIO_LAVADO_UNICO;
 }
 
+/**
+ * Promo "2 lavados": LAVADOS_PROMO_2_LAVADOS lavados full túnel prepagados
+ * para UN auto, a usar dentro de DIAS_PROMO_2_LAVADOS días. No es un plan
+ * (no toca `clientes.plan`/vencimiento ni entra en Oneclick ni en las reglas
+ * de vencido): son 2 tickets "vale" atados a la patente, los mismos que un
+ * Pack de Tickets (ver cuponesPromo2Lavados en ./cupones), que se canjean en
+ * el túnel uno por pasada. Se vende en el mesón y en /pagar con el mismo
+ * precio. Esta clave es también el `Venta.tipo` del mesón; la web queda como
+ * `${PROMO_2_LAVADOS_KEY} (Web)` (ver retorno de Webpay).
+ */
+export const PROMO_2_LAVADOS_KEY = "Promo 2 Lavados";
+export const LAVADOS_PROMO_2_LAVADOS = 2;
+export const DIAS_PROMO_2_LAVADOS = 30;
+
+/** Precio de la promo, editable en Configuración → "Lavado túnel" (junto al
+ * lavado único y el adicional, que también rigen en los dos canales). $0 o sin
+ * fila = promo apagada: no se ofrece en ningún canal (mismo criterio que un
+ * servicio sin precio, ver preciosPublicos). */
+export function precioPromo2Lavados(precios: Precios): number {
+  return precios[PROMO_2_LAVADOS_KEY]?.normal || 0;
+}
+
 /** Precio vigente de un servicio del catálogo, editable por el administrador desde Configuración; si no se ha guardado uno, es 0. */
 export function precioServicio(precios: Precios, servicioId: string): number {
   return (precios[servicioId] && precios[servicioId].normal) || 0;

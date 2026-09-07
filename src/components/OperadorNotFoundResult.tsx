@@ -62,7 +62,22 @@ export default function OperadorNotFoundResult({
         >
           Lavado Full Túnel ({fmtCLP(r.precioConDescuento ?? r.precioBaseLavado)})
         </button>
+        {r.precioPromo2 > 0 && (
+          <button
+            className={r.tipoLavado === "promo2" ? "btn" : "btn secondary"}
+            style={{ marginTop: 0, flex: "1 1 160px" }}
+            onClick={() => r.setTipoLavado("promo2")}
+          >
+            Promo 2 lavados ({fmtCLP(r.precioPromo2)})
+          </button>
+        )}
       </div>
+      {r.tipoLavado === "promo2" && (
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+          2 lavados Full Túnel para esta patente, válidos 30 días: pasa ahora con el primero y el segundo queda como
+          ticket en su ficha — la próxima vez basta con leer la patente.
+        </div>
+      )}
       <div className="quick-form" style={{ marginBottom: r.cuponPrevio ? 4 : 14, marginTop: 0 }}>
         <div>
           <label>Código de descuento (opcional)</label>

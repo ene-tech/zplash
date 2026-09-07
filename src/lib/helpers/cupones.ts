@@ -1,6 +1,6 @@
 import type { Cliente, Cupon } from "@/types";
 import { findClient } from "./clientes";
-import { fmtCLP } from "./precios";
+import { DIAS_PROMO_2_LAVADOS, LAVADOS_PROMO_2_LAVADOS, PROMO_2_LAVADOS_KEY, fmtCLP } from "./precios";
 import { limpiarRut, normPlate } from "./validadores";
 
 /** Alfabeto sin 0/O ni 1/I para evitar confusiones al leer o tipear el código. */
@@ -197,6 +197,71 @@ export function precioConCupon(precio: number, cupon: Pick<Cupon, "esPorcentaje"
 export function patenteAutorizadaParaCupon(cupon: Pick<Cupon, "patentesAutorizadas">, patente: string): boolean {
   if (!cupon.patentesAutorizadas || cupon.patentesAutorizadas.length === 0) return true;
   return cupon.patentesAutorizadas.includes(normPlate(patente));
+}
+
+/** Los tickets de la Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY) para una
+ * patente: un lote de LAVADOS_PROMO_2_LAVADOS "vale" que solo ese auto puede
+ * canjear (patentesAutorizadas), con DIAS_PROMO_2_LAVADOS de vigencia desde la
+ * compra. `valor` es lo que costó cada uno (mismo criterio que un Pack de
+ * Tickets, ver valorCupon) y `email` deja los tickets visibles en "Mis
+ * tickets y cupones" de Mi Cuenta. Se comparte entre el mesón (commit de
+ * AppData) y el retorno de Webpay (insert), para que los dos canales emitan
+ * exactamente el mismo producto. `patenteAsignada` no restringe un "vale"
+ * (eso lo hace patentesAutorizadas): solo dice de qué auto es en las listas. */
+export function cuponesPromo2Lavados(p: {
+  patente: string;
+  email?: string | null;
+  precio: number;
+  existentes: Set<string>;
+  creadoPor: string;
+  /** Prefijo de los ids (uno por ticket: `${idBase}-1`, `${idBase}-2`). */
+  idBase: string;
+  ahora?: Date;
+}): Cupon[] {
+  const ahora = p.ahora ?? new Date();
+  const patente = normPlate(p.patente);
+  const fechaCaducidad = new Date(ahora.getTime() + DIAS_PROMO_2_LAVADOS * 86400000).toISOString();
+  const valor = Math.round(p.precio / LAVADOS_PROMO_2_LAVADOS);
+  return Array.from({ length: LAVADOS_PROMO_2_LAVADOS }, (_, i) => {
+    const codigo = generarCodigoCupon(p.existentes);
+    p.existentes.add(codigo);
+    return {
+      id: `${p.idBase}-${i + 1}`,
+      codigo,
+      nombreLote: PROMO_2_LAVADOS_KEY,
+      valor,
+      numeroLote: i + 1,
+      totalLote: LAVADOS_PROMO_2_LAVADOS,
+      fechaCaducidad,
+      usado: false,
+      creadoEn: ahora.toISOString(),
+      creadoPor: p.creadoPor,
+      tipo: "vale" as const,
+      patenteAsignada: patente,
+      patentesAutorizadas: [patente],
+      email: p.email?.trim().toLowerCase() || undefined,
+    };
+  });
+}
+
+/** Tickets ("vale") que esta patente puede canjear ahora mismo sin código:
+ * vivos y con la patente en su lista autorizada — los de la Promo 2 Lavados y
+ * los de un Pack de Tickets con flota. Un lote abierto (sin patentes) no
+ * entra: ese se sigue canjeando tipeando el código en el panel del Operador.
+ * Ordenados por el que vence antes, para gastar primero el que se pierde
+ * primero. */
+export function ticketsVigentesDePatente(lista: Cupon[], patente: string, ahora: Date = new Date()): Cupon[] {
+  const p = normPlate(patente);
+  return lista
+    .filter(
+      (c) =>
+        c.tipo === "vale" &&
+        !c.usado &&
+        new Date(c.fechaCaducidad) > ahora &&
+        !!c.patentesAutorizadas?.length &&
+        patenteAutorizadaParaCupon(c, p)
+    )
+    .sort((a, b) => new Date(a.fechaCaducidad).getTime() - new Date(b.fechaCaducidad).getTime());
 }
 
 /** Regla "un cupón por patente" del lote (packs de cortesía, canjes de un

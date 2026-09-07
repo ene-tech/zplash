@@ -196,11 +196,18 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
               <button className="btn" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.contratarPlan} disabled={guardando}>
-                Contratar plan nuevo ({fmtCLP(r.pContratacion)})
+                {r.ventaUpgrade
+                  ? `Contratar plan nuevo (+${fmtCLP(r.precioUpgrade)} sobre el lavado ya pagado)`
+                  : `Contratar plan nuevo (${fmtCLP(r.pContratacion)})`}
               </button>
               <button className="btn secondary" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.registrarPagado} disabled={guardando}>
                 Lavado Full Túnel ({fmtCLP(r.precioLavadoUnicoFinal)})
               </button>
+              {r.precioPromo2 > 0 && (
+                <button className="btn secondary" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.cobrarPromo2Lavados} disabled={guardando}>
+                  Promo 2 lavados ({fmtCLP(r.precioPromo2)}) — pasa ahora y le queda 1
+                </button>
+              )}
             </div>
           </>
         )}

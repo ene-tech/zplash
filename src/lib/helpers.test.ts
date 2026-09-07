@@ -84,7 +84,11 @@ import {
   soloCambiosSinPlata,
   beneficioCupon,
   cuponDescuentoDePatente,
+  cuponesPromo2Lavados,
   cuponesVigentesDeCliente,
+  PROMO_2_LAVADOS_KEY,
+  precioPromo2Lavados,
+  ticketsVigentesDePatente,
   ofertaConCupon,
   precioConCupon,
   marcarDescuentoUsado,
@@ -2402,5 +2406,61 @@ describe("patentesQueRecibenTarjeta / tieneTarjetaViva", () => {
     expect(tieneTarjetaViva("pendiente_solo_tarjeta")).toBe(false);
     expect(tieneTarjetaViva("cancelada")).toBe(false);
     expect(tieneTarjetaViva(undefined)).toBe(false);
+  });
+});
+
+describe("Promo 2 Lavados — tickets por patente", () => {
+  const ahora = new Date("2026-09-07T15:00:00.000Z");
+  const tickets = cuponesPromo2Lavados({
+    patente: "ab1234",
+    email: "Ana@Mail.cl",
+    precio: 14990,
+    existentes: new Set(),
+    creadoPor: "Operador",
+    idBase: "cup1",
+    ahora,
+  });
+
+  it("emite 2 vales de un lote atados a la patente, con 30 días y el precio repartido", () => {
+    expect(tickets).toHaveLength(2);
+    expect(tickets.map((t) => t.id)).toEqual(["cup1-1", "cup1-2"]);
+    expect(tickets.map((t) => t.numeroLote)).toEqual([1, 2]);
+    expect(new Set(tickets.map((t) => t.codigo)).size).toBe(2);
+    for (const t of tickets) {
+      expect(t.tipo).toBe("vale");
+      expect(t.nombreLote).toBe(PROMO_2_LAVADOS_KEY);
+      expect(t.totalLote).toBe(2);
+      expect(t.patentesAutorizadas).toEqual(["AB1234"]);
+      expect(t.patenteAsignada).toBe("AB1234");
+      expect(t.email).toBe("ana@mail.cl");
+      expect(t.valor).toBe(7495);
+      expect(t.fechaCaducidad).toBe("2026-10-07T15:00:00.000Z");
+      expect(t.usado).toBe(false);
+    }
+  });
+
+  it("ticketsVigentesDePatente: solo los vivos de esa patente, el que vence antes primero", () => {
+    const otro = cuponesPromo2Lavados({ patente: "ZZ9999", precio: 14990, existentes: new Set(), creadoPor: "x", idBase: "cup2", ahora })[0];
+    // Lote abierto (sin patentes): se canjea por código, no aparece acá.
+    const abierto: Cupon = { ...tickets[0], id: "abierto", codigo: "ABIERT", patentesAutorizadas: undefined, patenteAsignada: undefined };
+    const usado: Cupon = { ...tickets[0], id: "usado", codigo: "USADO1", usado: true };
+    const antiguo = cuponesPromo2Lavados({
+      patente: "AB1234",
+      precio: 14990,
+      existentes: new Set(),
+      creadoPor: "x",
+      idBase: "cup0",
+      ahora: new Date("2026-08-20T15:00:00.000Z"),
+    })[0];
+    const lista = [tickets[0], tickets[1], otro, abierto, usado, antiguo];
+    expect(ticketsVigentesDePatente(lista, "ab-1234", ahora).map((c) => c.id)).toEqual(["cup0-1", "cup1-1", "cup1-2"]);
+    // Pasados los 30 días no queda ninguno.
+    expect(ticketsVigentesDePatente(lista, "AB1234", new Date("2026-10-08T00:00:00.000Z"))).toEqual([]);
+  });
+
+  it("precioPromo2Lavados: sin fila o en $0 la promo está apagada", () => {
+    expect(precioPromo2Lavados({})).toBe(0);
+    expect(precioPromo2Lavados({ [PROMO_2_LAVADOS_KEY]: { normal: 0, promo: 0 } })).toBe(0);
+    expect(precioPromo2Lavados({ [PROMO_2_LAVADOS_KEY]: { normal: 14990, promo: 0 } })).toBe(14990);
   });
 });

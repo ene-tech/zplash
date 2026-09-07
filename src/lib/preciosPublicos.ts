@@ -6,11 +6,14 @@ import { config, precios, preciosTamano, servicios } from "@/db/schema";
 import {
   CANTIDAD_MAXIMA_TICKETS,
   CANTIDAD_MINIMA_TICKETS,
+  DIAS_PROMO_2_LAVADOS,
+  LAVADOS_PROMO_2_LAVADOS,
   PLANES,
   precioContratacion,
   precioLavadoUnicoWeb,
   precioNormal,
   precioPlanOneclick,
+  precioPromo2Lavados,
   precioServicio,
   precioTicketUnitario,
   precioTickets,
@@ -87,6 +90,11 @@ async function leerPreciosPublicos(): Promise<PreciosPublicos> {
       precioBase: precioTickets(preciosMap, CANTIDAD_MINIMA_TICKETS),
       precioUnitario: precioTicketUnitario(preciosMap),
       vigenciaDias: configRow?.vigenciaDiasPackEmpresa || 45,
+    },
+    promo2Lavados: {
+      precio: precioPromo2Lavados(preciosMap),
+      lavados: LAVADOS_PROMO_2_LAVADOS,
+      vigenciaDias: DIAS_PROMO_2_LAVADOS,
     },
     descuentoBienvenida: {
       valor: configRow?.descuentoPrimeraVezValor || 1000,

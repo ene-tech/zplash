@@ -3,7 +3,17 @@
 import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
 import { finalizarClienteRapido, prepararClienteRapido } from "@/lib/logic";
-import { esExentoValidacionRegistroOperador, fmtTelefono, formatRut, isValidRut, montoDescuento, normPlate, precioLavadoUnico, resolverDescuento } from "@/lib/helpers";
+import {
+  esExentoValidacionRegistroOperador,
+  fmtTelefono,
+  formatRut,
+  isValidRut,
+  montoDescuento,
+  normPlate,
+  precioLavadoUnico,
+  precioPromo2Lavados,
+  resolverDescuento,
+} from "@/lib/helpers";
 import type { PagoInfo } from "@/types";
 import { validarQuickAddCliente } from "./validarQuickAdd";
 
@@ -36,7 +46,7 @@ export function useOperadorNotFoundResult(
   // Salida honesta cuando el cliente no quiere dar el correo: sin esto el
   // operador inventa uno para poder guardar (ver esCorreoDeRelleno).
   const [sinCorreo, setSinCorreo] = useState(false);
-  const [tipoLavado, setTipoLavado] = useState<"plan" | "unico">("plan");
+  const [tipoLavado, setTipoLavado] = useState<"plan" | "unico" | "promo2">("plan");
   const [err, setErr] = useState("");
   const [codigoInput, setCodigoInput] = useState(codigoDescuento || "");
 
@@ -155,6 +165,8 @@ export function useOperadorNotFoundResult(
     err,
     setCodigoInput,
     precioBaseLavado,
+    // $0 = promo apagada, el botón no se muestra (ver precioPromo2Lavados).
+    precioPromo2: precioPromo2Lavados(data.precios),
     cuponPrevio,
     precioConDescuento,
     quickAdd,

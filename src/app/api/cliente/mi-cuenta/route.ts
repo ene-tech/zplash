@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { citaServicios, citas, cupones, ingresos, precios, servicios, suscripcionesOneclick, ventas } from "@/db/schema";
+import { citaServicios, citas, clientes, cupones, ingresos, precios, servicios, suscripcionesOneclick, ventas } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { aceptoPoliticas, getClientesByIds } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
 import { cuponFromRow } from "@/lib/dataAccess/cupones";
 import { preciosFromRows } from "@/lib/dataAccess/precios";
 import {
+  PROMO_2_LAVADOS_KEY,
   beneficioCupon,
   calcularOfertasPlan,
   estadoCupon,
@@ -32,11 +33,29 @@ const LIMITE_COMPRAS = 20;
 // tickets y cupones" (ver /agregar-cupon). Se sirven desde acá y no desde el
 // /api/empresa/tickets público justamente para poder mostrar el beneficio: ese
 // endpoint se consulta por RUT/email sin sesión y a propósito no expone `valor`.
-async function cuponesDeLaCuenta(email: string) {
+//
+// También los tickets de la Promo 2 Lavados de alguna patente de la cuenta:
+// comprados con Boleta no traen correo (ver retorno de Webpay) y los del mesón
+// solo si la ficha lo tenía — igual son de este cliente, van atados a su auto.
+// Solo ese lote a propósito: un Pack de Tickets con flota también autoriza
+// patentes, pero esos tickets son de la empresa que los compró (se ven por su
+// correo/RUT), no de cada chofer.
+//
+// Las patentes se resuelven en el mismo SQL desde los ids de la sesión, para
+// no tener que esperar a getClientesByIds antes de lanzar esta consulta (las
+// tres del GET siguen saliendo en paralelo).
+async function cuponesDeLaCuenta(email: string, clienteIds: string[]) {
+  const porEmail = sql`lower(${cupones.email}) = ${email.trim().toLowerCase()}`;
+  const porPatente = clienteIds.length
+    ? and(
+        eq(cupones.nombreLote, PROMO_2_LAVADOS_KEY),
+        sql`jsonb_exists_any(${cupones.patentesAutorizadas}, ARRAY(SELECT ${clientes.patente} FROM ${clientes} WHERE ${inArray(clientes.id, clienteIds)}))`
+      )
+    : undefined;
   const filas = await getDb()
     .select()
     .from(cupones)
-    .where(sql`lower(${cupones.email}) = ${email.trim().toLowerCase()}`)
+    .where(porPatente ? or(porEmail, porPatente) : porEmail)
     .orderBy(desc(cupones.creadoEn));
   return filas.map(cuponFromRow).map((c) => ({
     codigo: c.codigo,
@@ -63,7 +82,7 @@ export async function GET() {
   const [clientesEncontrados, politicasOk, cuponesCuenta] = await Promise.all([
     getClientesByIds(sesion.clienteIds),
     aceptoPoliticas(sesion.email),
-    cuponesDeLaCuenta(sesion.email),
+    cuponesDeLaCuenta(sesion.email, sesion.clienteIds),
   ]);
   const patentes = clientesEncontrados.map((c) => c.patente);
   if (!patentes.length) {

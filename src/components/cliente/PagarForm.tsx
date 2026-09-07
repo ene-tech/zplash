@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import Link from "next/link";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
 import VolverBoton from "@/components/cliente/VolverBoton";
 import type { PreciosPublicos } from "@/components/cliente/types";
@@ -8,15 +9,24 @@ import { usePagarForm } from "@/components/cliente/pagarForm/usePagarForm";
 import { PagoUnicoCard } from "@/components/cliente/pagarForm/PagoUnicoCard";
 import { ResultadoBusqueda } from "@/components/cliente/pagarForm/ResultadoBusqueda";
 import { ServicioDocumentoCard } from "@/components/cliente/pagarForm/ServicioDocumentoCard";
-import { fmtCLP } from "@/lib/helpers";
+import { fmtCLP, normPlate } from "@/lib/helpers";
 
 export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const r = usePagarForm();
-  // lavado_unico/aspirado ya piden su propia patente arriba en PagoUnicoCard
-  // (que además cobra directo, sin pasar por "Buscar"): el panel genérico de
-  // abajo sería un segundo campo de patente redundante para ese flujo.
-  const esPagoUnico = r.item === "lavado_unico" || r.item === "aspirado";
+  const promo = precios.promo2Lavados;
+  // Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY): precio 0 = apagada, y un link
+  // viejo con ?item=promo_2_lavados cae al panel genérico de abajo.
+  const hayPromo = promo.precio > 0;
+  // lavado_unico/aspirado/promo ya piden su propia patente arriba en
+  // PagoUnicoCard (que además cobra directo, sin pasar por "Buscar"): el panel
+  // genérico de abajo sería un segundo campo de patente redundante para ese flujo.
+  const esPagoUnico = r.item === "lavado_unico" || r.item === "aspirado" || (r.item === "promo_2_lavados" && hayPromo);
+  // La promo se ofrece a quien no tiene plan al día (vencido o sin plan, los
+  // dos son "bad" en planStatus) o a la patente que no está registrada: al
+  // cliente con plan vigente no le sirve.
+  const ofrecerPromo = hayPromo && !!r.resultado && (!r.resultado.encontrado || r.resultado.estado?.cls === "bad");
+  const nombrePromo = `Promo ${promo.lavados} Lavados Full Tunnel`;
 
   return (
     <div className="content" style={{ maxWidth: 640 }}>
@@ -60,6 +70,20 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
         />
       )}
 
+      {r.item === "promo_2_lavados" && hayPromo && (
+        <PagoUnicoCard
+          icono="🎟️"
+          titulo={`${nombrePromo} · para un auto, ${promo.vigenciaDias} días`}
+          precio={promo.precio}
+          tipo="promo_2_lavados"
+          patente={r.patente}
+          setPatente={r.setPatente}
+          err={r.err}
+          pagando={r.pagando}
+          onPagar={(tipo, datosDocumento) => r.pagar(tipo, undefined, undefined, datosDocumento)}
+        />
+      )}
+
       {!esPagoUnico && (
         <>
           <div className="scan-panel">
@@ -88,6 +112,30 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
             inscribiendo={r.inscribiendo}
             activarAutomatica={r.activarAutomatica}
           />
+
+          {ofrecerPromo && (
+            <div className="card" style={{ marginTop: 16 }}>
+              <p style={{ color: "var(--gray)", fontSize: 13.5, marginBottom: 6 }}>Promoción</p>
+              <h3 style={{ marginBottom: 6 }}>
+                🎟️ {promo.lavados} lavados Full Tunnel por {fmtCLP(promo.precio)}
+              </h3>
+              <p style={{ color: "var(--gray)", fontSize: 13.5, marginBottom: 12 }}>
+                Para la patente <span className="plate-tag">{normPlate(r.patente)}</span>, a usar dentro de {promo.vigenciaDias}{" "}
+                días. Quedan como tickets en tu cuenta: en el local basta con dar la patente.
+              </p>
+              {/* Un solo camino de compra: el mismo PagoUnicoCard de arriba
+                  (?item=), con la patente ya buscada. `item` sale de
+                  useSearchParams, así que el cambio de query lo muestra sin
+                  recargar. */}
+              <Link
+                href={`/pagar?item=promo_2_lavados&patente=${encodeURIComponent(normPlate(r.patente))}`}
+                className="btn"
+                style={{ marginTop: 0, textDecoration: "none" }}
+              >
+                Comprar la promo
+              </Link>
+            </div>
+          )}
         </>
       )}
 

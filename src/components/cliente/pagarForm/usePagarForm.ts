@@ -36,7 +36,7 @@ export interface EstadoPlan {
 
 // El plan NO está acá: solo se paga inscribiendo la tarjeta (ver
 // activarAutomatica), nunca por Webpay.
-export type TipoPago = "servicio" | "lavado_unico" | "aspirado";
+export type TipoPago = "servicio" | "lavado_unico" | "aspirado" | "promo_2_lavados";
 export type AccionServicio = { id: string; nombre: string; precio: number };
 
 // Datos de boleta/factura que junta PagoUnicoCard antes de cobrar (ver
