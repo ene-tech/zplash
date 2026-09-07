@@ -45,7 +45,11 @@ const CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["nombre"
 // Ese segundo efecto ya no ocurre (commit() aborta el resto de la escritura
 // si el cliente no se guardó, ver AppContext.commit), pero la excepción sigue
 // siendo necesaria para que la venta de plan se pueda guardar de una.
-const CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["plan", "ilimitadoHasta", "vencimiento", "ultimaRenovacion"]);
+// fechaContratacion: el ancla del ciclo se mueve a hoy cuando el ciclo no se
+// ancla al vencimiento (ver renovarPlan en @/lib/logic/ingresos y
+// cicloPlanDesde); sin ella acá, contratar/reactivar a un vencido caía en
+// "sin conexión" para todo operador (7-sep-2026).
+const CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["plan", "ilimitadoHasta", "vencimiento", "ultimaRenovacion", "fechaContratacion"]);
 
 // Antes, upsertClientes exigía solo tieneSesionValida(): cualquier perfil
 // logueado podía guardar un cliente. Al agregar el gate de tieneModulo
