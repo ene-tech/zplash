@@ -400,6 +400,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
+    // cupones se resuelve y espera ANTES de tocar ingresos (ver comentario en
+    // commitCupones, @/context/commit/cupones): ingresos.cuponCodigo tiene FK
+    // a cupones.codigo y la Promo 2 Lavados emite los tickets y canjea el
+    // primero en el mismo commit. Sin este await, el insert del ingreso salía
+    // antes que el de los cupones y la FK lo rechazaba: venta y tickets
+    // quedaban grabados, el ingreso no, y el operador veía "no se pudo
+    // guardar" (las 9 promos vendidas el 7 y 8-sep-2026).
+    const { ok: cuponesOk, auditoria: auditoriaCupones } = await commitCupones(previous.cupones, patch.cupones, usuario);
+    auditoria.push(...auditoriaCupones);
+
     agregar(commitIngresos(previous.ingresos, patch.ingresos, usuario));
 
     // citas se resuelve y espera ANTES de tocar ventas (ver comentario en
@@ -410,7 +420,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     agregar(commitVentas(previous.ventas, patch.ventas, usuario));
     agregar(commitPerfiles(previous.perfiles, patch.perfiles));
-    agregar(commitCupones(previous.cupones, patch.cupones, usuario));
     agregar(commitMovimientosContables(previous.movimientosContables, patch.movimientosContables, usuario));
     agregar(commitCategoriasGasto(previous.categoriasGasto, patch.categoriasGasto));
     agregar(commitCategoriasIngreso(previous.categoriasIngreso, patch.categoriasIngreso));
@@ -458,7 +467,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error("No se pudo guardar: posible falla de red", err);
       results = [false];
     }
-    const ok = citasOk && results.every(Boolean);
+    const ok = cuponesOk && citasOk && results.every(Boolean);
     setStorageReady(ok);
     if (!ok) {
       console.error("No se pudo guardar toda la información en el almacenamiento persistente");
