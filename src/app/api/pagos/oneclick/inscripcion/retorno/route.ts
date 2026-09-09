@@ -127,6 +127,15 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   // ¿El plan venía vencido? Se mira ANTES de cobrar, porque el cobro de acá
   // abajo es justamente lo que lo reactiva (ver aplicarPagoAprobado).
   const veniaVencido = !!cliente && diasVencido(cliente) !== null;
+  // Sin plan vigente = vencido O nunca contratado. Es la MISMA condición con
+  // la que calcularOfertasPlan arma el upgrade (`st.cls === "bad"`), y por eso
+  // manda acá en vez de `veniaVencido`: el cliente de lavado único que nunca
+  // tuvo plan tiene `vencimiento` null, así que diasVencido() le devuelve null
+  // y quedaba fuera. Con eso, apretar "Upgrade a plan (+$X)" en Mi Cuenta sin
+  // tarjeta guardada lo mandaba a inscribir una y este retorno le cobraba el
+  // precio completo de la renovación automática vía cobrarSuscripcion, no el
+  // adicional que la pantalla le prometió — y su plan quedaba anclado a hoy en
+  // vez de a la fecha del lavado (ver aplicarUpgradePlan).
 
   // Promoción que le calza a esta patente (ver promoPrimerCobroOneclick): el
   // cliente que llega sin plan vigente e inscribe su tarjeta entra pagando ese
