@@ -23,9 +23,10 @@ select plan, normal, promo from precios where plan ilike 'Plan%' or plan ilike '
 select tramos_reactivacion_vencido from config;
 
 -- 1) Oneclick a 19.990: el que inscribe tarjeta paga lo mismo que el que
---    renueva a tiempo en el mesón. Cambia el próximo cobro de ~124
---    suscripciones activas sin precio heredado (las ~50 con heredado ya
+--    renueva a tiempo en el mesón. Cambia el próximo cobro de 141
+--    suscripciones activas sin precio heredado (las 50 con heredado ya
 --    pagaban 19.990). No toca ninguna venta pasada. Responde "UPDATE 1".
+--    Recontado el 9-sep-2026: 191 activas, 141 sin heredado.
 update precios set normal = 19990 where plan = 'Plan X5 (Renovación Automática)';
 
 -- 2) Muere la lista de 24.990: el precio normal del X5 pasa a ser el de
@@ -51,16 +52,32 @@ delete from precios where plan in (
   'Upgrade a Plan Ilimitado'
 );
 
--- 5) Precio heredado: 187 clientes tienen 19.990 congelado (140 al día). Con
---    los pasos 1 y 2, renovar a tiempo o por Oneclick ya vale 19.990 para
---    todos, así que el heredado no descuenta nada... salvo al que deja vencer
---    el plan fuera de gracia: hoy paga 19.990 en vez de 21.990. Ponerlo en
---    null es lo que hace real la regla "vencido paga entrada". Primero se
---    guarda una copia (tabla bak_precio_plan_heredado_2026_09) para poder
---    deshacer. Responde "SELECT 187" y luego "UPDATE 187".
-create table if not exists bak_precio_plan_heredado_2026_09 as
-  select id, precio_plan_heredado from clientes where precio_plan_heredado is not null;
-update clientes set precio_plan_heredado = null where precio_plan_heredado is not null;
+-- 5) NO CORRER. Estaba acá para borrarle el precio heredado a los 187 clientes
+--    que lo tienen en 19.990, con el argumento de que sin eso "el vencido
+--    fuera de gracia sigue pagando 19.990 en vez de 21.990". Ese argumento es
+--    falso y quedó verificado el 9-sep-2026 leyendo los seis caminos que
+--    consultan precioConHeredado:
+--
+--    - precioPagoAtrasado FUERA de gracia devuelve precioNormal DIRECTO
+--      (precios.ts:462), sin pasar por precioConHeredado. O sea que el vencido
+--      ya paga 21.990 después del paso 2, tenga o no heredado. Ese era el
+--      único caso que este paso decía arreglar.
+--    - precioRenovacionATiempo, cobrarSuscripcion, precioRenovacionLocal (con
+--      tramos en {}) y contratacion.mensual comparan el heredado contra 19.990
+--      después de los pasos 1 y 2. Como el heredado ES 19.990, la condición
+--      `heredado < precioVigente` da falso y devuelven 19.990 igual.
+--    - El único lugar donde el heredado todavía muerde es precios.ts:440, y
+--      pide `vencimiento` nulo. De los 187, cero lo tienen.
+--
+--    Correrlo entonces toca 187 filas para no cambiar ni un precio, y de paso
+--    tira el dato de quién tenía la tarifa congelada — que es justo lo que los
+--    protege si el día de mañana el 19.990 vuelve a subir.
+--
+--    Si igual se decide borrarlo (por ejemplo al subir el precio base, donde
+--    sí pasaría a descontar), va con respaldo:
+-- create table if not exists bak_precio_plan_heredado_2026_09 as
+--   select id, precio_plan_heredado from clientes where precio_plan_heredado is not null;
+-- update clientes set precio_plan_heredado = null where precio_plan_heredado is not null;
 
 -- 6) Verificación: tiene que quedar exactamente esto.
 select plan, normal, promo from precios where plan ilike 'Plan%' order by plan;
@@ -68,10 +85,11 @@ select plan, normal, promo from precios where plan ilike 'Plan%' order by plan;
 --   Plan X5 (1ra contratación)         21990 / 0
 --   Plan X5 (Renovación Automática)    19990 / 0
 select tramos_reactivacion_vencido, tramos_renovacion_local from config;   -- {} y {}
-select count(*) from clientes where precio_plan_heredado is not null;      -- 0
+select count(*) from clientes where precio_plan_heredado is not null;      -- 187, intacto (ver paso 5)
 
 -- ---------------------------------------------------------------------------
 -- DESHACER (solo si hace falta; pegar en este orden)
+-- La primera línea solo aplica si se corrió el paso 5, que por defecto no va.
 -- ---------------------------------------------------------------------------
 -- update clientes c set precio_plan_heredado = b.precio_plan_heredado
 --   from bak_precio_plan_heredado_2026_09 b where b.id = c.id;
