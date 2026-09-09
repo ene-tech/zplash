@@ -203,6 +203,11 @@ export function usePlanActions(
   };
 
   const contratarPlan = (cliente: Cliente = c) => {
+    // Lavado único pagado dentro de la ventana de upgrade: el precio es el
+    // adicional, aunque el operador apriete "Contratar" en vez de la tarjeta
+    // de upgrade. Medido sep-2026: 16 de 66 upgrades se cobraron completos por
+    // elegir el botón equivocado. Misma venta, mismo ciclo anclado al lavado.
+    if (ventaUpgrade && cliente.id === c.id) return upgradeAPlan(cliente);
     if (faltanDatosContactoPlan(cliente)) {
       setGuardarErr(MSG_FALTAN_DATOS_CONTACTO_PLAN);
       return;
