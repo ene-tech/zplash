@@ -5,8 +5,6 @@ import PriceInput from "@/components/PriceInput";
 import { useAppData } from "@/context/AppContext";
 import {
   PLANES,
-  PLAN_ILIMITADO_LEGACY,
-  fmtCLP,
   keyPrimeraContratacion,
   precioNormal,
   precioPreferencial,
@@ -148,24 +146,6 @@ export default function PlanesSection() {
           </div>
         </div>
       ))}
-
-      {/* Los precios del ilimitado viejo siguen guardados en `precios` pero ya
-          no los cobra nadie (planVendible cotiza todo al plan de arriba). Se
-          muestran para que ningún valor que exista en la base quede invisible
-          acá y se lea como vigente — de solo lectura a propósito: un input
-          sería una perilla que no mueve ningún precio ofrecido.
-          ponytail: solo esta fila muerta; si aparecen más, listarlas desde las
-          claves de `precios` que ninguna sección de Configuración edita. */}
-      <div className="field" style={{ margin: 0 }}>
-        <label>{PLAN_ILIMITADO_LEGACY} (histórico) — ya no se cobra</label>
-        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13 }}>
-          Quedan guardados {fmtCLP(precioNormal(data.precios, PLAN_ILIMITADO_LEGACY))} de precio normal y{" "}
-          {fmtCLP(precioPreferencial(data.precios, PLAN_ILIMITADO_LEGACY))} de preferencial de cuando se vendía este
-          plan, pero no se le cobran a nadie: los clientes que todavía lo tienen renuevan, reactivan y contratan con los
-          precios de {PLANES[0]} de arriba (su plan sin tope se les respeta hasta que termine el mes que ya pagaron, el
-          precio no). Por eso no se editan acá: el valor que rige es el de arriba.
-        </div>
-      </div>
 
       <SaveBar saving={guardando} msg={msg} onSave={guardar} label="Guardar precios" />
     </ConfigSection>
