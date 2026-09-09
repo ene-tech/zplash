@@ -2399,9 +2399,11 @@ describe("patentesQueRecibenTarjeta / tieneTarjetaViva", () => {
     expect(estadoRenovacion({ origen: "WEB", renovacionAutoWooDesde: null }, "cancelada").label).toBe("Cancelada");
   });
 
-  it("solo activa y suspendida cuentan como tarjeta guardada", () => {
+  it("activa, suspendida y pausada por el X5 cuentan como tarjeta guardada", () => {
     expect(tieneTarjetaViva("activa")).toBe(true);
     expect(tieneTarjetaViva("suspendida")).toBe(true);
+    // La pausó el candado del X5: la tarjeta sigue inscrita en Transbank.
+    expect(tieneTarjetaViva("pausada_validacion_x5")).toBe(true);
     expect(tieneTarjetaViva("pendiente")).toBe(false);
     expect(tieneTarjetaViva("pendiente_solo_tarjeta")).toBe(false);
     expect(tieneTarjetaViva("cancelada")).toBe(false);

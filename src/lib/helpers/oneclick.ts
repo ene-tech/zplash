@@ -1,9 +1,15 @@
 /** Estados de `suscripciones_oneclick` en que la patente tiene una tarjeta de
- * verdad guardada: "activa" cobra sola y "suspendida" sigue inscrita en
- * Transbank aunque el cron la saltee. Los "pendiente*" son inscripciones a
- * medio camino y "cancelada" ya no existe del lado de Transbank. */
+ * verdad guardada: "activa" cobra sola, "suspendida" sigue inscrita en
+ * Transbank aunque el cron la saltee, y "pausada_validacion_x5" es una activa
+ * que el cron dejó esperando a que el cliente acepte el X5 (ver
+ * cobrarSuscripcion): la tarjeta está, solo falta el sí. Los "pendiente*" son
+ * inscripciones a medio camino y "cancelada" ya no existe del lado de
+ * Transbank. La lista se exporta para los `inArray` de las consultas; la
+ * función es lo mismo sobre una fila ya leída. */
+export const ESTADOS_TARJETA_VIVA = ["activa", "suspendida", "pausada_validacion_x5"];
+
 export function tieneTarjetaViva(estado: string | null | undefined): boolean {
-  return estado === "activa" || estado === "suspendida";
+  return !!estado && ESTADOS_TARJETA_VIVA.includes(estado);
 }
 
 /**

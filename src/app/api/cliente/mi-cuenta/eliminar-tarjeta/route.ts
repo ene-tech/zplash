@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { suscripcionesOneclick } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
-import { normPlate } from "@/lib/helpers";
+import { normPlate, tieneTarjetaViva } from "@/lib/helpers";
 import { cancelarSuscripcionOneclick } from "@/lib/dataAccess/oneclick";
 import { evaluarReglasCorreoPorSuscripcionCancelada } from "@/lib/mailing/reglas";
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
   const db = getDb();
   const [suscripcion] = await db.select().from(suscripcionesOneclick).where(eq(suscripcionesOneclick.patente, patente)).limit(1);
-  if (!suscripcion || (suscripcion.estado !== "activa" && suscripcion.estado !== "suspendida")) {
+  if (!suscripcion || !tieneTarjetaViva(suscripcion.estado)) {
     return NextResponse.json({ ok: false, error: "No tienes una tarjeta guardada para ese vehículo" }, { status: 404 });
   }
 

@@ -6,7 +6,7 @@ import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { insertAuditoria } from "@/lib/dataAccess/auditoria";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
 import { cancelarSuscripcionOneclick } from "@/lib/dataAccess/oneclick";
-import { normPlate, sigueVigenteHoy } from "@/lib/helpers";
+import { ESTADOS_TARJETA_VIVA, normPlate, sigueVigenteHoy } from "@/lib/helpers";
 import { WHATSAPP_SUSCRIPCIONES } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
   const suscripciones = await db
     .select({ id: suscripcionesOneclick.id, estado: suscripcionesOneclick.estado })
     .from(suscripcionesOneclick)
-    .where(and(eq(suscripcionesOneclick.patente, objetivo.patente), inArray(suscripcionesOneclick.estado, ["activa", "suspendida"])));
+    .where(and(eq(suscripcionesOneclick.patente, objetivo.patente), inArray(suscripcionesOneclick.estado, ESTADOS_TARJETA_VIVA)));
 
   // Cliente que todavía renueva por WooCommerce Subscriptions: acá solo se
   // cancela Oneclick, así que borrarle el plan lo dejaría "Sin plan" mientras

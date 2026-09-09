@@ -3,7 +3,7 @@ import "server-only";
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, suscripcionesOneclick } from "@/db/schema";
-import { tieneTarjetaViva, uid } from "@/lib/helpers";
+import { ESTADOS_TARJETA_VIVA, tieneTarjetaViva, uid } from "@/lib/helpers";
 import { oneclickInscription } from "@/lib/transbank";
 
 export interface SuscripcionOneclickInfo {
@@ -182,7 +182,7 @@ export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> 
           and(
             eq(suscripcionesOneclick.tbkUser, suscripcion.tbkUser),
             ne(suscripcionesOneclick.id, id),
-            inArray(suscripcionesOneclick.estado, ["activa", "suspendida"])
+            inArray(suscripcionesOneclick.estado, ESTADOS_TARJETA_VIVA)
           )
         )
     : [];

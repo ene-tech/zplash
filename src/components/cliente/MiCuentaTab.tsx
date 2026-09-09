@@ -142,9 +142,13 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
         // 260px ese texto se trunca demasiado agresivo en pantallas medianas/anchas.
         <div className="card-grid" style={{ marginBottom: 26, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
           {sesion.vehiculos.map((v) => {
-            // Solo "activa" es cobrable directo (ver cobrarOfertaOneclick): una
-            // tarjeta "suspendida" sigue guardada pero el cron tampoco la cobra.
-            const tarjetaActiva = tarjetas.find((t) => t.patente === v.patente && t.estado === "activa");
+            // "activa" es cobrable directo (ver cobrarOfertaOneclick), y la
+            // pausada por el candado del X5 también: /cobrar-oferta registra la
+            // aceptación antes de cobrar y eso la vuelve a activar (ver
+            // registrarAceptacionX5). Sin esto el cliente con la tarjeta ya
+            // guardada iba a Transbank a digitarla de nuevo. Una "suspendida"
+            // sigue guardada pero el cron tampoco la cobra.
+            const tarjetaActiva = tarjetas.find((t) => t.patente === v.patente && (t.estado === "activa" || t.estado === "pausada_validacion_x5"));
             return (
               <VehiculoCard
                 key={v.patente}
@@ -207,7 +211,13 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span className="plate-tag">{t.patente}</span>
                 <span className={`status-pill ${t.estado === "activa" ? "ok" : "warn"}`}>
-                  {t.estado === "suspendida" ? "Suspendida" : t.proximoCobro ? "Renovación automática activa" : "Activa"}
+                  {t.estado === "suspendida"
+                    ? "Suspendida"
+                    : t.estado === "pausada_validacion_x5"
+                      ? "En pausa: falta aceptar el Plan X5"
+                      : t.proximoCobro
+                        ? "Renovación automática activa"
+                        : "Activa"}
                 </span>
               </div>
               <div className="plan-nombre">

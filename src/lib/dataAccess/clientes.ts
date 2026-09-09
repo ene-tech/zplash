@@ -4,7 +4,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, politicasAceptadas, suscripcionesOneclick, ventas } from "@/db/schema";
 import { POLITICAS_VERSION } from "@/lib/politicas";
-import { sigueVigenteHoy, uid } from "@/lib/helpers";
+import { ESTADOS_TARJETA_VIVA, sigueVigenteHoy, uid } from "@/lib/helpers";
 import type { Cliente, ClientePatch } from "@/types";
 import { insertAuditoria } from "./auditoria";
 import { upsertRows } from "./shared";
@@ -247,15 +247,34 @@ export async function registrarAceptacionX5(id: string): Promise<boolean> {
       .update(clientes)
       .set({ aceptoX5En: new Date().toISOString() })
       .where(and(eq(clientes.id, id), isNull(clientes.aceptoX5En)));
-    await db
-      .update(suscripcionesOneclick)
-      .set({ estado: "activa", actualizadoEn: new Date().toISOString() })
-      .where(and(eq(suscripcionesOneclick.patente, cliente.patente), eq(suscripcionesOneclick.estado, "pausada_validacion_x5")));
+    await despausarValidacionX5(cliente.patente);
     return true;
   } catch (error) {
     console.error("Error registrando la aceptación del paso al X5", id, error);
     return false;
   }
+}
+
+/**
+ * Devuelve a "activa" la suscripción que el candado del X5 había pausado, sin
+ * tocar el consentimiento del cliente. Aparte de registrarAceptacionX5 porque
+ * el candado también se levanta por fuera: renovar en el mesón migra al cliente
+ * al X5 sin pasar por la aceptación, y ahí la suscripción quedaba pausada para
+ * siempre — los tres caminos que cobran exigen "activa"
+ * (obtenerSuscripcionOneclickCobrablePorPatente, cobrarOfertaOneclick), así que
+ * el botón "pagar con mi tarjeta" de Mi Cuenta moría en "no tiene tarjeta
+ * registrada activa". Quien llama tiene que haber verificado que el candado ya
+ * no aplica (requiereValidacionX5 falso), o le saca la pausa a quien todavía no
+ * acepta.
+ *
+ * Solo toca las pausadas por esta razón: una cancelada por el cliente o una
+ * pendiente de inscripción se quedan como están.
+ */
+export async function despausarValidacionX5(patente: string): Promise<void> {
+  await getDb()
+    .update(suscripcionesOneclick)
+    .set({ estado: "activa", actualizadoEn: new Date().toISOString() })
+    .where(and(eq(suscripcionesOneclick.patente, patente), eq(suscripcionesOneclick.estado, "pausada_validacion_x5")));
 }
 
 export async function actualizarPatentePendiente(id: string, patentePendiente: string | null): Promise<boolean> {
@@ -352,7 +371,7 @@ export async function vincularPatenteACuenta(
       const [tarjetaViva] = await tx
         .select({ id: suscripcionesOneclick.id })
         .from(suscripcionesOneclick)
-        .where(and(eq(suscripcionesOneclick.patente, patente), inArray(suscripcionesOneclick.estado, ["activa", "suspendida"])))
+        .where(and(eq(suscripcionesOneclick.patente, patente), inArray(suscripcionesOneclick.estado, ESTADOS_TARJETA_VIVA)))
         .limit(1);
       const [ventaPrevia] = await tx.select({ id: ventas.id }).from(ventas).where(eq(ventas.clienteId, existente.id)).limit(1);
       huerfana = !tarjetaViva && !ventaPrevia;

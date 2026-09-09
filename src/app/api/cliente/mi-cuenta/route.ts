@@ -8,6 +8,7 @@ import { getConfig } from "@/lib/dataAccess/config";
 import { cuponFromRow } from "@/lib/dataAccess/cupones";
 import { preciosFromRows } from "@/lib/dataAccess/precios";
 import {
+  ESTADOS_TARJETA_VIVA,
   PROMO_2_LAVADOS_KEY,
   beneficioCupon,
   calcularOfertasPlan,
@@ -122,7 +123,7 @@ export async function GET() {
     db
       .select()
       .from(suscripcionesOneclick)
-      .where(and(inArray(suscripcionesOneclick.patente, patentes), inArray(suscripcionesOneclick.estado, ["activa", "suspendida"]))),
+      .where(and(inArray(suscripcionesOneclick.patente, patentes), inArray(suscripcionesOneclick.estado, ESTADOS_TARJETA_VIVA))),
     // A diferencia de comprasRows (recortado a LIMITE_COMPRAS y solo para
     // mostrar el historial), estas dos van completas y por clienteId — las
     // usa calcularOfertasPlan más abajo para las promociones de plan (ver

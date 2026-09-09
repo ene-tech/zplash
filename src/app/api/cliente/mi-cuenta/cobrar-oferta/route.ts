@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isValidPatente, normPlate, requiereValidacionX5 } from "@/lib/helpers";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
-import { buscarClientePorPatente, registrarAceptacionX5 } from "@/lib/dataAccess/clientes";
+import { buscarClientePorPatente, despausarValidacionX5, registrarAceptacionX5 } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { obtenerSuscripcionOneclickCobrablePorPatente } from "@/lib/dataAccess/oneclick";
 import { cobrarOfertaOneclick, cobrarSuscripcion, otorgarTicketReactivacion, type TipoOfertaCuenta } from "@/lib/pagos";
@@ -67,6 +67,15 @@ export async function POST(request: NextRequest) {
     // click de nadie, y por eso es el único camino que queda bloqueado.
     if (requiereValidacionX5(cliente)) {
       await registrarAceptacionX5(cliente.id);
+    } else {
+      // El candado ya no aplica pero la suscripción puede haber quedado
+      // pausada igual: renovar en el mesón migra al cliente al X5 sin pasar
+      // por la aceptación. Sin esto, Mi Cuenta le muestra el botón "pagar con
+      // mi tarjeta" (ver MiCuentaTab, que cuenta la pausada como tarjeta
+      // guardada) y el cobro lo rechaza por estado — los dos caminos de abajo
+      // exigen "activa". Mismo rescate que hace el cron en
+      // /api/pagos/oneclick/cobrar.
+      await despausarValidacionX5(cliente.patente);
     }
 
     // Contratar el plan contra la tarjeta que el cliente YA tiene guardada.
