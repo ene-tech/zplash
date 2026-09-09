@@ -149,6 +149,10 @@ export async function aplicarPagoAprobado(
         id: clienteId,
         nombre: "Cliente Web",
         patente: p.patente,
+        // El correo del checkout/suscripción queda también en la ficha: es el
+        // único dato de contacto que el flujo web pide, y sin esto la ficha
+        // nacía vacía aunque el dato existiera (ver suscripcionesOneclick.email).
+        email: p.email || null,
         origen: "WEB",
         visitas: 0,
         creadoEn: new Date().toISOString(),
@@ -201,6 +205,11 @@ export async function aplicarPagoAprobado(
         patente: fila.patente ?? anterior.patente,
         patentePendiente: fila.patentePendiente || null,
         patentePendienteDesde: fila.patentePendienteDesde || null,
+        // Solo rellena el hueco, nunca pisa: el correo de la ficha lo puede
+        // haber escrito el operador y ese manda sobre el del checkout. Va acá
+        // además de en los dos insert de abajo porque la ficha que ya existe es
+        // justo la que puede llevar años sin dato de contacto.
+        ...(anterior.email ? {} : { email: p.email || null }),
         vencimiento: nuevoVencimiento,
         // Reiniciar el ciclo mueve también la contratación: es el ancla con
         // que periodoPlan cuenta las pasadas incluidas (ver anclaCicloPlan) y
@@ -237,6 +246,8 @@ export async function aplicarPagoAprobado(
       id: clienteId,
       nombre: "Cliente Web",
       patente: p.patente,
+      // Mismo criterio que la rama de arriba: el correo del checkout va a la ficha.
+      email: p.email || null,
       plan: PLANES[0],
       vencimiento: vencimientoResultante,
       fechaContratacion: new Date().toISOString(),

@@ -176,6 +176,9 @@ export async function cobrarSuscripcion(
                 esServicioAdicional: false,
                 tipoVentaNuevo: "Renovación automática (Oneclick)",
                 tipoVentaExistente: "Renovación automática (Oneclick)",
+                // El correo con que se inscribió la tarjeta: si este cobro crea
+                // la ficha (primer cobro de una patente nueva), queda de contacto.
+                email: suscripcion.email,
                 cuponCodigo: aplicaCupon ? cupon?.codigo : undefined,
               },
               tx2

@@ -154,6 +154,9 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
                   esServicioAdicional: false,
                   tipoVentaNuevo: TIPO_VENTA_ONECLICK[tipo],
                   tipoVentaExistente: TIPO_VENTA_ONECLICK[tipo],
+                  // Mismo criterio que cobrarSuscripcion: si el cobro crea la
+                  // ficha, hereda el correo de la suscripción.
+                  email: suscripcion.email,
                   reiniciarCiclo: tipo === "reactivacion",
                   cuponCodigo: cupon?.codigo,
                 },
