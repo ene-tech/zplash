@@ -1307,13 +1307,13 @@ describe("ofertaConCupon", () => {
     expect(o.pagoVencido?.precio).toBe(19990);
   });
 
-  it("de la contratación solo rebaja el primer cobro: el mensual y el lavado suelto no llevan cupón", () => {
-    // El cupón es de un uso y se quema en ese primer cobro (ver
-    // cobrarSuscripcion), y /api/pagos/webpay/crear no lo resta de un lavado
-    // suelto — si acá se restara de los tres, la tarjeta anunciaría dos
-    // precios que nadie va a cobrar.
+  it("de la contratación rebaja el primer cobro y el lavado suelto, nunca el mensual", () => {
+    // Primer cobro y lavado suelto son alternativas: el cupón es de un uso y
+    // lo quema el que se pague primero (ver /api/pagos/webpay/crear y
+    // cobrarSuscripcion). El mensual queda a precio de lista: cuando el cron
+    // cobre el mes 2, el cupón ya se quemó.
     const o = ofertaConCupon({ contratacion: { primerCobro: 20990, mensual: 20990, lavadoUnico: 9990 } }, { valor: 4000, esPorcentaje: false });
-    expect(o.contratacion).toEqual({ primerCobro: 16990, mensual: 20990, lavadoUnico: 9990 });
+    expect(o.contratacion).toEqual({ primerCobro: 16990, mensual: 20990, lavadoUnico: 5990 });
   });
 
   it("sin cupón devuelve la misma oferta", () => {

@@ -12,8 +12,8 @@ export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "upgrade_p
 // inscrita, nunca por Webpay.
 // "lavado_unico" es la alternativa sin compromiso de la tarjeta de contratación
 // (ver OfertaPlan.contratacion): un lavado suelto se paga por Webpay como
-// cualquier ítem de /pagar, y a propósito NO lleva el cupón de descuento de la
-// patente — ese es del plan (ver TIPOS_PLAN en /api/pagos/webpay/crear).
+// cualquier ítem de /pagar. El cupón de descuento de la patente también se le
+// resta ahí cuando no hay ítem de plan en la compra (ver /api/pagos/webpay/crear).
 type TipoCobro = TipoOfertaPlan | "renovacion" | "lavado_unico";
 
 export interface TarjetaGuardada {

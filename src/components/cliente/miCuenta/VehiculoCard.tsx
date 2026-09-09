@@ -374,9 +374,10 @@ export function VehiculoCard({
           <button className="btn secondary" onClick={() => pedir("contratacion")} disabled={ocupado}>
             {inscribiendo ? "Redirigiendo..." : `Contratar plan (${fmtCLP(oferta.contratacion.primerCobro)})`}
           </button>
-          {/* Alternativa sin compromiso, por Webpay y sin el cupón (que es del
-              plan, ver ofertaConCupon): pagar un lavado suelto para esta misma
-              patente sin tener que ir a /pagar a tipearla de nuevo. */}
+          {/* Alternativa sin compromiso, por Webpay: pagar un lavado suelto
+              para esta misma patente sin tener que ir a /pagar a tipearla de
+              nuevo. El precio ya viene con el cupón restado (ofertaConCupon),
+              igual que lo cobra /api/pagos/webpay/crear. */}
           <button className="btn ghost" onClick={comprarLavadoUnico} disabled={ocupado}>
             {pagando === "lavado_unico"
               ? "Redirigiendo..."

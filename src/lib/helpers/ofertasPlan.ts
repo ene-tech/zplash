@@ -83,11 +83,16 @@ export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | 
   if (o.reactivacion) o.reactivacion = { ...o.reactivacion, precio: precioConCupon(o.reactivacion.precio, cupon) };
   if (o.upgrade) o.upgrade = { ...o.upgrade, precio: precioConCupon(o.upgrade.precio, cupon) };
   if (o.pagoVencido) o.pagoVencido = { ...o.pagoVencido, precio: precioConCupon(o.pagoVencido.precio, cupon) };
-  // Solo el primer cobro: el cupón es de un uso y se quema ahí (ver
-  // cobrarSuscripcion), así que `mensual` sigue siendo el precio de lista.
-  // `lavadoUnico` tampoco se toca — /api/pagos/webpay/crear resta el cupón
-  // únicamente del ítem de plan (TIPOS_PLAN), nunca de un lavado suelto.
-  if (o.contratacion) o.contratacion = { ...o.contratacion, primerCobro: precioConCupon(o.contratacion.primerCobro, cupon) };
+  // El cupón es de un solo uso: rebaja el primer cobro del plan O el lavado
+  // suelto (lo que el cliente elija pagar primero lo quema — ver
+  // /api/pagos/webpay/crear y cobrarSuscripcion). `mensual` sigue siendo el
+  // precio de lista: cuando el cron cobre el mes 2, el cupón ya no existe.
+  if (o.contratacion)
+    o.contratacion = {
+      ...o.contratacion,
+      primerCobro: precioConCupon(o.contratacion.primerCobro, cupon),
+      lavadoUnico: precioConCupon(o.contratacion.lavadoUnico, cupon),
+    };
   return o;
 }
 

@@ -18,6 +18,7 @@ import {
   precioZonaAspirado,
 } from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
+import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getConfig } from "@/lib/dataAccess/config";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
@@ -71,8 +72,8 @@ interface ItemResuelto extends DatosDocumento {
   servicioId: string | null;
   nombre: string;
   monto: number;
-  // Se llena solo en el ítem de plan al que se le aplicó el cupón de la
-  // patente — viaja hasta /retorno en pagosWebpayItems.cuponCodigo.
+  // Se llena solo en el único ítem (plan o lavado único) al que se le aplicó
+  // el cupón de la patente — viaja hasta /retorno en pagosWebpayItems.cuponCodigo.
   cuponCodigo?: string;
 }
 
@@ -101,6 +102,16 @@ function resolverDocumento(item: BodyItem): { doc: DatosDocumento; error?: strin
     return { doc: SIN_DOCUMENTO, error: "Correo inválido para la factura" };
   }
   return { doc: { tipoDocumento: "Factura", razonSocial, rut: formatRut(rutCrudo), direccion, giro, email } };
+}
+
+// ¿La patente es de la cuenta que mandó el request? La cookie firmada se lee
+// primero porque no pega a la base: el comprador anónimo de /pagar —el caso
+// normal de esta ruta, que es pública— no gasta una consulta de más.
+async function esPatenteDeLaSesion(patente: string): Promise<boolean> {
+  const sesion = await leerSesionCliente();
+  if (!sesion) return false;
+  const cliente = await buscarClientePorPatente(patente);
+  return !!cliente && sesion.clienteIds.includes(cliente.id);
 }
 
 export async function POST(request: NextRequest) {
@@ -193,19 +204,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Cupón de descuento atado a la patente (ver buscarCuponDescuentoPlan): se
-    // resta del ítem de plan de la compra — TIPOS_PLAN + el chequeo de
-    // cantidadPlanes garantizan que hay a lo más uno. A propósito NO se aplica
-    // a lavado_unico/servicio/aspirado: ese mismo cupón ya lo descuenta el
-    // mesón al pasar por el túnel (ver cuponDescuentoVigente en
-    // useOperadorFoundResult), y aplicarlo en los dos lados sería gastarlo dos
-    // veces. Recién se marca usado en /retorno, cuando Transbank confirma:
-    // hasta entonces el cliente todavía puede abandonar el pago.
+    // resta de UN solo ítem — el de plan si lo hay (TIPOS_PLAN + el chequeo de
+    // cantidadPlanes garantizan a lo más uno), si no, el primer lavado único.
+    // Nunca de más de un ítem ni de servicio/aspirado: es el mismo cupón que
+    // descuenta el mesón al pasar por el túnel (ver cuponDescuentoVigente en
+    // useOperadorFoundResult), de un solo uso — acá se resta del monto y recién
+    // se marca usado en /retorno, cuando Transbank confirma: hasta entonces el
+    // cliente todavía puede abandonar el pago (o gastarlo en el local, ver el
+    // log de consumirCupon en aplicarPagoAprobado).
     const indicePlan = items.findIndex((i) => TIPOS_PLAN.has(i.tipo));
-    if (indicePlan >= 0) {
+    let indiceCupon = indicePlan;
+    if (indicePlan < 0) {
+      // El lavado suelto lleva cupón solo si lo compra el dueño desde Mi
+      // Cuenta: esa es la única pantalla que se lo anuncia (ofertaConCupon lo
+      // resta de contratacion.lavadoUnico y VehiculoCard muestra ese número).
+      // En /pagar el precio se pinta antes de que se tipee la patente y no se
+      // vuelve a cotizar (ver PagoUnicoCard), así que restarlo ahí cobraría
+      // menos de lo anunciado y le quemaría en un lavado el cupón que existe
+      // para venderle el plan.
+      // ponytail: el corte es por sesión, no por pantalla. Al cliente con
+      // sesión abierta que igual entra por /pagar le va a cobrar el precio con
+      // cupón mostrándole el de lista. Si eso molesta, que PagoUnicoCard
+      // recotice después de la patente.
+      const indiceLavado = items.findIndex((i) => i.tipo === "lavado_unico");
+      if (indiceLavado >= 0 && (await esPatenteDeLaSesion(patente))) indiceCupon = indiceLavado;
+    }
+    if (indiceCupon >= 0) {
       const cupon = await buscarCuponDescuentoPlan(patente, db);
       if (cupon) {
-        items[indicePlan].monto = precioConCupon(items[indicePlan].monto, cupon);
-        items[indicePlan].cuponCodigo = cupon.codigo;
+        items[indiceCupon].monto = precioConCupon(items[indiceCupon].monto, cupon);
+        items[indiceCupon].cuponCodigo = cupon.codigo;
       }
     }
 
