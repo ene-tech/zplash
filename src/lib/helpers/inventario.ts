@@ -38,6 +38,18 @@ export function productoPermitidoEnDestino(
   return destino.esBodega || !producto.destinosBloqueados?.includes(destino.id);
 }
 
+/** Margen unitario de un Producto, con la misma convención de la planilla de
+ * compras: `valorCompra` es el costo neto (sin IVA) y `valorVenta` es el
+ * precio público bruto (IVA 19% incluido). Margen $ = venta neta − costo;
+ * margen % sobre la venta neta. null si el producto aún no tiene precio de
+ * venta asignado (valorVenta 0) — la UI muestra "-". */
+export function margenProducto(p: Pick<Producto, "valorCompra" | "valorVenta">): { unitario: number; pct: number } | null {
+  if (!p.valorVenta) return null;
+  const ventaNeta = Math.round(p.valorVenta / 1.19);
+  const unitario = ventaNeta - p.valorCompra;
+  return { unitario, pct: (unitario / ventaNeta) * 100 };
+}
+
 /** Busca un proveedor del directorio por RUT, comparando RUTs limpios (ver
  * limpiarRut): el RUT guardado y el tipeado pueden venir con o sin puntos,
  * y comparar los textos formateados dejaba fuera coincidencias válidas. Lo

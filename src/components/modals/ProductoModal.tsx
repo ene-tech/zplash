@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import PriceInput from "@/components/PriceInput";
-import { generarCodigoProducto, uid } from "@/lib/helpers";
+import { fmtCLP, generarCodigoProducto, margenProducto, uid } from "@/lib/helpers";
 import type { Producto } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -159,6 +159,14 @@ export default function ProductoModal({ data: prod }: { data: Producto | null })
           <div className="grid gap-1.5">
             <Label>Valor de Venta</Label>
             <PriceInput value={valorVenta} onChange={setValorVenta} />
+            {(() => {
+              const margen = margenProducto({ valorCompra: Number(valorCompra) || 0, valorVenta: Number(valorVenta) || 0 });
+              return margen ? (
+                <p className="text-xs text-muted-foreground">
+                  Margen: {fmtCLP(margen.unitario)} ({margen.pct.toFixed(1)}%) — venta neta (sin IVA) menos costo de compra
+                </p>
+              ) : null;
+            })()}
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="prod-stock">Stock actual</Label>

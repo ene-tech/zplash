@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP } from "@/lib/helpers";
+import { fmtCLP, margenProducto } from "@/lib/helpers";
 import type { Producto } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -120,6 +120,8 @@ export default function ProductosTab() {
               <TableHead>Categoría</TableHead>
               <TableHead>Valor Compra</TableHead>
               <TableHead>Valor Venta</TableHead>
+              <TableHead>Margen</TableHead>
+              <TableHead>Margen %</TableHead>
               <TableHead>Stock</TableHead>
               <TableHead>Stock Mín</TableHead>
               <TableHead>Stock Máx</TableHead>
@@ -132,12 +134,14 @@ export default function ProductosTab() {
           <TableBody>
             {filtrados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={13}>
+                <TableCell colSpan={15}>
                   <div className="empty">No hay productos que coincidan</div>
                 </TableCell>
               </TableRow>
             ) : (
-              filtrados.map((p) => (
+              filtrados.map((p) => {
+                const margen = margenProducto(p);
+                return (
                 <TableRow key={p.id}>
                   <TableCell>{p.codigo}</TableCell>
                   <TableCell>{p.sku}</TableCell>
@@ -145,6 +149,8 @@ export default function ProductosTab() {
                   <TableCell>{categoriaNombre(p.categoriaId)}</TableCell>
                   <TableCell>{fmtCLP(p.valorCompra)}</TableCell>
                   <TableCell>{fmtCLP(p.valorVenta)}</TableCell>
+                  <TableCell>{margen ? fmtCLP(margen.unitario) : "-"}</TableCell>
+                  <TableCell>{margen ? `${margen.pct.toFixed(1)}%` : "-"}</TableCell>
                   <TableCell style={p.stock < p.stockMin ? { color: "var(--red)", fontWeight: 600 } : undefined}>{p.stock}</TableCell>
                   <TableCell>{p.stockMin}</TableCell>
                   <TableCell>{p.stockMax || "-"}</TableCell>
@@ -184,7 +190,8 @@ export default function ProductosTab() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>

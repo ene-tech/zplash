@@ -4,6 +4,7 @@ import {
   mantencionStatus,
   planMantencionStatus,
   buscarProveedorPorRut,
+  margenProducto,
   calcularOfertasPlan,
   PLAN_X5,
   PLAN_ONECLICK_KEY,
@@ -2062,6 +2063,19 @@ describe("buscarProveedorPorRut", () => {
     expect(buscarProveedorPorRut(proveedores, "")).toBeUndefined();
     expect(buscarProveedorPorRut(proveedores, "  ")).toBeUndefined();
     expect(buscarProveedorPorRut(proveedores, "11.111.111-1")).toBeUndefined();
+  });
+});
+
+describe("margenProducto", () => {
+  it("calcula margen neto desde el precio bruto, igual que la planilla del proveedor", () => {
+    // Aromatizador Piña Colada: costo neto 1490, venta pública 2490 (IVA incl.)
+    const margen = margenProducto({ valorCompra: 1490, valorVenta: 2490 })!;
+    expect(margen.unitario).toBe(602);
+    expect(margen.pct).toBeCloseTo(28.8, 1);
+  });
+
+  it("devuelve null si el producto no tiene precio de venta asignado", () => {
+    expect(margenProducto({ valorCompra: 1590, valorVenta: 0 })).toBeNull();
   });
 });
 
