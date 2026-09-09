@@ -49,7 +49,8 @@ function resumenCondicion(r: ReglaCorreo): string {
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
   const soloSinAutopago = r.condicionSoloSinAutopago ? " · solo clientes sin tarjeta inscrita" : "";
   const soloConPromo = r.condicionSoloConPromoRenovacion ? " · solo con promoción de renovación vigente" : "";
-  return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}${soloSinAutopago}${soloConPromo}`;
+  const pasadasCiclo = r.condicionPasadasMax != null ? ` · solo hasta ${r.condicionPasadasMax} pasada(s) en el mes en curso` : "";
+  return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}${soloSinAutopago}${soloConPromo}${pasadasCiclo}`;
 }
 
 function ReglaRow({ regla, puedeBorrar, verTexto }: { regla: ReglaCorreo; puedeBorrar: boolean; verTexto: boolean }) {
@@ -183,7 +184,9 @@ export default function ReglasCorreoTab() {
       condicionDiasDespuesVencimiento: tipoEvento === "plan_vencido" ? Number(diasDespuesRef.current?.value || 0) : undefined,
       // Vacío = sin tope (no `|| 0`, que dejaría fuera a todos salvo a los de 0 pasadas).
       condicionPasadasMax:
-        tipoEvento === "plan_vencido" && pasadasMaxRef.current?.value.trim() ? Number(pasadasMaxRef.current.value) : undefined,
+        (tipoEvento === "plan_vencido" || tipoEvento === "plan_proximo_vencer") && pasadasMaxRef.current?.value.trim()
+          ? Number(pasadasMaxRef.current.value)
+          : undefined,
       delayDias: 0,
       plantillaCorreoId: plantillaId,
       creadoEn: new Date().toISOString(),
@@ -284,6 +287,19 @@ export default function ReglasCorreoTab() {
               Manda el correo únicamente a quien tenga un precio preferencial de renovación disponible por la web (ver
               Configuración → Precios de planes): así el cliente que viene mucho, que renovaría al precio normal, queda
               fuera de la invitación. Usa <code>{"{{precioRenovacion}}"}</code> en la plantilla para mostrar ese precio.
+            </div>
+          </div>
+        )}
+
+        {tipoEvento === "plan_proximo_vencer" && (
+          <div className="field" style={{ marginBottom: 10 }}>
+            <label>Máximo de pasadas del mes en curso (opcional)</label>
+            <input ref={pasadasMaxRef} type="number" min={0} placeholder="sin tope" />
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
+              Vacío = le llega a todos. Con un tope, la regla dispara solo para quien lleva esa cantidad de pasadas o
+              menos en el mes que está corriendo. Sirve para un aviso a mitad de ciclo al que casi no usa el plan (por
+              ejemplo 15 días antes y hasta 2 pasadas): con 2 pasadas o menos, 6 de cada 10 no renuevan. La plantilla
+              puede decirle cuántas lleva con <code>{"{{pasadas}}"}</code>.
             </div>
           </div>
         )}

@@ -69,11 +69,10 @@ export function construirVariables(opts: {
   // mismo cálculo (calcularOfertasPlanDeCliente) que usa el Operador para
   // ofrecer el upgrade en el momento.
   precioUpgrade?: number;
-  // Veces que el cliente alcanzó a pasar por el túnel en el período que se le
-  // venció (ver visitasUltimoPeriodoVencido en @/lib/helpers/ingresos) — hoy
-  // solo lo pasa procesarVencimientosCorreo para "plan_vencido" (ver
-  // @/lib/mailing/reglas/cron), que es también donde se le pone el tope con
-  // que sale en el correo.
+  // Veces que el cliente pasó por el túnel. Lo pasa procesarVencimientosCorreo
+  // (ver @/lib/mailing/reglas/cron): en "plan_vencido" son las del período que
+  // se le venció (visitasUltimoPeriodoVencido); en "plan_proximo_vencer" las
+  // del ciclo en curso, solo cuando la regla tiene mínimo o máximo de pasadas.
   pasadas?: number;
   // Lo que le costaria HOY el plan que se vende (Plan X5) a ESE cliente, con su
   // precio heredado ya aplicado — ver precioRenovacionATiempo. Existe porque

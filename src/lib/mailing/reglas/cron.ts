@@ -96,10 +96,14 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
       // @/db/schema/mailReglas.
       if (regla.condicionSoloSinAutopago && row.patente && patentesConAutopago.has(row.patente)) continue;
 
-      // Mínimo de pasadas del ciclo EN CURSO (ver condicionPasadasMin en
-      // @/db/schema/mailReglas). Se cuenta acá y no en el bloque `promo` de más
-      // abajo porque aquel usa otro contador —visitasUltimoPeriodoVencido, el
-      // del período que ya se venció— y solo corre para "plan_vencido".
+      // Mínimo y máximo de pasadas del ciclo EN CURSO (ver condicionPasadasMin
+      // y condicionPasadasMax en @/db/schema/mailReglas). Se cuenta acá y no
+      // en el bloque `promo` de más abajo porque aquel usa otro contador
+      // —visitasUltimoPeriodoVencido, el del período que ya se venció— y solo
+      // corre para "plan_vencido". El máximo rige acá solo para
+      // "plan_proximo_vencer": es lo que permite el aviso a mitad de ciclo al
+      // que casi no usa el plan (medido sep-2026: con 2 pasadas o menos, 6 de
+      // cada 10 no renuevan). Para "plan_vencido" lo aplica el bloque `promo`.
       //
       // Va antes de registrarDisparoReglaCorreo, igual que los otros filtros:
       // al cliente que hoy no llega al mínimo no se le anota un disparo, así
@@ -109,15 +113,18 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
       // evaluarReglasCorreoPorTopeIlimitado. Corre una vez al día y solo sobre
       // los que vencen dentro de la ventana (~200); si algún día pesa, se
       // reemplaza por un group by contra `ingresos` para todo el lote.
-      if (regla.condicionPasadasMin != null) {
+      const topeCiclo = regla.tipoEvento === "plan_proximo_vencer" ? regla.condicionPasadasMax : null;
+      let pasadasCiclo: number | undefined;
+      if (regla.condicionPasadasMin != null || topeCiclo != null) {
         const { inicio, fin } = periodoPlan(clienteFromRow(row));
-        const pasadas = (
+        pasadasCiclo = (
           await db
             .select({ id: ingresos.id })
             .from(ingresos)
             .where(and(eq(ingresos.clienteId, row.id), gte(ingresos.fecha, inicio.toISOString()), lt(ingresos.fecha, fin.toISOString())))
         ).length;
-        if (pasadas < regla.condicionPasadasMin) continue;
+        if (regla.condicionPasadasMin != null && pasadasCiclo < regla.condicionPasadasMin) continue;
+        if (topeCiclo != null && pasadasCiclo > topeCiclo) continue;
       }
 
       let valores: { precio: number | undefined; pasadas?: number; descuento?: number } = { precio: undefined };
@@ -182,10 +189,21 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
           // del fin del ilimitado: es el mismo número que le mostraría Mi
           // Cuenta, así que ninguna plantilla puede anunciar uno distinto.
           precioX5: precioRenovacionATiempo(preciosVigentes, cliente.plan || "", cliente),
+          // {{pasadas}} del ciclo en curso, cuando la regla las contó (tiene
+          // mínimo o máximo): es lo que deja decir "llevas N pasadas" en el
+          // aviso de bajo uso. En "plan_vencido" el `promo` de abajo lo pisa
+          // con las del último período pagado.
+          ...(pasadasCiclo !== undefined ? { pasadas: pasadasCiclo } : {}),
           ...(promo
             ? {
                 [promo.campo]: valores.precio,
-                pasadas: valores.pasadas,
+                // Condicional y no `pasadas: valores.pasadas` a secas: la promo
+                // de "plan_proximo_vencer" (calcularPrecioRenovacion) devuelve
+                // solo `precio`, así que un `undefined` acá le pisaba al aviso
+                // de bajo uso las pasadas del ciclo que se acaban de contar
+                // arriba y {{pasadas}} salía en blanco (ver construirVariables,
+                // que undefined lo renderiza como "").
+                ...(valores.pasadas !== undefined ? { pasadas: valores.pasadas } : {}),
                 ...(promo.campo === "precioReactivacion" ? { montoDescuento: valores.descuento, montoAPagar: valores.precio } : {}),
               }
             : {}),

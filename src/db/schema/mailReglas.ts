@@ -77,9 +77,14 @@ export const reglasCorreo = pgTable("reglas_correo", {
   // le pudo cobrar automáticamente, dándole tiempo a que el reintento de
   // cobro (si existe) resuelva solo antes de mandarle el correo.
   condicionDiasDespuesVencimiento: integer("condicion_dias_despues_vencimiento"),
-  // Solo aplica a tipoEvento="plan_vencido": tope de pasadas del ultimo periodo
-  // que el cliente SI pago (visitasUltimoPeriodoVencido) para que la regla le
-  // dispare. Null = sin filtro, dispara para todos.
+  // Tope de pasadas para que la regla le dispare. Null = sin filtro, dispara
+  // para todos. Qué pasadas cuenta depende del evento:
+  // - "plan_vencido": las del ultimo periodo que el cliente SI pago
+  //   (visitasUltimoPeriodoVencido).
+  // - "plan_proximo_vencer": las del ciclo EN CURSO (periodoPlan, el mismo
+  //   contador de condicionPasadasMin). Es el aviso a mitad de ciclo al que
+  //   casi no usa el plan: con 2 pasadas o menos, 6 de cada 10 no renuevan
+  //   (medido sep-2026).
   //
   // Existe porque el correo de reactivacion argumenta con {{pasadas}}: al que
   // pasaba menos veces que las incluidas en el X5 se le puede decir de frente
