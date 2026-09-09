@@ -287,7 +287,18 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
       // oferta no alimenta ningún camino de cobro.
       const sinCupon = await calcularOfertasPlanDeCliente(clienteFromRow(row));
       const cupon = await buscarCuponDescuentoPlan(row.patente);
-      const oferta = ofertaConCupon(sinCupon, cupon).reactivacion;
+      // El tramo de reactivación si le calza uno; si no, pagoVencido, que es el
+      // mismo plan esperando que lo paguen (ver calcularOfertasPlan: las dos
+      // nunca vienen juntas). Mirando solo `reactivacion`, con la config sin
+      // tramos cargados esto devolvía undefined para todo el mundo y el
+      // `obligatorio` de abajo se saltaba a TODOS los clientes: la regla de
+      // plan vencido dejaba de mandar un solo correo, en silencio. Pasó el
+      // 9-sep-2026 al vaciar tramosReactivacionVencido. Además es lo que Mi
+      // Cuenta le muestra a ese cliente, así que el correo anuncia el mismo
+      // número que ve al entrar.
+      const conCupon = ofertaConCupon(sinCupon, cupon);
+      const oferta = conCupon.reactivacion ?? conCupon.pagoVencido;
+      const base = sinCupon.reactivacion ?? sinCupon.pagoVencido;
       // {{pasadas}} = las veces que alcanzó a pasar en el período que pagó, el
       // mismo número con que el tramo le eligió el precio. Va tal cual, sin
       // topar: es el dato con que el correo argumenta, y mostrarle un número
@@ -303,10 +314,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
       return {
         precio: oferta?.precio,
         pasadas: oferta?.visitas,
-        descuento:
-          cupon && sinCupon.reactivacion
-            ? Math.min(sinCupon.reactivacion.precio, montoDescuento(cupon, sinCupon.reactivacion.precio))
-            : undefined,
+        descuento: cupon && base ? Math.min(base.precio, montoDescuento(cupon, base.precio)) : undefined,
       };
     };
 

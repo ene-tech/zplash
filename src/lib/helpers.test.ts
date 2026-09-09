@@ -1299,7 +1299,7 @@ describe("ofertaConCupon", () => {
         renovacionAnticipada: { pNormal: 25000, pPromo: 21990, ahorro: 3010, tramoVigente: true },
         reactivacion: { precio: 18000, diasVencido: 5, pNormal: 25000, visitas: 2 },
         upgrade: { precio: 12000 },
-        pagoVencido: { precio: 21990, diasVencido: 40 },
+        pagoVencido: { precio: 21990, diasVencido: 40, visitas: 1 },
       },
       cupon
     );
@@ -1859,6 +1859,22 @@ describe("calcularOfertasPlan", () => {
     // en Mi Cuenta (ver pagoVencido en @/lib/helpers/ofertasPlan).
     expect(oferta.pagoVencido?.precio).toBe(21990);
     expect(oferta.pagoVencido?.diasVencido).toBeGreaterThanOrEqual(59);
+  });
+
+  it("sin ningún tramo cargado el vencido igual tiene precio y pasadas que anunciar", () => {
+    // La config de producción quedó así el 9-sep-2026 (tramosReactivacionVencido
+    // vaciado). El correo de plan vencido cae en pagoVencido cuando no hay
+    // tramo (ver calcularPrecioReactivacion en @/lib/mailing/reglas/cron): si
+    // esta oferta no trae precio, `obligatorio` se salta a TODOS los clientes y
+    // la campaña deja de mandar un solo correo, en silencio. `visitas` es lo
+    // que necesita el filtro condicionPasadasMax, que si no deja pasar a todos.
+    const sinTramos: ConfigGlobal = { ...config, tramosReactivacionVencido: {} };
+    const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-7), fechaContratacion: diasDesdeHoy(-37), visitas: 0 };
+    const pasada = (id: string, dias: number): Ingreso => ({ ...ingresoAyer(), id, fecha: diasDesdeHoy(dias) });
+    const oferta = calcularOfertasPlan(cliente, [], [pasada("i1", -12), pasada("i2", -20)], sinTramos, precios);
+    expect(oferta.reactivacion).toBeUndefined();
+    expect(oferta.pagoVencido?.precio).toBeGreaterThan(0);
+    expect(oferta.pagoVencido?.visitas).toBe(2);
   });
 
   it("pago de plan vencido: dentro de los días de gracia respeta el precio de contratación, pasado el plazo no", () => {

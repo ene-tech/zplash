@@ -42,7 +42,7 @@ export interface OfertaPlan {
   // cuenta. Pagarlo no reinicia el ciclo: aplicarPagoAprobado ancla el
   // vencimiento a fechaContratacion (ver vencimientoAnclado), así que el
   // cliente recupera SU plan con los días de atraso ya perdidos.
-  pagoVencido?: { precio: number; diasVencido: number };
+  pagoVencido?: { precio: number; diasVencido: number; visitas: number };
   // Cliente de la categoría "Sin plan" (`vencimiento` nulo, ver planStatus):
   // nunca contrató, así que no le calza ninguna de las de arriba —todas nacen
   // de un plan vigente o vencido— y su tarjeta en Mi Cuenta quedaba sin un
@@ -205,8 +205,12 @@ export function calcularOfertasPlan(
       // Dentro de los días de gracia de pago atrasado paga lo mismo que si
       // hubiera renovado a tiempo (ver precioPagoAtrasado: el preferencial del
       // plan, con su heredado si tiene); pasado el plazo, el precio normal.
+      // `visitas` igual que en reactivacion (ya está contado acá arriba): el
+      // correo de plan vencido cae en esta oferta cuando no hay tramo cargado
+      // (ver calcularPrecioReactivacion en @/lib/mailing/reglas/cron), y sin el
+      // dato su filtro de condicionPasadasMax dejaba pasar a todos.
       const precio = precioPagoAtrasado(precios, plan, cliente, config.diasGraciaPagoAtrasado);
-      if (precio > 0) oferta.pagoVencido = { precio, diasVencido: diasVenc };
+      if (precio > 0) oferta.pagoVencido = { precio, diasVencido: diasVenc, visitas: visitasUltPeriodo };
     }
   }
 
