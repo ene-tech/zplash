@@ -117,6 +117,28 @@ export function superoTopeIlimitado(
   );
 }
 
+/**
+ * Plan con que queda un cliente al que se le renueva SIN que esté delante
+ * (webhook de WooCommerce y cron de cobro Oneclick): al que usó
+ * PASES_INCLUIDOS_X5 pasadas o menos en su ciclo se le mantiene el plan que
+ * tenía, al que se pasó se le vende el que se vende hoy.
+ *
+ * Es la política de rescate de ago-2026 que documenta superoTopeIlimitado,
+ * puesta donde los dos caminos automáticos la puedan compartir: estaba
+ * escrita a mano solo en el webhook, y el cron de Oneclick —que está en la
+ * misma situación, nadie delante a quien preguntarle— migraba igual a todo
+ * el mundo.
+ *
+ * NO la usan el mesón ni la web: ahí el cambio de plan se hace con el cliente
+ * delante y mirando el precio, así que renovar migra al X5 como siempre.
+ *
+ * Es un trinquete de una sola vía: una vez que `planActual` dice PLAN_X5,
+ * bajar el uso no lo devuelve al ilimitado — el plan viejo ya no se vende.
+ */
+export function planTrasRenovacionSinCliente(planActual: string | null | undefined, pasadasDelCiclo: number): string {
+  return pasadasDelCiclo <= PASES_INCLUIDOS_X5 ? planActual || PLANES[0] : PLANES[0];
+}
+
 export const PRECIOS_DEFAULT: Precios = {
   [PLAN_X5]: { normal: 21990, promo: 19990 },
   [PLAN_ILIMITADO_LEGACY]: { normal: 21990, promo: 19990 },

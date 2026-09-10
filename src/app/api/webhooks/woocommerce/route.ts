@@ -4,11 +4,11 @@ import { getDb } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
 import {
-  PASES_INCLUIDOS_X5,
   PLANES,
   formatTelefono,
   movimientoContableDesdeVenta,
   ilimitadoHastaAlRenovar,
+  planTrasRenovacionSinCliente,
   resolverPatentePendiente,
   sigueVigenteHoy,
   sumarMesesFecha,
@@ -165,19 +165,16 @@ export async function POST(request: NextRequest) {
     // Contratar y renovar dejan al cliente en el plan que se vende hoy: el
     // ilimitado viejo dejó de ofrecerse.
     //
-    // Excepción: al cliente de WooCommerce que pasó PASES_INCLUIDOS_X5 veces
-    // o menos en su período no se le toca el plan, ni siquiera recontratando.
-    // Su cobro lo sigue haciendo el sistema viejo (ver renovacionAutoWooDesde),
-    // así que un cambio de plan de este lado no lo podemos gestionar con él; y
-    // el tope del X5 no le cambia nada a quien ya viene menos que eso — es la
-    // política de rescate de ago-2026: al que usa poco se le mantiene su
-    // ilimitado viejo, y al que se pasa se le termina (ver
-    // evaluarReglasCorreoPorTopeIlimitado, que además le cancela la
-    // suscripción en WooCommerce para que no se le renueve a un plan que no
-    // aceptó). Solo aplica acá, en el webhook: en el mesón y en la web propia
-    // el cambio se hace con el cliente delante.
+    // Excepción de la política de rescate (ver planTrasRenovacionSinCliente):
+    // al que pasó PASES_INCLUIDOS_X5 veces o menos no se le toca el plan, ni
+    // siquiera recontratando. Acá pesa además que su cobro lo sigue haciendo
+    // el sistema viejo (ver renovacionAutoWooDesde), así que un cambio de plan
+    // de este lado no lo podríamos gestionar con él. Al que se pasa se le
+    // termina (ver evaluarReglasCorreoPorTopeIlimitado, que además le cancela
+    // la suscripción en WooCommerce para que no se le renueve a un plan que no
+    // aceptó).
     const visitasPeriodo = await visitasPeriodoActual(db, existente);
-    planResultante = visitasPeriodo <= PASES_INCLUIDOS_X5 ? existente.plan || PLANES[0] : PLANES[0];
+    planResultante = planTrasRenovacionSinCliente(existente.plan, visitasPeriodo);
     try {
       await db
         .update(clientes)

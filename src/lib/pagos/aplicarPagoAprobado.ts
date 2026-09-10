@@ -8,6 +8,7 @@ import { consumirCupon } from "./cuponPlan";
 import {
   PLANES,
   diaEnSantiago,
+  planTrasRenovacionSinCliente,
   ilimitadoHastaAlRenovar,
   periodoPlan,
   movimientoContableDesdeVenta,
@@ -25,16 +26,28 @@ import type { Cliente, Venta } from "@/types";
 
 
 /** Pasadas del cliente en el ciclo de plan que se está renovando, contadas en
- * la base (acá no hay un AppData cargado como en el módulo Operador). Solo se
- * usa en el webhook de WooCommerce, para no tocarle el plan al cliente que no
- * pasó ni una vez (ver planResultante en /api/webhooks/woocommerce).
+ * la base (acá no hay un AppData cargado como en el módulo Operador). La usan
+ * los dos caminos que renuevan sin el cliente delante —el webhook de
+ * WooCommerce y el cron de cobro Oneclick (ver cobrarSuscripcion)— para no
+ * tocarle el plan al que casi no vino: ver planTrasRenovacionSinCliente.
  *
  * El período que interesa es el que CONTIENE el vencimiento viejo, no el que
- * corre hoy: el webhook llega justo cuando el ciclo acaba de rotar (o días
- * después, si el cobro se atrasó), así que contar desde hoy da siempre 0 y
- * todo cliente parecería no haber venido nunca. */
+ * corre hoy: los dos llegan justo cuando el ciclo acaba de rotar, o días
+ * después si el cobro se atrasó —y en el cron, semanas, si la suscripción
+ * estuvo pausada—, así que contar desde hoy da siempre 0 y todo cliente
+ * parecería no haber venido nunca. */
 export async function visitasPeriodoActual(db: DbOrTx, cliente: { id: string; fechaContratacion: string | null; vencimiento: string | null }): Promise<number> {
-  const { inicio, fin } = periodoPlan(cliente, (cliente.vencimiento && diaEnSantiago(cliente.vencimiento)) || new Date());
+  // Un día ANTES del vencimiento, no el vencimiento: periodoPlan devuelve el
+  // ciclo que contiene la fecha que se le pasa, y cuando el vencimiento cae
+  // justo sobre el aniversario del ciclo —pasa cuando lo escribió una vía que
+  // no resta el día de finCicloPlan— esa fecha ya es del ciclo SIGUIENTE, que
+  // está vacío. Medía 0 pasadas y un cliente que lavó 8 pasaba por uno de bajo
+  // uso, justo el que la política de rescate quiere dejar fuera (sep-2026:
+  // RTZP43, JGPZ53, TDVL45). Restado un día cae dentro del ciclo que se está
+  // renovando en las dos formas de vencimiento.
+  const finDelCiclo = cliente.vencimiento ? diaEnSantiago(cliente.vencimiento) : null;
+  if (finDelCiclo) finDelCiclo.setDate(finDelCiclo.getDate() - 1);
+  const { inicio, fin } = periodoPlan(cliente, finDelCiclo || new Date());
   const filas = await db
     .select({ id: ingresos.id })
     .from(ingresos)
@@ -79,6 +92,12 @@ interface AplicarPagoParams {
   // en esta misma transacción — nunca se vuelve a calcular el descuento, que a
   // esta altura Transbank ya cobró el monto rebajado.
   cuponCodigo?: string | null;
+  // Pasadas del ciclo que se está renovando, SOLO cuando el pago sale sin el
+  // cliente delante (hoy: el cron de cobro Oneclick, ver cobrarSuscripcion).
+  // Presente = el plan se decide con la política de rescate en vez de migrar
+  // derecho al X5, ver planTrasRenovacionSinCliente. Ausente = mesón, web y
+  // Mi Cuenta, donde el cliente eligió el cambio en pantalla.
+  pasadasDelCicloSinCliente?: number;
 }
 
 /**
@@ -129,6 +148,17 @@ export async function aplicarPagoAprobado(
   db: DbOrTx = getDb()
 ): Promise<{ clienteId: string; vencimiento: string | null }> {
   const [existente] = await db.select().from(clientes).where(eq(clientes.patente, p.patente)).limit(1);
+
+  // Plan con que queda el cliente tras este pago. Se calcula UNA vez porque lo
+  // escriben dos sitios —la ficha y la fila de `ventas`— y tienen que decir lo
+  // mismo: mientras la venta decía PLANES[0] a secas, un cobro que le mantenía
+  // el ilimitado al cliente igual quedaba registrado como venta de X5, y de ahí
+  // salen los reportes de mezcla de planes. Ver planResultante en el webhook de
+  // WooCommerce, que ya lo hacía así.
+  const planTrasElPago =
+    p.pasadasDelCicloSinCliente === undefined
+      ? PLANES[0]
+      : planTrasRenovacionSinCliente(existente?.plan, p.pasadasDelCicloSinCliente);
 
   let clienteId: string;
   // Vencimiento resultante tras aplicar este pago — devuelto para que
@@ -222,7 +252,11 @@ export async function aplicarPagoAprobado(
         // ofrecerse, así que renovar deja al cliente en el plan vigente —
         // respetándole sin tope el mes que ya tenía comprado si renovó antes
         // de vencer (ver ilimitadoHastaAlRenovar).
-        plan: PLANES[0],
+        //
+        // Salvo que el pago haya salido sin el cliente delante: ahí rige la
+        // política de rescate y al que usa poco se le mantiene su plan (ver
+        // planTrasElPago arriba).
+        plan: planTrasElPago,
         ilimitadoHasta: ilimitadoHastaAlRenovar(anterior),
         origen: "WEB",
       })
@@ -261,7 +295,7 @@ export async function aplicarPagoAprobado(
   const tipo = existente ? p.tipoVentaExistente : p.tipoVentaNuevo;
   const nombre = existente?.nombre || "Cliente Web";
   const fecha = new Date().toISOString();
-  const plan = p.esServicioAdicional ? "" : PLANES[0];
+  const plan = p.esServicioAdicional ? "" : planTrasElPago;
   await db.insert(ventas).values({
     id: p.ventaId,
     clienteId,

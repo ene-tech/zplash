@@ -4,12 +4,12 @@ import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
-import { PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, precioConCupon, precioConHeredado, precioPlanOneclick, requiereValidacionX5, sumarMesesFecha } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, precioConCupon, precioConHeredado, precioPlanOneclick, requiereValidacionX5, sumarMesesFecha } from "@/lib/helpers";
 import { evaluarReglasCorreoPorCobroFallido, evaluarReglasCorreoPorValidacionX5 } from "@/lib/mailing/reglas";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
 import type { Precios } from "@/types";
-import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
+import { aplicarPagoAprobado, visitasPeriodoActual } from "./aplicarPagoAprobado";
 import { buscarCuponDescuentoPlan } from "./cuponPlan";
 
 /** Próximo ciclo mensual a partir de una fecha base, saltando meses ya
@@ -41,12 +41,28 @@ type SuscripcionOneclick = typeof suscripcionesOneclick.$inferSelect;
  * reintenta a mano.
  *
  * "pendiente_validacion" es el tercer resultado: no se cobró nada porque el
- * cliente sigue en el ilimitado viejo y no ha aceptado pasar al X5 (ver
- * requiereValidacionX5). No es un rechazo de la tarjeta — no se llegó a
- * llamar a Transbank — así que no dispara los avisos de cobro fallido.
+ * cliente sigue en el ilimitado viejo, no ha aceptado pasar al X5 (ver
+ * requiereValidacionX5) y además se pasó del tope — o sea cobrarle le
+ * cambiaría el producto. Al que usa poco se le mantiene el plan y SÍ se le
+ * cobra (ver el candado más abajo). No es un rechazo de la tarjeta — no se
+ * llegó a llamar a Transbank — así que no dispara los avisos de cobro fallido.
  */
 export async function cobrarSuscripcion(
-  suscripcion: SuscripcionOneclick
+  suscripcion: SuscripcionOneclick,
+  /**
+   * `sinCliente` lo pone SOLO el cron diario (/api/pagos/oneclick/cobrar), que
+   * es el único de los cuatro llamadores donde no hay nadie mirando una
+   * pantalla. Habilita la política de rescate: al que usa poco se le mantiene
+   * el plan en vez de migrarlo al X5 (ver planTrasRenovacionSinCliente).
+   *
+   * Los otros tres —primer cobro tras inscribir la tarjeta, oferta desde Mi
+   * Cuenta y reintento manual del operador— NO lo pasan: ahí el cliente
+   * eligió el cambio en pantalla y renovar tiene que migrarlo, como siempre.
+   * Además miden mal: el ciclo todavía está corriendo cuando aprietan, así
+   * que contar sus pasadas daría un número parcial y un cliente que lava
+   * mucho pasaría por uno de bajo uso.
+   */
+  opciones: { sinCliente?: boolean } = {}
 ): Promise<{ estado: "aprobada" | "rechazada" | "pendiente_validacion" }> {
   const tbkUser = suscripcion.tbkUser;
   if (!tbkUser) {
@@ -79,10 +95,23 @@ export async function cobrarSuscripcion(
         precioPlanHeredado: clientes.precioPlanHeredado,
         plan: clientes.plan,
         aceptoX5En: clientes.aceptoX5En,
+        // Las dos que periodoPlan necesita para armar el ciclo que se cobra
+        // (ver visitasPeriodoActual).
+        fechaContratacion: clientes.fechaContratacion,
+        vencimiento: clientes.vencimiento,
       })
       .from(clientes)
       .where(eq(clientes.patente, suscripcion.patente))
       .limit(1);
+
+    // Pasadas del ciclo que se está renovando, SOLO en el cobro automático
+    // (ver `opciones.sinCliente`). null = hay alguien delante, así que rige la
+    // migración de siempre y no se gasta la consulta.
+    const pasadasDelCiclo = opciones.sinCliente && cliente ? await visitasPeriodoActual(tx, cliente) : null;
+    // Un cobro solo se puede hacer sin firma si NO le cambia el producto al
+    // cliente: con alguien delante siempre lo cambia (renovar migra al X5), y
+    // en el automático depende de si se pasó del tope.
+    const elCobroCambiaElPlan = pasadasDelCiclo === null || pasadasDelCiclo > PASES_INCLUIDOS_X5;
 
     // Candado del paso al X5: cobrar acá renovaría el plan, y renovar migra al
     // cliente al X5 (ver renovarPlan/aplicarPagoAprobado). Al cliente del
@@ -92,7 +121,15 @@ export async function cobrarSuscripcion(
     // suscripción —el cron solo levanta las "activa", así que no reintenta
     // todos los días— y queda esperando a que el cliente valide por la web o
     // en el mesón, que es lo que vuelve a ponerla activa.
-    if (cliente && requiereValidacionX5(cliente)) {
+    //
+    // Lo que decide es si hay algo que aceptar: al que usa poco, aplicar el
+    // pago le MANTIENE su plan (ver elCobroCambiaElPlan), así que no se le está
+    // vendiendo ningún cambio y no hay consentimiento que pedirle — se le cobra
+    // su plan de siempre. Al que se pasa del tope, o a cualquiera con alguien
+    // delante, el pago SÍ lo migraría: ese sigue bloqueado hasta que acepte.
+    // El límite tiene que ser el mismo que usa planTrasRenovacionSinCliente o
+    // el candado dejaría pasar un cobro que después sí cambia el plan.
+    if (cliente && requiereValidacionX5(cliente) && elCobroCambiaElPlan) {
       await tx
         .update(suscripcionesOneclick)
         .set({ estado: "pausada_validacion_x5", actualizadoEn: new Date().toISOString() })
@@ -180,6 +217,10 @@ export async function cobrarSuscripcion(
                 // la ficha (primer cobro de una patente nueva), queda de contacto.
                 email: suscripcion.email,
                 cuponCodigo: aplicaCupon ? cupon?.codigo : undefined,
+                // Solo en el automático: ahí el plan sale de la política de
+                // rescate en vez de migrar a ciegas al X5. undefined en los
+                // tres caminos con el cliente delante.
+                pasadasDelCicloSinCliente: pasadasDelCiclo ?? undefined,
               },
               tx2
             );
@@ -206,7 +247,18 @@ export async function cobrarSuscripcion(
 
     await tx
       .update(suscripcionesOneclick)
-      .set({ proximoCobro: proximoCicloISO(suscripcion.proximoCobro), actualizadoEn: new Date().toISOString() })
+      .set({
+        proximoCobro: proximoCicloISO(suscripcion.proximoCobro),
+        actualizadoEn: new Date().toISOString(),
+        // Si venía pausada por el candado y este cobro igual salió (política de
+        // rescate: no le cambia el plan), la pausa ya no describe nada — no se
+        // está esperando ningún sí. Sin esto la suscripción se cobraba todos los
+        // meses mientras Mi Cuenta le mostraba "En pausa" al cliente y el
+        // operador no tenía botón para suspenderla (ClienteInfoModal no dibuja
+        // acciones para ese estado). La rama que despausa en el cron no alcanza:
+        // exige !requiereValidacionX5, que para estos clientes sigue siendo true.
+        ...(suscripcion.estado === "pausada_validacion_x5" ? { estado: "activa" } : {}),
+      })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
 
     return { estado, buyOrder, monto, clienteId: cliente?.id ?? null };

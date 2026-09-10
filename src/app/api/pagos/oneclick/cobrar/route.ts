@@ -91,7 +91,10 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      const { estado } = await cobrarSuscripcion(suscripcion);
+      // sinCliente: este es el único camino de cobro sin nadie mirando una
+      // pantalla, y por eso el único donde rige la política de rescate (ver
+      // planTrasRenovacionSinCliente).
+      const { estado } = await cobrarSuscripcion(suscripcion, { sinCliente: true });
       resultados.push({ suscripcionId: suscripcion.id, patente: suscripcion.patente, estado });
     } catch (error) {
       console.error("Error cobrando suscripción Oneclick", suscripcion.id, error);
