@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent, BubbleGroup } from "@/components/ui/bubble";
 import { FichaClienteChat } from "@/components/mensajes/FichaClienteChat";
+import { BotonCopiar } from "@/components/ui/boton-copiar";
 import { enviarMensajeManual, listarConversaciones, listarMensajes, marcarLeida, probarPushGerencia } from "@/lib/serverActions";
 import { fmtFecha, fmtHora, formatTelefono, indexarClientesPorTelefono } from "@/lib/helpers";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
@@ -216,17 +217,18 @@ export default function MensajesView() {
                   </button>
                   <div className="min-w-0">
                     <div className="truncate font-medium">{clienteActual?.nombre || conversacionActual.nombreContacto || conversacionActual.telefono}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {clienteActual?.patente ? `${clienteActual.patente} · ` : ""}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {clienteActual?.patente ? <span>{clienteActual.patente}</span> : null}
                       <a
                         href={`https://wa.me/${conversacionActual.telefono.replace(/\D/g, "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline decoration-dotted hover:text-foreground"
+                        className="text-base font-medium tabular-nums text-foreground underline decoration-dotted"
                         title="Abrir chat en WhatsApp Business"
                       >
                         {conversacionActual.telefono}
                       </a>
+                      <BotonCopiar texto={conversacionActual.telefono} />
                     </div>
                   </div>
                 </div>

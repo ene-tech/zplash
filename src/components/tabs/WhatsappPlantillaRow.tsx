@@ -6,6 +6,7 @@ import { convertirVariablesMeta, slugMetaTemplate } from "@/lib/helpers/whatsapp
 import { EmojiBar, VariableBar, insertarEnCursor } from "@/components/ui/mensaje-toolbar";
 import type { PlantillaWhatsapp } from "@/types";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
+import { BotonCopiar } from "@/components/ui/boton-copiar";
 
 const VARIABLES_DISPONIBLES = [
   "nombre",
@@ -19,25 +20,6 @@ const VARIABLES_DISPONIBLES = [
   "montoAPagar",
   "diasValidez",
 ];
-
-function BotonCopiar({ texto, deshabilitado }: { texto: string; deshabilitado?: boolean }) {
-  const [copiado, setCopiado] = useState(false);
-  const copiar = async () => {
-    if (!texto) return;
-    try {
-      await navigator.clipboard.writeText(texto);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 1500);
-    } catch {
-      setCopiado(false);
-    }
-  };
-  return (
-    <button type="button" className="icon-btn" onClick={copiar} disabled={deshabilitado || !texto}>
-      {copiado ? "¡Copiado!" : "Copiar"}
-    </button>
-  );
-}
 
 export function PlantillaRow({ plantilla, puedeBorrar }: { plantilla: PlantillaWhatsapp; puedeBorrar: boolean }) {
   const { data, commit } = useAppData();
