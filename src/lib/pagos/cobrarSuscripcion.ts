@@ -1,10 +1,10 @@
 import "server-only";
 import { TransactionDetail } from "transbank-sdk";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
-import { PASES_INCLUIDOS_X5, PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, precioConCupon, precioConHeredado, precioPlanOneclick, requiereValidacionX5, sumarMesesFecha } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, PLAN_ILIMITADO_LEGACY, PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, planTrasRenovacionSinCliente, precioConCupon, precioConHeredado, precioOneclickDelPlan, requiereValidacionX5, sumarMesesFecha } from "@/lib/helpers";
 import { evaluarReglasCorreoPorCobroFallido, evaluarReglasCorreoPorValidacionX5 } from "@/lib/mailing/reglas";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
@@ -82,8 +82,15 @@ export async function cobrarSuscripcion(
   const resultado = await getDb().transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${suscripcion.id}))`);
 
-    const [filaPrecio] = await tx.select().from(precios).where(eq(precios.plan, PLAN_ONECLICK_KEY)).limit(1);
-    const preciosMap: Precios = filaPrecio ? { [PLAN_ONECLICK_KEY]: { normal: filaPrecio.normal, promo: filaPrecio.promo } } : {};
+    // Las dos filas que puede necesitar el monto: la del X5 con renovación
+    // automática (la de siempre) y la del ilimitado viejo, para el cliente que
+    // la política de rescate deja en su plan — ver precioOneclickDelPlan. La
+    // del ilimitado normalmente no existe en la tabla y cae al default.
+    const filasPrecio = await tx
+      .select()
+      .from(precios)
+      .where(inArray(precios.plan, [PLAN_ONECLICK_KEY, PLAN_ILIMITADO_LEGACY]));
+    const preciosMap: Precios = Object.fromEntries(filasPrecio.map((f) => [f.plan, { normal: f.normal, promo: f.promo }]));
     // Precio heredado del cliente (ver precioConHeredado): la renovación
     // automática es justamente pagar antes de vencer, así que el que venía
     // pagando menos no puede subir de precio por inscribir su tarjeta acá —
@@ -137,7 +144,23 @@ export async function cobrarSuscripcion(
       return { estado: "pendiente_validacion" as const, buyOrder: "", monto: 0, clienteId: cliente.id };
     }
 
-    const montoLista = precioConHeredado(precioPlanOneclick(preciosMap), cliente ?? {});
+    // Con qué plan queda el cliente después de este cobro. Es el mismo cálculo
+    // que rehace aplicarPagoAprobado para escribirlo (misma función pura, mismo
+    // `plan` y mismas `pasadas` dentro de la misma transacción): acá se necesita
+    // antes, porque decide el precio.
+    const planQueQueda = pasadasDelCiclo === null ? PLANES[0] : planTrasRenovacionSinCliente(cliente?.plan, pasadasDelCiclo);
+    // Al rescatado se le cobra el precio de SU plan, no el del X5: si no le
+    // cambiamos el producto, tampoco el precio. El heredado sigue mandando
+    // hacia abajo, así que el que venía a 19.990 se queda en 19.990.
+    //
+    // "Rescatado" exige que TODAVÍA no haya firmado. No alcanza con que el plan
+    // siga diciendo ilimitado: el que apretó "Contratar Plan X5" vio un precio
+    // en pantalla (19.990, ver precioAutoMensual en /api/pagos/estado) y su
+    // ficha puede seguir en el plan viejo porque ese primer cobro lo rechazó
+    // la tarjeta — aplicarPagoAprobado nunca corrió. A ese hay que cobrarle lo
+    // que firmó, no el precio del plan que arrastra sin querer.
+    const rescatado = !!cliente && requiereValidacionX5(cliente) && planQueQueda === PLAN_ILIMITADO_LEGACY;
+    const montoLista = precioConHeredado(precioOneclickDelPlan(preciosMap, rescatado ? PLAN_ILIMITADO_LEGACY : PLANES[0]), cliente ?? {});
 
     // Cupón de descuento atado a la patente: el mismo que ya rebajan Webpay,
     // el mesón y cobrarOfertaOneclick — sin esto la renovación automática era

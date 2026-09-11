@@ -226,6 +226,34 @@ export function precioPlanOneclick(precios: Precios): number {
   return (precios[PLAN_ONECLICK_KEY] && precios[PLAN_ONECLICK_KEY].normal) || PRECIO_PLAN_ONECLICK_DEFAULT;
 }
 
+/**
+ * Precio mensual de la renovación automática según el plan con que queda el
+ * cliente después de este cobro (ver planTrasRenovacionSinCliente).
+ *
+ * Al que migra al X5 le toca la fila editable PLAN_ONECLICK_KEY, como siempre.
+ * Al que la política de rescate deja en su ilimitado viejo le toca el precio de
+ * SU plan: si no le cambiamos el producto, tampoco le cambiamos el precio — se
+ * le sigue cobrando lo que venía pagando. precioConHeredado hace el resto, que
+ * es el que venía de la migración WooCommerce a 19.990 se quede en 19.990.
+ *
+ * Sin esto, la única forma de que el rescatado pagara sus 21.990 era subir la
+ * fila del X5, que la comparten las 208 suscripciones que cobra el cron: se le
+ * habría cambiado el precio a toda la base para arreglar a 17 clientes.
+ *
+ * El precio del plan viejo NO se lee de `precios` a propósito: esa fila no la
+ * mantiene nadie — Configuración solo edita PLANES, loadAll no le mezcla el
+ * default, y el bloque DESHACER de scripts/simplificar-planes-sept2026.sql la
+ * reinserta en 29.990. O sea puede quedar viva con un valor viejo que ningún
+ * operador ve, y esto la mandaría a Transbank: es exactamente el sobrecobro que
+ * documenta planVendible ("el mesón cobraba los $29.990 por venderle un X5").
+ * Como el punto es cobrarle lo que venía pagando, la constante es más honesta
+ * que una fila editable que nadie edita.
+ */
+export function precioOneclickDelPlan(precios: Precios, plan: string | null | undefined): number {
+  if (plan !== PLAN_ILIMITADO_LEGACY) return precioPlanOneclick(precios);
+  return PRECIOS_DEFAULT[PLAN_ILIMITADO_LEGACY].normal;
+}
+
 /** Precio del uso puntual de la zona de aspirado autoservicio, sin plan ni límite de tiempo. */
 export const PRECIO_ZONA_ASPIRADO = 4990;
 
