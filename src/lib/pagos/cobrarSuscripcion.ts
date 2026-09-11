@@ -152,7 +152,15 @@ export async function cobrarSuscripcion(
     // Al rescatado se le cobra el precio de SU plan, no el del X5: si no le
     // cambiamos el producto, tampoco el precio. El heredado sigue mandando
     // hacia abajo, así que el que venía a 19.990 se queda en 19.990.
-    const montoLista = precioConHeredado(precioOneclickDelPlan(preciosMap, planQueQueda), cliente ?? {});
+    //
+    // "Rescatado" exige que TODAVÍA no haya firmado. No alcanza con que el plan
+    // siga diciendo ilimitado: el que apretó "Contratar Plan X5" vio un precio
+    // en pantalla (19.990, ver precioAutoMensual en /api/pagos/estado) y su
+    // ficha puede seguir en el plan viejo porque ese primer cobro lo rechazó
+    // la tarjeta — aplicarPagoAprobado nunca corrió. A ese hay que cobrarle lo
+    // que firmó, no el precio del plan que arrastra sin querer.
+    const rescatado = !!cliente && requiereValidacionX5(cliente) && planQueQueda === PLAN_ILIMITADO_LEGACY;
+    const montoLista = precioConHeredado(precioOneclickDelPlan(preciosMap, rescatado ? PLAN_ILIMITADO_LEGACY : PLANES[0]), cliente ?? {});
 
     // Cupón de descuento atado a la patente: el mismo que ya rebajan Webpay,
     // el mesón y cobrarOfertaOneclick — sin esto la renovación automática era

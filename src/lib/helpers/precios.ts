@@ -240,12 +240,18 @@ export function precioPlanOneclick(precios: Precios): number {
  * fila del X5, que la comparten las 208 suscripciones que cobra el cron: se le
  * habría cambiado el precio a toda la base para arreglar a 17 clientes.
  *
- * El plan viejo no tiene fila propia en `precios` (Configuración solo edita
- * PLANES) y por eso cae al default, que es el mismo 21.990 del X5.
+ * El precio del plan viejo NO se lee de `precios` a propósito: esa fila no la
+ * mantiene nadie — Configuración solo edita PLANES, loadAll no le mezcla el
+ * default, y el bloque DESHACER de scripts/simplificar-planes-sept2026.sql la
+ * reinserta en 29.990. O sea puede quedar viva con un valor viejo que ningún
+ * operador ve, y esto la mandaría a Transbank: es exactamente el sobrecobro que
+ * documenta planVendible ("el mesón cobraba los $29.990 por venderle un X5").
+ * Como el punto es cobrarle lo que venía pagando, la constante es más honesta
+ * que una fila editable que nadie edita.
  */
 export function precioOneclickDelPlan(precios: Precios, plan: string | null | undefined): number {
   if (plan !== PLAN_ILIMITADO_LEGACY) return precioPlanOneclick(precios);
-  return precioNormal(precios, PLAN_ILIMITADO_LEGACY) || PRECIOS_DEFAULT[PLAN_ILIMITADO_LEGACY].normal;
+  return PRECIOS_DEFAULT[PLAN_ILIMITADO_LEGACY].normal;
 }
 
 /** Precio del uso puntual de la zona de aspirado autoservicio, sin plan ni límite de tiempo. */

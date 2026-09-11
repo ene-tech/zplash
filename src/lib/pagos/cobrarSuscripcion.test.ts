@@ -222,6 +222,19 @@ describe("precio del cliente rescatado", () => {
     expect(pagosAplicados).toEqual([expect.objectContaining({ monto: 19990 })]);
   });
 
+  // El que YA firmo vio 19.990 en pantalla antes de apretar. Que su ficha siga
+  // diciendo ilimitado no lo hace un rescatado: es el que su primer cobro lo
+  // rechazo la tarjeta y nunca se le escribio el plan nuevo.
+  it("el que ya firmo paga lo que firmo, aunque arrastre el plan viejo", async () => {
+    respuestas = [
+      precios,
+      [{ id: "c1", precioPlanHeredado: null, plan: PLAN_ILIMITADO_LEGACY, aceptoX5En: "2026-09-09T12:00:00.000Z" }],
+      [],
+    ];
+    await cobrarSuscripcion(suscripcion, { sinCliente });
+    expect(pagosAplicados).toEqual([expect.objectContaining({ monto: 19990 })]);
+  });
+
   // El que se paso del tope migra al X5, y a ese si le toca la fila compartida.
   it("el que migra al X5 paga la fila del X5", async () => {
     pasadasDelCiclo = 3;
