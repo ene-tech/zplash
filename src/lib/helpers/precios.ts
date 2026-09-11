@@ -226,6 +226,28 @@ export function precioPlanOneclick(precios: Precios): number {
   return (precios[PLAN_ONECLICK_KEY] && precios[PLAN_ONECLICK_KEY].normal) || PRECIO_PLAN_ONECLICK_DEFAULT;
 }
 
+/**
+ * Precio mensual de la renovación automática según el plan con que queda el
+ * cliente después de este cobro (ver planTrasRenovacionSinCliente).
+ *
+ * Al que migra al X5 le toca la fila editable PLAN_ONECLICK_KEY, como siempre.
+ * Al que la política de rescate deja en su ilimitado viejo le toca el precio de
+ * SU plan: si no le cambiamos el producto, tampoco le cambiamos el precio — se
+ * le sigue cobrando lo que venía pagando. precioConHeredado hace el resto, que
+ * es el que venía de la migración WooCommerce a 19.990 se quede en 19.990.
+ *
+ * Sin esto, la única forma de que el rescatado pagara sus 21.990 era subir la
+ * fila del X5, que la comparten las 208 suscripciones que cobra el cron: se le
+ * habría cambiado el precio a toda la base para arreglar a 17 clientes.
+ *
+ * El plan viejo no tiene fila propia en `precios` (Configuración solo edita
+ * PLANES) y por eso cae al default, que es el mismo 21.990 del X5.
+ */
+export function precioOneclickDelPlan(precios: Precios, plan: string | null | undefined): number {
+  if (plan !== PLAN_ILIMITADO_LEGACY) return precioPlanOneclick(precios);
+  return precioNormal(precios, PLAN_ILIMITADO_LEGACY) || PRECIOS_DEFAULT[PLAN_ILIMITADO_LEGACY].normal;
+}
+
 /** Precio del uso puntual de la zona de aspirado autoservicio, sin plan ni límite de tiempo. */
 export const PRECIO_ZONA_ASPIRADO = 4990;
 
