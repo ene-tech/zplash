@@ -141,7 +141,9 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const [suscripcion, setSuscripcion] = useState<SuscripcionOneclickInfo | null>(null);
   const [cobrando, setCobrando] = useState(false);
   const [confirmarCobro, setConfirmarCobro] = useState(false);
+  const [confirmarAnular, setConfirmarAnular] = useState(false);
   const [errSuscripcion, setErrSuscripcion] = useState("");
+  const [okSuscripcion, setOkSuscripcion] = useState("");
 
   // Historial de compras completo del cliente — al estilo del pedido de
   // cliente en WooCommerce: qué compró, cuándo, cuánto pagó y con qué
@@ -254,6 +256,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     if (!suscripcion) return;
     setCobrando(true);
     setErrSuscripcion("");
+    setOkSuscripcion("");
     try {
       const resultado = await cobrarSuscripcionManual(suscripcion.id);
       if (!resultado) {
@@ -274,6 +277,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     if (!suscripcion) return;
     setCobrando(true);
     setErrSuscripcion("");
+    setOkSuscripcion("");
     try {
       await reactivarSuscripcionOneclick(suscripcion.id);
       const actualizada = await obtenerSuscripcionOneclick(c.patente);
@@ -293,7 +297,10 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
         mensaje: `¿Suspender la renovación automática de ${c.nombre}? Se pausan los cobros, pero la tarjeta queda inscrita y se puede reactivar después.`,
         confirmLabel: "Suspender",
         danger: false,
-        onConfirm: () => suspenderSuscripcionOneclick(suscripcion.id),
+        onConfirm: () => {
+          setOkSuscripcion("");
+          return suspenderSuscripcionOneclick(suscripcion.id);
+        },
       },
     });
   }
@@ -301,18 +308,44 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   // Corta el cobro automático por los dos frentes (Oneclick + la suscripción
   // vieja de WooCommerce) y manda el correo de respaldo — todo eso vive en
   // anularSuscripcion, ver ahí por qué la tarjeta NO se da de baja en
-  // Transbank. No hace falta refrescar `suscripcion` después: el ConfirmModal
-  // global reemplaza esta ficha.
-  function anular() {
-    patchUi({
-      modal: {
-        type: "confirm",
-        mensaje: `¿Cancelar la suscripción de ${c.nombre}? Deja de cobrarse automáticamente (acá y en WooCommerce si arrastra una del sistema anterior) y se le manda un correo de respaldo. La tarjeta le queda guardada en su cuenta.`,
-        confirmLabel: "Cancelar suscripción",
-        danger: true,
-        onConfirm: () => anularSuscripcion(c.id),
-      },
-    });
+  // Transbank.
+  //
+  // Confirmación en dos pasos acá mismo y no con el ConfirmModal global (que
+  // reemplaza esta ficha y descarta el resultado): cuando WooCommerce rechaza
+  // el corte, el cliente QUEDA cobrado y eso hay que mostrarlo. Antes el botón
+  // se veía siempre exitoso — se apretaba, la ficha se cerraba, y WooCommerce
+  // seguía cobrando en silencio.
+  async function anular() {
+    setCobrando(true);
+    setErrSuscripcion("");
+    setOkSuscripcion("");
+    try {
+      const resultado = await anularSuscripcion(c.id);
+      if (!resultado) {
+        setErrSuscripcion("No se pudo cancelar la suscripción.");
+        return;
+      }
+      if (resultado.woo === "error") {
+        setErrSuscripcion(
+          "Se cortó el cobro nuestro, pero WooCommerce rechazó la baja: al cliente le van a seguir cobrando por el sistema anterior. No se le mandó el correo de respaldo — hay que cancelarla a mano en WordPress antes de avisarle."
+        );
+      } else {
+        // Se dice lo que efectivamente se cortó y no un "listo" a secas: con la
+        // tarjeta ya suspendida y la suscripción vieja ya cancelada, el botón
+        // no hace nada y el operador tiene que poder verlo.
+        const cortes = [resultado.oneclick && "el cobro con la tarjeta", resultado.woo === "cancelada" && "la suscripción de WooCommerce"].filter(Boolean);
+        setOkSuscripcion(
+          (cortes.length ? `Cortado: ${cortes.join(" y ")}.` : "No había ningún cobro automático activo que cortar.") +
+            " Se le mandó el correo de respaldo."
+        );
+      }
+      setSuscripcion(await obtenerSuscripcionOneclick(c.patente));
+    } catch {
+      setErrSuscripcion("No se pudo cancelar la suscripción.");
+    } finally {
+      setCobrando(false);
+      setConfirmarAnular(false);
+    }
   }
 
   return (
@@ -498,12 +531,27 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                     {cobrando ? "Reactivando..." : "Reactivar"}
                   </Button>
                 )}
-                {(suscripcion?.estado === "activa" || c.renovacionAutoWooDesde) && (
-                  <Button variant="destructive" onClick={anular} disabled={cobrando}>
-                    Cancelar suscripción
-                  </Button>
-                )}
+                {(suscripcion?.estado === "activa" || c.renovacionAutoWooDesde) &&
+                  (confirmarAnular ? (
+                    <>
+                      <Button variant="destructive" onClick={anular} disabled={cobrando}>
+                        {cobrando ? "Cancelando..." : "Sí, dejar de cobrarle"}
+                      </Button>
+                      <Button variant="ghost" onClick={() => setConfirmarAnular(false)} disabled={cobrando}>
+                        No cancelar
+                      </Button>
+                      <p className="w-full text-xs text-muted-foreground">
+                        Deja de cobrarse automáticamente (acá y en WooCommerce si arrastra una del sistema anterior) y se le manda un
+                        correo de respaldo. La tarjeta le queda guardada en su cuenta.
+                      </p>
+                    </>
+                  ) : (
+                    <Button variant="destructive" onClick={() => setConfirmarAnular(true)} disabled={cobrando}>
+                      Cancelar suscripción
+                    </Button>
+                  ))}
                 {errSuscripcion && <p className="w-full text-sm text-destructive">{errSuscripcion}</p>}
+                {okSuscripcion && <p className="w-full text-sm text-muted-foreground">{okSuscripcion}</p>}
               </div>
             )}
           </div>

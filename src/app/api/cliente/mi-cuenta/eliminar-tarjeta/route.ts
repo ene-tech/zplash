@@ -6,6 +6,8 @@ import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
 import { normPlate, tieneTarjetaViva } from "@/lib/helpers";
 import { cancelarSuscripcionOneclick } from "@/lib/dataAccess/oneclick";
+import { cortarCobroWooCommerceLegacy } from "@/lib/pagos";
+import { WHATSAPP_SUSCRIPCIONES } from "@/lib/whatsapp";
 import { evaluarReglasCorreoPorSuscripcionCancelada } from "@/lib/mailing/reglas";
 
 export const runtime = "nodejs";
@@ -42,6 +44,25 @@ export async function POST(request: NextRequest) {
   }
 
   await cancelarSuscripcionOneclick(suscripcion.id);
+
+  // El que arrastra la suscripción vieja de WooCommerce tiene DOS cobros
+  // automáticos, y darle de baja solo el Oneclick lo dejaba pagando por allá
+  // con un correo que le decía que había quedado cancelado. Va DESPUÉS de la
+  // tarjeta a propósito: cancelar en Woo no se deshace, y si después fallara
+  // Transbank el cliente quedaría sin su renovación y sin forma de recuperarla
+  // desde acá.
+  const woo = await cortarCobroWooCommerceLegacy(cliente, patente, "el cliente eliminó su tarjeta desde Mi Cuenta");
+
+  // Solo se corta el flujo si el cliente venía de WooCommerce: ahí un error
+  // significa que le siguen cobrando, y prefiere saberlo a recibir el correo
+  // de "listo, ya no se te cobra". Al resto, un WooCommerce caído no puede
+  // impedirle eliminar su tarjeta.
+  if (woo === "error" && cliente.renovacionAutoWooDesde) {
+    return NextResponse.json(
+      { ok: false, error: `Dimos de baja tu tarjeta, pero no pudimos cortar tu renovación automática anterior. Escríbenos al ${WHATSAPP_SUSCRIPCIONES} para cerrarla.` },
+      { status: 502 }
+    );
+  }
 
   // El mismo correo de respaldo que manda anularSuscripcion (@/lib/serverActions/
   // oneclick) cuando la baja la hace el admin desde la ficha: el cliente que se

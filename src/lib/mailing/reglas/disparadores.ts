@@ -264,7 +264,14 @@ export async function evaluarReglasCorreoPorTopeIlimitado(ingresosNuevos: Ingres
     // corresponde, así que se corta una vez por cliente y pase lo que pase con
     // el aviso. La marca queda limpia, y eso mismo evita reintentarlo en cada
     // pasada siguiente (ver cortarCobroWooCommerceLegacy).
-    await cortarCobroWooCommerceLegacy(cliente, cliente.patente, `se pasó del tope (${pasadas} pasadas)`);
+    //
+    // Único caller que sí mira la marca antes de preguntarle a WooCommerce:
+    // los caminos de a uno pueden pagar la consulta siempre, pero acá son
+    // todos los clientes pasados del tope en cada pasada del cron, todos los
+    // días, y WooCommerce se demora varios segundos en responder.
+    if (cliente.renovacionAutoWooDesde) {
+      await cortarCobroWooCommerceLegacy(cliente, cliente.patente, `se pasó del tope (${pasadas} pasadas)`);
+    }
 
     for (const regla of reglas) {
       // origenId con el vencimiento: un aviso por ciclo. Si el cliente renueva

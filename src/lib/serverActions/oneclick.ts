@@ -4,7 +4,7 @@ import * as dataAccess from "@/lib/dataAccess";
 import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import { tieneTarjetaViva } from "@/lib/helpers";
 import { buscarCliente, evaluarReglasCorreoPorSuscripcionCancelada } from "@/lib/mailing/reglas";
-import { cancelarSuscripcionWooCommerceLegacy, cobrarSuscripcion } from "@/lib/pagos";
+import { cobrarSuscripcion, cortarCobroWooCommerceLegacy, type CorteWooCommerce } from "@/lib/pagos";
 import { tieneModulo } from "@/lib/session";
 
 export async function obtenerSuscripcionOneclick(patente: string): Promise<SuscripcionOneclickInfo | null> {
@@ -64,7 +64,7 @@ export async function reactivarSuscripcionOneclick(id: string): Promise<boolean>
  * —el cron (/api/pagos/oneclick/cobrar) solo toca estado "activa"—, así la
  * tarjeta le queda guardada en su cuenta y volver es un clic.
  */
-export async function anularSuscripcion(clienteId: string): Promise<{ oneclick: boolean; woo: boolean } | null> {
+export async function anularSuscripcion(clienteId: string): Promise<{ oneclick: boolean; woo: CorteWooCommerce } | null> {
   if (!(await tieneModulo("clientes"))) return null;
   const cliente = await buscarCliente(clienteId);
   if (!cliente) return null;
@@ -73,20 +73,15 @@ export async function anularSuscripcion(clienteId: string): Promise<{ oneclick: 
   const oneclick = !!suscripcion && tieneTarjetaViva(suscripcion.estado);
   if (suscripcion && oneclick) await dataAccess.suspenderSuscripcionOneclick(suscripcion.id);
 
-  // Best-effort, mismo criterio que /inscripcion/retorno: si WooCommerce falla
-  // (permisos de la key, staging lock) no se pierde la anulación local, pero
-  // queda loggeado fuerte — una suscripción viva allá es un cobro más al
-  // cliente que acaba de pedir que le dejen de cobrar.
-  let woo = false;
-  if (cliente.renovacionAutoWooDesde) {
-    woo = await cancelarSuscripcionWooCommerceLegacy(cliente.patente, cliente.email || "")
-      .then(({ cancelada }) => cancelada)
-      .catch((error) => {
-        console.error(`ERROR cancelando la suscripción de WooCommerce de ${cliente.patente} al anularla desde la ficha — revisar a mano`, error);
-        return false;
-      });
-  }
+  const arrastrabaWoo = !!cliente.renovacionAutoWooDesde;
+  const woo = await cortarCobroWooCommerceLegacy(cliente, cliente.patente, "anulada desde la ficha del cliente");
 
-  await evaluarReglasCorreoPorSuscripcionCancelada(cliente);
+  // Si WooCommerce no confirmó el corte de un cliente que SÍ venía de allá, el
+  // respaldo sería mentira: le diría que no se le cobra más y WooCommerce le
+  // cobra igual el próximo ciclo. El operador se entera igual por la ficha (el
+  // resultado "error" sale en rojo), y el correo se manda cuando se arregle.
+  // Al que nunca estuvo en Woo no se le retiene nada: ahí "error" es
+  // WooCommerce caído, no un cobro suyo colgando.
+  if (woo !== "error" || !arrastrabaWoo) await evaluarReglasCorreoPorSuscripcionCancelada(cliente);
   return { oneclick, woo };
 }

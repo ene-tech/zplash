@@ -64,26 +64,53 @@ function authHeader(): string {
 // scripts/backfill-renovacion-auto-woo.ts::fetchSuscripcionesActivas — acá
 // vive como función reutilizable porque además de ese script de una sola
 // corrida, ahora también la llama en vivo /inscripcion/retorno.
-async function buscarSuscripcionActiva(patente: string, email: string): Promise<SubscriptionWC | null> {
+//
+// La patente MANDA sobre el email, y por eso se recorren TODAS las páginas
+// antes de decidir: antes se devolvía la primera suscripción del lote que
+// calzara por patente O por email, así que a un cliente con dos autos bajo el
+// mismo correo (los hay) le cancelaba el auto equivocado cuando esa otra venía
+// antes. Por lo mismo se devuelven todas las que calcen: dos suscripciones
+// activas para la misma patente son dos cobros al mismo auto (ya pasó, ver
+// wooLimpieza.ts) y cortar una sola deja la otra cobrando.
+//
+// `email` es el respaldo para las suscripciones que arrastran la patente vieja
+// (ver wooLimpieza.ts) y el caller decide si mandarlo — pasarlo siempre le
+// cancelaría al cliente la suscripción de OTRO de sus autos. Con 2+ bajo el
+// mismo correo y ninguna con la patente pedida se LANZA en vez de devolver
+// vacío: "no sé cuál es" no es lo mismo que "no hay ninguna", y esa diferencia
+// es la que decide si al cliente se le manda el correo diciéndole que ya no se
+// le cobra.
+//
+// El deadline es para todas las páginas juntas: WordPress se demora varios
+// segundos por página y esto se espera dentro de requests de cara al cliente.
+// Sin él, un WordPress lento no da error, se lleva la función entera por
+// delante.
+async function buscarSuscripcionesActivas(patente: string, email: string): Promise<SubscriptionWC[]> {
   const auth = authHeader();
+  const signal = AbortSignal.timeout(15000);
   const perPage = 100;
+  const todas: SubscriptionWC[] = [];
   let page = 1;
   let totalPages = 1;
   do {
     const url = `${wcSiteUrl()}/wp-json/wc/v3/subscriptions?per_page=${perPage}&page=${page}&status=active`;
-    const res = await fetch(url, { headers: { Authorization: auth } });
+    const res = await fetch(url, { headers: { Authorization: auth }, signal });
     if (!res.ok) throw new Error(`WooCommerce API ${res.status} buscando suscripciones activas: ${await res.text()}`);
     totalPages = Number(res.headers.get("X-WP-TotalPages")) || 1;
-    const lote = (await res.json()) as SubscriptionWC[];
-    const match = lote.find((s) => {
-      if (patente && extraerPatente(s) === patente) return true;
-      const billingEmail = String((s.billing || {}).email || "").trim().toLowerCase();
-      return !!email && billingEmail === email;
-    });
-    if (match) return match;
+    todas.push(...((await res.json()) as SubscriptionWC[]));
     page++;
   } while (page <= totalPages);
-  return null;
+
+  const porPatente = patente ? todas.filter((s) => extraerPatente(s) === patente) : [];
+  if (porPatente.length) return porPatente;
+
+  const porEmail = email ? todas.filter((s) => String((s.billing || {}).email || "").trim().toLowerCase() === email) : [];
+  if (porEmail.length > 1) {
+    throw new Error(
+      `${email} tiene ${porEmail.length} suscripciones activas en WooCommerce y ninguna trae la patente ${patente} — cancelar "la primera" le cortaría el auto equivocado, hay que revisarlo a mano: ${porEmail.map((s) => "#" + s.id).join(", ")}`
+    );
+  }
+  return porEmail;
 }
 
 /**
@@ -100,60 +127,93 @@ async function buscarSuscripcionActiva(patente: string, email: string): Promise<
  * auto-woo.ts) solo necesitaban lectura, así que si esas keys se generaron
  * para ese uso, hay que regenerarlas con el scope ampliado.
  *
- * Best-effort a propósito: se llama desde after() en el caller, después de
- * que la tarjeta nueva ya quedó guardada y la respuesta ya se le mandó al
- * cliente — si esto falla (permiso insuficiente, suscripción ya cancelada
- * allá, etc.) no debe revertir ni bloquear la inscripción, solo quedar
- * loggeado fuerte para revisión manual (ver caller).
+ * Lanza si WooCommerce rechaza el corte: es plata, y el caller tiene que poder
+ * distinguir "no había nada que cancelar" de "no se pudo". Quien no quiera
+ * lidiar con eso usa cortarCobroWooCommerceLegacy, que nunca lanza.
  */
 export async function cancelarSuscripcionWooCommerceLegacy(
   patente: string,
   email: string
-): Promise<{ cancelada: boolean; subscriptionId?: number }> {
-  const sub = await buscarSuscripcionActiva(normPlate(patente), (email || "").trim().toLowerCase());
-  if (!sub) {
+): Promise<{ cancelada: boolean; ids: number[] }> {
+  const subs = await buscarSuscripcionesActivas(normPlate(patente), (email || "").trim().toLowerCase());
+  if (!subs.length) {
     console.warn(
-      `No se encontró suscripción activa en WooCommerce para ${patente} / ${email} al migrar a Oneclick propio — nada que cancelar (puede que ya estuviera cancelada allá)`
+      `No se encontró suscripción activa en WooCommerce para ${patente} / ${email} — nada que cancelar (puede que ya estuviera cancelada allá)`
     );
-    return { cancelada: false };
+    return { cancelada: false, ids: [] };
   }
 
-  const res = await fetch(`${wcSiteUrl()}/wp-json/wc/v3/subscriptions/${sub.id}`, {
-    method: "PUT",
-    headers: { Authorization: authHeader(), "Content-Type": "application/json" },
-    body: JSON.stringify({ status: "cancelled" }),
-  });
-  if (!res.ok) {
-    throw new Error(`WooCommerce API ${res.status} cancelando suscripción #${sub.id}: ${await res.text()}`);
+  for (const sub of subs) {
+    const res = await fetch(`${wcSiteUrl()}/wp-json/wc/v3/subscriptions/${sub.id}`, {
+      method: "PUT",
+      headers: { Authorization: authHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "cancelled" }),
+    });
+    if (!res.ok) {
+      throw new Error(`WooCommerce API ${res.status} cancelando suscripción #${sub.id}: ${await res.text()}`);
+    }
   }
-  return { cancelada: true, subscriptionId: sub.id };
+  return { cancelada: true, ids: subs.map((s) => s.id) };
 }
 
 /**
+ * Qué pasó con el cobro viejo. "sin_suscripcion" y "cancelada" son las dos
+ * formas de quedar tranquilo (no hay nada cobrando por allá); "error" es la
+ * única que obliga a avisar: puede que WooCommerce le cobre igual el próximo
+ * ciclo, así que ni la ficha puede decir que quedó cancelado ni al cliente se
+ * le puede mandar el correo de respaldo diciéndole que ya no se le cobra.
+ */
+export type CorteWooCommerce = "cancelada" | "sin_suscripcion" | "error";
+
+/**
  * Corta el cobro viejo de WooCommerce de una patente que ya no debe cobrarse
- * por allá y limpia `renovacionAutoWooDesde`. Mientras esa marca siga puesta,
- * WooCommerce le cobra su próximo ciclo con la tarjeta anterior — al mismo
- * tiempo que el cron nuevo cobra con la inscrita, o después de que se le
- * terminó el plan sin tope. Limpiarla es además lo que evita reintentar la
- * cancelación en cada pasada siguiente.
+ * por allá y limpia `renovacionAutoWooDesde`. Mientras esa suscripción siga
+ * viva, WooCommerce le cobra su próximo ciclo con la tarjeta anterior — al
+ * mismo tiempo que el cron nuevo cobra con la inscrita, o después de que se le
+ * terminó el plan sin tope.
  *
- * Best-effort y nunca lanza: si falla queda loggeado fuerte para revisión a
- * mano (ver cancelarSuscripcionWooCommerceLegacy). `motivo` va al log, que es
- * lo único que distingue los dos casos que cortan el cobro.
+ * Le pregunta a WooCommerce SIEMPRE, sin usar `renovacionAutoWooDesde` como
+ * permiso para preguntar: esa marca se pone cuando llega el webhook de un
+ * pedido de renovación pagado y se limpia con el de cancelación, así que una
+ * suscripción reactivada a mano en Woo (pasó con las 88 del rescate del
+ * 31-ago-2026) queda cobrando con la marca en null — y con el atajo puesto,
+ * esos clientes eran justo los que nunca se cancelaban. La marca quedó como lo
+ * que es: evidencia de que ESTA patente estuvo en Woo. Por eso decide dos
+ * cosas y ninguna más:
+ *  - si se puede buscar por email (el respaldo para las suscripciones que
+ *    arrastran la patente vieja). Sin esa evidencia, buscar por email le
+ *    cancelaría al cliente la suscripción de otro de sus autos.
+ *  - si un "error" es grave para el caller: sin marca, lo más probable es que
+ *    el cliente nunca haya estado en Woo y el corte sobre, así que un
+ *    WooCommerce caído no puede bloquearle la baja de su tarjeta.
+ *
+ * Nunca lanza: devuelve el estado del corte y lo deja loggeado fuerte. `motivo`
+ * va al log, que es lo único que distingue los casos que cortan el cobro.
  */
 export async function cortarCobroWooCommerceLegacy(
   cliente: Pick<Cliente, "id" | "email" | "renovacionAutoWooDesde"> | null | undefined,
   patente: string,
   motivo: string
-): Promise<void> {
-  if (!cliente?.renovacionAutoWooDesde) return;
+): Promise<CorteWooCommerce> {
+  if (!cliente) return "sin_suscripcion";
   try {
-    const { cancelada, subscriptionId } = await cancelarSuscripcionWooCommerceLegacy(patente, cliente.email || "");
-    if (!cancelada) return;
-    console.log(`Suscripción WooCommerce #${subscriptionId} cancelada: ${patente} — ${motivo}`);
-    await getDb().update(clientes).set({ renovacionAutoWooDesde: null }).where(eq(clientes.id, cliente.id));
+    const { cancelada, ids } = await cancelarSuscripcionWooCommerceLegacy(
+      patente,
+      cliente.renovacionAutoWooDesde ? cliente.email || "" : ""
+    );
+    if (cancelada) console.log(`Suscripción WooCommerce ${ids.map((id) => "#" + id).join(", ")} cancelada: ${patente} — ${motivo}`);
+    // La marca se limpia también cuando no había nada que cancelar: si Woo dice
+    // que esa patente no tiene suscripción activa, dejarla puesta la seguiría
+    // mostrando como "RA WOO" en la ficha, le seguiría diciendo al cliente en
+    // Mi Cuenta que su renovación la maneja el sistema anterior, y la dejaría
+    // fuera de los avisos de vencimiento (ver reglas/cron) para siempre.
+    if (cliente.renovacionAutoWooDesde) {
+      await getDb().update(clientes).set({ renovacionAutoWooDesde: null }).where(eq(clientes.id, cliente.id));
+    }
+    return cancelada ? "cancelada" : "sin_suscripcion";
   } catch (error) {
     console.error(`ERROR cancelando la suscripción de WooCommerce de ${patente} (${motivo}) — revisar a mano`, error);
+    return "error";
   }
 }
 
@@ -170,6 +230,6 @@ export function migrarDeWooCommerceLegacy(
   cliente: Pick<Cliente, "id" | "email" | "renovacionAutoWooDesde"> | null | undefined,
   patente: string
 ): void {
-  if (!cliente?.renovacionAutoWooDesde) return;
+  if (!cliente) return;
   after(() => cortarCobroWooCommerceLegacy(cliente, patente, "migró a Oneclick propio"));
 }

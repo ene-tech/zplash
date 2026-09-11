@@ -33,7 +33,7 @@ vi.mock("@/lib/pagos", () => ({
   cobrarOfertaOneclick: (patente: string, tipo: string, monto: number) => cobrarOferta(patente, tipo, monto),
   cobrarSuscripcion: () => cobrarSuscripcion(),
   otorgarTicketReactivacion: () => Promise.resolve(null),
-  cancelarSuscripcionWooCommerceLegacy: () => Promise.resolve({ cancelada: false }),
+  cancelarSuscripcionWooCommerceLegacy: () => Promise.resolve({ cancelada: false, ids: [] }),
   migrarDeWooCommerceLegacy: () => {},
 }));
 

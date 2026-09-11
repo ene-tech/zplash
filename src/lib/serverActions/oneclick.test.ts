@@ -18,9 +18,9 @@ vi.mock("@/lib/mailing/reglas", () => ({
   evaluarReglasCorreoPorSuscripcionCancelada: (c: Cliente) => mockCorreo(c),
 }));
 
-const mockCancelarWoo = vi.fn();
+const mockCortarWoo = vi.fn();
 vi.mock("@/lib/pagos", () => ({
-  cancelarSuscripcionWooCommerceLegacy: (p: string, e: string) => mockCancelarWoo(p, e),
+  cortarCobroWooCommerceLegacy: (c: Cliente, p: string, m: string) => mockCortarWoo(c, p, m),
   cobrarSuscripcion: vi.fn(),
 }));
 
@@ -33,16 +33,17 @@ beforeEach(() => {
   mockObtenerSuscripcion.mockResolvedValue(null);
   mockSuspender.mockResolvedValue(true);
   mockCorreo.mockResolvedValue(undefined);
-  mockCancelarWoo.mockResolvedValue({ cancelada: true, subscriptionId: 7 });
+  mockCortarWoo.mockResolvedValue("cancelada");
 });
 
 describe("anularSuscripcion", () => {
   it("corta el cobro sin dar de baja la tarjeta en Transbank", async () => {
     mockBuscarCliente.mockResolvedValue(cliente());
     mockObtenerSuscripcion.mockResolvedValue({ id: "s1", estado: "activa" });
+    mockCortarWoo.mockResolvedValue("sin_suscripcion");
 
     const { anularSuscripcion } = await import("./oneclick");
-    expect(await anularSuscripcion("c1")).toEqual({ oneclick: true, woo: false });
+    expect(await anularSuscripcion("c1")).toEqual({ oneclick: true, woo: "sin_suscripcion" });
     // suspender, no cancelar: la inscripción sigue viva y el cron solo cobra "activa".
     expect(mockSuspender).toHaveBeenCalledWith("s1");
     expect(mockCorreo).toHaveBeenCalledOnce();
@@ -53,19 +54,28 @@ describe("anularSuscripcion", () => {
 
     // Sin fila Oneclick: el cobro automático vive solo en WooCommerce.
     const { anularSuscripcion } = await import("./oneclick");
-    expect(await anularSuscripcion("c1")).toEqual({ oneclick: false, woo: true });
-    expect(mockCancelarWoo).toHaveBeenCalledWith("VLXV14", "o@x.cl");
+    expect(await anularSuscripcion("c1")).toEqual({ oneclick: false, woo: "cancelada" });
+    expect(mockCortarWoo).toHaveBeenCalledWith(expect.objectContaining({ patente: "VLXV14" }), "VLXV14", expect.any(String));
     expect(mockSuspender).not.toHaveBeenCalled();
   });
 
-  it("si WooCommerce falla igual deja anulado el cobro local y manda el respaldo", async () => {
+  // Le pregunta a WooCommerce aunque el cliente no tenga la marca puesta: las
+  // suscripciones reactivadas a mano en Woo quedan cobrando con
+  // renovacionAutoWooDesde en null (ver cortarCobroWooCommerceLegacy).
+  it("consulta WooCommerce aunque el cliente no tenga la marca", async () => {
+    mockBuscarCliente.mockResolvedValue(cliente());
+    const { anularSuscripcion } = await import("./oneclick");
+    await anularSuscripcion("c1");
+    expect(mockCortarWoo).toHaveBeenCalledOnce();
+  });
+
+  it("si WooCommerce rechaza el corte NO manda el respaldo: le seguirían cobrando", async () => {
     mockBuscarCliente.mockResolvedValue(cliente({ renovacionAutoWooDesde: "2025-01-01" }));
     mockObtenerSuscripcion.mockResolvedValue({ id: "s1", estado: "suspendida" });
-    mockCancelarWoo.mockRejectedValue(new Error("403 site lock"));
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockCortarWoo.mockResolvedValue("error");
 
     const { anularSuscripcion } = await import("./oneclick");
-    expect(await anularSuscripcion("c1")).toEqual({ oneclick: true, woo: false });
-    expect(mockCorreo).toHaveBeenCalledOnce();
+    expect(await anularSuscripcion("c1")).toEqual({ oneclick: true, woo: "error" });
+    expect(mockCorreo).not.toHaveBeenCalled();
   });
 });
