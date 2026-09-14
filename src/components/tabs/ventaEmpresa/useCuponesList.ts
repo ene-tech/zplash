@@ -13,11 +13,25 @@ export function valorCupon(c: Cupon): string {
 // Listado de todos los cupones (vale + descuento) generados: búsqueda,
 // eliminación, y export a Excel.
 export function useCuponesList() {
-  const { data, commit } = useAppData();
+  const { data, commit, patchUi } = useAppData();
   const [busqueda, setBusqueda] = useState("");
 
+  // Con confirmación: el basurero borraba al primer clic y el 28-ago-2026, al
+  // borrar un lote a clics seguidos, se llevó 8 tickets de la Promo
+  // Reactivación ya enviados por correo. `email` solo lo tienen los que salieron
+  // a un cliente (promo, Pack Empresa web), por eso el aviso extra.
   const eliminar = (cup: Cupon) => {
-    commit({ cupones: data.cupones.filter((x) => x.id !== cup.id) });
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `¿Eliminar el ${cup.tipo === "descuento" ? "descuento" : "ticket"} ${cup.codigo} (${cup.nombreLote})?${
+          cup.email ? `\nYa se le envió a ${cup.email}: dejará de funcionar en el local.` : ""
+        }`,
+        onConfirm: () => {
+          commit({ cupones: data.cupones.filter((x) => x.id !== cup.id) });
+        },
+      },
+    });
   };
 
   const q = busqueda.toLowerCase().trim();
