@@ -489,7 +489,7 @@ describe("renovarPlan", () => {
     data.config = { ...CONFIG_DEFAULT, diasGraciaPagoAtrasado: 4 };
     const vencimientoOriginal = new Date();
     vencimientoOriginal.setDate(vencimientoOriginal.getDate() - 3);
-    const cliente = clienteBase({ vencimiento: vencimientoOriginal.toISOString() });
+    const cliente = clienteBase({ plan: PLAN_X5, vencimiento: vencimientoOriginal.toISOString() });
     data.clientes = [cliente];
 
     const patch = renovarPlan(data, cliente, "Operador X", 21990, undefined, "Renovación atrasada", true);
@@ -499,6 +499,23 @@ describe("renovarPlan", () => {
     const esperado = sumarMesesFecha(vencimientoOriginal, 1);
     const nuevoVencimiento = new Date(patch.clientes!.find((c) => c.id === cliente.id)!.vencimiento!);
     expect(nuevoVencimiento.toDateString()).toBe(esperado.toDateString());
+  });
+
+  it("el ilimitado viejo vencido no tiene plazo de gracia: contrata el X5 con el ciclo desde hoy", () => {
+    // Caso STDS75 (sep-2026): vencido el 8, pagó el 14 y quedó hasta el 7 del
+    // mes siguiente en vez del 13.
+    const data = appDataVacia();
+    data.config = { ...CONFIG_DEFAULT, diasGraciaPagoAtrasado: 7 };
+    const vencido = new Date();
+    vencido.setDate(vencido.getDate() - 3);
+    const cliente = clienteBase({ vencimiento: vencido.toISOString(), fechaContratacion: "2025-01-15T00:00:00.000Z" });
+    data.clientes = [cliente];
+
+    const renovado = renovarPlan(data, cliente, "Operador X", 21990, undefined, "Renovación atrasada", true).clientes!.find((c) => c.id === cliente.id)!;
+
+    expect(renovado.plan).toBe(PLAN_X5);
+    expect(new Date(renovado.vencimiento!).toDateString()).toBe(finCicloPlan(new Date()).toDateString());
+    expect(new Date(renovado.fechaContratacion!).toDateString()).toBe(new Date().toDateString());
   });
 
   it("vencido pasados los días de gracia: el ciclo arranca de hoy", () => {
@@ -557,7 +574,7 @@ describe("renovarPlan", () => {
     data.config = { ...CONFIG_DEFAULT, diasGraciaPagoAtrasado: 7 };
     const vencido = new Date();
     vencido.setDate(vencido.getDate() - 3);
-    const cliente = clienteBase({ vencimiento: vencido.toISOString(), fechaContratacion: "2025-01-15T00:00:00.000Z" });
+    const cliente = clienteBase({ plan: PLAN_X5, vencimiento: vencido.toISOString(), fechaContratacion: "2025-01-15T00:00:00.000Z" });
     data.clientes = [cliente];
 
     const patch = renovarPlan(data, cliente, "Operador X", 21990, undefined, "Renovación atrasada", true);

@@ -41,7 +41,8 @@ export interface OfertaPlan {
   // contratación, pasado el plazo paga el vigente), no como una promo de
   // cuenta. Pagarlo no reinicia el ciclo: aplicarPagoAprobado ancla el
   // vencimiento a fechaContratacion (ver vencimientoAnclado), así que el
-  // cliente recupera SU plan con los días de atraso ya perdidos.
+  // cliente recupera SU plan con los días de atraso ya perdidos. Salvo el
+  // ilimitado viejo, que contrata el X5 de cero desde hoy (ver ilimitadoVencido).
   pagoVencido?: { precio: number; diasVencido: number; visitas: number };
   // Cliente de la categoría "Sin plan" (`vencimiento` nulo, ver planStatus):
   // nunca contrató, así que no le calza ninguna de las de arriba —todas nacen

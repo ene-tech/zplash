@@ -9,6 +9,7 @@ import {
   enPlazoDePagoPlan,
   finCicloPlan,
   ilimitadoHastaAlRenovar,
+  ilimitadoVencido,
   planStatus,
   sigueVigenteHoy,
   sumarMesesFecha,
@@ -256,11 +257,12 @@ export function renovarPlan(
   // quedaban; día-granular vía sigueVigenteHoy, para que renovar el mismo día
   // del vencimiento con la hora ya pasada tampoco los pierda), y además en el
   // pago atrasado dentro del plazo de gracia (ver anclarAtraso). Si no, el
-  // ciclo parte de hoy.
+  // ciclo parte de hoy. El ilimitado viejo vencido no tiene plazo de gracia:
+  // no renueva, contrata el X5 de cero (ver ilimitadoVencido).
   const anclarAlVencimiento =
     !!cliente.vencimiento &&
     (sigueVigenteHoy(cliente.vencimiento) ||
-      (anclarAtraso && enPlazoDePagoPlan(cliente, data.config.diasGraciaPagoAtrasado)));
+      (anclarAtraso && !ilimitadoVencido(cliente) && enPlazoDePagoPlan(cliente, data.config.diasGraciaPagoAtrasado)));
   // Anclado: un mes más sobre el vencimiento vigente, que ya es "el día
   // anterior" del mes (ver finCicloPlan). Desde cero: mes completo contado
   // desde hoy, o sea hasta el día anterior del mes que viene.

@@ -94,6 +94,24 @@ export function requiereValidacionX5(cliente: { plan?: string | null; aceptoX5En
 }
 
 /**
+ * Regla de sep-2026: el cliente del ilimitado viejo que dejó vencer su plan no
+ * lo renueva, contrata el X5 de cero. Su pago arranca un ciclo nuevo HOY en vez
+ * de anclarse al aniversario viejo, aunque esté dentro de los días de gracia
+ * (caso STDS75: vencido el 8-sep, pagó el 14 y quedó hasta el 7-oct en vez del
+ * 13). La usan los caminos que anclan un pago atrasado: renovarPlan (mesón),
+ * renovarWeb (usePlanActions) y aplicarPagoAprobado (Mi Cuenta).
+ *
+ * NO la usan el cron de Oneclick ni el webhook de WooCommerce: ahí la política
+ * de rescate le mantiene el ilimitado al que usa poco (ver
+ * planTrasRenovacionSinCliente), y reiniciarle el ciclo sin cambiarle el plan
+ * no es esta regla.
+ */
+// Parámetro suelto por lo mismo que requiereValidacionX5: Cliente y fila cruda.
+export function ilimitadoVencido(cliente: { plan?: string | null; vencimiento?: string | null }): boolean {
+  return cliente.plan === PLAN_ILIMITADO_LEGACY && !sigueVigenteHoy(cliente.vencimiento);
+}
+
+/**
  * ¿Este cliente del ilimitado viejo se pasó del tope del X5 en su ciclo?
  * Regla de la política de rescate de ago-2026: al cliente de WooCommerce que
  * usa PASES_INCLUIDOS_X5 pasadas o menos se le mantiene su plan sin tope y se

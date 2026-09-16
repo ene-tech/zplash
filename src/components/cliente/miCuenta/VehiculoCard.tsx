@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { MoreVertical } from "lucide-react";
-import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtFecha } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtFecha, ilimitadoVencido } from "@/lib/helpers";
 import type { OfertaPlan } from "@/lib/helpers";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
 import { Button } from "@/components/ui/button";
@@ -307,7 +307,9 @@ export function VehiculoCard({
             <span className="new">{fmtCLP(oferta.pagoVencido.precio)}</span>
           </div>
           <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-            Sigue siendo tu mismo plan, con los días de atraso ya corridos: no arranca un ciclo nuevo desde hoy.
+            {ilimitadoVencido(v)
+              ? `El plan ilimitado no se renueva atrasado: contratas el ${PLANES[0]} y tu mes parte hoy.`
+              : "Sigue siendo tu mismo plan, con los días de atraso ya corridos: no arranca un ciclo nuevo desde hoy."}
           </div>
           {/* Lo emite /api/pagos/webpay/retorno al aplicar este pago. */}
           {ticketReactivacion && (
@@ -318,7 +320,7 @@ export function VehiculoCard({
           <button className="btn secondary" onClick={pagarPlanVencido} disabled={pagando !== null}>
             {pagando === "renovacion"
               ? "Procesando..."
-              : `${v.requiereValidacionX5 ? `Contratar ${PLANES[0]}` : "Pagar mi plan"} (${fmtCLP(oferta.pagoVencido.precio)})`}
+              : `${ilimitadoVencido(v) ? `Contratar ${PLANES[0]}` : "Pagar mi plan"} (${fmtCLP(oferta.pagoVencido.precio)})`}
           </button>
         </div>
       )}

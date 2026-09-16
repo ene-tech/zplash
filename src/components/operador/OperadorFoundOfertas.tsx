@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAppData } from "@/context/AppContext";
-import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtHorasVentanaUpgradePlan, requiereValidacionX5 } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtHorasVentanaUpgradePlan, ilimitadoVencido, requiereValidacionX5 } from "@/lib/helpers";
 import { aceptarPasoAX5 } from "@/lib/serverActions/clientes";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
@@ -295,11 +295,18 @@ export default function OperadorFoundOfertas(props: Props) {
               Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
             </h4>
           </div>
-          <div className="msg">
-            {c.nombre} todavía está dentro del plazo para pagarlo atrasado: se le cobra su {c.plan} al mismo precio que
-            si hubiera pagado a tiempo y mantiene su fecha de vencimiento — el ciclo sigue corriendo desde donde
-            estaba, no arranca de nuevo hoy.
-          </div>
+          {ilimitadoVencido(c) ? (
+            <div className="msg">
+              {c.nombre} venía del {c.plan}, que no se renueva atrasado: se le cobra el {PLANES[0]} como plan nuevo, al
+              mismo precio que si hubiera pagado a tiempo, y su ciclo arranca de nuevo hoy.
+            </div>
+          ) : (
+            <div className="msg">
+              {c.nombre} todavía está dentro del plazo para pagarlo atrasado: se le cobra su {c.plan} al mismo precio que
+              si hubiera pagado a tiempo y mantiene su fecha de vencimiento — el ciclo sigue corriendo desde donde
+              estaba, no arranca de nuevo hoy.
+            </div>
+          )}
           <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
           <div className="price-row">
             {props.pNormal > props.precioAtrasado && <span className="old">{fmtCLP(props.pNormal)}</span>}

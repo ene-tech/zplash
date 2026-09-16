@@ -10,6 +10,7 @@ import {
   isValidTelefono,
   marcarDescuentoUsado,
   ilimitadoHastaAlRenovar,
+  ilimitadoVencido,
   vencimientoAnclado,
   ventaPlanReciente,
   cicloPlanDesde,
@@ -127,7 +128,8 @@ export function usePlanActions(
   // vencimiento, que renovarPlan ancla al vencimiento original en vez de
   // arrancar un ciclo nuevo desde hoy.
   const pagarAtrasado = (cliente: Cliente = c) => {
-    pedirPago(cliente, precioAtrasado, `Pago atrasado del plan de ${cliente.nombre} (mantiene su fecha de vencimiento)`, async (pago) => {
+    const detalle = ilimitadoVencido(cliente) ? `${PLANES[0]} desde hoy` : "mantiene su fecha de vencimiento";
+    pedirPago(cliente, precioAtrasado, `Pago atrasado del plan de ${cliente.nombre} (${detalle})`, async (pago) => {
       const patch = conDescuento(renovarPlan(data, cliente, ui.perfilActual?.nombre, precioAtrasado, pago, "Renovación atrasada", true), cliente);
       const ok = await commit(patch);
       if (!ok) {
@@ -162,7 +164,9 @@ export function usePlanActions(
   const renovarWeb = (cliente: Cliente = c) => {
     if (precioAtrasado <= 0) return;
     pedirPago(cliente, precioAtrasado, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
-      const nuevoVencimiento = vencimientoAnclado(cliente);
+      // El ilimitado viejo vencido no recupera su ciclo: contrata el X5 de cero
+      // desde hoy (ver ilimitadoVencido), con vencimiento y contratación juntos.
+      const ciclo = ilimitadoVencido(cliente) ? cicloPlanDesde() : { vencimiento: vencimientoAnclado(cliente) };
       // Misma migración al X5 que hace renovarPlan en el mesón: renovar deja
       // al cliente en el plan que se vende hoy, traiga el que traiga. Y por lo
       // mismo, el mismo resguardo: el mes sin tope que el cliente del
@@ -174,7 +178,7 @@ export function usePlanActions(
         ...cliente,
         plan,
         ilimitadoHasta: ilimitadoHastaAlRenovar(cliente),
-        vencimiento: nuevoVencimiento,
+        ...ciclo,
         ultimaRenovacion: new Date().toISOString(),
       };
       const venta: Venta = {

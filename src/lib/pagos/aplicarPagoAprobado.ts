@@ -8,6 +8,7 @@ import { consumirCupon } from "./cuponPlan";
 import {
   PLANES,
   diaEnSantiago,
+  ilimitadoVencido,
   planTrasRenovacionSinCliente,
   ilimitadoHastaAlRenovar,
   periodoPlan,
@@ -215,7 +216,12 @@ export async function aplicarPagoAprobado(
     // contratación escrita — o sea la ventana de pases deducida del
     // vencimiento, que es justo lo que rompe en las anclas 29/30/31 (ver
     // cicloPlanDesde y el caso HYRL56).
-    const reinicia = (!!p.reiniciarCiclo || (!existente.fechaContratacion && !existente.vencimiento)) && !vigente;
+    //
+    // Y el ilimitado viejo vencido tampoco se ancla: no renueva, contrata el X5
+    // de cero (ver ilimitadoVencido). Salvo el cobro automático, donde la
+    // política de rescate puede estar manteniéndole el plan.
+    const contrataX5DeCero = ilimitadoVencido(existente) && p.pasadasDelCicloSinCliente === undefined;
+    const reinicia = (!!p.reiniciarCiclo || (!existente.fechaContratacion && !existente.vencimiento) || contrataX5DeCero) && !vigente;
     // Los dos campos del ciclo nuevo salen de acá o de ningún lado.
     const ciclo = reinicia ? cicloPlanDesde() : null;
     const nuevoVencimiento = vigente
