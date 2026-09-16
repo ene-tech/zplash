@@ -62,6 +62,7 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                 <th>RUT</th>
                 <th>Dirección</th>
                 <th>Giro</th>
+                <th>Email</th>
                 <th>Monto</th>
                 <th></th>
               </tr>
@@ -78,6 +79,7 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                   <td>{v.rut || "-"}</td>
                   <td>{v.direccion || "-"}</td>
                   <td>{v.giro || "-"}</td>
+                  <td>{v.email || "-"}</td>
                   <td>{fmtCLP(v.precio)}</td>
                   <td>
                     <button className="btn ghost" onClick={() => marcarEmitida([v.id])}>
