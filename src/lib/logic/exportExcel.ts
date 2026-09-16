@@ -77,6 +77,21 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
             ? "Transferencia bancaria"
             : "-",
   }));
+  // Facturas pedidas en el checkout web (ver facturasEmpresaPeriodo en
+  // useCierreData): acá van también las ya emitidas, marcadas en su columna.
+  const facturasWeb = ventasPeriodo
+    .filter((v) => v.tipoDocumento === "Factura")
+    .map((v) => ({
+      Fecha: fmtDateLocal(v.fecha),
+      Detalle: v.tipo,
+      "Razón Social": v.razonSocial || "",
+      RUT: v.rut || "",
+      Dirección: v.direccion || "",
+      Giro: v.giro || "",
+      Email: v.email || "",
+      Monto: v.precio,
+      "Factura emitida": v.facturaEmitida ? "Sí" : "No",
+    }));
 
   import("xlsx").then((XLSX) => {
     const wb = XLSX.utils.book_new();
@@ -103,6 +118,15 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
         planesVendidos.length ? planesVendidos : [{ Fecha: "", Patente: "", Cliente: "", Tipo: "", Precio: "", "Método de pago": "" }]
       ),
       "Detalle de Venta"
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(
+        facturasWeb.length
+          ? facturasWeb
+          : [{ Fecha: "", Detalle: "", "Razón Social": "", RUT: "", Dirección: "", Giro: "", Email: "", Monto: "", "Factura emitida": "" }]
+      ),
+      "Facturas web"
     );
     XLSX.writeFile(wb, `cierre-caja-${desde}_a_${hasta}.xlsx`);
   });
