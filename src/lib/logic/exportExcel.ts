@@ -1,5 +1,5 @@
-import type { AppData, Cliente } from "@/types";
-import { esTarjetaWeb, fmtTelefono, normPlate, planStatus, planVendible, precioNormal } from "@/lib/helpers";
+import type { AppData, Cliente, Venta } from "@/types";
+import { esTarjetaWeb, fmtTelefono, limpiarRut, normPlate, planStatus, PREFIJO_VENTA_REEMBOLSO } from "@/lib/helpers";
 
 function inRangeLocal(iso: string | null | undefined, desde: string, hasta: string): boolean {
   if (!iso) return false;
@@ -132,23 +132,58 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
   });
 }
 
-// Monto a facturar a un cliente: si tuvo ventas en el período, esa suma (caso
-// de clientes que facturan por visita/lavado único). Si no tuvo ninguna pero
-// su plan sigue Vigente o Por vencer, el precio del plan (caso de empresas
-// con flota en Plan X5, que se factura mes a mes aunque el
-// ciclo de renovación no haya caído dentro del período seleccionado). Sin
-// ventas y sin plan activo, no hay nada que facturar.
-export function montoAFacturar(c: Cliente, montoVentas: number, precios: AppData["precios"]): number {
-  if (montoVentas > 0) return montoVentas;
-  const st = planStatus(c);
-  if (st.label !== "Vigente" && st.label !== "Por vencer") return 0;
-  return precioNormal(precios, planVendible(c.plan));
+// Ventas del período que hay que facturarle a cada cliente, indexadas por
+// cliente.id. Además de las ventas con `clienteId` propio, reparte las compras
+// con Factura pagadas por la web (Pack Empresa, 10 Tickets, Cupón Venta
+// Empresa): esas llegan SIN clienteId — el checkout guarda razón social y RUT
+// como snapshot en la venta, ver pagosWebpayItems — así que se asignan al
+// cliente que tenga ese mismo RUT en su ficha. Sin esto la fila del cliente en
+// "Clientes con Factura" mostraba $0 aunque hubiera comprado con factura
+// dentro del período. Cuando un RUT tiene varias fichas (una por auto) el
+// monto se le carga a una sola, para no emitir dos veces la misma factura.
+export function ventasAFacturarPorCliente(
+  clientes: Cliente[],
+  ventas: Venta[],
+  desde: string,
+  hasta: string
+): Map<string, Venta[]> {
+  const fichaPorRut = new Map<string, string>();
+  for (const c of clientes) {
+    if (c.tipoDocumento !== "Factura") continue;
+    const rut = limpiarRut(c.rut);
+    if (rut && !fichaPorRut.has(rut)) fichaPorRut.set(rut, c.id);
+  }
+  const porId = new Map(ventas.map((v) => [v.id, v]));
+  // El contra-asiento de un reembolso (ver reembolsarVenta) copia el clienteId
+  // de la venta original pero no su razón social ni su RUT, así que el de una
+  // compra web se queda sin dueño: hay que devolverlo a la misma ficha que la
+  // venta que anula, o la compra reembolsada seguiría figurando como plata por
+  // facturar. El id del contra-asiento es "reembolso-" + el id original.
+  const fichaDe = (v: Venta | undefined): string | undefined => {
+    if (!v) return undefined;
+    if (v.clienteId) return v.clienteId;
+    if (v.tipoDocumento === "Factura") return fichaPorRut.get(limpiarRut(v.rut));
+    if (v.id.startsWith(PREFIJO_VENTA_REEMBOLSO)) return fichaDe(porId.get(v.id.slice(PREFIJO_VENTA_REEMBOLSO.length)));
+    return undefined;
+  };
+
+  const porCliente = new Map<string, Venta[]>();
+  for (const v of ventas) {
+    if (!inRangeLocal(v.fecha, desde, hasta)) continue;
+    const clienteId = fichaDe(v);
+    if (!clienteId) continue;
+    const lista = porCliente.get(clienteId);
+    if (lista) lista.push(v);
+    else porCliente.set(clienteId, [v]);
+  }
+  return porCliente;
 }
 
 export function descargarFacturables(data: AppData, listaClientes: Cliente[], desde: string, hasta: string) {
+  const ventasPorCliente = ventasAFacturarPorCliente(data.clientes, data.ventas, desde, hasta);
   const filas = listaClientes.map((c) => {
     const ingPeriodo = data.ingresos.filter((i) => i.clienteId === c.id && inRangeLocal(i.fecha, desde, hasta)).length;
-    const ventPeriodo = data.ventas.filter((v) => v.clienteId === c.id && inRangeLocal(v.fecha, desde, hasta));
+    const ventPeriodo = ventasPorCliente.get(c.id) || [];
     const montoVentas = ventPeriodo.reduce((s, v) => s + (v.precio || 0), 0);
     const st = planStatus(c);
     return {
@@ -161,10 +196,9 @@ export function descargarFacturables(data: AppData, listaClientes: Cliente[], de
       Email: c.email || "",
       Teléfono: c.telefono || "",
       "Ingresos en el período": ingPeriodo,
-      "Planes vendidos en el período": ventPeriodo.length,
-      "Monto planes período": montoVentas,
+      "Ventas en el período": ventPeriodo.length,
       "Estado plan actual": st.label,
-      "Monto a facturar": montoAFacturar(c, montoVentas, data.precios),
+      "Monto a facturar": montoVentas,
     };
   });
   import("xlsx").then((XLSX) => {
@@ -185,8 +219,7 @@ export function descargarFacturables(data: AppData, listaClientes: Cliente[], de
                 Email: "",
                 Teléfono: "",
                 "Ingresos en el período": "",
-                "Planes vendidos en el período": "",
-                "Monto planes período": "",
+                "Ventas en el período": "",
                 "Estado plan actual": "",
                 "Monto a facturar": "",
               },

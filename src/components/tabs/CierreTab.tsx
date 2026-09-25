@@ -127,10 +127,7 @@ export default function CierreTab() {
 
       <ClientesFacturaTabla
         facturaFiltrados={r.facturaFiltrados}
-        ventas={r.ventas}
-        precios={r.data.precios}
-        desde={r.desde}
-        hasta={r.hasta}
+        montosAFacturar={r.montosAFacturar}
         facturaSearch={r.ui.facturaSearch || ""}
         onSearchChange={(v) => r.patchUi({ facturaSearch: v })}
         onDescargar={() => descargarFacturables(r.data, r.facturaFiltrados, r.desde, r.hasta)}

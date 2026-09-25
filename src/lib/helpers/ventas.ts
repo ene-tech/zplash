@@ -36,6 +36,11 @@ export function esVentaNuevaWeb(creadoPor?: string | null): boolean {
  * web" aunque su creadoPor ("Automático (Reembolso)") caiga en esa familia. */
 export const TIPO_VENTA_REEMBOLSO = "Reembolso";
 
+/** El contra-asiento lleva el id de la venta que anula detrás de este prefijo
+ * (ver idVentaReembolso en @/lib/pagos/reembolsarVenta) — es lo único que lo
+ * ata a su original cuando la venta web no traía cliente en la ficha. */
+export const PREFIJO_VENTA_REEMBOLSO = "reembolso-";
+
 /** Tipos de venta que nadie tipea en el mesón: los generan el checkout web /
  * el webhook de WooCommerce (los "(Web)") o el módulo de Venta Empresa al
  * emitir un lote de cupones. */

@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
-import { esEmailEnviable, fmtCLP, fmtFecha, TIPO_VENTA_REEMBOLSO } from "@/lib/helpers";
+import { esEmailEnviable, fmtCLP, fmtFecha, PREFIJO_VENTA_REEMBOLSO, TIPO_VENTA_REEMBOLSO } from "@/lib/helpers";
 import { envolverHtmlBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { oneclickChildCommerceCode, oneclickTransaction, webpayTransaction } from "@/lib/transbank";
@@ -28,7 +28,7 @@ function htmlReembolso(nombre: string, monto: number, compra: string, fechaCompr
  * original sin columna nueva, la PK impide reembolsar dos veces la misma
  * venta aunque dos operadores lo intenten a la vez. */
 export function idVentaReembolso(ventaId: string): string {
-  return "reembolso-" + ventaId;
+  return PREFIJO_VENTA_REEMBOLSO + ventaId;
 }
 
 export type ResultadoReembolso = { ok: true; venta: Venta } | { ok: false; error: string };

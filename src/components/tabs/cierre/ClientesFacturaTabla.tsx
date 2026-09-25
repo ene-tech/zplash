@@ -1,31 +1,27 @@
 "use client";
 
-import { fmtCLP, inRange, planStatus } from "@/lib/helpers";
-import { montoAFacturar } from "@/lib/logic";
-import type { Cliente, Precios, Venta } from "@/types";
+import { fmtCLP, planStatus } from "@/lib/helpers";
+import type { Cliente } from "@/types";
 
 export function ClientesFacturaTabla({
   facturaFiltrados,
-  ventas,
-  precios,
-  desde,
-  hasta,
+  montosAFacturar,
   facturaSearch,
   onSearchChange,
   onDescargar,
 }: {
   facturaFiltrados: Cliente[];
-  ventas: Venta[];
-  precios: Precios;
-  desde: string;
-  hasta: string;
+  montosAFacturar: Map<string, number>;
   facturaSearch: string;
   onSearchChange: (v: string) => void;
   onDescargar: () => void;
 }) {
   return (
     <>
-      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Clientes con Factura (documentos tributarios)</h3>
+      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 4px" }}>Clientes con Factura (documentos tributarios)</h3>
+      <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 10 }}>
+        Solo los que tienen algo que facturar en el período seleccionado.
+      </div>
       <div className="toolbar">
         <input
           placeholder="Buscar por nombre, razón social, RUT o patente..."
@@ -54,13 +50,15 @@ export function ClientesFacturaTabla({
           {facturaFiltrados.length === 0 ? (
             <tr>
               <td colSpan={9}>
-                <div className="empty">No hay clientes con Factura{facturaSearch ? " que coincidan con la búsqueda" : ""}</div>
+                <div className="empty">
+                  {facturaSearch
+                    ? "Ningún cliente con Factura del período coincide con la búsqueda"
+                    : "No hay nada que facturar en el período seleccionado"}
+                </div>
               </td>
             </tr>
           ) : (
             facturaFiltrados.map((c) => {
-              const ventPeriodo = ventas.filter((v) => v.clienteId === c.id && inRange(v.fecha, desde, hasta));
-              const montoVentas = ventPeriodo.reduce((s, v) => s + (v.precio || 0), 0);
               const st = planStatus(c);
               return (
                 <tr key={c.id}>
@@ -74,7 +72,7 @@ export function ClientesFacturaTabla({
                   <td>
                     <span className={`status-pill ${st.cls}`}>{st.label}</span>
                   </td>
-                  <td>{fmtCLP(montoAFacturar(c, montoVentas, precios))}</td>
+                  <td>{fmtCLP(montosAFacturar.get(c.id) || 0)}</td>
                 </tr>
               );
             })

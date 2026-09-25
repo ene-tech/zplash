@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { esTarjetaWeb, esVentaNuevaWeb, inRange, normPlate, TIPO_VENTA_REEMBOLSO, todayYMD } from "@/lib/helpers";
+import { ventasAFacturarPorCliente } from "@/lib/logic";
 import { PRODUCTOS_CIERRE } from "./productos";
 
 // Los desgloses expandibles de cada fila (por medio de pago / por tipo de
@@ -263,7 +264,22 @@ export function useCierreData() {
     // pagosWebpayItems y aplicarPagoAprobado/aplicarPagoPackEmpresa.
     const facturasEmpresaPeriodo = ventasPeriodo.filter((v) => v.tipoDocumento === "Factura" && !v.facturaEmitida);
 
+    // Lo que hay que facturarle a cada cliente con Factura en el período, por
+    // cliente.id: lo que realmente se le vendió, nada más. El que no compró en
+    // el período no se lista (ver facturaFiltrados). Antes, al cliente sin
+    // venta pero con plan vigente se le proyectaba el precio del plan: con el
+    // cierre puesto en un día eso mostraba 27 empresas con $21.990 que nadie
+    // pagó ese día, y la renovación de cada una ya aparece sola en el cierre
+    // del día en que se cobró.
+    const ventasAFacturar = ventasAFacturarPorCliente(clientes, ventas, desde, hasta);
+    const montosAFacturar = new Map(
+      clientes
+        .filter((c) => c.tipoDocumento === "Factura")
+        .map((c) => [c.id, (ventasAFacturar.get(c.id) || []).reduce((s, v) => s + (v.precio || 0), 0)])
+    );
+
     return {
+      montosAFacturar,
       ingresosPeriodo,
       nuevosPeriodo,
       ventasPeriodo,
@@ -303,6 +319,11 @@ export function useCierreData() {
     const facturaSearch = (ui.facturaSearch || "").toLowerCase();
     return clientes
       .filter((c) => c.tipoDocumento === "Factura")
+      // Solo los que tienen algo que facturar en el período: antes se listaban
+      // los 82 clientes con Factura de la base tuviera o no venta, así que en
+      // un cierre de un día la tabla eran 80 filas en $0 y había que cazar a
+      // mano las dos que sí importaban.
+      .filter((c) => (periodo.montosAFacturar.get(c.id) || 0) > 0)
       .filter(
         (c) =>
           !facturaSearch ||
@@ -311,7 +332,7 @@ export function useCierreData() {
           (c.rut || "").toLowerCase().includes(facturaSearch) ||
           normPlate(c.patente).includes(normPlate(facturaSearch))
       );
-  }, [clientes, ui.facturaSearch]);
+  }, [clientes, ui.facturaSearch, periodo.montosAFacturar]);
 
   return {
     data,

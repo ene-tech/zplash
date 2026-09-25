@@ -9,6 +9,7 @@ import {
   registrarIngresoDetailing,
   registrarIngresoLavadoWeb,
   renovarPlan,
+  ventasAFacturarPorCliente,
 } from "./logic";
 import { CONFIG_DEFAULT, PLAN_X5, PRECIOS_DEFAULT, finCicloPlan, pasesRestantes, sumarMesesFecha } from "./helpers";
 import type { ParsedMovimiento } from "./cartolaParser";
@@ -788,5 +789,75 @@ describe("importarCartola", () => {
     );
 
     expect(resultado.patch.cartolaMovimientos?.[0].categoria).toBeUndefined();
+  });
+});
+
+describe("ventasAFacturarPorCliente", () => {
+  // En la base estas ventas traen cliente_id NULL; el tipo Venta lo declara
+  // string, así que acá va vacío — ventasAFacturarPorCliente trata los dos
+  // igual (`v.clienteId || ...`).
+  const ventaWeb = (over: Partial<Venta>): Venta => ({
+    id: "v-web",
+    clienteId: "",
+    patente: "",
+    nombre: "",
+    plan: "",
+    precio: 79990,
+    tipo: "10 Tickets (Web)",
+    fecha: "2026-09-01T12:00:00.000Z",
+    tipoDocumento: "Factura",
+    rut: "76.773.137-K",
+    ...over,
+  });
+
+  it("le carga la compra web con Factura al cliente del mismo RUT, aunque la venta venga sin clienteId", () => {
+    const data = appDataVacia();
+    data.clientes = [clienteBase({ id: "c1", tipoDocumento: "Factura", rut: "76773137k" })];
+    data.ventas = [ventaWeb({})];
+
+    const porCliente = ventasAFacturarPorCliente(data.clientes, data.ventas, "2026-09-01", "2026-09-30");
+
+    expect(porCliente.get("c1")?.map((v) => v.precio)).toEqual([79990]);
+  });
+
+  it("no cobra dos veces cuando el RUT tiene varias fichas (una por auto)", () => {
+    const data = appDataVacia();
+    data.clientes = [
+      clienteBase({ id: "c1", patente: "AB1234", tipoDocumento: "Factura", rut: "76.773.137-K" }),
+      clienteBase({ id: "c2", patente: "CD5678", tipoDocumento: "Factura", rut: "76773137-k" }),
+    ];
+    data.ventas = [ventaWeb({})];
+
+    const porCliente = ventasAFacturarPorCliente(data.clientes, data.ventas, "2026-09-01", "2026-09-30");
+
+    expect(porCliente.get("c1")).toHaveLength(1);
+    expect(porCliente.get("c2")).toBeUndefined();
+  });
+
+  it("deja fuera las ventas de otro período y las web sin Factura", () => {
+    const data = appDataVacia();
+    data.clientes = [clienteBase({ id: "c1", tipoDocumento: "Factura", rut: "76.773.137-K" })];
+    data.ventas = [
+      ventaWeb({ id: "v-agosto", fecha: "2026-08-15T12:00:00.000Z" }),
+      ventaWeb({ id: "v-boleta", tipoDocumento: "Boleta" }),
+    ];
+
+    const porCliente = ventasAFacturarPorCliente(data.clientes, data.ventas, "2026-09-01", "2026-09-30");
+
+    expect(porCliente.get("c1")).toBeUndefined();
+  });
+  it("devuelve el reembolso de una compra web a la misma ficha, para que no quede como plata por facturar", () => {
+    const data = appDataVacia();
+    data.clientes = [clienteBase({ id: "c1", tipoDocumento: "Factura", rut: "76.773.137-K" })];
+    data.ventas = [
+      ventaWeb({ id: "wp-1" }),
+      // El contra-asiento copia el clienteId vacío de la original y no lleva
+      // razón social ni RUT: solo el id lo ata a la venta que anula.
+      ventaWeb({ id: "reembolso-wp-1", precio: -79990, tipo: "Reembolso", tipoDocumento: undefined, rut: undefined }),
+    ];
+
+    const porCliente = ventasAFacturarPorCliente(data.clientes, data.ventas, "2026-09-01", "2026-09-30");
+
+    expect((porCliente.get("c1") || []).reduce((s, v) => s + v.precio, 0)).toBe(0);
   });
 });
