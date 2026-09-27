@@ -57,6 +57,9 @@ import {
   estadoRenovacion,
   patentesQueRecibenTarjeta,
   tieneTarjetaViva,
+  conservaTarjetaAlReinscribir,
+  esInscripcionSoloTarjeta,
+  MARCA_SOLO_TARJETA,
   isValidRut,
   isValidTelefono,
 
@@ -2532,6 +2535,30 @@ describe("patentesQueRecibenTarjeta / tieneTarjetaViva", () => {
     expect(tieneTarjetaViva("pendiente_solo_tarjeta")).toBe(false);
     expect(tieneTarjetaViva("cancelada")).toBe(false);
     expect(tieneTarjetaViva(undefined)).toBe(false);
+  });
+
+  it("re-inscribir sobre una tarjeta que cobra no le baja el estado", () => {
+    expect(conservaTarjetaAlReinscribir({ estado: "activa", tbkUser: "tbk-1" })).toBe(true);
+    expect(conservaTarjetaAlReinscribir({ estado: "pausada_validacion_x5", tbkUser: "tbk-1" })).toBe(true);
+    // Suspendida por el admin: la baja fue decisión suya, un intento fallido
+    // del cliente no la puede convertir en "cancelada".
+    expect(conservaTarjetaAlReinscribir({ estado: "suspendida", tbkUser: "tbk-1" })).toBe(true);
+    // Sin tbkUser no hay nada que conservar: es la primera inscripción.
+    expect(conservaTarjetaAlReinscribir({ estado: "activa", tbkUser: null })).toBe(false);
+    expect(conservaTarjetaAlReinscribir({ estado: "pendiente", tbkUser: "tbk-1" })).toBe(false);
+    // Cancelada guarda el tbkUser viejo, pero esa tarjeta ya no existe en
+    // Transbank: resucitarla sería cobrarle a un token dado de baja.
+    expect(conservaTarjetaAlReinscribir({ estado: "cancelada", tbkUser: "tbk-1" })).toBe(false);
+    expect(conservaTarjetaAlReinscribir(null)).toBe(false);
+  });
+
+  it("el bit de solo-guardar viaja por el estado o por la marca del token", () => {
+    expect(esInscripcionSoloTarjeta("pendiente_solo_tarjeta", "tok-1")).toBe(true);
+    expect(esInscripcionSoloTarjeta("activa", `tok-1${MARCA_SOLO_TARJETA}`)).toBe(true);
+    // Re-inscripción desde /pagar: al volver sí cobra el ciclo.
+    expect(esInscripcionSoloTarjeta("activa", "tok-1")).toBe(false);
+    expect(esInscripcionSoloTarjeta("pendiente", "tok-1")).toBe(false);
+    expect(esInscripcionSoloTarjeta("pendiente", null)).toBe(false);
   });
 });
 

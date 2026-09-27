@@ -199,9 +199,13 @@ export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> 
     }
   }
 
+  // El token se limpia para invalidar una inscripción que el cliente pudiera
+  // tener en vuelo justo ahora: /inscripcion/retorno busca la fila por ese
+  // token, y si la encuentra la deja "activa" con la tarjeta nueva — o sea la
+  // baja que acaba de hacer el admin se desharía sola.
   await db
     .update(suscripcionesOneclick)
-    .set({ estado: "cancelada", actualizadoEn: new Date().toISOString() })
+    .set({ estado: "cancelada", tokenInscripcion: null, actualizadoEn: new Date().toISOString() })
     .where(eq(suscripcionesOneclick.id, id));
   return true;
 }

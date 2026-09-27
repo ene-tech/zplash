@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { suscripcionesOneclick } from "@/db/schema";
-import { diasVencido, planStatus, promoPrimerCobroOneclick } from "@/lib/helpers";
+import { clientes, suscripcionesOneclick } from "@/db/schema";
+import {
+  conservaTarjetaAlReinscribir,
+  diasVencido,
+  esInscripcionSoloTarjeta,
+  MARCA_SOLO_TARJETA,
+  planStatus,
+  promoPrimerCobroOneclick,
+} from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { cobrarOfertaOneclick, cobrarSuscripcion, migrarDeWooCommerceLegacy, otorgarTicketReactivacion } from "@/lib/pagos";
@@ -24,10 +31,13 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   }
 
   const db = getDb();
+  // Dos formas del mismo token: la re-inscripción de una tarjeta que ya cobra
+  // lo guarda con MARCA_SOLO_TARJETA pegada cuando viene de "Mis tarjetas"
+  // (ver /api/pagos/oneclick/inscribir); Transbank siempre devuelve el pelado.
   const [suscripcion] = await db
     .select()
     .from(suscripcionesOneclick)
-    .where(eq(suscripcionesOneclick.tokenInscripcion, tbkToken))
+    .where(inArray(suscripcionesOneclick.tokenInscripcion, [tbkToken, tbkToken + MARCA_SOLO_TARJETA]))
     .limit(1);
   if (!suscripcion) {
     console.error("Suscripción Oneclick no encontrada para token", tbkToken);
@@ -38,10 +48,30 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   // Mi Cuenta (ver /api/pagos/oneclick/inscribir): a diferencia del flujo de
   // /pagar, acá el cliente solo quiere guardar la tarjeta, no pagar un ciclo
   // ahora — más abajo no se llama a cobrarSuscripcion() para ese caso.
-  const esSoloTarjeta = suscripcion.estado === "pendiente_solo_tarjeta";
-  if (suscripcion.estado !== "pendiente" && !esSoloTarjeta) {
+  const esSoloTarjeta = esInscripcionSoloTarjeta(suscripcion.estado, suscripcion.tokenInscripcion);
+  // Re-inscripción sobre una tarjeta que ya cobra: la fila sigue "activa" (o
+  // suspendida/pausada) a propósito, así que el estado no sirve para saber si
+  // hay algo en vuelo — el token con el que la encontramos ya lo dice.
+  const conservaTarjeta = conservaTarjetaAlReinscribir(suscripcion);
+  if (suscripcion.estado !== "pendiente" && !esSoloTarjeta && !conservaTarjeta) {
     // Ya procesado (doble callback): no repetir el cobro inmediato.
     return redirectResultado(origin, suscripcion.estado === "activa" ? "ok" : "anulado");
+  }
+
+  // La inscripción falló o el cliente la abandonó. Si la fila ya tenía una
+  // tarjeta que cobra, queda como estaba y solo se limpia el token: el par
+  // (username, tbkUser) viejo sigue vivo en Transbank —empezar una inscripción
+  // no da de baja nada— y cancelarla acá era apagarle la renovación automática
+  // al cliente por intentar cambiar de tarjeta.
+  async function inscripcionFallida() {
+    await db
+      .update(suscripcionesOneclick)
+      .set({
+        estado: conservaTarjeta ? suscripcion.estado : "cancelada",
+        tokenInscripcion: null,
+        actualizadoEn: new Date().toISOString(),
+      })
+      .where(eq(suscripcionesOneclick.id, suscripcion.id));
   }
 
   let resultado: { response_code: number; tbk_user?: string; authorization_code?: string; card_type?: string; card_number?: string };
@@ -49,19 +79,33 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     resultado = await oneclickInscription().finish(tbkToken);
   } catch (error) {
     console.error("Error confirmando inscripción Oneclick", error);
-    await db
-      .update(suscripcionesOneclick)
-      .set({ estado: "cancelada", tokenInscripcion: null, actualizadoEn: new Date().toISOString() })
-      .where(eq(suscripcionesOneclick.id, suscripcion.id));
+    await inscripcionFallida();
     return redirectResultado(origin, esSoloTarjeta ? "tarjeta_error" : "error");
   }
 
   if (resultado.response_code !== 0 || !resultado.tbk_user) {
-    await db
-      .update(suscripcionesOneclick)
-      .set({ estado: "cancelada", tokenInscripcion: null, actualizadoEn: new Date().toISOString() })
-      .where(eq(suscripcionesOneclick.id, suscripcion.id));
+    await inscripcionFallida();
     return redirectResultado(origin, esSoloTarjeta ? "tarjeta_anulada" : "anulado");
+  }
+
+  // Consentimiento del cliente del ilimitado viejo: la pantalla le mostró el
+  // aviso (AvisoPasaAX5) y el botón que apretó decía "Contratar Plan X5", no
+  // "renovar tu plan". Sin esta marca, cobrarSuscripcion no le cobra ni el
+  // primer cargo de la inscripción (ver requiereValidacionX5), así que se graba
+  // antes de leer la ficha y de cobrar, acá y no en /inscribir: ese endpoint es
+  // público y con la patente sola cualquiera daba el sí en nombre del cliente.
+  // Llegar a este punto, en cambio, exige una inscripción que Transbank ya
+  // confirmó. `isNull` no pisa una aceptación anterior: la fecha del primer sí
+  // es la que sirve de prueba.
+  //
+  // "Solo tarjeta" queda fuera: ese flujo es "Mis tarjetas", guardar un medio
+  // de pago sin contratar nada. Ahí el cliente nunca vio el aviso ni apretó un
+  // botón que dijera Plan X5, así que no aceptó nada.
+  if (!esSoloTarjeta) {
+    await db
+      .update(clientes)
+      .set({ aceptoX5En: new Date().toISOString() })
+      .where(and(eq(clientes.patente, suscripcion.patente), isNull(clientes.aceptoX5En)));
   }
 
   // Ficha completa (no un subset de columnas): más abajo se le calcula la
@@ -76,6 +120,16 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     // cobro — el cron (que solo mira proximoCobro <= ahora) la deja en paz
     // hasta que el cliente contrate/renueve y quede con un vencimiento real.
     const vencimientoFuturo = cliente?.vencimiento && new Date(cliente.vencimiento) > new Date() ? cliente.vencimiento : null;
+    // Cambiar de tarjeta no reagenda el ciclo: la fila que ya venía cobrando se
+    // queda con SU proximoCobro (puede estar atrasado a propósito, con el cron
+    // reintentando; pisarlo con null era otra forma de apagarle la renovación
+    // automática al cliente). Solo se completa si no tenía fecha.
+    //
+    // Y tampoco la despierta: la que estaba "suspendida" (baja hecha por el
+    // admin) o pausada por el candado del X5 conserva su estado. Promoverla a
+    // "activa" con esa fecha atrasada le cobraba un ciclo entero al día
+    // siguiente, en la pantalla que promete "No se hace ningún cobro ahora".
+    const proximoCobro = conservaTarjeta ? suscripcion.proximoCobro || vencimientoFuturo : vencimientoFuturo;
 
     await db
       .update(suscripcionesOneclick)
@@ -88,8 +142,8 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
         tbkUser: resultado.tbk_user,
         cardTipo: resultado.card_type || null,
         cardUltimosDigitos: resultado.card_number || null,
-        estado: "activa",
-        proximoCobro: vencimientoFuturo,
+        estado: conservaTarjeta ? suscripcion.estado : "activa",
+        proximoCobro,
         tokenInscripcion: null,
         actualizadoEn: new Date().toISOString(),
       })

@@ -13,6 +13,36 @@ export function tieneTarjetaViva(estado: string | null | undefined): boolean {
 }
 
 /**
+ * La fila ya tiene una tarjeta que cobra, así que una inscripción nueva encima
+ * NO puede bajarle el estado a "pendiente": el callback de Transbank puede no
+ * llegar nunca (el cliente cierra la pestaña) y la fila quedaría a medio camino
+ * para siempre —invisible en Mi Cuenta y saltada por el cron—, o sea la
+ * renovación automática se apaga sola. La tarjeta vieja sigue inscrita en
+ * Transbank hasta que llegue un tbkUser nuevo: no se da de baja nada al
+ * empezar una inscripción (ver cancelarSuscripcionOneclick, el único lugar que
+ * llama al delete).
+ *
+ * Lo usan /api/pagos/oneclick/inscribir (para no pisar el estado) y su
+ * /inscripcion/retorno (para dejarlo como estaba si la inscripción falla).
+ */
+export function conservaTarjetaAlReinscribir(fila: { estado: string; tbkUser?: string | null } | null | undefined): boolean {
+  return !!fila?.tbkUser && tieneTarjetaViva(fila.estado);
+}
+
+/** Marca pegada al token de inscripción cuando la re-inscripción viene de "Mis
+ * tarjetas" (solo guardar, sin cobrar) sobre una fila cuyo estado se conserva:
+ * ese bit viajaba en el estado "pendiente_solo_tarjeta" y ahí ya no cabe. Los
+ * tokens de Transbank son alfanuméricos, así que el "#" no choca con uno. */
+export const MARCA_SOLO_TARJETA = "#solo";
+
+/** true si esta inscripción en vuelo solo guarda la tarjeta y no debe cobrar al
+ * volver de Transbank — venga el bit por el estado (inscripción de una fila sin
+ * tarjeta) o por la marca del token (re-inscripción sobre una que ya cobra). */
+export function esInscripcionSoloTarjeta(estado: string, tokenInscripcion: string | null | undefined): boolean {
+  return estado === "pendiente_solo_tarjeta" || !!tokenInscripcion?.endsWith(MARCA_SOLO_TARJETA);
+}
+
+/**
  * Autos a los que "Usar en mis otros autos" le va a copiar la tarjeta de
  * `origen` (ver compartirTarjetaOneclick): los de la cuenta que no son el
  * origen y que todavía no tienen tarjeta propia viva.

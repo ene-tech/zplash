@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, suscripcionesOneclick } from "@/db/schema";
-import { isValidEmail, isValidPatente, normPlate, uid } from "@/lib/helpers";
+import { suscripcionesOneclick } from "@/db/schema";
+import { conservaTarjetaAlReinscribir, isValidEmail, isValidPatente, MARCA_SOLO_TARJETA, normPlate, uid } from "@/lib/helpers";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { oneclickInscription } from "@/lib/transbank";
 
@@ -43,33 +43,22 @@ export async function POST(request: NextRequest) {
 
     const db = getDb();
 
-    // Llegar acá es el consentimiento del cliente del ilimitado viejo: la
-    // pantalla le mostró el aviso (AvisoPasaAX5) y el botón que apretó dice
-    // "Contratar Plan X5", no "renovar tu plan". Eso es lo que se registra, y
-    // es lo que después deja cobrar — sin esta marca cobrarSuscripcion no le
-    // cobra ni el primer cargo de la inscripción.
-    //
-    // Se graba ACÁ y no al volver de Transbank porque el cobro ocurre en ese
-    // retorno: si la marca llegara después, el primer cargo se rechazaría solo.
-    // `isNull` no pisa una aceptación anterior: la fecha del primer sí es la
-    // que sirve de prueba.
-    //
-    // `soloGuardar` queda fuera: ese flujo es "Mis tarjetas", guardar un medio
-    // de pago sin contratar nada. Ahí el cliente nunca vio el aviso ni apretó
-    // un botón que dijera Plan X5, así que no aceptó nada.
-    if (!body.soloGuardar) {
-      await db
-        .update(clientes)
-        .set({ aceptoX5En: new Date().toISOString() })
-        .where(and(eq(clientes.patente, patente), isNull(clientes.aceptoX5En)));
-    }
+    // La aceptación del paso al X5 (clientes.aceptoX5En) se graba al VOLVER de
+    // Transbank, no acá: este endpoint es público —solo pide una patente, que
+    // va pintada en el auto— y esa marca es justamente la que levanta el
+    // candado de cobrarSuscripcion. Grabándola acá, un POST con la patente de
+    // un cliente del ilimitado viejo le daba el sí en su nombre y el cron le
+    // cobraba la migración al X5 con su propia tarjeta. Ver
+    // /inscripcion/retorno, que la graba con la inscripción ya confirmada por
+    // Transbank y antes del primer cobro.
 
     const returnUrl = new URL("/api/pagos/oneclick/inscripcion/retorno", request.nextUrl.origin).toString();
     const respuesta = await oneclickInscription().start(patente, email, returnUrl);
 
     // Si ya había una inscripción pendiente/cancelada para esta patente, se
     // reemplaza; una "activa" también se puede re-inscribir (ej. cambiar de
-    // tarjeta). El upsert va por `patente`, que es lo que la fila representa
+    // tarjeta), y en ese caso el estado NO se toca — ver
+    // conservaTarjetaAlReinscribir. El upsert va por `patente`, que es lo que la fila representa
     // (un ciclo de cobro) y lo que tiene el índice único — `username` dejó de
     // ser único al permitir que varias patentes compartan una tarjeta (ver
     // migración 0090).
@@ -85,13 +74,24 @@ export async function POST(request: NextRequest) {
       .where(eq(suscripcionesOneclick.patente, patente))
       .limit(1);
 
+    // Cambiar la tarjeta de una suscripción que ya cobra no la puede apagar: se
+    // conserva el estado y la inscripción en vuelo la marca el token, que es lo
+    // único que el callback necesita para encontrar la fila. El bit de
+    // soloGuardar viaja pegado al token porque el estado ya no lo lleva (ver
+    // esInscripcionSoloTarjeta). Sin esto, el cliente que abandonaba Transbank
+    // quedaba en "pendiente" —tarjeta invisible en Mi Cuenta, cron sin cobrar—
+    // y si volvía con un rechazo, en "cancelada" (5 suscripciones así en
+    // sep-2026). Lo mismo que ya esquivaba /api/cliente/mi-cuenta/cobrar-oferta
+    // por su lado, ahora vale para todas las puertas.
+    const conservaTarjeta = conservaTarjetaAlReinscribir(existente);
+
     if (existente) {
       await db
         .update(suscripcionesOneclick)
         .set({
           email,
-          tokenInscripcion: respuesta.token,
-          estado: estadoPendiente,
+          tokenInscripcion: conservaTarjeta && body.soloGuardar ? respuesta.token + MARCA_SOLO_TARJETA : respuesta.token,
+          ...(conservaTarjeta ? {} : { estado: estadoPendiente }),
           actualizadoEn: new Date().toISOString(),
         })
         .where(eq(suscripcionesOneclick.id, existente.id));

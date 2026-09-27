@@ -87,8 +87,12 @@ export const pagosWebpayItems = pgTable("pagos_webpay_items", {
 // Al dar de baja hay que mirar los hermanos: cancelarSuscripcionOneclick solo
 // llama al delete de Transbank si es la última fila viva con ese tbkUser.
 //
-// tokenInscripcion solo se usa mientras está "pendiente" (correlaciona el
-// callback de MallInscription.finish con esta fila).
+// tokenInscripcion solo se usa mientras hay una inscripción en vuelo
+// (correlaciona el callback de MallInscription.finish con esta fila), y es el
+// único marcador de eso cuando la fila ya tenía una tarjeta que cobra: ahí el
+// estado se conserva en vez de bajar a "pendiente" (ver
+// conservaTarjetaAlReinscribir) y el token puede venir con MARCA_SOLO_TARJETA
+// pegada, que es cómo viaja "no cobres al volver".
 export const suscripcionesOneclick = pgTable("suscripciones_oneclick", {
   id: text("id").primaryKey(),
   patente: text("patente").notNull(),
