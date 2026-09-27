@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   esNombreVacio,
   fmtCLP,
@@ -209,9 +210,45 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
                 </button>
               )}
             </div>
+            <QrPlanConTarjeta patente={c.patente} precio={r.precioQrTarjeta} />
           </>
         )}
       </div>
     </>
+  );
+}
+
+// Oneclick exige que el titular tipee la tarjeta en Transbank: el mesón no la
+// puede inscribir por él. Lo más cerca es que el cliente escanee esto y pague
+// el plan en su celular, parado acá — es el mismo link del bot de WhatsApp
+// (ver lib/whatsapp/router.ts), con la patente ya puesta, y deja la
+// renovación automática andando.
+function QrPlanConTarjeta({ patente, precio }: { patente: string; precio: { primerCobro: number; mensual: number } }) {
+  const [abierto, setAbierto] = useState(false);
+  const conPromo = precio.primerCobro !== precio.mensual;
+  const monto = `${fmtCLP(precio.primerCobro)}${conPromo ? " el primer mes" : "/mes"}`;
+  if (!abierto) {
+    return (
+      <button className="btn secondary" style={{ marginTop: 10 }} onClick={() => setAbierto(true)}>
+        Pagar con tarjeta desde su celular — {monto} (queda automático)
+      </button>
+    );
+  }
+  const url = `${window.location.origin}/pagar?item=plan&patente=${encodeURIComponent(patente)}`;
+  return (
+    <div className="offer-card" style={{ marginTop: 10, textAlign: "center" }}>
+      <div style={{ background: "#fff", padding: 12, borderRadius: 8, display: "inline-block" }}>
+        <QRCodeSVG value={url} size={200} />
+      </div>
+      <div className="msg" style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{monto}</div>
+        {conPromo && <div>Desde el próximo mes, {fmtCLP(precio.mensual)}/mes automático.</div>}
+        Que el cliente lo escanee con la cámara, ponga su correo y pague con su tarjeta. <b>No le cobres acá</b>: el plan
+        queda pagado y se le renueva solo cada mes.
+      </div>
+      <button className="btn secondary" onClick={() => setAbierto(false)}>
+        Cerrar
+      </button>
+    </div>
   );
 }

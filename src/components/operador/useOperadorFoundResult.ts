@@ -17,6 +17,8 @@ import {
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   cuponDescuentoDePatente,
   precioConCupon,
+  precioPlanOneclick,
+  promoPrimerCobroOneclick,
   calcularOfertasPlan,
   precioRenovacionCliente,
   PLANES,
@@ -242,6 +244,16 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
           cuponDescuentoSoloWeb
         )
       : undefined;
+  // Lo que le cobra el QR de "pagar con tarjeta" (inscripción Oneclick en
+  // /pagar): mismo cálculo que /api/pagos/estado para precioPrimerCobroAuto —
+  // la promo que le calce o el mensual automático, menos el cupón web — para
+  // que el operador anuncie el número que el cliente va a ver en su celular.
+  const qrMensual = !planVigente ? precioConHeredado(precioPlanOneclick(data.precios), c) : 0;
+  const qrPromo = !planVigente
+    ? promoPrimerCobroOneclick(calcularOfertasPlan(c, data.ventas, data.ingresos, data.config, data.precios))
+    : undefined;
+  const qrPrimer = precioConCupon(qrPromo?.monto ?? qrMensual, cuponWeb);
+  const precioQrTarjeta = { primerCobro: qrPrimer > 0 ? qrPrimer : qrMensual, mensual: qrMensual };
   // Al cliente con plan vigente que ya gastó las pasadas de su ciclo (ver
   // pasesRestantes) el paso extra le sale al precio de lavado adicional, no al
   // lavado único de lista: ese sigue siendo el precio de quien no tiene plan.
@@ -382,6 +394,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     cuponDescuentoVigente,
     cuponDescuentoSoloWeb,
     precioPlanWeb,
+    precioQrTarjeta,
     precioLavadoUnicoFinal,
     // Para contarle al cliente que todavía anda con el ilimitado viejo cómo
     // le queda el X5 al renovar (ver AvisoPasaAX5 en OperadorFoundOfertas).
