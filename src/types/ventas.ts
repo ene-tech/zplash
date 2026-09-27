@@ -66,4 +66,7 @@ export interface Venta extends DatosFacturacion {
   // Ver canjeadaEn en db/schema/ventas.ts — momento en que un "Lavado único
   // (Web)" pagado por adelantado se canjeó físicamente en el túnel.
   canjeadaEn?: string;
+  // Operador del mesón cuyo QR originó esta venta Oneclick (ver
+  // ventas.operadorQr). Solo lectura desde la app: lo escribe el servidor.
+  operadorQr?: string;
 }

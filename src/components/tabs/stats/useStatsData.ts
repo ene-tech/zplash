@@ -67,6 +67,20 @@ export function useStatsData() {
   const pctMontoTickets = pctMonto(montoTickets);
   const pctMontoLimpiezas = pctMonto(montoLimpiezas);
 
+  // Ventas de plan pagadas con el QR del mesón (ver QrPlanConTarjeta), por
+  // operador que lo mostró — ranking de monto, el que más vende primero.
+  const ventasQr = data.ventas.filter((v) => v.operadorQr && inRange(v.fecha, desde, hasta));
+  const porOperadorQr = new Map<string, { operador: string; ventas: number; monto: number }>();
+  for (const v of ventasQr) {
+    const fila = porOperadorQr.get(v.operadorQr!) ?? { operador: v.operadorQr!, ventas: 0, monto: 0 };
+    fila.ventas += 1;
+    fila.monto += v.precio || 0;
+    porOperadorQr.set(v.operadorQr!, fila);
+  }
+  const rankingQr = [...porOperadorQr.values()].sort((a, b) => b.monto - a.monto || b.ventas - a.ventas);
+  const montoQr = ventasQr.reduce((s, v) => s + (v.precio || 0), 0);
+  const pctMontoQrDePlanes = (montoPlanes ? ((montoQr / montoPlanes) * 100).toFixed(1) : "0.0") + "%";
+
   // --- Uso de planes y ranking de clientes, según el período seleccionado arriba ---
   const clientesPorId = new Map(data.clientes.map((c) => [c.id, c]));
   const ingresosVisitasPeriodo = data.ingresos.filter((i) => inRange(i.fecha, desde, hasta));
@@ -155,6 +169,10 @@ export function useStatsData() {
     pctMontoTickets,
     pctMontoLimpiezas,
     promedioLavadosDiariosPeriodo,
+    ventasQrCantidad: ventasQr.length,
+    montoQr,
+    pctMontoQrDePlanes,
+    rankingQr,
     promedioVisitasPlan,
     clientesConPlan,
     filasDistribucion,

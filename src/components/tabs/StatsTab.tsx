@@ -7,6 +7,7 @@ import { RecorridoEtapas } from "@/components/tabs/stats/RecorridoEtapas";
 import { StatsResumenGlobal } from "@/components/tabs/stats/StatsResumenGlobal";
 import { StatsResumenPeriodo } from "@/components/tabs/stats/StatsResumenPeriodo";
 import { StatsUsoPlanes } from "@/components/tabs/stats/StatsUsoPlanes";
+import { StatsVentasQr } from "@/components/tabs/stats/StatsVentasQr";
 
 export default function StatsTab() {
   // Mismo motivo que en CierreTab: se llama siempre, aunque ventas/ingresos
@@ -90,6 +91,13 @@ export default function StatsTab() {
         pctMonto9990={r.pctMonto9990}
         pctMontoTickets={r.pctMontoTickets}
         pctMontoLimpiezas={r.pctMontoLimpiezas}
+      />
+
+      <StatsVentasQr
+        ventasQrCantidad={r.ventasQrCantidad}
+        montoQr={r.montoQr}
+        pctMontoQrDePlanes={r.pctMontoQrDePlanes}
+        rankingQr={r.rankingQr}
       />
 
       <StatsUsoPlanes

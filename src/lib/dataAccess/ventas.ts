@@ -80,6 +80,9 @@ export function ventaFromRow(r: VentaRow): Venta {
     cuponCodigo: r.cuponCodigo || undefined,
     facturaEmitida: r.facturaEmitida || undefined,
     canjeadaEn: r.canjeadaEn || undefined,
+    // No va en ventaToRow a propósito: lo escribe /inscripcion/retorno y la
+    // app nunca debe pisarlo al re-guardar la venta.
+    operadorQr: r.operadorQr || undefined,
   };
 }
 
