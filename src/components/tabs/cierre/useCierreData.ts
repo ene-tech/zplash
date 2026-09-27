@@ -169,7 +169,11 @@ export function useCierreData() {
     };
 
     const tiposConocidos = new Set(PRODUCTOS_CIERRE.map((p) => p.tipo));
-    const otrasVentas = ventasPeriodoBase.filter((v) => !tiposConocidos.has(v.tipo) && !v.esServicioAdicional && !esUpgradePlan(v));
+    // Los reembolsos ya tienen su propia fila (más abajo): sin excluirlos acá
+    // aparecían también en "Otros", la misma plata listada dos veces.
+    const otrasVentas = ventasPeriodoBase.filter(
+      (v) => !tiposConocidos.has(v.tipo) && !v.esServicioAdicional && !esUpgradePlan(v) && !esReembolso(v)
+    );
 
     const cobrado = (v: (typeof ventasPeriodo)[number]) => v.montoCobrado ?? v.precio ?? 0;
     // Las modificaciones de plan desde el perfil de administrador no son una

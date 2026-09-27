@@ -10,6 +10,7 @@ import type { LineaPos } from "@/lib/logic";
 import type { Cliente, DatosFacturacion, PagoInfo, Producto } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
+import DevolucionPosModal from "@/components/modals/DevolucionPosModal";
 
 interface LineaCarrito extends LineaPos {
   sku: string;
@@ -39,6 +40,7 @@ export default function PosView() {
   // corta un segundo disparo es este ref.
   const cobrandoRef = useRef(false);
   const [err, setErr] = useState("");
+  const [devolviendo, setDevolviendo] = useState(false);
   const buscadorRef = useRef<HTMLInputElement>(null);
 
   const activos = useMemo(() => data.productos.filter((p) => p.activo), [data.productos]);
@@ -200,6 +202,7 @@ export default function PosView() {
 
   return (
     <>
+      {devolviendo && <DevolucionPosModal onCerrar={() => setDevolviendo(false)} />}
       <Topbar mode={`POS · ${ui.perfilActual?.nombre || ""}`} onLogout={() => logout()} onBack={() => patchUi({ view: "hub" })} />
       <div className="content">
         {/* Primero: para quién es la venta. Invitado no deja registro de
@@ -273,6 +276,10 @@ export default function PosView() {
           {modoCliente === "invitado" && (
             <span style={{ fontSize: 12, color: "var(--gray)" }}>Sin registro de quién compra</span>
           )}
+          <div style={{ flex: 1 }} />
+          <button className="btn ghost" onClick={() => setDevolviendo(true)}>
+            Devolución
+          </button>
           {clientesEncontrados.length > 0 && (
             <div className="table-scroll" style={{ position: "absolute", top: "100%", left: 0, zIndex: 5, maxWidth: 320 }}>
               <table>
