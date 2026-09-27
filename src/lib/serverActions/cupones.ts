@@ -1,22 +1,32 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
-import { beneficioCupon, esEmailEnviable, fmtFecha, formatTelefono, isValidTelefono } from "@/lib/helpers";
+import {
+  beneficioCupon,
+  esEmailEnviable,
+  fmtFecha,
+  formatTelefono,
+  isValidTelefono,
+  MODULOS_BORRAN_CUPONES,
+  MODULOS_CREAN_CUPONES,
+} from "@/lib/helpers";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
-import { sesionActual, tieneSesionValida } from "@/lib/session";
+import { sesionActual, tieneAlgunModulo, tieneSesionValida } from "@/lib/session";
 import { enviarMensajePlantilla, enviarMensajeTexto } from "@/lib/whatsapp/enviar";
 import type { Cupon } from "@/types";
 
-// No hay un módulo "cupones" en la UI; cualquier sesión válida puede
-// gestionarlos. Intencional, no un descuido.
+// No hay un módulo "cupones" en la UI: el permiso sale de las pantallas que
+// los emiten y canjean (ver MODULOS_CREAN_CUPONES). Antes bastaba una sesión
+// válida, lo que desde que existe el módulo "pos" dejaba a un cajero de
+// tienda emitirse un vale de lavado gratis.
 export async function upsertCupones(rows: Cupon[]): Promise<boolean> {
-  if (!(await tieneSesionValida())) return false;
+  if (!(await tieneAlgunModulo(MODULOS_CREAN_CUPONES))) return false;
   return dataAccess.upsertCupones(rows);
 }
 
 export async function deleteCupones(ids: string[]): Promise<boolean> {
-  if (!(await tieneSesionValida())) return false;
+  if (!(await tieneAlgunModulo(MODULOS_BORRAN_CUPONES))) return false;
   return dataAccess.deleteCupones(ids);
 }
 

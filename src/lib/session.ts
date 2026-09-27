@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { perfiles } from "@/db/schema";
 import { borrarCookieFirmada, escribirCookieFirmada, leerCookieFirmada } from "@/lib/auth/cookieFirmada";
+import { tieneAlgunoDe } from "@/lib/helpers/perfiles";
 import type { Modulo } from "@/types";
 
 // No hay tabla de sesiones ni JWT: la "sesión" es un valor firmado con HMAC
@@ -70,6 +71,13 @@ export async function tieneSesionValida(): Promise<boolean> {
 export async function tieneModulo(modulo: Modulo): Promise<boolean> {
   const sesion = await sesionVigente();
   return !!sesion && sesion.modulos.includes(modulo);
+}
+
+/** Para acciones sin módulo propio que varias pantallas comparten (ventas,
+ * cupones): ver MODULOS_CREAN_VENTAS y sus hermanas en @/lib/helpers. */
+export async function tieneAlgunModulo(requeridos: Modulo[]): Promise<boolean> {
+  const sesion = await sesionVigente();
+  return tieneAlgunoDe(sesion?.modulos, requeridos);
 }
 
 // Expone id + nombre + módulos del perfil de la sesión vigente, para chequeos

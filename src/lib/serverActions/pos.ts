@@ -2,9 +2,17 @@
 
 import { eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, movimientosContables, productos, ventaItems, ventas } from "@/db/schema";
+import {
+  clientes,
+  destinosInventario,
+  movimientosContables,
+  movimientosInventario,
+  productos,
+  ventaItems,
+  ventas,
+} from "@/db/schema";
 import * as dataAccess from "@/lib/dataAccess";
-import { movimientoContableDesdeVenta, uidVenta } from "@/lib/helpers";
+import { generarFolioTraspaso, movimientoContableDesdeVenta, stockPorDestino, uid, uidVenta } from "@/lib/helpers";
 import { armarVentaPos, type LineaPos } from "@/lib/logic";
 import { sesionActual } from "@/lib/session";
 import type { DatosFacturacion, MovimientoContable, Producto, Venta, VentaItem } from "@/types";
@@ -31,6 +39,60 @@ export type VentaPosResultado =
  * (`stock = stock - n`), inmune a lost updates entre dos cajas. El cliente
  * aplica el resultado en memoria con el resultado que devuelve. `creadoPor`
  * sale de la sesión, no del navegador. */
+/** El stock por destino no se guarda: se deriva restándole a Bodega lo
+ * traspasado a las vending (ver stockPorDestino). Como la venta descuenta del
+ * stock TOTAL, vender unidades que están cargadas en una máquina dejaba a
+ * Bodega en negativo para siempre — una fila que desaparece de Bodegas y un
+ * total que no cuadra con lo que lista. Acá se emite el traspaso que faltaba,
+ * trayendo de vuelta a Bodega justo lo que quedó descubierto: es lo que pasó
+ * de verdad si alguien sacó producto de la máquina para venderlo en el mesón.
+ * Caso normal (producto en Bodega): no escribe nada. */
+async function cuadrarBodega(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0],
+  productoIds: string[],
+  creadoPor: string
+): Promise<void> {
+  const [destinos, movimientos, filas] = await Promise.all([
+    tx.select().from(destinosInventario),
+    tx.select().from(movimientosInventario),
+    tx.select().from(productos).where(inArray(productos.id, productoIds)),
+  ]);
+  const bodega = destinos.find((d) => d.esBodega);
+  if (!bodega) return;
+
+  let folio = Number(generarFolioTraspaso(movimientos.map((m) => m.folio)));
+  for (const producto of filas) {
+    // stockPorDestino pide el tipo de dominio; de la base vienen null donde
+    // el tipo dice undefined, y solo se leen producto/origen/destino/cantidad.
+    const porDestino = stockPorDestino(
+      producto,
+      destinos,
+      movimientos.map((m) => ({ ...m, notas: m.notas || undefined, creadoPor: m.creadoPor || undefined }))
+    );
+    const enBodega = porDestino.get(bodega.id) ?? 0;
+    if (enBodega >= 0) continue;
+    // Se trae del destino que más tenga; si no alcanza, se trae lo que haya
+    // (el faltante restante es un descuadre de inventario de verdad, que se
+    // arregla contando, no acá).
+    const origen = [...porDestino.entries()]
+      .filter(([id, cantidad]) => id !== bodega.id && cantidad > 0)
+      .sort((a, b) => b[1] - a[1])[0];
+    if (!origen) continue;
+    const cantidad = Math.min(-enBodega, origen[1]);
+    await tx.insert(movimientosInventario).values({
+      id: uid(),
+      folio: String(folio++),
+      productoId: producto.id,
+      origenId: origen[0],
+      destinoId: bodega.id,
+      cantidad,
+      fecha: new Date().toISOString(),
+      notas: "Traspaso automático: se vendió en el POS producto que estaba cargado en este destino",
+      creadoPor,
+    });
+  }
+}
+
 export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosResultado> {
   const sesion = await sesionActual();
   if (!sesion || !sesion.modulos.includes("pos")) return { ok: false, error: "Tu perfil no tiene acceso al POS" };
@@ -93,6 +155,7 @@ export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosR
           .where(eq(productos.id, linea.productoId));
       }
       if (movimiento) await tx.insert(movimientosContables).values(dataAccess.movimientoToRow(movimiento));
+      await cuadrarBodega(tx, ids, sesion.nombre);
     });
   } catch (error) {
     console.error("Error registrando venta POS", error);

@@ -1,8 +1,8 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
-import { esAjusteCierre } from "@/lib/helpers";
-import { tieneModulo, tieneSesionValida } from "@/lib/session";
+import { esAjusteCierre, MODULOS_CREAN_VENTAS, MODULOS_EDITAN_VENTAS } from "@/lib/helpers";
+import { tieneAlgunModulo, tieneModulo } from "@/lib/session";
 import type { CartolaMovimiento, CategoriaGasto, CategoriaIngreso, MovimientoContable, ReglaConciliacion } from "@/types";
 
 // Cada Venta nueva genera automáticamente su propio movimiento contable (ver
@@ -26,7 +26,7 @@ export async function upsertMovimientosContables(rows: MovimientoContable[]): Pr
   // lo fija idAjusteCierre, así que no sirve para colar ningún otro movimiento.
   const ajusteDeCierre = rows.length > 0 && rows.every((r) => esAjusteCierre(r.id) && !r.ventaId);
   const permitido = derivadoDeVenta
-    ? await tieneSesionValida()
+    ? await tieneAlgunModulo(MODULOS_CREAN_VENTAS)
     : (await tieneModulo("contabilidad")) || (ajusteDeCierre && (await tieneModulo("arqueo")));
   if (!permitido) return false;
   // Mismo criterio que upsertVentas: en un día ya cerrado solo pasa el upsert
@@ -45,7 +45,9 @@ export async function upsertMovimientosContables(rows: MovimientoContable[]): Pr
 // borrar. Un movimiento manual (sin ventaId) sigue exigiendo el módulo.
 export async function deleteMovimientosContables(ids: string[]): Promise<boolean> {
   const derivadosDeVenta = await dataAccess.sonMovimientosDerivadosDeVenta(ids);
-  const permitido = derivadosDeVenta ? await tieneSesionValida() : await tieneModulo("contabilidad");
+  // Mismo permiso que editar/borrar la venta que lo originó: el borrado del
+  // derivado viaja en ese mismo commit.
+  const permitido = derivadosDeVenta ? await tieneAlgunModulo(MODULOS_EDITAN_VENTAS) : await tieneModulo("contabilidad");
   if (!permitido) return false;
   if (await dataAccess.bajaEnDiaCerrado("movimientos", ids)) return false;
   return dataAccess.deleteMovimientosContables(ids);

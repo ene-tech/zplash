@@ -4,9 +4,11 @@ import type { MovimientoContable } from "@/types";
 
 const mockTieneModulo = vi.fn();
 const mockTieneSesionValida = vi.fn();
+const mockTieneAlgunModulo = vi.fn();
 vi.mock("@/lib/session", () => ({
   tieneModulo: (m: string) => mockTieneModulo(m),
   tieneSesionValida: () => mockTieneSesionValida(),
+  tieneAlgunModulo: (ms: string[]) => mockTieneAlgunModulo(ms),
 }));
 
 const mockUpsertMovimientosContables = vi.fn();
@@ -31,6 +33,8 @@ const movimiento = (overrides: Partial<MovimientoContable> = {}): MovimientoCont
 beforeEach(() => {
   mockTieneModulo.mockReset();
   mockTieneSesionValida.mockReset();
+  mockTieneAlgunModulo.mockReset();
+  mockTieneAlgunModulo.mockResolvedValue(true);
   mockUpsertMovimientosContables.mockReset();
   mockUpsertMovimientosContables.mockResolvedValue(true);
   mockEdicionEnDiaCerrado.mockReset();
@@ -38,9 +42,10 @@ beforeEach(() => {
 });
 
 describe("upsertMovimientosContables", () => {
-  it("permite el movimiento derivado de una venta (ventaId) con cualquier sesión válida, sin módulo contabilidad", async () => {
+  it("permite el movimiento derivado de una venta (ventaId) a quien puede vender, sin módulo contabilidad", async () => {
     mockTieneModulo.mockResolvedValue(false); // perfil operador: sin "contabilidad"
     mockTieneSesionValida.mockResolvedValue(true);
+    mockTieneAlgunModulo.mockResolvedValue(true); // sí tiene "operador"
 
     const { upsertMovimientosContables } = await import("./contabilidad");
     const ok = await upsertMovimientosContables([movimiento()]);
@@ -97,9 +102,10 @@ describe("upsertMovimientosContables", () => {
     expect(mockUpsertMovimientosContables).not.toHaveBeenCalled();
   });
 
-  it("bloquea el movimiento derivado si no hay sesión válida", async () => {
+  it("bloquea el movimiento derivado de quien no puede crear ventas (ej. caja de tienda)", async () => {
     mockTieneModulo.mockResolvedValue(false);
-    mockTieneSesionValida.mockResolvedValue(false);
+    mockTieneSesionValida.mockResolvedValue(true);
+    mockTieneAlgunModulo.mockResolvedValue(false);
 
     const { upsertMovimientosContables } = await import("./contabilidad");
     const ok = await upsertMovimientosContables([movimiento()]);

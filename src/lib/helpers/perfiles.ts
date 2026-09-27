@@ -39,6 +39,25 @@ export const TODOS_LOS_MODULOS: Modulo[] = [
   "funcionario",
 ];
 
+// Quién puede tocar ventas y cupones. Estas acciones no tienen módulo propio
+// y hasta sep-2026 bastaba con "sesión válida": con perfiles de operador o
+// jefatura eso alcanzaba, porque toda sesión era de alguien que vende. El
+// módulo "pos" (caja de la tienda) rompió ese supuesto — un cajero de tienda
+// no debería poder emitir un vale de lavado gratis ni una venta de plan—, así
+// que ahora se pide pertenecer a alguna de las pantallas que de verdad las
+// usan. Las listas salen de mapear los llamadores reales; si aparece una
+// pantalla nueva que crea ventas o cupones, hay que agregar su módulo acá o
+// su commit va a fallar entero.
+export const MODULOS_CREAN_VENTAS: Modulo[] = ["operador", "servicios", "empresa", "clientes", "mensajes", "stats", "permisos", "arqueo"];
+export const MODULOS_EDITAN_VENTAS: Modulo[] = ["operador", "servicios", "cierre", "permisos", "arqueo"];
+export const MODULOS_CREAN_CUPONES: Modulo[] = ["operador", "empresa", "clientes", "mensajes", "stats", "permisos", "arqueo"];
+export const MODULOS_BORRAN_CUPONES: Modulo[] = ["empresa", "clientes", "mensajes", "stats", "permisos", "arqueo"];
+
+/** true si el perfil tiene al menos uno de los módulos pedidos. */
+export function tieneAlgunoDe(modulos: Modulo[] | undefined, requeridos: Modulo[]): boolean {
+  return !!modulos?.some((m) => requeridos.includes(m));
+}
+
 export const MODULO_LABELS: Record<Modulo, string> = {
   operador: "Operador (validar patente / ingreso)",
   pos: "POS de productos (tienda)",

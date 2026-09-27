@@ -1,15 +1,17 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
-import { puedeCerrarCaja } from "@/lib/helpers";
-import { sesionActual, tieneSesionValida } from "@/lib/session";
+import { MODULOS_CREAN_VENTAS, MODULOS_EDITAN_VENTAS, puedeCerrarCaja } from "@/lib/helpers";
+import { sesionActual, tieneAlgunModulo } from "@/lib/session";
 import type { Venta } from "@/types";
 
-// No hay un módulo "ventas" en la UI (registrar una venta es parte del flujo
-// normal de varias vistas: Servicios Adicionales, Empresa, Clientes), así que
-// a diferencia de clientes/empresas_facturacion/contabilidad acá no hay un
-// tieneModulo específico que cerrar: cualquier sesión válida puede insertar o
-// actualizar ventas. Intencional, no un descuido.
+// No hay un módulo "ventas" en la UI: registrar una venta es parte del flujo
+// normal de varias vistas (Operador, Servicios Adicionales, Empresa, ficha de
+// Cliente), así que el permiso es la unión de los módulos de esas pantallas
+// —ver MODULOS_CREAN_VENTAS/MODULOS_EDITAN_VENTAS—. Hasta sep-2026 bastaba
+// una sesión válida, cuando toda sesión era de alguien que vende; el módulo
+// "pos" (caja de la tienda) rompió ese supuesto y podía insertar una venta de
+// plan o un "Lavado único (Web)" que el túnel canjea sin cobrar.
 // El mismo chequeo que hace insertVentas, expuesto aparte para que commit()
 // pueda preguntarlo ANTES de escribir nada. Hace falta porque el orden del
 // commit está fijado por las FK: clientes primero, ventas después (ver
@@ -19,12 +21,14 @@ import type { Venta } from "@/types";
 // lo que este guard venía a evitar. Preguntando antes, la operación completa
 // queda sin efecto.
 export async function hayVentaPlanDuplicada(rows: Venta[]): Promise<boolean> {
-  if (!(await tieneSesionValida())) return false;
+  // Mismo permiso que el insert que precede: si no vas a poder insertar, no
+  // tienes por qué poder sondear qué ventas de plan tiene un cliente.
+  if (!(await tieneAlgunModulo(MODULOS_CREAN_VENTAS))) return false;
   return dataAccess.duplicaVentaPlanReciente(rows);
 }
 
 export async function insertVentas(rows: Venta[]): Promise<boolean> {
-  if (!(await tieneSesionValida())) return false;
+  if (!(await tieneAlgunModulo(MODULOS_CREAN_VENTAS))) return false;
   if (await dataAccess.altaEnDiaCerrado(rows.map((v) => v.fecha))) return false;
   // Segunda venta de plan al mismo cliente en minutos: siempre es el clic de
   // más del operador, nunca un cliente pagando dos meses (ver
@@ -36,7 +40,7 @@ export async function insertVentas(rows: Venta[]): Promise<boolean> {
 }
 
 export async function upsertVentas(rows: Venta[]): Promise<boolean> {
-  if (!(await tieneSesionValida())) return false;
+  if (!(await tieneAlgunModulo(MODULOS_EDITAN_VENTAS))) return false;
   // Una venta que registró sola la plataforma no se reclasifica ni le cambia
   // el medio de pago: no hubo persona que se pudiera equivocar (ver
   // reclasificaVentaAutomatica).
