@@ -94,6 +94,11 @@ const REDIRECTS_LEGACY_WORDPRESS: { source: string; destination: string }[] = [
 ];
 
 const nextConfig: NextConfig = {
+  // Carpeta de build propia para la instancia de pruebas (npm run
+  // dev:pruebas): next dev toma un lock por distDir y se negaba a arrancar
+  // un segundo servidor del mismo proyecto. Sin la variable, todo sigue
+  // igual (.next).
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   async redirects() {
     return REDIRECTS_LEGACY_WORDPRESS.map((r) => ({ ...r, permanent: true }));
   },

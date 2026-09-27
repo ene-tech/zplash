@@ -57,3 +57,6 @@ clientes-*
 # herramientas locales de agentes
 /.claude
 /.agents
+
+# Build de la instancia de pruebas (npm run dev:pruebas)
+.next-pruebas
