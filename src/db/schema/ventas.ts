@@ -16,6 +16,9 @@ export const ventas = pgTable(
     tipo: text("tipo").notNull(),
     fecha: timestamptz("fecha").notNull().defaultNow(),
     creadoPor: text("creado_por"),
+    // Operador del mesón cuyo QR originó esta venta Oneclick (ver
+    // suscripcionesOneclick.operadorQr). creadoPor no sirve: ahí va el canal.
+    operadorQr: text("operador_qr"),
     metodoPago: text("metodo_pago"),
     voucher: text("voucher"),
     horaEntrega: text("hora_entrega"),

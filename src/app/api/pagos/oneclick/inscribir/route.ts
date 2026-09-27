@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { suscripcionesOneclick } from "@/db/schema";
+import { perfiles, suscripcionesOneclick } from "@/db/schema";
 import { conservaTarjetaAlReinscribir, isValidEmail, isValidPatente, MARCA_SOLO_TARJETA, normPlate, uid } from "@/lib/helpers";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { oneclickInscription } from "@/lib/transbank";
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 
-    let body: { patente?: string; email?: string; soloGuardar?: boolean };
+    let body: { patente?: string; email?: string; soloGuardar?: boolean; operador?: string };
     try {
       body = await request.json();
     } catch {
@@ -42,6 +42,16 @@ export async function POST(request: NextRequest) {
     const estadoPendiente = body.soloGuardar ? "pendiente_solo_tarjeta" : "pendiente";
 
     const db = getDb();
+
+    // Operador del QR del mesón (?op= en /pagar): viene del cliente, así que
+    // solo cuenta si es el id de un perfil que existe, y se guarda su nombre.
+    // Se escribe siempre (null si no vino) para que una inscripción posterior
+    // desde otra puerta no herede la atribución de la anterior.
+    const [perfilQr] =
+      typeof body.operador === "string" && body.operador
+        ? await db.select({ nombre: perfiles.nombre }).from(perfiles).where(eq(perfiles.id, body.operador)).limit(1)
+        : [];
+    const operadorQr = perfilQr?.nombre ?? null;
 
     // La aceptación del paso al X5 (clientes.aceptoX5En) se graba al VOLVER de
     // Transbank, no acá: este endpoint es público —solo pide una patente, que
@@ -92,6 +102,7 @@ export async function POST(request: NextRequest) {
           email,
           tokenInscripcion: conservaTarjeta && body.soloGuardar ? respuesta.token + MARCA_SOLO_TARJETA : respuesta.token,
           ...(conservaTarjeta ? {} : { estado: estadoPendiente }),
+          operadorQr,
           actualizadoEn: new Date().toISOString(),
         })
         .where(eq(suscripcionesOneclick.id, existente.id));
@@ -103,6 +114,7 @@ export async function POST(request: NextRequest) {
         email,
         tokenInscripcion: respuesta.token,
         estado: estadoPendiente,
+        operadorQr,
       });
     }
 

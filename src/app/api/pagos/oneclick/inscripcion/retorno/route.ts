@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, suscripcionesOneclick } from "@/db/schema";
+import { clientes, cobrosOneclick, suscripcionesOneclick, ventas } from "@/db/schema";
 import {
   conservaTarjetaAlReinscribir,
   diasVencido,
@@ -10,7 +10,7 @@ import {
   planStatus,
   promoPrimerCobroOneclick,
 } from "@/lib/helpers";
-import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
+import { buscarClientePorPatente, registrarAceptacionPoliticas } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { cobrarOfertaOneclick, cobrarSuscripcion, migrarDeWooCommerceLegacy, otorgarTicketReactivacion } from "@/lib/pagos";
 import { oneclickInscription } from "@/lib/transbank";
@@ -106,6 +106,9 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
       .update(clientes)
       .set({ aceptoX5En: new Date().toISOString() })
       .where(and(eq(clientes.patente, suscripcion.patente), isNull(clientes.aceptoX5En)));
+    // Mismo motivo: /pagar no deja inscribir sin marcar la casilla de
+    // políticas, y acá se registra recién con la tarjeta ya confirmada.
+    if (suscripcion.email) await registrarAceptacionPoliticas(suscripcion.email);
   }
 
   // Ficha completa (no un subset de columnas): más abajo se le calcula la
@@ -214,6 +217,24 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     const { estado } = promo
       ? await cobrarOfertaOneclick(suscripcion.patente, promo.tipo, promo.monto)
       : await cobrarSuscripcion(activada);
+    if (estado === "aprobada" && suscripcion.operadorQr) {
+      // Venta que acaba de dejar este primer cobro: se le anota el operador
+      // del QR para el ranking de ventas. Aparte y sin frenar nada, igual que
+      // el ticket de abajo: el cargo ya está hecho.
+      try {
+        const [cobro] = await db
+          .select({ ventaId: cobrosOneclick.ventaId })
+          .from(cobrosOneclick)
+          .where(and(eq(cobrosOneclick.suscripcionId, suscripcion.id), eq(cobrosOneclick.estado, "aprobada")))
+          .orderBy(desc(cobrosOneclick.creadoEn))
+          .limit(1);
+        if (cobro?.ventaId) {
+          await db.update(ventas).set({ operadorQr: suscripcion.operadorQr }).where(eq(ventas.id, cobro.ventaId));
+        }
+      } catch (error) {
+        console.error("No se pudo atribuir la venta al operador del QR", suscripcion.patente, error);
+      }
+    }
     if (estado === "aprobada" && veniaVencido) {
       // Promo: registrar tarjeta de pago automático teniendo el plan vencido
       // deja 1 ticket de lavado full túnel gratis, para cualquier vehículo,

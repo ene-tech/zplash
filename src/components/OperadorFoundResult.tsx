@@ -210,7 +210,7 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
                 </button>
               )}
             </div>
-            <QrPlanConTarjeta patente={c.patente} precio={r.precioQrTarjeta} />
+            <QrPlanConTarjeta patente={c.patente} precio={r.precioQrTarjeta} perfilId={r.perfilId} />
           </>
         )}
       </div>
@@ -223,7 +223,15 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
 // el plan en su celular, parado acá — es el mismo link del bot de WhatsApp
 // (ver lib/whatsapp/router.ts), con la patente ya puesta, y deja la
 // renovación automática andando.
-function QrPlanConTarjeta({ patente, precio }: { patente: string; precio: { primerCobro: number; mensual: number } }) {
+function QrPlanConTarjeta({
+  patente,
+  precio,
+  perfilId,
+}: {
+  patente: string;
+  precio: { primerCobro: number; mensual: number };
+  perfilId?: string;
+}) {
   const [abierto, setAbierto] = useState(false);
   const conPromo = precio.primerCobro !== precio.mensual;
   const monto = `${fmtCLP(precio.primerCobro)}${conPromo ? " el primer mes" : "/mes"}`;
@@ -234,7 +242,11 @@ function QrPlanConTarjeta({ patente, precio }: { patente: string; precio: { prim
       </button>
     );
   }
-  const url = `${window.location.origin}/pagar?item=plan&patente=${encodeURIComponent(patente)}`;
+  // op = quién mostró el QR, para atribuirle la venta (ver operadorQr en
+  // /api/pagos/oneclick/inscribir, que lo valida contra los perfiles).
+  const url =
+    `${window.location.origin}/pagar?item=plan&patente=${encodeURIComponent(patente)}` +
+    (perfilId ? `&op=${encodeURIComponent(perfilId)}` : "");
   return (
     <div className="offer-card" style={{ marginTop: 10, textAlign: "center" }}>
       <div style={{ background: "#fff", padding: 12, borderRadius: 8, display: "inline-block" }}>

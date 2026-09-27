@@ -21,7 +21,7 @@ vi.mock("@/lib/transbank", () => ({
 }));
 
 const mockCliente = vi.fn();
-vi.mock("@/lib/dataAccess/clientes", () => ({ buscarClientePorPatente: () => mockCliente() }));
+vi.mock("@/lib/dataAccess/clientes", () => ({ buscarClientePorPatente: () => mockCliente(), registrarAceptacionPoliticas: async () => {} }));
 
 const mockOferta = vi.fn();
 vi.mock("@/lib/dataAccess/ofertasPlan", () => ({ calcularOfertasPlanDeCliente: () => mockOferta() }));

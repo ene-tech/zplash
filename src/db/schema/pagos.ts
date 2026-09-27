@@ -111,6 +111,10 @@ export const suscripcionesOneclick = pgTable("suscripciones_oneclick", {
   // de cobro cuando el candado deja de aplicar, ver /api/pagos/oneclick/cobrar.
   estado: text("estado").notNull().default("pendiente"),
   proximoCobro: timestamptz("proximo_cobro"),
+  // Nombre del perfil que mostró el QR del mesón en la última inscripción
+  // (null si vino de otra puerta). Lo escribe /inscribir y /inscripcion/retorno
+  // lo copia a ventas.operadorQr del primer cobro aprobado.
+  operadorQr: text("operador_qr"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   actualizadoEn: timestamptz("actualizado_en"),
 });

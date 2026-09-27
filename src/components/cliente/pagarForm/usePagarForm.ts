@@ -159,7 +159,9 @@ export function usePagarForm() {
       const res = await fetch("/api/pagos/oneclick/inscribir", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patente: p, email }),
+        // op: perfil que mostró el QR del mesón (ver QrPlanConTarjeta); el
+        // servidor lo valida contra los perfiles, acá viaja tal cual.
+        body: JSON.stringify({ patente: p, email, operador: params.get("op") || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {

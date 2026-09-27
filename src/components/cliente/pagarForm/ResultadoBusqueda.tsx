@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PLANES, fmtCLP, fmtFecha, precioConHeredado } from "@/lib/helpers";
 import { AvisoPasaAX5 } from "@/components/cliente/AvisoPasaAX5";
 import type { PreciosPublicos } from "@/components/cliente/types";
@@ -16,6 +17,7 @@ type Props = Pick<
 // TIPOS_VALIDOS en /api/pagos/webpay/crear), Webpay queda para el lavado
 // único, la zona de aspirado y los servicios de detailing.
 export function ResultadoBusqueda(p: Props) {
+  const [aceptaPoliticas, setAceptaPoliticas] = useState(false);
   const r = p.resultado;
   if (!r) return null;
 
@@ -83,7 +85,24 @@ export function ResultadoBusqueda(p: Props) {
             requiereValidacionX5 y su registro en /api/pagos/oneclick/inscribir).
             Por eso al cliente legacy no le puede decir "renovación": lo que
             firma acá es un producto distinto del que tenía. */}
-        <button className="btn" style={{ marginTop: 10 }} onClick={p.activarAutomatica} disabled={p.inscribiendo}>
+        {/* La aceptación se registra en /inscripcion/retorno, con la
+            inscripción ya confirmada por Transbank (ver aceptoX5En ahí). */}
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 12, fontSize: 13, textAlign: "left" }}>
+          <input
+            type="checkbox"
+            checked={aceptaPoliticas}
+            onChange={(e) => setAceptaPoliticas(e.target.checked)}
+            style={{ marginTop: 3 }}
+          />
+          <span>
+            Acepto las{" "}
+            <a href="/politicas" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>
+              Políticas de Funcionamiento y Garantía
+            </a>{" "}
+            y que el plan se cobre automáticamente cada mes en esta tarjeta hasta que lo cancele.
+          </span>
+        </label>
+        <button className="btn" style={{ marginTop: 10 }} onClick={p.activarAutomatica} disabled={p.inscribiendo || !aceptaPoliticas}>
           {p.inscribiendo
             ? "Redirigiendo..."
             : r.requiereValidacionX5
