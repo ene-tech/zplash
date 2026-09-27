@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 
 const SIN_CONTACTO = "sin-contacto";
 
-export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
+export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | null; onGuardada?: (empresa: Empresa) => void }) {
   const { data, commit, patchUi, ui } = useApp();
   const emp = e || ({} as Partial<Empresa>);
 
@@ -85,6 +85,7 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
       : "";
 
     let empresas: Empresa[];
+    let creada: Empresa | null = null;
     if (e) {
       const actualizado: Empresa = {
         ...(e as Empresa),
@@ -111,6 +112,7 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
         creadoPor: ui.perfilActual?.nombre || "Administrador",
       };
       empresas = [...data.empresas, nuevo];
+      creada = nuevo;
     }
 
     const ok = await commit({ empresas });
@@ -118,6 +120,7 @@ export default function EmpresaModal({ data: e }: { data: Empresa | null }) {
       setErr("No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.");
       return;
     }
+    if (creada) onGuardada?.(creada);
     cerrar();
   };
 

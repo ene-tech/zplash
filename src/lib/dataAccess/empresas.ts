@@ -1,6 +1,6 @@
 import "server-only";
 
-import { inArray } from "drizzle-orm";
+import { inArray, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { empresas } from "@/db/schema";
 import type { Empresa } from "@/types";
@@ -36,6 +36,22 @@ export function empresaFromRow(r: EmpresaRow): Empresa {
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
   };
+}
+
+/** true si TODAS las filas son altas: ni el id ni el RUT existen ya. Lo usa
+ * el gate del POS, que puede crear una empresa para facturar en el mesón
+ * pero no editar las que ya están registradas. */
+export async function sonEmpresasNuevas(rows: Empresa[]): Promise<boolean> {
+  if (!rows.length) return true;
+  const ids = rows.map((r) => r.id).filter(Boolean);
+  const ruts = rows.map((r) => r.rut).filter(Boolean);
+  if (!ids.length || !ruts.length) return false;
+  const db = getDb();
+  const existentes = await db
+    .select({ id: empresas.id })
+    .from(empresas)
+    .where(or(inArray(empresas.id, ids), inArray(empresas.rut, ruts)));
+  return existentes.length === 0;
 }
 
 export async function upsertEmpresas(rows: Empresa[]): Promise<boolean> {

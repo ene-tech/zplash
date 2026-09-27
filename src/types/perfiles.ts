@@ -2,6 +2,9 @@
 // una vez que inició sesión (ver PerfilPublico.modulos).
 export type Modulo =
   | "operador"
+  // POS de productos de la tienda (ver PosView): aparte de "operador",
+  // que es el mesón del lavado.
+  | "pos"
   | "servicios"
   | "clientes"
   | "suscripciones"

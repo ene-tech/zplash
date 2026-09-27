@@ -25,12 +25,22 @@ export default function ModalRoot() {
   if (m.type === "confirm") {
     return <ConfirmModal mensaje={m.mensaje} onConfirm={m.onConfirm} confirmLabel={m.confirmLabel} danger={m.danger} />;
   }
-  if (m.type === "client") return <ClientModal data={m.data} contexto={m.contexto} patenteInicial={m.patenteInicial} telefonoInicial={m.telefonoInicial} />;
+  if (m.type === "client")
+    return (
+      <ClientModal
+        data={m.data}
+        contexto={m.contexto}
+        patenteInicial={m.patenteInicial}
+        telefonoInicial={m.telefonoInicial}
+        sinPlan={m.sinPlan}
+        onGuardado={m.onGuardado}
+      />
+    );
   if (m.type === "perfil") return <PerfilModal data={m.data} />;
   if (m.type === "bulk") return <BulkModal />;
   if (m.type === "pago") return <PagoModal monto={m.monto} descripcion={m.descripcion} onConfirm={m.onConfirm} />;
   if (m.type === "clienteInfo") return <ClienteInfoModal data={m.data} />;
-  if (m.type === "empresa") return <EmpresaModal data={m.data} />;
+  if (m.type === "empresa") return <EmpresaModal data={m.data} onGuardada={m.onGuardada} />;
   if (m.type === "producto") return <ProductoModal data={m.data} />;
   if (m.type === "proveedor") return <ProveedorModal data={m.data} />;
   if (m.type === "insumo") return <InsumoModal data={m.data} />;

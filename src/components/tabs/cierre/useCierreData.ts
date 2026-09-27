@@ -65,7 +65,15 @@ export function useCierreData() {
 
     const ventasPorTipo = PRODUCTOS_CIERRE.map((p) => {
       const items = ventasPeriodoBase.filter((v) => v.tipo === p.tipo && !esNuevoClienteAdmin(v));
-      return { ...p, cantidad: items.length, monto: items.reduce((s, v) => s + (v.precio || 0), 0), items };
+      return {
+        ...p,
+        // Un ticket del POS puede llevar varias unidades del mismo producto:
+        // se cuentan unidades, igual que en servicios adicionales y venta web.
+        // Las demás filas tienen cantidadItems = 1 y no cambian.
+        cantidad: items.reduce((s, v) => s + (v.cantidadItems ?? 1), 0),
+        monto: items.reduce((s, v) => s + (v.precio || 0), 0),
+        items,
+      };
     });
 
     // La tabla informativa "Servicios adicionales vendidos en el período" (más

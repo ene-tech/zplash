@@ -3,11 +3,13 @@
 import { Fragment, useMemo, useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import {
+  CANAL_INGRESO_OTROS,
   categoriaAGrupo,
   fechaEfectiva,
   fmtCLP,
   GRUPOS_GASTO_EERR,
   mesActualKey,
+  mesDesplazado,
   mesesEntre,
   mesKey,
   variacionPorcentual,
@@ -88,7 +90,7 @@ function Fila({
 export default function EERRTab({ caja = false }: { caja?: boolean }) {
   const { data } = useAppData();
   const [hasta, setHasta] = useState(mesActualKey);
-  const [desde, setDesde] = useState(() => mesesEntre("2000-01", mesActualKey()).slice(-6)[0]);
+  const [desde, setDesde] = useState(() => mesDesplazado(mesActualKey(), -5));
 
   const meses = useMemo(() => mesesEntre(desde, hasta), [desde, hasta]);
   const conVariacion = meses.length > 1;
@@ -96,13 +98,17 @@ export default function EERRTab({ caja = false }: { caja?: boolean }) {
   const porMes = useMemo(() => {
     type Mes = {
       ingresos: number;
+      // Ingresos por canal (categorias_ingreso): desde que la tienda vende
+      // productos, "Ingresos de Explotación" mezcla dos negocios y el
+      // desglose es lo único que muestra cuánto aporta cada uno.
+      catIngreso: Record<string, number>;
       cat: Record<string, number>;
       grupo: Record<string, number>;
       porCobrar: number;
       porPagar: number;
     };
     const mapa: Record<string, Mes> = {};
-    for (const m of meses) mapa[m] = { ingresos: 0, cat: {}, grupo: {}, porCobrar: 0, porPagar: 0 };
+    for (const m of meses) mapa[m] = { ingresos: 0, catIngreso: {}, cat: {}, grupo: {}, porCobrar: 0, porPagar: 0 };
 
     for (const mov of data.movimientosContables) {
       if (mov.tipo !== "ingreso" && mov.tipo !== "egreso") continue;
@@ -121,6 +127,8 @@ export default function EERRTab({ caja = false }: { caja?: boolean }) {
       if (!e) continue;
       if (mov.tipo === "ingreso") {
         e.ingresos += mov.monto;
+        const canal = mov.categoria || CANAL_INGRESO_OTROS;
+        e.catIngreso[canal] = (e.catIngreso[canal] || 0) + mov.monto;
       } else {
         const categoria = mov.categoria || "Otros Gastos Directos";
         const grupo = categoriaAGrupo(data.categoriasGasto, categoria);
@@ -137,6 +145,14 @@ export default function EERRTab({ caja = false }: { caja?: boolean }) {
   const serieIngresos = meses.map((m) => (caja ? porMes[m].ingresos : porMes[m].ingresos / 1.19));
   const serieGrupo = (grupo: string) => meses.map((m) => porMes[m].grupo[grupo] || 0);
   const serieCategoria = (categoria: string) => meses.map((m) => porMes[m].cat[categoria] || 0);
+  // Un renglón por canal con movimiento en el período (el IVA se descuenta
+  // igual que en serieIngresos para que los hijos sumen al padre).
+  const canalesConIngreso = [...new Set(meses.flatMap((m) => Object.keys(porMes[m].catIngreso)))].sort();
+  const serieCanalIngreso = (canal: string) =>
+    meses.map((m) => {
+      const bruto = porMes[m].catIngreso[canal] || 0;
+      return caja ? bruto : bruto / 1.19;
+    });
 
   const otrosCostosDirectos = serieGrupo("Otros Costos Directos");
   const remuneraciones = serieGrupo("Gasto de Remuneraciones");
@@ -218,12 +234,9 @@ export default function EERRTab({ caja = false }: { caja?: boolean }) {
               destacado
               conVariacion={conVariacion}
             />
-            <Fila
-              label="Ingresos por Ventas de Productos"
-              valores={serieIngresos}
-              nivel={2}
-              conVariacion={conVariacion}
-            />
+            {canalesConIngreso.map((canal) => (
+              <Fila key={canal} label={canal} valores={serieCanalIngreso(canal)} nivel={2} conVariacion={conVariacion} />
+            ))}
 
             {grupoOperacional.map((g) => (
               <Fragment key={g.grupo}>

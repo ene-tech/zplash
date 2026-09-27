@@ -165,6 +165,14 @@ interface AppUiContextValue {
 // necesita no se suscribe ni a `data` ni a `ui`.
 interface AppAccionesContextValue {
   commit: (patch: Partial<AppData>) => Promise<boolean>;
+  /** Funde en el snapshot local un patch que YA está guardado en la base
+   * (ej. el resultado de registrarVentaPos, que escribe en su propia
+   * transacción server-side). No dispara Server Actions ni auditoría.
+   * Acepta una función porque quien lo llama puede tener capturado un `data`
+   * viejo (el modal de pago del POS se abre antes de cobrar): así el patch se
+   * arma contra el snapshot vigente y no pisa lo que llegó mientras tanto —
+   * ej. la ola pesada del historial aterrizando con el modal abierto. */
+  aplicarLocal: (patch: Partial<AppData> | ((actual: AppData) => Partial<AppData>)) => void;
   patchUi: (patch: Partial<UIState>) => void;
   logout: (extra?: Partial<UIState>) => Promise<void>;
 }
@@ -497,6 +505,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [commitInterno]
   );
 
+  const aplicarLocal = useCallback((patch: Partial<AppData> | ((actual: AppData) => Partial<AppData>)) => {
+    const actual = dataRef.current;
+    const next = { ...actual, ...(typeof patch === "function" ? patch(actual) : patch) };
+    dataRef.current = next;
+    setData(next);
+  }, []);
+
   const patchUi = useCallback((patch: Partial<UIState>) => {
     setUi((prev) => ({ ...prev, ...patch }));
   }, []);
@@ -537,8 +552,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   const valorUi = useMemo<AppUiContextValue>(() => ({ ui }), [ui]);
   const valorAcciones = useMemo<AppAccionesContextValue>(
-    () => ({ commit, patchUi, logout }),
-    [commit, patchUi, logout]
+    () => ({ commit, aplicarLocal, patchUi, logout }),
+    [commit, aplicarLocal, patchUi, logout]
   );
 
   return (

@@ -34,6 +34,11 @@ export function esVentaNuevaWeb(creadoPor?: string | null): boolean {
  * en @/lib/pagos): precio negativo y fecha del día en que se devolvió la
  * plata. Cierre de Caja le da su propia fila y lo excluye de "Venta nueva
  * web" aunque su creadoPor ("Automático (Reembolso)") caiga en esa familia. */
+/** Tipo de las ventas del POS de productos (tienda). Es el discriminador
+ * entre la venta de la tienda y todo lo del lavado: el Cierre de Caja le da
+ * su propia fila y la contabilidad su propio canal de ingreso. */
+export const TIPO_VENTA_PRODUCTOS = "Venta de productos";
+
 export const TIPO_VENTA_REEMBOLSO = "Reembolso";
 
 /** El contra-asiento lleva el id de la venta que anula detrás de este prefijo

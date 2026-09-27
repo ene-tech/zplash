@@ -5,4 +5,5 @@ export * from "./clientes";
 export * from "./empresas";
 export * from "./exportExcel";
 export * from "./operadorNotFound";
+export * from "./pos";
 export * from "./serviciosAdicionales";

@@ -9,6 +9,20 @@ export interface PagoInfo {
   voucher?: string;
 }
 
+/** Una línea de un ticket del POS de productos (tabla venta_items).
+ * sku/detalle son snapshot al momento de la venta: si el producto se
+ * renombra o se borra después, la boleta histórica no cambia. */
+export interface VentaItem {
+  id: string;
+  ventaId: string;
+  /** undefined si el producto se borró después (FK set null). */
+  productoId?: string;
+  sku: string;
+  detalle: string;
+  cantidad: number;
+  precioUnitario: number;
+}
+
 export interface Venta extends DatosFacturacion {
   id: string;
   clienteId: string;

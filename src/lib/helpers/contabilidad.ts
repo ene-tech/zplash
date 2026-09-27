@@ -1,4 +1,5 @@
 import type { MovimientoContable } from "@/types";
+import { TIPO_VENTA_PRODUCTOS } from "./ventas";
 
 /**
  * Estructura del Estado de Resultados (EERR): los 5 grupos de gasto y a qué
@@ -80,10 +81,16 @@ export function categoriaAGrupo(categorias: { nombre: string; grupo: string }[],
 export const CANAL_INGRESO_TUNEL = "Servicios de Lavado / Túnel";
 export const CANAL_INGRESO_OTROS = "Otros";
 
+/** Canal de ingreso de la tienda: las ventas del POS de productos no son
+ * lavado, y el EERR tiene que poder distinguirlas sin mirar el tipo de cada
+ * venta. Ver movimientoContableDesdeVenta. */
+export const CANAL_INGRESO_PRODUCTOS = "Venta de Productos";
+
 /** Semilla/fallback para cuando la tabla categorias_ingreso está vacía o la
  * migración todavía no corrió — mismo patrón que CATEGORIAS_GASTO_DEFAULT. */
 export const CATEGORIAS_INGRESO_DEFAULT: { id: string; nombre: string; activa: boolean }[] = [
   { id: "ci-tunel", nombre: CANAL_INGRESO_TUNEL, activa: true },
+  { id: "ci-productos", nombre: CANAL_INGRESO_PRODUCTOS, activa: true },
   { id: "ci-otros", nombre: CANAL_INGRESO_OTROS, activa: true },
 ];
 
@@ -147,8 +154,9 @@ export function movimientoContableDesdeVenta(venta: {
     id: idMovimientoContableDeVenta(venta.id),
     tipo: "ingreso",
     fecha: venta.fecha,
-    descripcion: `${venta.tipo} – ${venta.nombre} (${venta.patente})`,
-    categoria: CANAL_INGRESO_TUNEL,
+    // La venta de productos va sin patente (no hay auto) y a su propio canal.
+    descripcion: venta.patente ? `${venta.tipo} – ${venta.nombre} (${venta.patente})` : `${venta.tipo} – ${venta.nombre}`,
+    categoria: venta.tipo === TIPO_VENTA_PRODUCTOS ? CANAL_INGRESO_PRODUCTOS : CANAL_INGRESO_TUNEL,
     contraparte: venta.nombre,
     monto: venta.precio,
     estado: pagado ? "pagado" : "pendiente",

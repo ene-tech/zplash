@@ -28,7 +28,8 @@ type ClientModalRefs = {
 export function useClientModal(
   c: Cliente | null,
   contexto: "operador" | "admin" | undefined,
-  refs: ClientModalRefs
+  refs: ClientModalRefs,
+  onGuardado?: (cliente: Cliente) => void
 ) {
   const { data, commit, patchUi, ui } = useApp();
   const cli = c || ({} as Partial<Cliente>);
@@ -184,6 +185,12 @@ export function useClientModal(
       if (!ok) {
         setErr("No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.");
         return;
+      }
+      // Alta: el POS necesita saber a quién se acaba de crear para dejarlo
+      // seleccionado en el cobro (ver PosView).
+      if (!c && onGuardado) {
+        const creado = patch.clientes?.find((x) => !data.clientes.some((y) => y.id === x.id));
+        if (creado) onGuardado(creado);
       }
       cerrar();
     };

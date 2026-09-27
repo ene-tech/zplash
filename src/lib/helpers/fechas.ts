@@ -162,6 +162,18 @@ export function fmtHora(d: string): string {
   return new Date(d).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
 }
 
+/** Mes "YYYY-MM" desplazado `delta` meses (negativo = hacia atrás). Existe
+ * porque calcular "hace N meses" con mesesEntre() da mal: esa función corta
+ * a 36 meses DESDE EL INICIO, así que mesesEntre("2000-01", hoy).slice(-6)
+ * devolvía 2002, no los últimos 6 meses (el EERR abría en 2002 con todo en
+ * cero). */
+export function mesDesplazado(mes: string, delta: number): string {
+  const [y, m] = mes.split("-").map(Number);
+  if (Number.isNaN(y) || Number.isNaN(m)) return mesActualKey();
+  const n = y * 12 + (m - 1) + delta;
+  return Math.floor(n / 12) + "-" + String((n % 12) + 1).padStart(2, "0");
+}
+
 /** Claves "YYYY-MM" entre dos meses (inclusive), para el EERR comparativo.
  * Acepta el rango invertido y corta en 36 columnas.
  * ponytail: tope duro; si alguien necesita más años, paginar por año. */

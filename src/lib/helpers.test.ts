@@ -66,6 +66,9 @@ import {
   telefonoTipeado,
   keyPrimeraContratacion,
   mensajeBloqueoReingreso,
+  ivaDeBruto,
+  mesDesplazado,
+  netoDeBruto,
   mesesEntre,
   mesKey,
   montoDescuento,
@@ -2313,6 +2316,11 @@ describe("mesesEntre", () => {
 
   it("corta en 36 columnas para no reventar la tabla del EERR", () => {
     expect(mesesEntre("2000-01", "2026-08")).toHaveLength(36);
+    // El corte es DESDE EL INICIO: por eso "hace N meses" se calcula con
+    // mesDesplazado y no recortando esta lista (ver EERRTab).
+    expect(mesDesplazado("2026-09", -5)).toBe("2026-04");
+    expect(mesDesplazado("2026-01", -1)).toBe("2025-12");
+    expect(mesDesplazado("2025-12", 2)).toBe("2026-02");
   });
 });
 
@@ -2615,5 +2623,15 @@ describe("Promo 2 Lavados — tickets por patente", () => {
     expect(precioPromo2Lavados({})).toBe(0);
     expect(precioPromo2Lavados({ [PROMO_2_LAVADOS_KEY]: { normal: 0, promo: 0 } })).toBe(0);
     expect(precioPromo2Lavados({ [PROMO_2_LAVADOS_KEY]: { normal: 14990, promo: 0 } })).toBe(14990);
+  });
+});
+
+describe("neto e IVA de un monto bruto", () => {
+  it("neto + IVA reconstruye el bruto exacto, sin descuadre por redondeo", () => {
+    for (const bruto of [9990, 6990, 2990, 12980, 1, 19, 100, 123457]) {
+      expect(netoDeBruto(bruto) + ivaDeBruto(bruto)).toBe(bruto);
+    }
+    expect(netoDeBruto(11900)).toBe(10000);
+    expect(ivaDeBruto(11900)).toBe(1900);
   });
 });

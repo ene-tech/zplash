@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useAppUi } from "@/context/AppContext";
 import { PLANES, fmtTelefono, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,11 +17,16 @@ export default function ClientModal({
   contexto,
   patenteInicial,
   telefonoInicial,
+  sinPlan,
+  onGuardado,
 }: {
   data: Cliente | null;
   contexto?: "operador" | "admin";
   patenteInicial?: string;
   telefonoInicial?: string;
+  /** Alta desde el POS de la tienda: siempre sin plan (ese flujo no cobra planes). */
+  sinPlan?: boolean;
+  onGuardado?: (cliente: Cliente) => void;
 }) {
   const nombreRef = useRef<HTMLInputElement>(null);
   const patenteRef = useRef<HTMLInputElement>(null);
@@ -34,6 +40,13 @@ export default function ClientModal({
   const vencRef = useRef<HTMLInputElement>(null);
   const heredadoRef = useRef<HTMLInputElement>(null);
 
+  // Asignar plan a mano es privilegio de quien administra clientes o atiende
+  // el túnel. Y desde el POS de la tienda no lo hace nadie, ni Gerencia: ese
+  // flujo no cobra planes, así que el alta va siempre "sin plan".
+  const { ui } = useAppUi();
+  const modulos = ui.perfilActual?.modulos || [];
+  const puedeAsignarPlan = !sinPlan && (modulos.includes("clientes") || modulos.includes("operador"));
+
   const r = useClientModal(c, contexto, {
     nombreRef,
     patenteRef,
@@ -46,7 +59,7 @@ export default function ClientModal({
     giroRef,
     vencRef,
     heredadoRef,
-  });
+  }, onGuardado);
   const cli = r.cli;
   // Estado propio (no pasa por AppContext.commit) para reflejar al toque el
   // resultado de solicitar/cancelar un cambio de patente diferido — ver
@@ -103,6 +116,14 @@ export default function ClientModal({
                 </SelectContent>
               </Select>
             </div>
+          ) : !puedeAsignarPlan && !c ? (
+            // Alta desde el POS de la tienda: ese perfil no pasa por el cobro
+            // del mesón, así que el server rechaza un alta con plan (ver
+            // esCambioPermitidoSinModuloClientes). Sin ocultar la opción, el
+            // cajero la elegía y recibía un error genérico de "sin conexión".
+            <p className="text-sm text-muted-foreground">
+              El cliente se registra sin plan. Los planes se contratan desde el módulo Operador.
+            </p>
           ) : (
             <>
               <div className="grid gap-1.5">

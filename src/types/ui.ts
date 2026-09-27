@@ -20,13 +20,27 @@ export type OperResult =
   | null;
 
 export type ModalState =
-  | { type: "client"; data: Cliente | null; contexto?: "operador" | "admin"; patenteInicial?: string; telefonoInicial?: string }
+  // onGuardado: el POS lo usa para dejar seleccionado al cliente recién
+  // registrado sin salir de la pantalla de cobro.
+  // sinPlan: el alta viene del POS de la tienda, donde un plan no se puede
+  // contratar porque no hay cobro de plan en ese flujo.
+  | {
+      type: "client";
+      data: Cliente | null;
+      contexto?: "operador" | "admin";
+      patenteInicial?: string;
+      telefonoInicial?: string;
+      sinPlan?: boolean;
+      onGuardado?: (cliente: Cliente) => void;
+    }
   | { type: "confirm"; mensaje: string; onConfirm: () => void; confirmLabel?: string; danger?: boolean }
   | { type: "perfil"; data: PerfilPublico | null }
   | { type: "bulk" }
   | { type: "pago"; monto: number; descripcion: string; onConfirm: (pago: PagoInfo) => void }
   | { type: "clienteInfo"; data: Cliente }
-  | { type: "empresa"; data: Empresa | null }
+  // onGuardada: el POS la usa para dejar seleccionada la empresa que se
+  // acaba de crear sin salir de la pantalla de cobro.
+  | { type: "empresa"; data: Empresa | null; onGuardada?: (empresa: Empresa) => void }
   | { type: "producto"; data: Producto | null }
   | { type: "proveedor"; data: Proveedor | null }
   | { type: "insumo"; data: Insumo | null }
@@ -37,7 +51,7 @@ export type ModalState =
   | null;
 
 export interface UIState {
-  view: "login" | "hub" | "operador" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario" | "mantencion" | "estanques" | "mensajes" | "correo" | "funcionario" | "equipo" | "libro";
+  view: "login" | "hub" | "operador" | "pos" | "admin" | "servicios" | "contabilidad" | "web_settings" | "inventario" | "mantencion" | "estanques" | "mensajes" | "correo" | "funcionario" | "equipo" | "libro";
   operResult: OperResult;
   adminTab: string;
   contabilidadTab: string;

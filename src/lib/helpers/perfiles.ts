@@ -20,6 +20,7 @@ export const MODULOS_ADMIN: Modulo[] = [
 // que nadie más lo recibe de fábrica.
 export const TODOS_LOS_MODULOS: Modulo[] = [
   "operador",
+  "pos",
   "servicios",
   ...MODULOS_ADMIN,
   "contabilidad",
@@ -40,6 +41,7 @@ export const TODOS_LOS_MODULOS: Modulo[] = [
 
 export const MODULO_LABELS: Record<Modulo, string> = {
   operador: "Operador (validar patente / ingreso)",
+  pos: "POS de productos (tienda)",
   servicios: "Servicios Adicionales",
   // El checklist de Perfiles es el único lugar donde quien asigna módulos ve
   // qué abre cada uno: "clientes" también abre el Libro de Reclamos del hub

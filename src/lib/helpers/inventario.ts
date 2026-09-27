@@ -38,6 +38,18 @@ export function productoPermitidoEnDestino(
   return destino.esBodega || !producto.destinosBloqueados?.includes(destino.id);
 }
 
+/** Los precios de venta se guardan brutos (IVA incluido). Estas dos
+ * convierten un monto bruto a su neto y su IVA; el IVA se calcula por
+ * diferencia para que neto + IVA dé SIEMPRE el bruto exacto, sin un peso de
+ * descuadre por redondeo. */
+export function netoDeBruto(bruto: number): number {
+  return Math.round(bruto / 1.19);
+}
+
+export function ivaDeBruto(bruto: number): number {
+  return bruto - netoDeBruto(bruto);
+}
+
 /** Margen unitario de un Producto, con la misma convención de la planilla de
  * compras: `valorCompra` es el costo neto (sin IVA) y `valorVenta` es el
  * precio público bruto (IVA 19% incluido). Margen $ = venta neta − costo;
@@ -45,7 +57,7 @@ export function productoPermitidoEnDestino(
  * venta asignado (valorVenta 0) — la UI muestra "-". */
 export function margenProducto(p: Pick<Producto, "valorCompra" | "valorVenta">): { unitario: number; pct: number } | null {
   if (!p.valorVenta) return null;
-  const ventaNeta = Math.round(p.valorVenta / 1.19);
+  const ventaNeta = netoDeBruto(p.valorVenta);
   const unitario = ventaNeta - p.valorCompra;
   return { unitario, pct: (unitario / ventaNeta) * 100 };
 }

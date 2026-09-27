@@ -39,4 +39,6 @@ export * from "./precios";
 export * from "./pushSubscriptions";
 export * from "./servicios";
 export * from "./ventas";
+// Después de ./ventas y ./inventario: venta_items tiene FK a ambas.
+export * from "./ventaItems";
 export * from "./whatsapp";

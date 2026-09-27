@@ -89,7 +89,15 @@ async function esCambioPermitidoSinModuloClientes(patches: ClientePatch[], porId
   if (soloVisitas) return true;
 
   const todasAltasNuevas = patches.every((patch) => !porId.has(patch.id));
-  if (todasAltasNuevas) return tieneModulo("operador");
+  if (todasAltasNuevas) {
+    if (await tieneModulo("operador")) return true;
+    // El POS de la tienda registra al comprador para engancharle la compra
+    // (ver PosView), pero un alta desde ahí va SIN plan: el módulo "pos" no
+    // pasa por el cobro del mesón, así que permitirle plan/vencimiento sería
+    // regalar suscripciones sin venta que las respalde.
+    if (await tieneModulo("pos")) return patches.every((patch) => !patch.plan && !patch.vencimiento);
+    return false;
+  }
 
   // Fila ya existente (p.ej. "INVITADO" creada con datos mínimos) a la que
   // el operador le está completando nombre/vehículo/teléfono/correo desde
