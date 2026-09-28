@@ -211,6 +211,8 @@ export async function evaluarReglasCorreoPorValidacionX5(opts: {
  * a un plan distinto sin que él lo acepte. Por eso acá, además del correo, se
  * le cancela la suscripción en WooCommerce: si siguiera viva, su próxima
  * renovación lo cobraría igual y lo dejaría en un X5 que nunca contrató.
+ * Desde el 28-sep-2026 el que renueva por WooCommerce (cualquier plan) no
+ * recibe correo: solo el corte, y queda en mora al vencer.
  *
  * Cuelga de un EVENTO (insertIngresos) y no del barrido diario a propósito:
  * las reglas por cron de este motor no están disparando (ver
@@ -237,9 +239,10 @@ export async function evaluarReglasCorreoPorTopeIlimitado(ingresosNuevos: Ingres
   const db = getDb();
   for (const clienteId of clienteIds) {
     const cliente = await buscarCliente(clienteId);
-    // Solo el ilimitado viejo y solo con el plan al día — ver
-    // superoTopeIlimitado, que es donde vive la regla.
-    if (!cliente || planVigente(cliente) !== PLAN_ILIMITADO_LEGACY || !sigueVigenteHoy(cliente.vencimiento)) continue;
+    // Solo con el plan al día, y solo el ilimitado viejo o cualquiera que
+    // renueve por WooCommerce (ver el corte más abajo).
+    if (!cliente || !sigueVigenteHoy(cliente.vencimiento)) continue;
+    if (planVigente(cliente) !== PLAN_ILIMITADO_LEGACY && !cliente.renovacionAutoWooDesde) continue;
 
     // Pasadas del ciclo que corre HOY (no el que contiene el vencimiento, que
     // es lo que mira visitasPeriodoActual en el webhook): acá el cliente está
@@ -257,21 +260,24 @@ export async function evaluarReglasCorreoPorTopeIlimitado(ingresosNuevos: Ingres
           )
         )
     ).length;
-    if (!superoTopeIlimitado(cliente, pasadas)) continue;
 
-    // Va ANTES del correo y fuera del loop de reglas: una suscripción viva en
-    // WooCommerce significa cobrarle un mes más de un plan que ya no le
-    // corresponde, así que se corta una vez por cliente y pase lo que pase con
-    // el aviso. La marca queda limpia, y eso mismo evita reintentarlo en cada
-    // pasada siguiente (ver cortarCobroWooCommerceLegacy).
+    // Plan con renovación por WooCommerce, cualquiera sea, con 7+ pasadas en
+    // el ciclo (decisión del 28-sep-2026): solo se le corta el cobro
+    // automático y queda en mora al vencer. SIN correo, ni siquiera con una
+    // regla tope_ilimitado_superado activa.
     //
     // Único caller que sí mira la marca antes de preguntarle a WooCommerce:
-    // los caminos de a uno pueden pagar la consulta siempre, pero acá son
-    // todos los clientes pasados del tope en cada pasada del cron, todos los
-    // días, y WooCommerce se demora varios segundos en responder.
+    // acá son todos los que pasan por el mesón, y WooCommerce se demora
+    // varios segundos en responder. La marca queda limpia tras el corte, y eso
+    // mismo evita reintentarlo en cada pasada siguiente (ver
+    // cortarCobroWooCommerceLegacy).
     if (cliente.renovacionAutoWooDesde) {
-      await cortarCobroWooCommerceLegacy(cliente, cliente.patente, `se pasó del tope (${pasadas} pasadas)`);
+      if (pasadas >= 7) {
+        await cortarCobroWooCommerceLegacy(cliente, cliente.patente, `se pasó del tope (${pasadas} pasadas)`);
+      }
+      continue;
     }
+    if (!superoTopeIlimitado(cliente, pasadas)) continue;
 
     for (const regla of reglas) {
       // origenId con el vencimiento: un aviso por ciclo. Si el cliente renueva
