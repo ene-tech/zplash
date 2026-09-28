@@ -185,3 +185,26 @@ export async function dentroVentana24h(conversacionId: string): Promise<boolean>
   return !!ultimo;
 }
 
+// Cuando alguien del equipo le escribe a mano al cliente (enviarMensajeManual,
+// o el cupón por texto libre), el bot se calla en esa conversación por
+// `horas` desde el último mensaje manual — si no, el menú se cruzaba con la
+// respuesta de la persona. Se reconoce por tipo "texto" + enviadoPor: el bot
+// manda texto sin enviadoPor, reglas y masivos mandan plantillas.
+export async function humanoAtendiendo(conversacionId: string, horas = 12): Promise<boolean> {
+  const desde = new Date(Date.now() - horas * 60 * 60 * 1000).toISOString();
+  const [ultimo] = await getDb()
+    .select({ id: mensajesWhatsapp.id })
+    .from(mensajesWhatsapp)
+    .where(
+      and(
+        eq(mensajesWhatsapp.conversacionId, conversacionId),
+        eq(mensajesWhatsapp.direccion, "saliente"),
+        eq(mensajesWhatsapp.tipo, "texto"),
+        isNotNull(mensajesWhatsapp.enviadoPor),
+        gt(mensajesWhatsapp.creadoEn, desde)
+      )
+    )
+    .limit(1);
+  return !!ultimo;
+}
+

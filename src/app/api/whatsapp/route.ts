@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje } from "@/lib/dataAccess";
-import { uid } from "@/lib/helpers";
+import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje, humanoAtendiendo } from "@/lib/dataAccess";
+import { opcionDeTexto, uid } from "@/lib/helpers";
 import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
 import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
@@ -105,6 +105,14 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
   // tratando de decir algo y quedarse callado es peor.
   if (msg.type === "reaction" || msg.type === "sticker") return;
 
+  // Alguien del equipo está contestando a mano: el bot no se mete. El
+  // mensaje ya quedó guardado arriba y suma a noLeidos en el inbox. Si igual
+  // pide una persona, el push a Gerencia sale (sin respuesta del bot).
+  if (await humanoAtendiendo(conversacion.id)) {
+    if (opcionDeTexto(textoEntrante) === "humano") await avisarGerencia(nombreContacto || conversacion.nombreContacto || telefono, conversacion.id);
+    return;
+  }
+
   let respuesta;
   try {
     respuesta = await responderMensaje(textoEntrante, telefono, conversacion);
@@ -117,32 +125,33 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
   // "gracias"). El mensaje del cliente ya quedó guardado arriba.
   if (!respuesta) return;
 
-  if (respuesta.solicitaHumano) {
-    const quien = nombreContacto || conversacion.nombreContacto || telefono;
-    try {
-      // Awaited (no fire-and-forget): en el runtime serverless de Vercel una
-      // promesa suelta puede quedar cortada apenas la función responde, así
-      // que hay que esperarla antes de seguir aunque no bloquee la
-      // conversación si falla (VAPID sin configurar, Gerencia sin
-      // suscripción activa, etc. — enviarPushAGerencia no lanza en esos
-      // casos, solo devuelve false).
-      await enviarPushAGerencia({
-        title: "Piden hablar con una persona",
-        body: `${quien} escribió por WhatsApp pidiendo hablar con alguien.`,
-        // Decía "/", que es la landing pública: tocar la notificación dejaba a
-        // Gerencia en la web de clientes, con el panel a varios pasos de
-        // distancia. El panel vive en /admin, y el parámetro abre derecho el
-        // hilo de quien escribió (lo traduce a la vista AppProvider, ver
-        // @/context/AppContext) — hay 24h de ventana de Meta para contestar
-        // gratis, así que cada clic de más cuenta.
-        url: `/admin?conversacion=${conversacion.id}`,
-      });
-    } catch (error) {
-      console.error("Error avisando a Gerencia por push", error);
-    }
-  }
+  if (respuesta.solicitaHumano) await avisarGerencia(nombreContacto || conversacion.nombreContacto || telefono, conversacion.id);
 
   await enviarMensajeTexto(telefono, respuesta.texto);
+}
+
+async function avisarGerencia(quien: string, conversacionId: string) {
+  try {
+    // Awaited (no fire-and-forget): en el runtime serverless de Vercel una
+    // promesa suelta puede quedar cortada apenas la función responde, así
+    // que hay que esperarla antes de seguir aunque no bloquee la
+    // conversación si falla (VAPID sin configurar, Gerencia sin
+    // suscripción activa, etc. — enviarPushAGerencia no lanza en esos
+    // casos, solo devuelve false).
+    await enviarPushAGerencia({
+      title: "Piden hablar con una persona",
+      body: `${quien} escribió por WhatsApp pidiendo hablar con alguien.`,
+      // Decía "/", que es la landing pública: tocar la notificación dejaba a
+      // Gerencia en la web de clientes, con el panel a varios pasos de
+      // distancia. El panel vive en /admin, y el parámetro abre derecho el
+      // hilo de quien escribió (lo traduce a la vista AppProvider, ver
+      // @/context/AppContext) — hay 24h de ventana de Meta para contestar
+      // gratis, así que cada clic de más cuenta.
+      url: `/admin?conversacion=${conversacionId}`,
+    });
+  } catch (error) {
+    console.error("Error avisando a Gerencia por push", error);
+  }
 }
 
 export async function POST(request: NextRequest) {
