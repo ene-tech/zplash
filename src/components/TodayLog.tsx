@@ -1,7 +1,22 @@
 "use client";
 
 import { useAppData } from "@/context/AppContext";
-import { todayStr } from "@/lib/helpers";
+import { fmtCLP, tipoIngreso, todayStr, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
+import type { Ingreso } from "@/types/ingresos";
+import type { Venta } from "@/types/ventas";
+
+// Un ingreso sin plan vigente no siempre es $9.990: el lavado único pudo
+// cobrarse con un cupón de descuento (queda en la Venta, no en el Ingreso),
+// o no tener venta asociada. Se muestra lo que efectivamente se cobró.
+function etiqueta(i: Ingreso, ventas: Venta[]): { label: string; cls: "ok" | "warn" | "bad" } {
+  if (i.viaCupon) return { label: i.cuponCodigo ? `Cupón ${i.cuponCodigo}` : "Cupón", cls: "warn" };
+  if (i.glosa || i.esGarantia) return tipoIngreso(i);
+  if (i.planEstadoAlIngreso !== "bad") return { label: "Plan", cls: "ok" };
+  const venta = ventaLavadoUnicoDeIngreso(ventas, i);
+  if (!venta) return { label: "Sin cobro registrado", cls: "warn" };
+  if (venta.viaCupon) return { label: `${fmtCLP(venta.precio)} · cupón ${venta.cuponCodigo || ""}`.trim(), cls: "warn" };
+  return { label: fmtCLP(venta.precio), cls: "bad" };
+}
 
 export default function TodayLog() {
   const { data } = useAppData();
@@ -17,26 +32,21 @@ export default function TodayLog() {
 
   return (
     <>
-      {list.map((i) => (
-        <div className="log-row" key={i.id}>
-          <span className="plate">{i.patente}</span>
-          <span>
-            {i.nombre}
-            {i.esGarantia && (
-              <span className="status-pill warn" style={{ marginLeft: 8 }}>
-                Garantía
+      {list.map((i) => {
+        const tipo = etiqueta(i, data.ventas);
+        return (
+          <div className="log-row" key={i.id}>
+            <span className="plate">{i.patente}</span>
+            <span>
+              {i.nombre}
+              <span className={`status-pill ${tipo.cls}`} style={{ marginLeft: 8 }}>
+                {tipo.label}
               </span>
-            )}
-            {/* Mismo criterio que "Planes" / "Autos por $9.990" en Stats (useStatsData). */}
-            {!i.esGarantia && !i.viaCupon && !i.glosa && (
-              <span className={`status-pill ${i.planEstadoAlIngreso === "bad" ? "bad" : "ok"}`} style={{ marginLeft: 8 }}>
-                {i.planEstadoAlIngreso === "bad" ? "$9.990" : "Plan"}
-              </span>
-            )}
-          </span>
-          <span>{new Date(i.fecha).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</span>
-        </div>
-      ))}
+            </span>
+            <span>{new Date(i.fecha).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+        );
+      })}
     </>
   );
 }
