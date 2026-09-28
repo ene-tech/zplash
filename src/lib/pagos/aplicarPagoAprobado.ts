@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, ingresos, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
+import { getConfig } from "@/lib/dataAccess/config";
 import { consumirCupon } from "./cuponPlan";
 import {
   PLANES,
@@ -19,6 +20,7 @@ import {
   uid,
   vencimientoAnclado,
   cicloPlanDesde,
+  enPlazoDePagoPlan,
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
@@ -221,7 +223,15 @@ export async function aplicarPagoAprobado(
     // de cero (ver ilimitadoVencido). Salvo el cobro automático, donde la
     // política de rescate puede estar manteniéndole el plan.
     const contrataX5DeCero = ilimitadoVencido(existente) && p.pasadasDelCicloSinCliente === undefined;
-    const reinicia = (!!p.reiniciarCiclo || (!existente.fechaContratacion && !existente.vencimiento) || contrataX5DeCero) && !vigente;
+    // Y anclar solo vale dentro del plazo de gracia (mismo criterio que
+    // renovarPlan en el mesón, ver enPlazoDePagoPlan): pasado ese plazo, el
+    // mes que se paga ya corrió casi entero y anclarlo le cobra al cliente
+    // días que no puede usar. Caso real (JKJY69, sep-2026): vencida desde el
+    // 16-jul, pagó el 10-sep y quedó vigente hasta el 15-sep.
+    const fueraDePlazo =
+      !vigente && !enPlazoDePagoPlan(existente, (await getConfig()).diasGraciaPagoAtrasado);
+    const reinicia =
+      (!!p.reiniciarCiclo || (!existente.fechaContratacion && !existente.vencimiento) || contrataX5DeCero || fueraDePlazo) && !vigente;
     // Los dos campos del ciclo nuevo salen de acá o de ningún lado.
     const ciclo = reinicia ? cicloPlanDesde() : null;
     const nuevoVencimiento = vigente

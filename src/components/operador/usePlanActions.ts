@@ -14,6 +14,7 @@ import {
   vencimientoAnclado,
   ventaPlanReciente,
   cicloPlanDesde,
+  enPlazoDePagoPlan,
 } from "@/lib/helpers";
 import type { AppData, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -166,7 +167,12 @@ export function usePlanActions(
     pedirPago(cliente, precioAtrasado, `Renovación de plan Web para ${cliente.nombre} (${cliente.patente})`, async (pago) => {
       // El ilimitado viejo vencido no recupera su ciclo: contrata el X5 de cero
       // desde hoy (ver ilimitadoVencido), con vencimiento y contratación juntos.
-      const ciclo = ilimitadoVencido(cliente) ? cicloPlanDesde() : { vencimiento: vencimientoAnclado(cliente) };
+      // Lo mismo el que paga pasado el plazo de gracia: anclarlo le cobraría un
+      // mes que ya corrió (mismo corte que aplicarPagoAprobado).
+      const ciclo =
+        ilimitadoVencido(cliente) || !enPlazoDePagoPlan(cliente, data.config.diasGraciaPagoAtrasado)
+          ? cicloPlanDesde()
+          : { vencimiento: vencimientoAnclado(cliente) };
       // Misma migración al X5 que hace renovarPlan en el mesón: renovar deja
       // al cliente en el plan que se vende hoy, traiga el que traiga. Y por lo
       // mismo, el mismo resguardo: el mes sin tope que el cliente del

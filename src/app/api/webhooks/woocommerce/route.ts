@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
 import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
+import { getConfig } from "@/lib/dataAccess/config";
 import {
   PLANES,
   formatTelefono,
@@ -13,6 +14,8 @@ import {
   sigueVigenteHoy,
   sumarMesesFecha,
   vencimientoAnclado,
+  cicloPlanDesde,
+  enPlazoDePagoPlan,
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
@@ -127,6 +130,9 @@ export async function POST(request: NextRequest) {
   if (existente) {
     clienteId = existente.id;
     let nuevoVencimiento: string;
+    // Solo cuando el pago llega vencido y fuera del plazo de gracia: el ciclo
+    // arranca de nuevo el día de la orden (ver más abajo).
+    let nuevaContratacion: string | undefined;
     if (recontratacion) {
       nuevoVencimiento = vencimientoPorDefectoISO(new Date(fechaOrden));
     } else {
@@ -145,9 +151,20 @@ export async function POST(request: NextRequest) {
         // renovación de noche en Chile, y una comparación por hora exacta
         // marcaba como "ya vencido" un plan que técnicamente vencía más
         // tarde ese mismo día — ver sigueVigenteHoy para el caso real.
-        nuevoVencimiento = sigueVigenteHoy(existente.vencimiento)
-          ? sumarMesesFecha(new Date(existente.vencimiento!), 1).toISOString()
-          : vencimientoAnclado(existente);
+        //
+        // Anclar solo vale dentro del plazo de gracia (ver enPlazoDePagoPlan y
+        // el mismo corte en aplicarPagoAprobado): pasado ese plazo, el mes
+        // anclado ya corrió casi entero y el cliente paga días que no puede
+        // usar, así que el ciclo arranca el día de la orden.
+        if (sigueVigenteHoy(existente.vencimiento)) {
+          nuevoVencimiento = sumarMesesFecha(new Date(existente.vencimiento!), 1).toISOString();
+        } else if (enPlazoDePagoPlan(existente, (await getConfig()).diasGraciaPagoAtrasado)) {
+          nuevoVencimiento = vencimientoAnclado(existente);
+        } else {
+          const ciclo = cicloPlanDesde(new Date(fechaOrden));
+          nuevoVencimiento = ciclo.vencimiento;
+          nuevaContratacion = ciclo.fechaContratacion;
+        }
       }
     }
     // Resuelve un cambio de patente pendiente (ver patentePendiente en
@@ -195,6 +212,7 @@ export async function POST(request: NextRequest) {
           // Recontratación: reinicia el ciclo igual que un cliente nuevo, y
           // limpia la marca de cancelación que puso el webhook de suscripción.
           ...(recontratacion ? { fechaContratacion: fechaOrden, suscripcionCanceladaEn: null } : {}),
+          ...(nuevaContratacion ? { fechaContratacion: nuevaContratacion } : {}),
           ...(esRenovacionAutoWoo ? { renovacionAutoWooDesde: fechaOrden } : {}),
           origen: "WEB",
         })
