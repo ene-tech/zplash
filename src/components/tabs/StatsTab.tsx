@@ -106,6 +106,7 @@ export default function StatsTab() {
         filasDistribucion={r.filasDistribucion}
         top10={r.top10}
         bottom10={r.bottom10}
+        perdiendoPlanWoo={r.perdiendoPlanWoo}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { TIPOS_VENTA_PLAN, inRange, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
+import { TIPOS_VENTA_PLAN, inRange, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 // Calcula todos los datos derivados del dashboard de Estadísticas: el
@@ -136,6 +136,33 @@ export function useStatsData() {
       pctPasadas: totalVisitasPlan ? (((cantidad * clientes) / totalVisitasPlan) * 100).toFixed(1) + "%" : "0.0%",
     }));
 
+  // Clientes con plan vigente que renuevan por WooCommerce y llevan 7+ pasadas
+  // en el ciclo que corre hoy: a esos se les corta el cobro sin aviso y
+  // pierden el plan al vencer (ver evaluarReglasCorreoPorTopeIlimitado). No
+  // depende del período elegido arriba, igual que el corte. "Es de Woo" se
+  // mira por la marca o por la última venta de plan (id "wc-..."), porque el
+  // corte limpia la marca y sin eso el cliente ya cortado desaparecería.
+  const ultimaVentaPlan = new Map<string, { id: string; fecha: string }>();
+  for (const v of data.ventas) {
+    if (!v.clienteId || !TIPOS_VENTA_PLAN.has(v.tipo)) continue;
+    const previa = ultimaVentaPlan.get(v.clienteId);
+    if (!previa || v.fecha > previa.fecha) ultimaVentaPlan.set(v.clienteId, v);
+  }
+  const ciclosWoo = new Map<string, { cliente: Cliente; inicio: number; fin: number; cantidad: number }>();
+  for (const c of vigentes) {
+    if (!c.renovacionAutoWooDesde && !ultimaVentaPlan.get(c.id)?.id.startsWith("wc-")) continue;
+    const { inicio, fin } = periodoPlan(c);
+    ciclosWoo.set(c.id, { cliente: c, inicio: inicio.getTime(), fin: fin.getTime(), cantidad: 0 });
+  }
+  for (const i of data.ingresos) {
+    const ciclo = i.clienteId ? ciclosWoo.get(i.clienteId) : undefined;
+    const t = new Date(i.fecha).getTime();
+    if (ciclo && t >= ciclo.inicio && t < ciclo.fin) ciclo.cantidad++;
+  }
+  const perdiendoPlanWoo = [...ciclosWoo.values()]
+    .filter((x) => x.cantidad >= 7)
+    .sort((a, b) => b.cantidad - a.cantidad || ordenNombre(a, b));
+
   return {
     data,
     patchUi,
@@ -178,5 +205,6 @@ export function useStatsData() {
     filasDistribucion,
     top10,
     bottom10,
+    perdiendoPlanWoo,
   };
 }

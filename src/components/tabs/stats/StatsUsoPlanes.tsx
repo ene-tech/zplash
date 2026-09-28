@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtFecha } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 type Fila = { cliente: Cliente; cantidad: number };
@@ -10,12 +11,14 @@ export function StatsUsoPlanes({
   filasDistribucion,
   top10,
   bottom10,
+  perdiendoPlanWoo,
 }: {
   promedioVisitasPlan: number;
   clientesConPlanCantidad: number;
   filasDistribucion: { cantidad: number; clientes: number; pct: string; pctPasadas: string }[];
   top10: Fila[];
   bottom10: Fila[];
+  perdiendoPlanWoo: Fila[];
 }) {
   return (
     <>
@@ -107,6 +110,41 @@ export function StatsUsoPlanes({
                 <td className="plate-tag">{cliente.patente}</td>
                 <td>{cliente.nombre}</td>
                 <td>{cantidad}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+
+      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>
+        Perdiendo el plan · WooCommerce con 7 o más pasadas en el ciclo ({perdiendoPlanWoo.length})
+      </h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Patente</th>
+            <th>Cliente</th>
+            <th>Pasadas del ciclo</th>
+            <th>Vence</th>
+            <th>Cobro automático</th>
+          </tr>
+        </thead>
+        <tbody>
+          {perdiendoPlanWoo.length === 0 ? (
+            <tr>
+              <td colSpan={5}>
+                <div className="empty">Ningún cliente de WooCommerce llega a 7 pasadas en su ciclo</div>
+              </td>
+            </tr>
+          ) : (
+            perdiendoPlanWoo.map(({ cliente, cantidad }) => (
+              <tr key={cliente.id}>
+                <td className="plate-tag">{cliente.patente}</td>
+                <td>{cliente.nombre}</td>
+                <td>{cantidad}</td>
+                <td>{cliente.vencimiento ? fmtFecha(cliente.vencimiento) : "-"}</td>
+                {/* La marca se limpia al cortar: si sigue puesta, WooCommerce todavía le cobra. */}
+                <td>{cliente.renovacionAutoWooDesde ? "Corte pendiente" : "Cortado"}</td>
               </tr>
             ))
           )}
