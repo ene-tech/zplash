@@ -186,7 +186,7 @@ export default function OperadorView() {
               </>
             )}
             <div className="today-log">
-              <h3>ÚLTIMOS 10 INGRESOS</h3>
+              <h3>ÚLTIMOS 20 INGRESOS</h3>
               <TodayLog />
             </div>
           </>
