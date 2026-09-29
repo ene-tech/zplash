@@ -50,9 +50,9 @@ export function useCierreData() {
     // abajo. Antes quedaba escondido dentro de "Venta nueva web" y, si el cobro
     // fue Oneclick, caía directo en "Otros" — fila que se dibuja bajo el Total
     // y no suma en él, así que ese dinero aparecía en "Métodos de pago" pero no
-    // en "Detalle de venta". El upgrade del módulo Operador no entra acá: se
-    // registra con tipo "Plan nuevo" (ver usePlanActions.upgradeAPlan) y ya
-    // suma en "Contratación de plan".
+    // en "Detalle de venta". El upgrade del módulo Operador también cae acá
+    // ("Upgrade a Plan X5 (Local)", ver usePlanActions.upgradeAPlan); los
+    // anteriores a sep-2026 quedaron como "Plan nuevo" en "Contratación de plan".
     const esUpgradePlan = (v: (typeof ventasPeriodo)[number]) => v.tipo.startsWith("Upgrade a Plan");
     // Los reembolsos tienen creadoPor "Automático (Reembolso)" (caen en
     // esVentaNuevaWeb) pero no son una venta: fila propia más abajo, con

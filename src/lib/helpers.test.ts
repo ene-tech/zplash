@@ -808,6 +808,7 @@ describe("TIPOS_VENTA_PLAN", () => {
       "Renovación preferencial",
       "Renovación atrasada",
       "Reactivación promocional",
+      "Upgrade a Plan X5 (Local)",
       "Renovación Web (manual)",
     ]) {
       expect(TIPOS_VENTA_PLAN.has(tipo)).toBe(true);

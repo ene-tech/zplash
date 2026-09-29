@@ -85,6 +85,7 @@ export const TIPOS_VENTA_PLAN = new Set([
   "Renovación preferencial",
   "Renovación atrasada",
   "Reactivación promocional",
+  "Upgrade a Plan X5 (Local)",
   "Renovación Web (manual)",
   "Plan nuevo (Web)",
   "Renovación (Web)",

@@ -266,8 +266,11 @@ export function usePlanActions(
   // Cierre de Caja de un día ya reportado, y ese reporte no debe cambiar
   // retroactivamente (Cierre de Caja se calcula en vivo filtrando `ventas`
   // por fecha, ver useCierreData). El adicional se registra como una venta
-  // nueva, fechada hoy (el día real del pago), con tipo "Plan nuevo" para que
-  // Cierre de Caja y Estadísticas la reconozcan como "Contratación de plan".
+  // nueva, fechada hoy (el día real del pago), con tipo propio "Upgrade a Plan
+  // X5 (Local)": cae en la fila de upgrade del Cierre de Caja (startsWith
+  // "Upgrade a Plan") y cuenta como plata de plan vía TIPOS_VENTA_PLAN. Hasta
+  // sep-2026 se grababa "Plan nuevo" a precio parcial y se confundía con una
+  // contratación mal cobrada.
   // El vencimiento del cliente sí se ancla a la fecha del lavado original
   // (no al momento del pago del upgrade), para que no pierda el tiempo
   // transcurrido dentro de la ventana de la promoción (ver
@@ -296,7 +299,7 @@ export function usePlanActions(
         nombre: cliente.nombre,
         plan,
         precio: precioUpgrade,
-        tipo: "Plan nuevo",
+        tipo: "Upgrade a Plan X5 (Local)",
         fecha: new Date().toISOString(),
         creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
