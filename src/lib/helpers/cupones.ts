@@ -152,7 +152,13 @@ export function cuponDescuentoDePatente(
  *
  * Un "vale" SIN patentes, correo ni RUT es un lote abierto (cualquiera lo
  * canjea, ver patenteAutorizadaParaCupon): no es de este cliente y no se
- * muestra en su ficha, si no cada ficha listaría el pack empresa entero. */
+ * muestra en su ficha, si no cada ficha listaría el pack empresa entero.
+ *
+ * Y al revés: un código atado a patentes que no incluyen ésta no se muestra
+ * aunque calce el correo o el RUT, porque acá no se puede canjear (misma regla
+ * que el canje: patentesAutorizadas para un "vale", patenteAsignada para un
+ * descuento, ver resolverDescuento). Una persona con dos autos y un correo
+ * veía el ticket de un auto en la ficha del otro. */
 export function cuponesVigentesDeCliente(
   lista: Cupon[],
   cliente: Pick<Cliente, "patente" | "email" | "rut">,
@@ -166,6 +172,9 @@ export function cuponesVigentesDeCliente(
       (c) =>
         !c.usado &&
         new Date(c.fechaCaducidad) > ahora &&
+        (c.tipo === "vale"
+          ? patenteAutorizadaParaCupon(c, p)
+          : !c.patenteAsignada || normPlate(c.patenteAsignada) === p) &&
         (normPlate(c.patenteAsignada || "") === p ||
           (c.tipo === "vale" && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)) ||
           (!!email && (c.email || "").trim().toLowerCase() === email) ||

@@ -1273,6 +1273,15 @@ describe("cuponesVigentesDeCliente", () => {
     expect(cuponesVigentesDeCliente([pack], { patente: "ZZ9999" })).toEqual([]);
   });
 
+  it("no muestra en el otro auto del mismo correo lo que solo canjea el primero", () => {
+    const lista: Cupon[] = [
+      { ...base, id: "v", codigo: "KKC3CL", tipo: "vale", patentesAutorizadas: ["AB1234"], email: "ana@zplash.cl" },
+      { ...base, id: "d", codigo: "DESC01", email: "ana@zplash.cl" },
+    ];
+    expect(cuponesVigentesDeCliente(lista, { patente: "ZZ9999", email: "ana@zplash.cl" })).toEqual([]);
+    expect(cuponesVigentesDeCliente(lista, { patente: "AB1234", email: "ana@zplash.cl" })).toHaveLength(2);
+  });
+
   it("deja fuera usados, caducados, de otra patente y los lotes abiertos", () => {
     const lista: Cupon[] = [
       { ...base, id: "a", codigo: "USADO1", usado: true },
