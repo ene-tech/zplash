@@ -190,6 +190,28 @@ export async function dentroVentana24h(conversacionId: string): Promise<boolean>
 // `horas` desde el último mensaje manual — si no, el menú se cruzaba con la
 // respuesta de la persona. Se reconoce por tipo "texto" + enviadoPor: el bot
 // manda texto sin enviadoPor, reglas y masivos mandan plantillas.
+// ¿Le mandamos una plantilla (campaña o regla) a esta conversación en las
+// últimas `horas`? El que contesta a eso tiene una intención concreta —
+// "¿cuántos lavados son?", "cambié de auto"— que el menú no resuelve, y hasta
+// sep-2026 nadie se enteraba: 29 respuestas a la campaña de primavera
+// recibieron solo el menú. Ver avisarGerencia en @/app/api/whatsapp/route.ts.
+export async function recibioPlantillaReciente(conversacionId: string, horas = 48): Promise<boolean> {
+  const desde = new Date(Date.now() - horas * 60 * 60 * 1000).toISOString();
+  const [ultimo] = await getDb()
+    .select({ id: mensajesWhatsapp.id })
+    .from(mensajesWhatsapp)
+    .where(
+      and(
+        eq(mensajesWhatsapp.conversacionId, conversacionId),
+        eq(mensajesWhatsapp.direccion, "saliente"),
+        eq(mensajesWhatsapp.tipo, "plantilla"),
+        gt(mensajesWhatsapp.creadoEn, desde)
+      )
+    )
+    .limit(1);
+  return !!ultimo;
+}
+
 export async function humanoAtendiendo(conversacionId: string, horas = 12): Promise<boolean> {
   const desde = new Date(Date.now() - horas * 60 * 60 * 1000).toISOString();
   const [ultimo] = await getDb()

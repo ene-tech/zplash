@@ -31,6 +31,9 @@ export type RespuestaBot = {
   // (ver enviarPushAGerencia en @/lib/push/enviar), sin acoplar este router
   // (que no tiene acceso a VAPID/DB de push) a esa capa de envío.
   solicitaHumano?: boolean;
+  // true cuando el texto no calzó con nada y se devuelve el menú por defecto:
+  // el webhook avisa a Gerencia si además es respuesta a una campaña o regla.
+  noEntendido?: boolean;
 };
 
 const SALUDOS = new Set(["hola", "buenas", "buenos dias", "buenos días", "buenas tardes", "buenas noches", "menu", "menú", "hi", "hello"]);
@@ -323,5 +326,5 @@ export async function responderMensaje(textoCrudo: string, telefono: string, con
   // Cualquier texto que no sea una opción conocida devuelve el menú: da lo
   // mismo lo que escriban, lo primero que ven es el menú (antes respondía un
   // "no entendí" que dejaba al cliente sin saber qué escribir).
-  return { texto: textos.menuPrincipal };
+  return { texto: textos.menuPrincipal, noEntendido: true };
 }

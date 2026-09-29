@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje, humanoAtendiendo } from "@/lib/dataAccess";
+import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente } from "@/lib/dataAccess";
 import { opcionDeTexto, uid } from "@/lib/helpers";
 import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
@@ -125,12 +125,24 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
   // "gracias"). El mensaje del cliente ya quedó guardado arriba.
   if (!respuesta) return;
 
-  if (respuesta.solicitaHumano) await avisarGerencia(nombreContacto || conversacion.nombreContacto || telefono, conversacion.id);
+  const quien = nombreContacto || conversacion.nombreContacto || telefono;
+  if (respuesta.solicitaHumano) await avisarGerencia(quien, conversacion.id);
+  // Contesta a una campaña o regla con algo que el bot no entiende: el menú
+  // sale igual, pero alguien tiene que ver la pregunta de verdad.
+  else if (respuesta.noEntendido && textoEntrante && (await recibioPlantillaReciente(conversacion.id)))
+    await avisarGerencia(quien, conversacion.id, {
+      title: "Respondieron a una campaña",
+      body: `${quien}: "${textoEntrante.slice(0, 120)}"`,
+    });
 
   await enviarMensajeTexto(telefono, respuesta.texto);
 }
 
-async function avisarGerencia(quien: string, conversacionId: string) {
+async function avisarGerencia(
+  quien: string,
+  conversacionId: string,
+  texto = { title: "Piden hablar con una persona", body: `${quien} escribió por WhatsApp pidiendo hablar con alguien.` }
+) {
   try {
     // Awaited (no fire-and-forget): en el runtime serverless de Vercel una
     // promesa suelta puede quedar cortada apenas la función responde, así
@@ -139,8 +151,7 @@ async function avisarGerencia(quien: string, conversacionId: string) {
     // suscripción activa, etc. — enviarPushAGerencia no lanza en esos
     // casos, solo devuelve false).
     await enviarPushAGerencia({
-      title: "Piden hablar con una persona",
-      body: `${quien} escribió por WhatsApp pidiendo hablar con alguien.`,
+      ...texto,
       // Decía "/", que es la landing pública: tocar la notificación dejaba a
       // Gerencia en la web de clientes, con el panel a varios pasos de
       // distancia. El panel vive en /admin, y el parámetro abre derecho el
