@@ -81,7 +81,7 @@ export default function ProductosTab() {
                   {p.sku} {!p.activo && <span className="font-normal text-muted-foreground">(Inactivo)</span>}
                 </>
               }
-              subtitle={p.detalle}
+              subtitle={`${p.detalle} · ${proveedorNombre(p.proveedorId)}`}
               menu={
                 <MobileRowMenu
                   actions={[
@@ -115,6 +115,7 @@ export default function ProductosTab() {
           <TableHeader>
             <TableRow>
               <TableHead>Código</TableHead>
+              <TableHead>Proveedor</TableHead>
               <TableHead>SKU</TableHead>
               <TableHead className="max-w-[180px]">Detalle</TableHead>
               <TableHead>Categoría</TableHead>
@@ -126,7 +127,6 @@ export default function ProductosTab() {
               <TableHead>Stock Mín</TableHead>
               <TableHead>Stock Máx</TableHead>
               <TableHead>Empaque</TableHead>
-              <TableHead>Proveedor</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="sticky right-0 z-10 w-0 bg-background" />
             </TableRow>
@@ -144,6 +144,7 @@ export default function ProductosTab() {
                 return (
                 <TableRow key={p.id}>
                   <TableCell>{p.codigo}</TableCell>
+                  <TableCell>{proveedorNombre(p.proveedorId)}</TableCell>
                   <TableCell>{p.sku}</TableCell>
                   <TableCell className="max-w-[180px] truncate" title={p.detalle}>{p.detalle}</TableCell>
                   <TableCell>{categoriaNombre(p.categoriaId)}</TableCell>
@@ -155,7 +156,6 @@ export default function ProductosTab() {
                   <TableCell>{p.stockMin}</TableCell>
                   <TableCell>{p.stockMax || "-"}</TableCell>
                   <TableCell>{p.empaqueMinimo}</TableCell>
-                  <TableCell>{proveedorNombre(p.proveedorId)}</TableCell>
                   <TableCell>{p.activo ? "Activo" : "Inactivo"}</TableCell>
                   <TableCell className="sticky right-0 z-10 bg-background">
                     <div className="flex items-center gap-1">
