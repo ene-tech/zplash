@@ -281,7 +281,17 @@ export default function PosView() {
             Devolución
           </button>
           {clientesEncontrados.length > 0 && (
-            <div className="table-scroll" style={{ position: "absolute", top: "100%", left: 0, zIndex: 5, maxWidth: 320 }}>
+            <div className="table-scroll" style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                zIndex: 20,
+                maxWidth: 320,
+                background: "var(--popover)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                boxShadow: "0 8px 24px rgba(0,0,0,.4)",
+              }}>
               <table>
                 <tbody>
                   {clientesEncontrados.map((c) => (
