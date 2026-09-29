@@ -18,13 +18,14 @@ const marcadosWhatsapp: string[] = [];
 const marcadosCorreo: string[] = [];
 const enviosWhatsapp: string[] = [];
 const enviosCorreo: string[] = [];
+let metaVariables: string[] = [];
 
 vi.mock("@/lib/dataAccess/whatsapp", () => ({
   marcarDisparoReglaWhatsapp: (_id: string, cambios: { estado: string }) => {
     marcadosWhatsapp.push(cambios.estado);
     return Promise.resolve();
   },
-  obtenerPlantillaWhatsapp: () => Promise.resolve({ id: "p1", mensaje: "hola {{nombre}}", metaNombre: "t1", metaIdioma: "es" }),
+  obtenerPlantillaWhatsapp: () => Promise.resolve({ id: "p1", mensaje: "hola {{nombre}}", metaNombre: "t1", metaIdioma: "es", metaVariables }),
 }));
 vi.mock("@/lib/dataAccess/cupones", () => ({ upsertCupones: () => Promise.resolve(true) }));
 vi.mock("@/lib/dataAccess/clientes", () => ({
@@ -73,6 +74,24 @@ beforeEach(() => {
   marcadosCorreo.length = 0;
   enviosWhatsapp.length = 0;
   enviosCorreo.length = 0;
+  metaVariables = [];
+});
+
+// No es opt-out, pero es el mismo corte antes del envío: el template del
+// lavado único que ofrece el upgrade no sale si el cliente ya no califica.
+describe("template de WhatsApp con {{precioUpgrade}}", () => {
+  it("no sale sin precio de upgrade", async () => {
+    metaVariables = ["nombre", "precioupgrade"];
+    await ejecutarAccionRegla(REGLA_WHATSAPP, "d1", CLIENTE, 9990);
+    expect(enviosWhatsapp).toEqual([]);
+    expect(marcadosWhatsapp).toEqual(["error"]);
+  });
+
+  it("sale con precio de upgrade", async () => {
+    metaVariables = ["nombre", "precioupgrade"];
+    await ejecutarAccionRegla(REGLA_WHATSAPP, "d1", CLIENTE, 9990, undefined, 5000);
+    expect(enviosWhatsapp).toEqual([CLIENTE.telefono]);
+  });
 });
 
 describe("cliente marcado sin comunicación automática", () => {

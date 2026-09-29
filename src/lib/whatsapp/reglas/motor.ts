@@ -198,13 +198,15 @@ export function crearCuponDescuento(opts: {
 // "venta_creada" (ej. "confirmamos tu compra de {{monto}}"); en
 // "plan_proximo_vencer" no aplica. `patenteAnterior` solo se usa en
 // "cambio_patente" (ver evaluarReglasPorCambioPatente en ./disparadores),
-// para el placeholder {{patenteAnterior}}.
+// para el placeholder {{patenteAnterior}}. `precioUpgrade` solo lo pasa
+// dispararPorVenta para ventas "Lavado único" (ver ./disparadores).
 export async function ejecutarAccionRegla(
   regla: ReglaWhatsapp,
   disparoId: string,
   cliente: Cliente,
   ventaMonto?: number,
-  patenteAnterior?: string
+  patenteAnterior?: string,
+  precioUpgrade?: number
 ): Promise<void> {
   // Cliente marcado "no recibe mensajes automáticos" en su ficha (ver
   // sinComunicacionAuto en @/db/schema/clientes). Se corta acá, el único
@@ -224,6 +226,13 @@ export async function ejecutarAccionRegla(
   const plantilla = await obtenerPlantillaWhatsapp(regla.plantillaWhatsappId);
   if (!plantilla) {
     console.error(`Regla WhatsApp "${regla.nombre}": plantilla ${regla.plantillaWhatsappId} no existe`);
+    await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
+    return;
+  }
+  // Template que ofrece el upgrade a un cliente que ya no puede hacerlo (tiene
+  // plan vigente, venció la ventana, etc.): mismo criterio que la regla de
+  // correo — no se invita a una promo que no aplica, ni con el precio vacío.
+  if (precioUpgrade === undefined && plantilla.metaVariables?.some((v) => v.toLowerCase() === "precioupgrade")) {
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
     return;
   }
@@ -250,7 +259,7 @@ export async function ejecutarAccionRegla(
     }
   }
 
-  const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior });
+  const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior, precioUpgrade });
 
   // Con PUSH_FALLBACK_A_WHATSAPP="true" (opt-in, ver plan de la PWA), si el
   // cliente tiene una suscripción push activa y el envío llega, nos ahorramos

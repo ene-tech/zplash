@@ -1,7 +1,8 @@
 import "server-only";
 
 import { listarReglasWhatsappActivas, marcarDisparoReglaWhatsapp, registrarDisparoReglaWhatsapp } from "@/lib/dataAccess/whatsapp";
-import { mesKey, uid } from "@/lib/helpers";
+import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
+import { LAVADO_UNICO_KEY, mesKey, uid } from "@/lib/helpers";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
 
@@ -40,7 +41,11 @@ async function dispararPorVenta(regla: ReglaWhatsapp, venta: Venta): Promise<voi
     await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" });
     return;
   }
-  await ejecutarAccionRegla(regla, disparo.id, cliente, venta.precio);
+  // Mismo cálculo que la regla de correo del lavado único (ver
+  // dispararPorVenta en @/lib/mailing/reglas/disparadores).
+  const precioUpgrade =
+    venta.tipo === LAVADO_UNICO_KEY ? (await calcularOfertasPlanDeCliente(cliente)).upgrade?.precio : undefined;
+  await ejecutarAccionRegla(regla, disparo.id, cliente, venta.precio, undefined, precioUpgrade);
 }
 
 // Se llama desde dataAccess/ventas.ts::insertVentas justo después del INSERT,
