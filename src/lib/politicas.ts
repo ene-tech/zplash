@@ -8,7 +8,7 @@
 // aparecer y se pide aceptar la versión nueva, sin borrar el registro de
 // haber aceptado la anterior. Súbela cuando cambie algo que le importe al
 // cliente (plazos, garantía, cobros), no por una corrección de redacción.
-export const POLITICAS_VERSION = "2026-08-23";
+export const POLITICAS_VERSION = "2026-09-27";
 
 // A propósito sin cifras que sean configurables desde Configuración
 // (horasBloqueoReingresoPlan, vigenciaDiasPackEmpresa, tramos de promoción):
@@ -79,7 +79,9 @@ export const POLITICAS: { titulo: string; puntos: string[] }[] = [
     puntos: [
       "En el local aceptamos efectivo, tarjeta y transferencia bancaria. Por la web, tarjetas de crédito o débito a través de Webpay Plus.",
       "Al inscribir una tarjeta con Oneclick autorizas el cobro automático del plan al vencimiento de cada período, al precio vigente en ese momento.",
-      "El plan es mensual y puedes darlo de baja cuando quieras, eliminando la tarjeta inscrita desde Mi Cuenta o simplemente no renovando. El cobro automático se detiene desde el período siguiente y el plan que ya pagaste sigue vigente hasta su fecha de vencimiento.",
+      "El plan tiene una duración de 1 mes y cada renovación es un período nuevo de 1 mes.",
+      "Puedes darlo de baja cuando quieras, eliminando la tarjeta inscrita desde Mi Cuenta o simplemente no renovando. El cobro automático se detiene desde el período siguiente y el plan que ya pagaste sigue vigente hasta su fecha de vencimiento.",
+      "Así como tú puedes decidir no renovar, ZPlash también puede decidir no renovar el plan al término de un período. En ese caso te avisamos antes del vencimiento, no se realiza el cobro automático y el plan que ya pagaste sigue vigente hasta su fecha de vencimiento.",
       "Puedes renovar hasta 15 días después del vencimiento conservando tu precio. El período nuevo se cuenta desde tu fecha de contratación y no desde el día en que pagas: los días que estuviste sin pagar quedan bloqueados, no se recuperan, y para lavar durante ese tiempo tienes que pagar un Lavado Único.",
       "Pasados los 15 días el plan se da de baja automáticamente. Volver a tenerlo es una contratación nueva: se cobra al precio vigente y el período parte desde ese día.",
       "Si das de baja tu plan, al volver a contratarlo no recuperas el precio promocional: se cobra el precio vigente en ese momento.",
