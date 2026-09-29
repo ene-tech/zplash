@@ -37,6 +37,20 @@ Ejemplo: escribe *AB1234* para ver el estado de tu plan.`,
 Puedes contratarlo directamente en el local, o desde este link:
 https://zplash.cl/servicios/plan-mensual`,
 
+  textoInfoPlan: `🚗 *Plan X5 Full Túnel*
+
+✅ *5 lavados Full Túnel* al mes (máximo 1 cada 24 horas)
+🧹 *Aspiradoras* de autoservicio sin límite de tiempo después de cada lavado
+💧 Si usas los 5, cada lavado extra te sale *$3.990*
+
+Queda con cobro automático mensual y lo das de baja cuando quieras desde Mi Cuenta.`,
+
+  textoQr: `El QR te lo mostramos en caja cuando vengas 😊 Lo escaneas con tu celular y pagas con tu tarjeta ahí mismo.
+
+Si prefieres hacerlo antes, lo puedes pagar online.`,
+
+  textoCambioAuto: `¡Gracias por avisarnos! 🙌 Envíanos la *patente de tu auto actual* y te dejamos la promo cargada en ella. Te confirmamos por aquí apenas quede lista 😊`,
+
   horarioUbicacion: `📍 *Ubicación*
 Prieto Norte 71, Temuco
 
@@ -287,6 +301,12 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
 export const OPCIONES_BOT = {
   precios: new Set(["1", "precios", "precio", "servicios"]),
   contratar_plan: new Set(["2", "contratar", "quiero el plan", "quiero contratar el plan"]),
+  // Las tres siguientes salen de las respuestas a la campaña de primavera
+  // (sep-2026): "¿cuántos lavados son?", "envíame el QR", "vendí mi auto".
+  // Antes caían al menú porque no calzaban con ninguna opción.
+  info_plan: new Set(["lavados", "consiste", "como funciona", "incluye"]),
+  qr: new Set(["qr"]),
+  cambio_auto: new Set(["cambie de auto", "cambie el auto", "otro auto", "vendi mi auto", "vendi el auto", "auto nuevo", "nuevo auto", "no es mi auto", "no es mi patente", "mi auto no es", "otra patente"]),
   // Los manda la propia web con el texto ya puesto (ver RenovacionLegacyCard
   // y las cards de detailing en @/components/cliente): son la intención más
   // clara que llega por este canal y hasta ago-2026 se contestaban con el
@@ -310,6 +330,9 @@ export type InteresBot = keyof typeof OPCIONES_BOT;
 export const ETIQUETA_INTERES: Record<InteresBot, string> = {
   precios: "Preguntó precios",
   contratar_plan: "Quiso contratar el plan",
+  info_plan: "Preguntó qué incluye el plan",
+  qr: "Pidió el QR para pagar",
+  cambio_auto: "Cambió de auto",
   renovacion_auto: "Quiere gestionar su renovación automática",
   agendar: "Quiso agendar un servicio",
   horario: "Preguntó horario o dirección",
@@ -326,6 +349,13 @@ export const ETIQUETA_INTERES: Record<InteresBot, string> = {
  * de descuento, y ese es el orden en el que conviene trabajarlos.
  */
 const PRIORIDAD_INTERES: InteresBot[] = [
+  // Arriba de "descuento" aunque vendan menos: son frases muy específicas, y
+  // "¿cuántos lavados con el descuento?" o "vendí mi auto, ¿me sirve el
+  // descuento?" vienen de un cliente con cupón, no de uno que pide el de
+  // primera vez.
+  "cambio_auto",
+  "info_plan",
+  "qr",
   "descuento",
   "contratar_plan",
   "renovacion_auto",

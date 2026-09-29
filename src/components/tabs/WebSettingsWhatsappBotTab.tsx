@@ -35,6 +35,19 @@ const GRUPOS: Campo[][] = [
     },
   ],
   [{ key: "textoContratarPlan", label: "Opción 2 — Quiero contratar el plan" }],
+  [
+    {
+      key: "textoInfoPlan",
+      label: "Sin número — ¿Qué incluye el plan? / ¿Cuántos lavados son?",
+      hint: "Si el cliente está identificado, abajo se agrega solo el link de pago con su patente, donde ve su precio con el descuento aplicado.",
+    },
+    { key: "textoQr", label: "Sin número — Pide el QR para pagar", hint: "Igual que el anterior, se agrega solo el link de pago con su patente." },
+    {
+      key: "textoCambioAuto",
+      label: "Sin número — Cambió de auto / la patente no es la suya",
+      hint: "Además avisa a Gerencia por notificación push, para cambiar la patente y mover el cupón a mano.",
+    },
+  ],
   [{ key: "horarioUbicacion", label: "Opción 3 — Horario y ubicación" }],
   [{ key: "contactoHumano", label: "Opción 4 — Hablar con una persona" }],
   [{ key: "patenteNoEncontrada", label: "Cuando la patente consultada no existe" }],

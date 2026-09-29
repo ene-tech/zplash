@@ -86,8 +86,10 @@ async function manejarPasoPreciosTamano(texto: string, conversacion: Conversacio
 // apenas consultan su patente, ver vincularClienteConversacion en
 // estadoPlanPorPatente— se agrega abajo el link directo al checkout con la
 // patente puesta, que es el paso donde hoy se cae la venta.
-async function textoContratarPlan(conversacion: ConversacionWhatsapp, textos: TextosBotWhatsapp): Promise<RespuestaBot> {
-  const texto = textos.textoContratarPlan;
+// También lo usan "¿qué incluye el plan?" y "envíame el QR": el link lleva la
+// patente puesta y ahí el cliente ve su precio con el cupón ya restado, sin
+// que el bot tenga que repetir ese cálculo.
+async function textoContratarPlan(conversacion: ConversacionWhatsapp, texto: string): Promise<RespuestaBot> {
   if (!conversacion.clienteId) return { texto };
   const [cliente] = await getClientesByIds([conversacion.clienteId]);
   if (!cliente?.patente) return { texto };
@@ -305,7 +307,14 @@ export async function responderMensaje(textoCrudo: string, telefono: string, con
     case "precios":
       return iniciarPrecios(conversacion, textos);
     case "contratar_plan":
-      return textoContratarPlan(conversacion, textos);
+      return textoContratarPlan(conversacion, textos.textoContratarPlan);
+    case "info_plan":
+      return textoContratarPlan(conversacion, textos.textoInfoPlan);
+    case "qr":
+      return textoContratarPlan(conversacion, textos.textoQr);
+    // Hay que cambiar la patente y mover el cupón a mano: acuse + push.
+    case "cambio_auto":
+      return { texto: textos.textoCambioAuto, solicitaHumano: true };
     case "horario":
       return { texto: textos.horarioUbicacion };
     // Las tres terminan igual —acuse de recibo y push a Gerencia— porque

@@ -351,6 +351,20 @@ describe("opcionDeTexto", () => {
     expect(opcionDeTexto("Hola, quiero agendar el servicio \"Lavado Completo Detailing\" para mi auto")).toBe("agendar");
   });
 
+  it("entiende las respuestas reales a la campaña de primavera (sep-2026)", () => {
+    expect(opcionDeTexto("Cuantos lavados")).toBe("info_plan");
+    expect(opcionDeTexto("Hola 16.990 cuantos lavados")).toBe("info_plan");
+    expect(opcionDeTexto("En qué consiste el plan ?")).toBe("info_plan");
+    expect(opcionDeTexto("Hola , cómo funciona eso del plan?")).toBe("info_plan");
+    expect(opcionDeTexto("Hola ya envíame el qr")).toBe("qr");
+    expect(opcionDeTexto("Mi auto no es ese, el mío es PHJP-59")).toBe("cambio_auto");
+    expect(opcionDeTexto("Si, pero vendí mi auto y ahora tengo otro, podría activarlo con mi otra patente?")).toBe("cambio_auto");
+    // Con cupón en mano, "descuento" no es el de primera vez.
+    expect(opcionDeTexto("cuantos lavados con el descuento")).toBe("info_plan");
+    // Lo que no es una pregunta sigue sin calzar.
+    expect(opcionDeTexto("Hola no estoy en Temuco")).toBeNull();
+  });
+
   it("le da lo mismo la tilde y la puntuacion", () => {
     expect(opcionDeTexto("Hola, quiero gestionar mi renovacion automatica")).toBe(
       opcionDeTexto("renovacion automatica")

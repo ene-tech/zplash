@@ -90,6 +90,9 @@ export interface TextosBotWhatsapp {
   textoPreciosPedirTamano: string;
   textoPreciosTamanoInvalido: string;
   textoContratarPlan: string;
+  textoInfoPlan: string;
+  textoQr: string;
+  textoCambioAuto: string;
   horarioUbicacion: string;
   contactoHumano: string;
   patenteNoEncontrada: string;
