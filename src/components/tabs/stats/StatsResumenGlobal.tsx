@@ -12,6 +12,7 @@ export function StatsResumenGlobal({
   vigentes,
   vigentesWeb,
   vigentesLocal,
+  vigentesRenovacionAuto,
 }: {
   clientesTotales: number;
   ingresosHoy: number;
@@ -24,6 +25,7 @@ export function StatsResumenGlobal({
   vigentes: number;
   vigentesWeb: number;
   vigentesLocal: number;
+  vigentesRenovacionAuto: number | null;
 }) {
   return (
     <div className="stat-grid">
@@ -62,6 +64,10 @@ export function StatsResumenGlobal({
       <div className="stat-card ok">
         <div className="num">{vigentes}</div>
         <div className="lbl">Planes vigentes</div>
+      </div>
+      <div className="stat-card ok">
+        <div className="num">{vigentesRenovacionAuto ?? "…"}</div>
+        <div className="lbl">Con renovación automática</div>
       </div>
       <div className="stat-card">
         <div className="num">{vigentesWeb}</div>

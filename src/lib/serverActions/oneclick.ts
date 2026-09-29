@@ -36,6 +36,16 @@ export async function listarSuscripcionesOneclick(): Promise<SuscripcionOneclick
   return dataAccess.listarSuscripcionesOneclick();
 }
 
+// Patentes con Oneclick activa, para el contador de Estadísticas. Aparte de
+// listarSuscripcionesOneclick porque esa exige el módulo "clientes" y un
+// perfil con "stats" sin "clientes" vería el contador en 0; devuelve solo las
+// patentes y no las filas completas.
+export async function patentesConOneclickActiva(): Promise<string[]> {
+  if (!(await tieneModulo("stats"))) return [];
+  const filas = await dataAccess.listarSuscripcionesOneclick();
+  return filas.filter((s) => s.estado === "activa").map((s) => s.patente);
+}
+
 export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> {
   if (!(await tieneModulo("clientes"))) return false;
   return dataAccess.cancelarSuscripcionOneclick(id);

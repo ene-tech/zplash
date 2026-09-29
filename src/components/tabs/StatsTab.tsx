@@ -66,6 +66,7 @@ export default function StatsTab() {
         vigentes={r.vigentes.length}
         vigentesWeb={r.vigentesWeb}
         vigentesLocal={r.vigentesLocal}
+        vigentesRenovacionAuto={r.vigentesRenovacionAuto}
       />
 
       <StatsResumenPeriodo

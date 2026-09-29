@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { TIPOS_VENTA_PLAN, inRange, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
+import { patentesConOneclickActiva } from "@/lib/serverActions";
+import { TIPOS_VENTA_PLAN, inRange, normPlate, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 // Calcula todos los datos derivados del dashboard de Estadísticas: el
@@ -21,6 +23,23 @@ export function useStatsData() {
   const vigentes = data.clientes.filter((c) => planStatus(c).cls !== "bad");
   const vigentesWeb = vigentes.filter((c) => c.origen === "WEB").length;
   const vigentesLocal = vigentes.length - vigentesWeb;
+
+  // Vigentes con renovación automática: Oneclick activa o suscripción Woo viva
+  // (los dos "ok" de estadoRenovacion). Oneclick no viaja en AppData, se pide
+  // aparte; null mientras carga.
+  const [patentesOneclick, setPatentesOneclick] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    let cancelado = false;
+    patentesConOneclickActiva().then((ps) => {
+      if (!cancelado) setPatentesOneclick(new Set(ps.map(normPlate)));
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+  const vigentesRenovacionAuto = patentesOneclick
+    ? vigentes.filter((c) => patentesOneclick.has(normPlate(c.patente)) || !!c.renovacionAutoWooDesde).length
+    : null;
 
   // --- Resumen por período (fechas seleccionables) ---
   const desde = ui.statsDesde || primerDiaMesActualYMD();
@@ -175,6 +194,7 @@ export function useStatsData() {
     vigentes,
     vigentesWeb,
     vigentesLocal,
+    vigentesRenovacionAuto,
     desde,
     hasta,
     conPlan,
