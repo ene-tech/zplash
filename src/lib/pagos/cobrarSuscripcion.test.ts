@@ -22,6 +22,7 @@ const chain = {
 // .limit()) y se encadena con .limit() en los otros dos. Thenable y chainable.
 const trasWhere = {
   limit: siguiente,
+  orderBy: () => ({ limit: siguiente }),
   then: (ok: (v: unknown) => unknown, err?: (e: unknown) => unknown) => siguiente().then(ok, err),
 };
 const fakeTx = {
@@ -67,7 +68,7 @@ vi.mock("./aplicarPagoAprobado", () => ({
 }));
 vi.mock("./cuponPlan", () => ({ buscarCuponDescuentoPlan: () => Promise.resolve(null) }));
 
-import { cobrarSuscripcion } from "./cobrarSuscripcion";
+import { cobrarSuscripcion, proximoCicloISO } from "./cobrarSuscripcion";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const suscripcion = { id: "s1", patente: "AB1234", username: "AB1234", tbkUser: "tbk1", proximoCobro: "2026-09-01T00:00:00.000Z", clienteId: null } as any;
@@ -191,6 +192,51 @@ describe("cobrarSuscripcion con el cliente delante", () => {
 
     expect(estado).toBe("pendiente_validacion");
     expect(authorize).not.toHaveBeenCalled();
+  });
+});
+
+// Cobro rechazado: se reintenta al día siguiente (no al mes), y el aviso al
+// cliente sale solo en el primer rechazo, no en cada reintento diario.
+describe("reintento diario tras un rechazo", () => {
+  const precios = [{ plan: PLAN_ONECLICK_KEY, normal: 19990, promo: 0 }];
+  const cliente = [{ id: "c1", precioPlanHeredado: null, plan: PLAN_X5, aceptoX5En: "2026-09-01T00:00:00.000Z" }];
+  const unDia = 24 * 60 * 60 * 1000;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updates.length = 0;
+    authorize.mockResolvedValueOnce({ details: [{ response_code: -1, authorization_code: "" }] });
+  });
+
+  // La fecha vencida se conserva: el cron la vuelve a ver mañana y el ciclo
+  // siguiente se cuenta desde ella, así que los reintentos no corren el día.
+  it("primer rechazo -> conserva la fecha del ciclo y avisa", async () => {
+    respuestas = [precios, cliente, [], [{ estado: "aprobada" }]];
+    const { estado } = await cobrarSuscripcion(suscripcion);
+    expect(estado).toBe("rechazada");
+    expect(updates.at(-1)!.proximoCobro).toBe(suscripcion.proximoCobro);
+    expect(avisoCobroFallido).toHaveBeenCalled();
+  });
+
+  it("reintento rechazado -> no avisa de nuevo", async () => {
+    respuestas = [precios, cliente, [], [{ estado: "rechazada" }]];
+    await cobrarSuscripcion(suscripcion);
+    expect(avisoCobroFallido).not.toHaveBeenCalled();
+  });
+
+  it("rechazo con la fecha en el futuro -> la adelanta a mañana", async () => {
+    respuestas = [precios, cliente, [], []];
+    await cobrarSuscripcion({ ...suscripcion, proximoCobro: new Date(Date.now() + 10 * unDia).toISOString() });
+    const faltan = new Date(updates.at(-1)!.proximoCobro as string).getTime() - Date.now();
+    expect(faltan).toBeGreaterThan(unDia - 2 * 60 * 60 * 1000);
+    expect(faltan).toBeLessThan(unDia);
+  });
+
+  it("aprobado tras reintentos -> el próximo ciclo sale de la fecha original", async () => {
+    authorize.mockReset().mockResolvedValue({ details: [{ response_code: 0, authorization_code: "a1" }] });
+    respuestas = [precios, cliente, [], [{ estado: "rechazada" }]];
+    await cobrarSuscripcion(suscripcion);
+    expect(updates.at(-1)!.proximoCobro).toBe(proximoCicloISO(suscripcion.proximoCobro));
   });
 });
 

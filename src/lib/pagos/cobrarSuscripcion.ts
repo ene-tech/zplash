@@ -1,6 +1,6 @@
 import "server-only";
 import { TransactionDetail } from "transbank-sdk";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
@@ -28,6 +28,18 @@ export function proximoCicloISO(base: string | null): string {
   return d.toISOString();
 }
 
+/** Tras un rechazo: el cobro vuelve a intentarse en ~24h SIN correr la fecha
+ * del ciclo. Si `proximoCobro` ya pasó (el caso normal) se deja tal cual: el
+ * cron diario lo vuelve a ver vencido mañana, y cuando por fin salga el ciclo
+ * siguiente se cuenta desde esa fecha, no desde el día del reintento. Solo si
+ * estaba en el futuro (cobro manual anticipado) se adelanta a mañana. 23h y no
+ * 24 para que el cron (13:00 UTC, vercel.json) no se lo salte por segundos. */
+export function proximoReintentoISO(actual: string | null): string {
+  const manana = new Date(Date.now() + 23 * 60 * 60 * 1000);
+  const d = actual ? new Date(actual) : null;
+  return (d && !isNaN(d.getTime()) && d < manana ? d : manana).toISOString();
+}
+
 type SuscripcionOneclick = typeof suscripcionesOneclick.$inferSelect;
 
 /**
@@ -36,9 +48,12 @@ type SuscripcionOneclick = typeof suscripcionesOneclick.$inferSelect;
  * ClienteInfoModal y por el primer cobro inmediato tras inscribir la
  * tarjeta — misma función, sin distinguir quién la llamó.
  *
- * Siempre avanza `proximoCobro` (aprobado o no): no hay reintento automático
- * por diseño, el cliente queda vencido si falla y un operador decide si
- * reintenta a mano.
+ * Si el cobro sale, `proximoCobro` avanza al próximo ciclo. Si falla (rechazo
+ * de la tarjeta o error hablando con Transbank) se reintenta solo al día
+ * siguiente, todos los días, hasta que salga, el cliente pague por otra vía
+ * (el cron lo reagenda al ver el plan vigente) o se suspenda la suscripción.
+ * El aviso de cobro fallido sale solo en el primer rechazo de la racha: con
+ * reintento diario, avisar en cada intento sería un WhatsApp/correo por día.
  *
  * "pendiente_validacion" es el tercer resultado: no se cobró nada porque el
  * cliente sigue en el ilimitado viejo, no ha aceptado pasar al X5 (ver
@@ -141,7 +156,7 @@ export async function cobrarSuscripcion(
         .update(suscripcionesOneclick)
         .set({ estado: "pausada_validacion_x5", actualizadoEn: new Date().toISOString() })
         .where(eq(suscripcionesOneclick.id, suscripcion.id));
-      return { estado: "pendiente_validacion" as const, buyOrder: "", monto: 0, clienteId: cliente.id };
+      return { estado: "pendiente_validacion" as const, buyOrder: "", monto: 0, clienteId: cliente.id, esReintento: false };
     }
 
     // Con qué plan queda el cliente después de este cobro. Es el mismo cálculo
@@ -196,6 +211,16 @@ export async function cobrarSuscripcion(
     if (yaAprobado) {
       throw new Error("Este ciclo ya fue cobrado");
     }
+
+    // ¿Este intento es un reintento? Lo es si el último cobro de la suscripción
+    // fue rechazado. Decide solo si se avisa al cliente (ver más abajo).
+    const [ultimoCobro] = await tx
+      .select({ estado: cobrosOneclick.estado })
+      .from(cobrosOneclick)
+      .where(eq(cobrosOneclick.suscripcionId, suscripcion.id))
+      .orderBy(desc(cobrosOneclick.creadoEn))
+      .limit(1);
+    const esReintento = ultimoCobro?.estado === "rechazada";
 
     await tx.insert(cobrosOneclick).values({ id: buyOrder, suscripcionId: suscripcion.id, cicloYm, monto, estado: "rechazada" });
 
@@ -271,7 +296,7 @@ export async function cobrarSuscripcion(
     await tx
       .update(suscripcionesOneclick)
       .set({
-        proximoCobro: proximoCicloISO(suscripcion.proximoCobro),
+        proximoCobro: estado === "aprobada" ? proximoCicloISO(suscripcion.proximoCobro) : proximoReintentoISO(suscripcion.proximoCobro),
         actualizadoEn: new Date().toISOString(),
         // Si venía pausada por el candado y este cobro igual salió (política de
         // rescate: no le cambia el plan), la pausa ya no describe nada — no se
@@ -284,7 +309,7 @@ export async function cobrarSuscripcion(
       })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
 
-    return { estado, buyOrder, monto, clienteId: cliente?.id ?? null };
+    return { estado, buyOrder, monto, clienteId: cliente?.id ?? null, esReintento };
   });
 
   // Fuera de la transacción/lock a propósito (avisar por WhatsApp no debe
@@ -300,7 +325,7 @@ export async function cobrarSuscripcion(
   // listarSuscripcionesOneclick), así que mientras esto miraba clienteId el
   // aviso de cobro rechazado no salía NUNCA — ni por WhatsApp ni por correo.
   const clienteId = resultado.clienteId ?? suscripcion.clienteId;
-  if (resultado.estado === "rechazada" && clienteId) {
+  if (resultado.estado === "rechazada" && !resultado.esReintento && clienteId) {
     after(() =>
       evaluarReglasPorCobroFallido({
         clienteId,
