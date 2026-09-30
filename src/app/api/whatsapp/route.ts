@@ -15,14 +15,14 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 // Qué conversaciones atiende el agente con IA en vez del menú:
-// AGENTE_WHATSAPP="todos", "mitad" (teléfonos que terminan en número par, para
+// AGENTE_WHATSAPP="todos", "mitad" (teléfonos que terminan en número impar, para
 // comparar la tasa de cierre contra el menú con la otra mitad) o sin definir
 // = apagado. Sin ANTHROPIC_API_KEY queda apagado igual.
 function atiendeElAgente(telefono: string): boolean {
   if (!process.env.ANTHROPIC_API_KEY) return false;
   const modo = process.env.AGENTE_WHATSAPP;
   if (modo === "todos") return true;
-  return modo === "mitad" && Number(telefono.at(-1)) % 2 === 0;
+  return modo === "mitad" && Number(telefono.at(-1)) % 2 === 1;
 }
 
 const LIMITE_MENSAJES = 20;
