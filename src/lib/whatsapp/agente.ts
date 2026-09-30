@@ -61,12 +61,19 @@ export type RespuestaAgente = {
   uso: { entrada: number; cacheLeida: number; cacheEscrita: number; salida: number };
 };
 
+// La clave se pega a mano en Vercel: se aceptan la línea entera del .env
+// ("ANTHROPIC_API_KEY=sk-ant-..."), comillas y espacios, que antes daban un
+// 401 silencioso con el menú respondiendo en su lugar.
+export function claveAnthropic(): string {
+  return (process.env.ANTHROPIC_API_KEY || "").replace(/^\s*ANTHROPIC_API_KEY\s*=/, "").replace(/["'`\s]/g, "");
+}
+
 let cliente: Anthropic | undefined;
 function anthropic() {
   // 40s por llamada, sin reintento: el webhook tiene maxDuration 120 y el
   // ciclo entero corta a los PLAZO_MS (ver responderConAgente), dejando margen
   // para que el catch de route.ts alcance a mandar el menú.
-  cliente ??= new Anthropic({ timeout: 40_000, maxRetries: 0 });
+  cliente ??= new Anthropic({ apiKey: claveAnthropic(), timeout: 40_000, maxRetries: 0 });
   return cliente;
 }
 

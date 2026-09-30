@@ -5,7 +5,7 @@ import { ENVIADO_POR_AGENTE, opcionDeTexto, uid } from "@/lib/helpers";
 import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
 import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
-import { responderConAgente } from "@/lib/whatsapp/agente";
+import { claveAnthropic, responderConAgente } from "@/lib/whatsapp/agente";
 import { responderMensaje } from "@/lib/whatsapp/router";
 import type { EstadoMensajeWhatsapp } from "@/types";
 
@@ -22,11 +22,12 @@ function atiendeElAgente(telefono: string): boolean {
   // Tolerante a comillas, espacios y mayúsculas: el valor se pega a mano en
   // Vercel, y un `"mitad"` con comillas lo dejaba apagado sin ningún aviso.
   const modo = (process.env.AGENTE_WHATSAPP || "").replace(/["'`\s]/g, "").toLowerCase();
-  const conClave = !!process.env.ANTHROPIC_API_KEY?.trim();
+  const clave = claveAnthropic();
+  const conClave = clave.length > 0;
   const atiende = conClave && (modo === "todos" || (modo === "mitad" && Number(telefono.at(-1)) % 2 === 1));
   // Sin la clave ni el teléfono: solo lo necesario para ver en los Runtime
   // Logs de Vercel por qué un mensaje fue (o no) al agente.
-  if (modo) console.info("[agente-whatsapp]", { modo, conClave, atiende });
+  if (modo) console.info("[agente-whatsapp]", { modo, atiende, largoClave: clave.length, formatoClave: clave.startsWith("sk-ant-api") });
   return atiende;
 }
 
