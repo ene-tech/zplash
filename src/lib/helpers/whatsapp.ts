@@ -298,6 +298,10 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
 // AB1234" entra al descuento, "quiero hablar con una persona" al humano);
 // los números solo valen si el mensaje ES el número, para que "quiero 1
 // lavado" no se lea como la opción 1.
+// `enviadoPor` de las respuestas del agente con IA (@/lib/whatsapp/agente).
+// No es una persona: humanoAtendiendo y el conteo de gasto lo excluyen.
+export const ENVIADO_POR_AGENTE = "agente-ia";
+
 export const OPCIONES_BOT = {
   precios: new Set(["1", "precios", "precio", "servicios"]),
   contratar_plan: new Set(["2", "contratar", "quiero el plan", "quiero contratar el plan"]),

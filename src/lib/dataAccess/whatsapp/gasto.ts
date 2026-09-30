@@ -3,11 +3,14 @@ import "server-only";
 import { and, eq, gte, isNotNull, lte, notInArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { mensajesWhatsapp } from "@/db/schema";
+import { ENVIADO_POR_AGENTE } from "@/lib/helpers";
 
 // enviadoPor de pruebas manuales hechas durante desarrollo (no vienen de
 // ningún flujo real: ni reglas, ni mensajes masivos, ni respuesta manual de
 // un agente desde el inbox) — se excluyen del conteo de gasto real.
-const ENVIADO_POR_DIAGNOSTICO = ["diagnostico-manual", "regla-whatsapp-test"];
+// El agente con IA contesta dentro de la ventana de 24h que abrió el cliente:
+// son mensajes de servicio, Meta no los cobra.
+const ENVIADO_POR_DIAGNOSTICO = ["diagnostico-manual", "regla-whatsapp-test", ENVIADO_POR_AGENTE];
 
 // Cuenta mensajes salientes "generados por nosotros" (regla-whatsapp,
 // mensajes-masivos, o un agente humano desde el inbox) entre desdeISO y

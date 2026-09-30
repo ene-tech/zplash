@@ -42,7 +42,7 @@ export const TAG_CONTENIDO_PUBLICO = "contenido-publico";
  */
 export const INVALIDAR_YA = { expire: 0 } as const;
 
-async function leerPreciosPublicos(): Promise<PreciosPublicos> {
+export async function leerPreciosPublicos(): Promise<PreciosPublicos> {
   const db = getDb();
   const [filas, filasServicios, filasTamano, [configRow]] = await Promise.all([
     db.select().from(precios),

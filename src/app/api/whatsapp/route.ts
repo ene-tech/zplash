@@ -1,14 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente } from "@/lib/dataAccess";
-import { opcionDeTexto, uid } from "@/lib/helpers";
+import { ENVIADO_POR_AGENTE, opcionDeTexto, uid } from "@/lib/helpers";
 import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
 import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
+import { responderConAgente } from "@/lib/whatsapp/agente";
 import { responderMensaje } from "@/lib/whatsapp/router";
 import type { EstadoMensajeWhatsapp } from "@/types";
 
 export const runtime = "nodejs";
+// El agente con IA tarda unos segundos por mensaje y corre en after(), que
+// vive dentro de este límite (ver responderConAgente).
+export const maxDuration = 120;
+
+// Qué conversaciones atiende el agente con IA en vez del menú:
+// AGENTE_WHATSAPP="todos", "mitad" (teléfonos que terminan en número par, para
+// comparar la tasa de cierre contra el menú con la otra mitad) o sin definir
+// = apagado. Sin ANTHROPIC_API_KEY queda apagado igual.
+function atiendeElAgente(telefono: string): boolean {
+  if (!process.env.ANTHROPIC_API_KEY) return false;
+  const modo = process.env.AGENTE_WHATSAPP;
+  if (modo === "todos") return true;
+  return modo === "mitad" && Number(telefono.at(-1)) % 2 === 0;
+}
 
 const LIMITE_MENSAJES = 20;
 const VENTANA_MS = 5 * 60 * 1000;
@@ -113,6 +128,26 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
     return;
   }
 
+  // La opinión del QR del túnel guarda una nota paso a paso: esa y cualquier
+  // flujo con estado ya empezado se quedan en el bot de siempre.
+  if (atiendeElAgente(telefono) && !conversacion.flowState && opcionDeTexto(textoEntrante) !== "opinion") {
+    let agente;
+    try {
+      agente = await responderConAgente(conversacion, telefono);
+    } catch (error) {
+      // Sin respuesta del agente (API caída, plazo, rechazo): contesta el menú.
+      console.error("Agente WhatsApp falló, responde el bot de siempre", error);
+    }
+    // Fuera del try: si falla el registro de un mensaje ya enviado, no hay
+    // que mandarle además el menú al cliente.
+    if (agente) {
+      const quien = nombreContacto || conversacion.nombreContacto || telefono;
+      if (agente.derivar) await avisarGerencia(quien, conversacion.id, { title: "El asistente derivó un chat", body: `${quien}: ${agente.derivar}` });
+      if (agente.texto) await enviarMensajeTexto(telefono, agente.texto, ENVIADO_POR_AGENTE);
+      return;
+    }
+  }
+
   let respuesta;
   try {
     respuesta = await responderMensaje(textoEntrante, telefono, conversacion);
@@ -195,11 +230,18 @@ export async function POST(request: NextRequest) {
 
       const nombresPorWaId = new Map((value.contacts || []).map((c) => [c.wa_id, c.profile?.name]));
       for (const msg of value.messages || []) {
-        try {
-          await manejarMensajeEntrante(msg, nombresPorWaId.get(msg.from));
-        } catch (error) {
-          console.error("Error procesando mensaje entrante de WhatsApp", error);
-        }
+        const procesar = async () => {
+          try {
+            await manejarMensajeEntrante(msg, nombresPorWaId.get(msg.from));
+          } catch (error) {
+            console.error("Error procesando mensaje entrante de WhatsApp", error);
+          }
+        };
+        // Si lo atiende el agente, después de responderle a Meta: tarda
+        // segundos y Meta reintenta el webhook si no recibe el 200 a tiempo.
+        // El menú sigue siendo síncrono, como siempre.
+        if (atiendeElAgente("+" + msg.from)) after(procesar);
+        else await procesar();
       }
 
       for (const status of value.statuses || []) {

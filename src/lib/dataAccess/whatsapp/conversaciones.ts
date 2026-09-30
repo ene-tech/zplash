@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, conversacionesWhatsapp, mensajesWhatsapp } from "@/db/schema";
-import { uid } from "@/lib/helpers";
+import { ENVIADO_POR_AGENTE, uid } from "@/lib/helpers";
 import type { ConversacionWhatsapp, DireccionMensajeWhatsapp, EstadoMensajeWhatsapp, FlowStateWhatsapp, MensajeWhatsapp, TipoMensajeWhatsapp } from "@/types";
 
 type ConversacionRow = typeof conversacionesWhatsapp.$inferSelect;
@@ -223,6 +223,8 @@ export async function humanoAtendiendo(conversacionId: string, horas = 12): Prom
         eq(mensajesWhatsapp.direccion, "saliente"),
         eq(mensajesWhatsapp.tipo, "texto"),
         isNotNull(mensajesWhatsapp.enviadoPor),
+        // El agente con IA firma sus respuestas pero no es una persona.
+        ne(mensajesWhatsapp.enviadoPor, ENVIADO_POR_AGENTE),
         gt(mensajesWhatsapp.creadoEn, desde)
       )
     )

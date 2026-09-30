@@ -1,24 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { precios } from "@/db/schema";
-import {
-  PLANES,
-  diasVencido,
-  isValidPatente,
-  normPlate,
-  planStatus,
-  precioConCupon,
-  precioConHeredado,
-  precioPlanOneclick,
-  precioRenovacionCliente,
-  promoPrimerCobroOneclick,
-  requiereValidacionX5,
-} from "@/lib/helpers";
+import { isValidPatente, normPlate, planStatus, requiereValidacionX5 } from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
-import { getConfig } from "@/lib/dataAccess/config";
-import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
-import { preciosFromRows } from "@/lib/dataAccess/precios";
-import { buscarCuponDescuentoPlan, yaTieneTicketReactivacion } from "@/lib/pagos";
+import { cotizarPlanWeb } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -45,59 +29,7 @@ export async function GET(request: NextRequest) {
     if (!cliente) {
       return NextResponse.json({ encontrado: false });
     }
-    const [config, filasPrecios, cupon] = await Promise.all([
-      getConfig(),
-      db.select().from(precios),
-      buscarCuponDescuentoPlan(patente, db),
-    ]);
-    // preciosFromRows y no un Object.fromEntries a mano: es el mismo armado
-    // que usa calcularOfertasPlanDeCliente, al que ahora se le pasa este mapa
-    // para que no vuelva a leer `precios` (ver más abajo).
-    const preciosMap = preciosFromRows(filasPrecios);
-    // Cupón de descuento de la patente: se resta acá porque /api/pagos/webpay/
-    // crear también lo resta al cobrar — si esta pantalla siguiera anunciando
-    // el precio sin descuento, volvería a pasar justo lo que el comentario de
-    // abajo trata de evitar, un monto distinto del que termina cobrando Webpay.
-    // Solo se manda el monto rebajado, nunca el código: este endpoint es
-    // público y se consulta con cualquier patente.
-    const precioBase = precioRenovacionCliente(preciosMap, cliente.plan || PLANES[0], cliente, config.diasGraciaPagoAtrasado);
-    const precioFinal = precioConCupon(precioBase, cupon);
-
-    // Plan no vigente: las dos cosas que cambian la oferta de renovación
-    // automática de /pagar — la promoción que le calza (lo que le va a cobrar
-    // la inscripción de tarjeta, ver /api/pagos/oneclick/inscripcion/retorno) y
-    // si todavía le queda el ticket de lavado gratis que regala inscribirla
-    // estando vencido. Solo para los que no tienen plan al día: calcular la
-    // oferta cuesta cuatro consultas más y este endpoint es público, un cliente
-    // vigente no las necesita.
-    //
-    // Cada una con su propio filtro: la oferta es para todo plan no vigente
-    // (planStatus "bad" = vencido O "Sin plan"), porque el que nunca contrató y
-    // acaba de pagar un lavado único entra al plan pagando solo la diferencia
-    // (ver el upgrade en calcularOfertasPlan) y eso es exactamente lo que le va
-    // a cobrar la inscripción — anunciarle el mensual completo era prometer un
-    // precio y cobrar otro. El ticket, en cambio, sigue siendo solo del
-    // vencido: preguntarlo para todos los "Sin plan" era una consulta más en un
-    // endpoint público para un dato que después se descarta.
-    const vencido = diasVencido(cliente) !== null;
-    const [oferta, yaUsoTicket] = await Promise.all([
-      // `config` y `preciosMap` ya están leídos acá arriba: pasárselos le ahorra
-      // dos consultas de las cuatro que cuesta la oferta, en un endpoint público.
-      planStatus(cliente).cls === "bad" ? calcularOfertasPlanDeCliente(cliente, { config, precios: preciosMap }) : undefined,
-      vencido ? yaTieneTicketReactivacion(patente, (cliente.email || "").trim().toLowerCase()) : true,
-    ]);
-    // La promoción que va a cobrar la inscripción de tarjeta, resuelta con el
-    // mismo helper que usa el cobro (ver promoPrimerCobroOneclick).
-    const promoAuto = oferta ? promoPrimerCobroOneclick(oferta) : undefined;
-    // Precio mensual de la renovación automática (Oneclick): no pasa por el
-    // plazo de atraso, solo respeta el heredado — mismo cálculo que hace
-    // cobrarSuscripcion al cobrar el ciclo.
-    const precioAutoMensual = precioConHeredado(precioPlanOneclick(preciosMap), cliente);
-    // Lo que cobra el PRIMER cobro: la promoción si le calza, si no el mensual,
-    // en ambos casos con el cupón restado — los dos caminos que lo cobran
-    // (cobrarOfertaOneclick y cobrarSuscripcion) aplican el cupón, y como es de
-    // un uso solo rebaja ese primer mes.
-    const primerCobroAuto = precioConCupon(promoAuto?.monto ?? precioAutoMensual, cupon);
+    const { precioBase, precioFinal, precioAutoMensual, primerCobroAuto, vencido, yaUsoTicket } = await cotizarPlanWeb(cliente, db);
 
     return NextResponse.json({
       encontrado: true,
