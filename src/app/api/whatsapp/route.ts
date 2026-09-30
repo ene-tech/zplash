@@ -19,10 +19,15 @@ export const maxDuration = 120;
 // comparar la tasa de cierre contra el menú con la otra mitad) o sin definir
 // = apagado. Sin ANTHROPIC_API_KEY queda apagado igual.
 function atiendeElAgente(telefono: string): boolean {
-  if (!process.env.ANTHROPIC_API_KEY) return false;
-  const modo = process.env.AGENTE_WHATSAPP;
-  if (modo === "todos") return true;
-  return modo === "mitad" && Number(telefono.at(-1)) % 2 === 1;
+  // Tolerante a comillas, espacios y mayúsculas: el valor se pega a mano en
+  // Vercel, y un `"mitad"` con comillas lo dejaba apagado sin ningún aviso.
+  const modo = (process.env.AGENTE_WHATSAPP || "").replace(/["'`\s]/g, "").toLowerCase();
+  const conClave = !!process.env.ANTHROPIC_API_KEY?.trim();
+  const atiende = conClave && (modo === "todos" || (modo === "mitad" && Number(telefono.at(-1)) % 2 === 1));
+  // Sin la clave ni el teléfono: solo lo necesario para ver en los Runtime
+  // Logs de Vercel por qué un mensaje fue (o no) al agente.
+  if (modo) console.info("[agente-whatsapp]", { modo, conClave, atiende });
+  return atiende;
 }
 
 const LIMITE_MENSAJES = 20;
