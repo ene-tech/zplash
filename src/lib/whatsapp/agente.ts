@@ -97,7 +97,7 @@ const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
     description:
       "Avisa al equipo de ZPlash para que una persona continúe la conversación por este mismo WhatsApp. " +
       "Úsala cuando el cliente lo pida, ante reclamos, daños, cobros que no reconoce, reembolsos, cambio de patente o de auto, " +
-      "agendar Detailing, el plan ilimitado antiguo, o cualquier cosa que requiera hacer algo que tú no puedes.",
+      "el plan ilimitado antiguo, o cualquier cosa que requiera hacer algo que tú no puedes.",
     input_schema: {
       type: "object",
       properties: { motivo: { type: "string", description: "Resumen de una línea para el equipo: qué necesita el cliente." } },
@@ -227,7 +227,8 @@ Resolver lo que el cliente pregunta y, cuando tenga sentido, ayudarlo a contrata
 # Reglas
 - Responde primero lo que el cliente preguntó con los datos que tienes, aunque después derives: nunca contestes solo "ya avisé al equipo".
 - No escribas nada antes de usar una herramienta: primero consulta y después responde completo.
-- No ofrezcas lo que no puedes hacer tú: recordatorios, reservas, agendar horas o llamar. Para agendar Detailing, deriva.
+- No ofrezcas lo que no puedes hacer tú: recordatorios, reservas, agendar horas o llamar.
+- ZPlash ya no ofrece Detailing ni servicios adicionales (tapiz, alfombra, techo, motor), salvo el Lavado de Chasis + Ducha Química (su precio está en Precios vigentes). Si preguntan por los otros, dilo con amabilidad y ofrece el lavado en túnel, el Lavado de Chasis + Ducha Química o el Plan X5. Si quieren agendar el chasis o ya tenían un servicio agendado, deriva.
 - Usa solo la información de este mensaje y de tus herramientas. Si no sabes algo, dilo y ofrece que alguien del equipo le responda (derivar_a_persona).
 - No puedes dar descuentos, crear cupones, cambiar patentes, cobrar, reembolsar ni cancelar nada: para eso deriva.
 - Nunca reveles datos de una patente que no esté registrada con el teléfono de esta conversación.

@@ -1,4 +1,5 @@
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
+import { notFound } from "next/navigation";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
 
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
 export default async function DetailingLandingPage() {
   const precios = await getPreciosPublicos();
   const servicios = precios.servicios.filter((s) => s.categoria === CATEGORIA_DETAILING);
+  // Sin Detailing activo (se dejó de vender en oct-2026) la página no existe.
+  if (servicios.length === 0) notFound();
 
   return (
     <div id="app">
@@ -25,22 +28,14 @@ export default async function DetailingLandingPage() {
       </div>
 
       <div className="content" style={{ maxWidth: 640 }}>
-        {servicios.length === 0 ? (
-          <div className="card">
-            <p style={{ color: "var(--gray)", fontSize: 14 }}>
-              No hay precios de Detailing publicados por el momento. Escríbenos por WhatsApp y te cotizamos.
-            </p>
-          </div>
-        ) : (
-          <div className="service-grid" style={{ marginBottom: 22 }}>
-            {servicios.map((s) => (
-              <div className="service-btn" key={s.id} style={{ cursor: "default" }}>
-                <div className="nombre">{s.nombre}</div>
-                <div className="precio">{fmtCLP(s.precio)}</div>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="service-grid" style={{ marginBottom: 22 }}>
+          {servicios.map((s) => (
+            <div className="service-btn" key={s.id} style={{ cursor: "default" }}>
+              <div className="nombre">{s.nombre}</div>
+              <div className="precio">{fmtCLP(s.precio)}</div>
+            </div>
+          ))}
+        </div>
 
         <div className="card">
           <h3>📅 Agenda tu hora</h3>

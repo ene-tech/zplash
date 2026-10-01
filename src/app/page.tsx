@@ -23,16 +23,18 @@ export default async function LandingPage() {
     <div id="app">
       <DescuentoBienvenidaModal valor={precios.descuentoBienvenida.valor} dias={precios.descuentoBienvenida.diasValidez} />
       <AnnounceBar />
-      <SiteNav />
+      <SiteNav detailing={precios.servicios.length > 0} />
 
       <div className="content">
         <div id="lavados" className="anchor-section">
           <TiposLavadoTab precios={precios} />
         </div>
 
-        <div id="detailing" className="anchor-section">
-          <DetailingTab precios={precios} />
-        </div>
+        {precios.servicios.length > 0 && (
+          <div id="detailing" className="anchor-section">
+            <DetailingTab precios={precios} />
+          </div>
+        )}
 
         <div id="faq" className="anchor-section">
           <h2 className="section-title">Preguntas Frecuentes</h2>

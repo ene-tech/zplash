@@ -174,31 +174,25 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
         </p>
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
-        <h3 style={{ margin: 0 }}>Servicios de Detailing agendados</h3>
-        <a href="/cliente/detailing" className="btn" style={{ textDecoration: "none" }}>
-          Agenda un Servicio de Detailing
-        </a>
-      </div>
-      {detailing.length > 0 ? (
-        <div className="card-grid" style={{ marginBottom: 26 }}>
-          {detailing.map((d) => (
-            <div className="vehicle-card" key={d.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="plate-tag">{d.patente}</span>
-                <span className={`status-pill ${d.estado === "agendado" ? "warn" : d.estado === "completado" ? "ok" : "bad"}`}>
-                  {d.estado === "agendado" ? "Agendado" : d.estado === "completado" ? "Completado" : "Cancelado"}
-                </span>
+      {/* El Detailing se dejó de vender (oct-2026): solo queda el historial de quien tiene. */}
+      {detailing.length > 0 && (
+        <>
+          <h3 style={{ marginBottom: 12 }}>Servicios de Detailing agendados</h3>
+          <div className="card-grid" style={{ marginBottom: 26 }}>
+            {detailing.map((d) => (
+              <div className="vehicle-card" key={d.id}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span className="plate-tag">{d.patente}</span>
+                  <span className={`status-pill ${d.estado === "agendado" ? "warn" : d.estado === "completado" ? "ok" : "bad"}`}>
+                    {d.estado === "agendado" ? "Agendado" : d.estado === "completado" ? "Completado" : "Cancelado"}
+                  </span>
+                </div>
+                <div className="plan-nombre">{d.servicios.join(", ")}</div>
+                <div style={{ color: "var(--gray)", fontSize: 12.5 }}>{fmtDate(d.fechaHora)}</div>
               </div>
-              <div className="plan-nombre">{d.servicios.join(", ")}</div>
-              <div style={{ color: "var(--gray)", fontSize: 12.5 }}>{fmtDate(d.fechaHora)}</div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="card" style={{ color: "var(--gray)", fontSize: 14, marginBottom: 26 }}>
-          No tienes servicios de Detailing agendados.
-        </p>
+            ))}
+          </div>
+        </>
       )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>

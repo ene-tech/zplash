@@ -1,6 +1,5 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { config, precios, preciosTamano, servicios } from "@/db/schema";
 import {
@@ -46,7 +45,7 @@ export async function leerPreciosPublicos(): Promise<PreciosPublicos> {
   const db = getDb();
   const [filas, filasServicios, filasTamano, [configRow]] = await Promise.all([
     db.select().from(precios),
-    db.select().from(servicios).where(eq(servicios.activo, true)),
+    db.select().from(servicios),
     db.select().from(preciosTamano),
     db
       .select({
@@ -61,7 +60,9 @@ export async function leerPreciosPublicos(): Promise<PreciosPublicos> {
   const preciosTamanoMap = Object.fromEntries(
     filasTamano.map((p) => [p.servicioId, { s: p.s, m: p.m, l: p.l, xl: p.xl }])
   );
-  const catalogo = filasServicios.length ? filasServicios : SERVICIOS_DEFAULT.filter((s) => s.activo);
+  // El fallback es solo para una tabla vacía: con todos los servicios
+  // desactivados (oct-2026 quedó solo el lavado de chasis) el catálogo queda vacío.
+  const catalogo = filasServicios.length ? filasServicios.filter((s) => s.activo) : SERVICIOS_DEFAULT.filter((s) => s.activo);
 
   return {
     plan: { nombre: PLANES[0], precio: precioNormal(preciosMap, PLANES[0]) },

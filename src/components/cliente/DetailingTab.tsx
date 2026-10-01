@@ -29,7 +29,7 @@ export default function DetailingTab({ precios }: { precios: PreciosPublicos | n
 
   return (
     <div>
-      <h2 className="section-title">SERVICIOS DE LIMPIEZA PROFESIONAL Y DETAILING AUTOMOTRIZ</h2>
+      <h2 className="section-title">SERVICIOS ADICIONALES</h2>
 
       {!precios ? (
         <div className="empty">Cargando servicios...</div>
@@ -81,13 +81,6 @@ export default function DetailingTab({ precios }: { precios: PreciosPublicos | n
           ))}
         </>
       )}
-
-      <div className="card" style={{ marginTop: 4 }}>
-        <p style={{ color: "var(--gray)", fontSize: 13 }}>
-          Los servicios adicionales (tapiz, alfombra, techo, motor, chasis) se pueden agregar a cualquier lavado
-          completo. Consulta disponibilidad en el local o por WhatsApp.
-        </p>
-      </div>
 
       <DetailingQuickView servicio={seleccionado} onClose={() => setSeleccionado(null)} />
     </div>

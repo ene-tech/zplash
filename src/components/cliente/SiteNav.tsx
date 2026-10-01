@@ -20,7 +20,7 @@ const navFont = Archivo_Black({ weight: "400", subsets: ["latin"] });
 // wrappers .anchor-section en app/page.tsx.
 const SECCIONES = [
   { href: "#lavados", label: "Lavados" },
-  { href: "#detailing", label: "Detailing" },
+  { href: "#detailing", label: "Adicionales" },
   { href: "#faq", label: "Preguntas Frecuentes" },
   { href: "#ubicacion", label: "Ubicación" },
 ];
@@ -31,8 +31,10 @@ const SECCIONES = [
 // perfil — en su lugar, interactividad nativa con useState y los botones
 // de cuenta quedan siempre visibles (mejor conversión que esconderlos en
 // un menú) en vez de replicar el patrón dashboard original.
-export default function SiteNav() {
+// `detailing`: solo la landing tiene la sección, y solo si hay servicios activos.
+export default function SiteNav({ detailing = false }: { detailing?: boolean }) {
   const [open, setOpen] = useState(false);
+  const secciones = SECCIONES.filter((s) => detailing || s.href !== "#detailing");
 
   return (
     <nav className="site-nav">
@@ -53,7 +55,7 @@ export default function SiteNav() {
         </Link>
 
         <div className="site-nav-links">
-          {SECCIONES.map((s) => (
+          {secciones.map((s) => (
             <a key={s.href} href={s.href} className="site-nav-link">
               {s.label}
             </a>
@@ -73,7 +75,7 @@ export default function SiteNav() {
 
       {open && (
         <div className="site-nav-mobile" id="site-nav-mobile">
-          {SECCIONES.map((s) => (
+          {secciones.map((s) => (
             <a key={s.href} href={s.href} className="site-nav-mobile-link" onClick={() => setOpen(false)}>
               {s.label}
             </a>

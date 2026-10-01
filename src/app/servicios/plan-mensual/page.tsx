@@ -39,7 +39,7 @@ const PREGUNTAS_PLAN_MENSUAL = [
     a: [
       "En el local: efectivo, tarjeta y transferencia bancaria.",
       "El plan, desde la web: tarjeta de crédito inscrita con Oneclick (renovación automática).",
-      "Lavado único, zona de aspirado y servicios de detailing, desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
+      "Lavado único, zona de aspirado y Lavado de Chasis + Ducha Química, desde la web: tarjetas de crédito o débito a través de Webpay Plus.",
     ],
   },
 ];

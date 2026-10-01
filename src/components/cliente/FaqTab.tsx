@@ -52,10 +52,7 @@ export const PREGUNTAS: { q: string; a: string | string[] }[] = [
   },
   {
     q: "¿Necesito reservar hora?",
-    a: [
-      "Lavado túnel: no se necesita reserva.",
-      "Lavado Completo Detailing y servicios adicionales: se recomienda agendar con anticipación por WhatsApp para asegurar tu horario.",
-    ],
+    a: ["No, el lavado en túnel no necesita reserva: llega directo al local."],
   },
 ];
 
