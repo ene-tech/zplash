@@ -18,7 +18,13 @@ export async function obtenerDetallePagosVentas(ventaIds: string[]): Promise<Rec
 // cerrar caja): devolver plata es tan destructivo como borrar la venta.
 // `monto` permite una devolución parcial; sin él se devuelve todo. El tope
 // real se valida adentro contra lo cobrado por Transbank, no contra la UI.
-export async function reembolsarVenta(ventaId: string, motivo: string, monto?: number): Promise<ResultadoReembolso> {
+// `anularVigencia`: además quitarle al cliente el mes que dio esa venta de plan.
+export async function reembolsarVenta(
+  ventaId: string,
+  motivo: string,
+  monto?: number,
+  anularVigencia = false
+): Promise<ResultadoReembolso> {
   const sesion = await sesionActual();
   if (!sesion || !(sesion.modulos.includes("permisos") || puedeCerrarCaja(sesion.modulos))) {
     return { ok: false, error: "Necesitas permisos de Gerencia o de cierre de caja para reembolsar." };
@@ -29,5 +35,5 @@ export async function reembolsarVenta(ventaId: string, motivo: string, monto?: n
   if (await dataAccess.altaEnDiaCerrado([new Date().toISOString()])) {
     return { ok: false, error: "La caja de hoy ya está cerrada: el reembolso quedaría fuera del cierre." };
   }
-  return reembolsarVentaTarjeta(ventaId, motivo.trim(), sesion.nombre, monto);
+  return reembolsarVentaTarjeta(ventaId, motivo.trim(), sesion.nombre, monto, anularVigencia === true);
 }

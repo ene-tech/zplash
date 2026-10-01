@@ -3,7 +3,7 @@ import { and, eq, gte, lt } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, ingresos, movimientosContables, suscripcionesOneclick, ventas } from "@/db/schema";
-import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
+import { absorberSolicitudCambioPatente, clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
 import { getConfig } from "@/lib/dataAccess/config";
 import { consumirCupon } from "./cuponPlan";
 import {
@@ -134,6 +134,8 @@ export async function evaluarReglasSiLaVentaPersistio(
     console.error("Venta revertida después de aplicar el pago: no se avisa nada al cliente", venta.id, venta.patente);
     return false;
   }
+  // Si esta patente era el cambio pedido por otra ficha, esa ficha se funde acá.
+  if (venta.clienteId) await absorberSolicitudCambioPatente(venta.clienteId, venta.patente);
   await Promise.all([
     evaluarReglasPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta (pago externo)", error)),
     evaluarReglasCorreoPorVenta([venta]).catch((error) => console.error("Error evaluando reglas de correo por venta (pago externo)", error)),

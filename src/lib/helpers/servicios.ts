@@ -1,4 +1,4 @@
-import type { Servicio } from "@/types";
+import type { Servicio, TamanoVehiculo } from "@/types";
 
 /** Semilla/fallback de catálogo para cuando la tabla `servicios` está vacía o
  * la migración todavía no corrió — mismo patrón que PERFILES_DEFAULT. Mismos
@@ -17,7 +17,7 @@ export const SERVICIOS_DEFAULT: Servicio[] = [
   { id: "techo", categoria: "Servicios Adicionales", nombre: "Limpieza de Techo", duracionMinutos: 30, activo: true },
   { id: "motor", categoria: "Servicios Adicionales", nombre: "Lavado de Motor", duracionMinutos: 30, activo: true },
   { id: "chasis", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis", duracionMinutos: 30, activo: true },
-  { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Grafitado", duracionMinutos: 30, activo: true },
+  { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Ducha Química", duracionMinutos: 30, activo: true },
 ];
 
 /** Categoría del catálogo que implica que el vehículo pasa por el túnel.
@@ -58,4 +58,23 @@ export const MAX_INGRESOS_TUNEL_DETAILING_POR_CITA = 2;
  * Detailing como los add-ons de chasis en IDS_SERVICIOS_TUNEL_LIBRE. */
 export function esServicioTunelLibre(servicio: { id: string; categoria?: string }): boolean {
   return servicio.categoria === CATEGORIA_DETAILING || IDS_SERVICIOS_TUNEL_LIBRE.includes(servicio.id);
+}
+
+/** Minutos de trabajo de un servicio para una talla de vehículo (Agenda >
+ * Servicios): si la talla no tiene duración propia (o no se sabe la talla),
+ * cae en la duración general, igual que precioServicioTamano con el precio. */
+export function duracionServicioTamano(servicio: Servicio, tamano: TamanoVehiculo | null): number {
+  return (tamano && servicio.duracionTamano?.[tamano]) || servicio.duracionMinutos;
+}
+
+/** Minutos de una cita con estos servicios: con 2 o más, la suma se rebaja
+ * agendaDescuentoCombinadoPct (se trabajan en paralelo/se solapan), y nunca
+ * pasa de agendaTopeMinutos (0 = sin tope). Ej. 240 + 150 con 20% = 312. */
+export function duracionCita(
+  duraciones: number[],
+  config: { agendaDescuentoCombinadoPct: number; agendaTopeMinutos: number }
+): number {
+  const suma = duraciones.reduce((a, b) => a + b, 0);
+  const total = duraciones.length > 1 ? Math.round(suma * (1 - config.agendaDescuentoCombinadoPct / 100)) : suma;
+  return config.agendaTopeMinutos > 0 ? Math.min(total, config.agendaTopeMinutos) : total;
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, movimientosContables, ventas } from "@/db/schema";
-import { clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
+import { absorberSolicitudCambioPatente, clienteFromRow, movimientoToRow } from "@/lib/dataAccess";
 import { getConfig } from "@/lib/dataAccess/config";
 import {
   PLANES,
@@ -255,6 +255,7 @@ export async function POST(request: NextRequest) {
       console.error("Error creando cliente desde webhook WooCommerce", error);
       return NextResponse.json({ error: "Error creando cliente" }, { status: 500 });
     }
+    if (patente) await absorberSolicitudCambioPatente(clienteId, patente);
   }
 
   const tipoVenta = existente && !recontratacion ? "Renovación (Web)" : "Plan nuevo (Web)";

@@ -1,20 +1,20 @@
 "use client";
 
 import type { RefObject } from "react";
-import { fmtCLP, precioServicio } from "@/lib/helpers";
-import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION, type Precios } from "@/types";
+import { fmtCLP } from "@/lib/helpers";
+import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION } from "@/types";
 import PriceInput from "@/components/PriceInput";
 import { AJUSTES, CATEGORIA_ADICIONALES } from "./useServiciosAdicionalesForm";
 import { CATEGORIA_DETAILING } from "@/lib/helpers";
 import type { useServicioSeleccion } from "./useServicioSeleccion";
 
 type Props = ReturnType<typeof useServicioSeleccion> & {
-  precios: Precios;
   detallePersonalizadoRef: RefObject<HTMLInputElement | null>;
 };
 
-// Catálogo de servicios agrupado por categoría (grilla de botones toggle),
-// el ajuste de tamaño para Detailing, y el sub-formulario de ítems
+// Primero el tamaño del vehículo; recién con él elegido aparece el catálogo
+// agrupado por categoría (grilla de botones toggle) con los precios de esa
+// talla, el ajuste extra para Detailing, y el sub-formulario de ítems
 // personalizados (monto libre + detalle de texto) dentro de "Adicionales".
 export default function ServicioCatalogoSelector(props: Props) {
   const { categorias, catalogo, serviciosSeleccionados, toggleServicio, hayDetailingSeleccionado, ajuste, setAjuste, tamano, setTamano } =
@@ -22,7 +22,23 @@ export default function ServicioCatalogoSelector(props: Props) {
 
   return (
     <>
-      {categorias.map((cat) => (
+      <div className="hint" style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}>
+        Tamaño del vehículo
+      </div>
+      <div className="tamano-grid" style={{ marginBottom: 18 }}>
+        {TAMANOS_VEHICULO.map((t) => (
+          <button key={t} type="button" className={`tamano-btn${tamano === t ? " selected" : ""}`} onClick={() => setTamano(t)}>
+            <div className="letra">{TAMANO_LABEL[t]}</div>
+            <div className="detalle">{TAMANO_DESCRIPCION[t]}</div>
+          </button>
+        ))}
+      </div>
+      {!tamano && (
+        <div className="hint" style={{ textAlign: "left", marginBottom: 18 }}>
+          Elige el tamaño para ver los servicios y sus precios.
+        </div>
+      )}
+      {tamano && categorias.map((cat) => (
         <div key={cat} style={{ marginBottom: 18 }}>
           <div className="hint" style={{ textAlign: "left", marginBottom: 8, textTransform: "uppercase", fontWeight: 700 }}>
             {cat}
@@ -38,25 +54,11 @@ export default function ServicioCatalogoSelector(props: Props) {
                   onClick={() => toggleServicio(s.id, s.categoria || "")}
                 >
                   <div className="nombre">{s.nombre}</div>
-                  <div className="precio">{fmtCLP(precioServicio(props.precios, s.id))}</div>
+                  <div className="precio">{fmtCLP(props.precioTamano(s.id))}</div>
                 </button>
               ))}
           </div>
           {cat === CATEGORIA_DETAILING && hayDetailingSeleccionado && (
-            <>
-              <div className="tamano-grid" style={{ marginTop: 10 }}>
-                {TAMANOS_VEHICULO.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={`tamano-btn${tamano === t ? " selected" : ""}`}
-                    onClick={() => setTamano(tamano === t ? null : t)}
-                  >
-                    <div className="letra">{TAMANO_LABEL[t]}</div>
-                    <div className="detalle">{TAMANO_DESCRIPCION[t]}</div>
-                  </button>
-                ))}
-              </div>
               <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
                 {AJUSTES.map((a) => (
                   <button
@@ -70,7 +72,6 @@ export default function ServicioCatalogoSelector(props: Props) {
                   </button>
                 ))}
               </div>
-            </>
           )}
           {cat === CATEGORIA_ADICIONALES && (
             <div style={{ marginTop: 14 }}>

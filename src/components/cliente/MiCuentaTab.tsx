@@ -13,6 +13,7 @@ import { FilaEnVivo } from "@/components/cliente/miCuenta/FilaEnVivo";
 import { RenovacionLegacyCard } from "@/components/cliente/miCuenta/RenovacionLegacyCard";
 import { AgregarTarjeta } from "@/components/cliente/miCuenta/AgregarTarjeta";
 import { EliminarTarjeta } from "@/components/cliente/miCuenta/EliminarTarjeta";
+import { PausarTarjeta } from "@/components/cliente/miCuenta/PausarTarjeta";
 import { CompartirTarjeta } from "@/components/cliente/miCuenta/CompartirTarjeta";
 import { DatosFacturacionSection } from "@/components/cliente/miCuenta/DatosFacturacionSection";
 import { AvisoPoliticas } from "@/components/cliente/miCuenta/AvisoPoliticas";
@@ -212,7 +213,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
                 <span className="plate-tag">{t.patente}</span>
                 <span className={`status-pill ${t.estado === "activa" ? "ok" : "warn"}`}>
                   {t.estado === "suspendida"
-                    ? "Suspendida"
+                    ? "Renovación en pausa"
                     : t.estado === "pausada_validacion_x5"
                       ? "En pausa: falta aceptar el Plan X5"
                       : t.proximoCobro
@@ -237,6 +238,9 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
                   }
                   onCompartida={cargarMiCuenta}
                 />
+              )}
+              {(t.estado === "activa" || t.estado === "suspendida") && (
+                <PausarTarjeta patente={t.patente} pausada={t.estado === "suspendida"} onCambio={cargarMiCuenta} />
               )}
               <EliminarTarjeta patente={t.patente} onEliminada={cargarMiCuenta} />
             </div>

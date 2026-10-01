@@ -128,6 +128,11 @@ export interface ConfigGlobal {
   localLat?: number;
   localLng?: number;
   radioAsistenciaMetros: number;
+  // Duración de una cita con 2+ servicios (ver duracionCita en
+  // @/lib/helpers): la suma de sus duraciones se rebaja este porcentaje, y el
+  // resultado no pasa de agendaTopeMinutos (0 = sin tope). Agenda > Servicios.
+  agendaDescuentoCombinadoPct: number;
+  agendaTopeMinutos: number;
   // Dotación: cuántos operadores necesita el local por franja horaria y día
   // (ver TramoDotacion). Se edita en Horarios y Turnos y la respeta el creador
   // de horario. Vacía = sin requerimiento, el horario se arma solo con los

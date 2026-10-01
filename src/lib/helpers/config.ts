@@ -25,6 +25,8 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   textosBotWhatsapp: TEXTOS_BOT_WHATSAPP_DEFAULT,
   firmaCorreo: "",
   radioAsistenciaMetros: 150,
+  agendaDescuentoCombinadoPct: 20,
+  agendaTopeMinutos: 0,
 };
 
 /** true si `ahora` cae dentro del horario configurado para registrar ingresos en el

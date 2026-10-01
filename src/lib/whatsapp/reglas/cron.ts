@@ -12,6 +12,7 @@ import {
   registrarDisparoReglaWhatsapp,
 } from "@/lib/dataAccess/whatsapp";
 import { periodoPlan, planVigente, uid } from "@/lib/helpers";
+import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 
@@ -55,6 +56,7 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
   } catch (error) {
     console.error("Error cargando reglas WhatsApp (plan_proximo_vencer)", error);
   }
+  const conAutopago = reglasVencimiento.length ? await patentesConAutopago() : new Set<string>();
   for (const regla of reglasVencimiento) {
     const dias = regla.condicionDiasAntesVencimiento ?? 0;
     const hastaISO = new Date(Date.now() + dias * MS_POR_DIA).toISOString();
@@ -73,6 +75,8 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
         !regla.condicionPlanes.includes(planVigente({ plan: row.plan ?? undefined, ilimitadoHasta: row.ilimitadoHasta ?? undefined }))
       )
         continue;
+      // Cliente con cobro automático: se le renueva solo, el aviso lo confunde.
+      if (row.patente && conAutopago.has(row.patente)) continue;
 
       // Mínimo de pasadas del ciclo en curso (ver condicionPasadasMin en
       // @/db/schema/whatsapp). Va antes de registrarDisparoReglaWhatsapp: al

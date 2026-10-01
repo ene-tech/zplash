@@ -1,3 +1,5 @@
+import type { TamanoVehiculo } from "./precios";
+
 // Catálogo de servicios (fusiona el antiguo listado hardcodeado
 // SERVICIOS_ADICIONALES): lo usan tanto ServiciosAdicionalesView (venta
 // rápida en el POS) como la Agenda — equivalente a "procedimientos" en
@@ -7,6 +9,9 @@ export interface Servicio {
   nombre: string;
   categoria?: string;
   duracionMinutos: number;
+  // Minutos por talla (Agenda > Servicios); una talla en 0 o sin cargar usa
+  // duracionMinutos. Ver duracionServicioTamano.
+  duracionTamano?: Record<TamanoVehiculo, number>;
   activo: boolean;
   imagen?: string;
 }

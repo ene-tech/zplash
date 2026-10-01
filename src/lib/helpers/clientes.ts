@@ -1,6 +1,6 @@
 import type { Cliente, ClientePatch, Ingreso, PlanStatus } from "@/types";
 import { ahoraEnSantiago, diaEnSantiago, sumarMesesFecha } from "./fechas";
-import { formatTelefono, normPlate } from "./validadores";
+import { formatTelefono, isValidTelefono, normPlate } from "./validadores";
 
 export const DIAS_AVISO_VENCIMIENTO = 7;
 
@@ -393,4 +393,15 @@ export function recalcularVisitasClientes(clientes: Cliente[], ingresos: Ingreso
     const real = visitasPorCliente.get(c.id);
     return { ...c, visitas: real?.visitas ?? 0, ultimaVisita: real?.ultimaVisita ?? c.ultimaVisita };
   });
+}
+
+/** Dos fichas son de la misma persona si comparten correo o teléfono válido
+ * (las credenciales del portal y del bot) — ver absorberSolicitudCambioPatente. */
+export function mismaPersona(
+  a: { email: string | null; telefono: string | null },
+  b: { email: string | null; telefono: string | null }
+): boolean {
+  const email = (x: string | null) => x?.trim().toLowerCase() || "";
+  if (email(a.email) && email(a.email) === email(b.email)) return true;
+  return !!a.telefono && isValidTelefono(a.telefono) && a.telefono === b.telefono;
 }

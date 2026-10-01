@@ -1591,7 +1591,7 @@ describe("esServicioTunelLibre", () => {
     expect(esServicioTunelLibre({ id: "detailing-pequeno", categoria: CATEGORIA_DETAILING })).toBe(true);
   });
 
-  it("Lavado de Chasis, Lavado de Chasis + Grafitado y Lavado de Motor también dan pasada libre", () => {
+  it("Lavado de Chasis, Lavado de Chasis + Ducha Química y Lavado de Motor también dan pasada libre", () => {
     expect(esServicioTunelLibre({ id: "chasis", categoria: "Servicios Adicionales" })).toBe(true);
     expect(esServicioTunelLibre({ id: "chasis-grafitado", categoria: "Servicios Adicionales" })).toBe(true);
     expect(esServicioTunelLibre({ id: "motor", categoria: "Servicios Adicionales" })).toBe(true);

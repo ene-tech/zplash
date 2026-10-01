@@ -47,7 +47,8 @@ function resumenCondicion(r: ReglaCorreo): string {
     return `No dispara sola — la crea "Correos Únicos" para poder registrar ahí sus envíos puntuales`;
   }
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
-  const soloSinAutopago = r.condicionSoloSinAutopago ? " · solo clientes sin tarjeta inscrita" : "";
+  // Siempre: al que tiene cobro automático no se le avisa (ver procesarVencimientosCorreo).
+  const soloSinAutopago = " · no a clientes con cobro automático";
   const soloConPromo = r.condicionSoloConPromoRenovacion ? " · solo con promoción de renovación vigente" : "";
   const pasadasCiclo = r.condicionPasadasMax != null ? ` · solo hasta ${r.condicionPasadasMax} pasada(s) en el mes en curso` : "";
   return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}${soloSinAutopago}${soloConPromo}${pasadasCiclo}`;
@@ -149,7 +150,6 @@ export default function ReglasCorreoTab() {
   const diasAntesRef = useRef<HTMLInputElement>(null);
   const diasDespuesRef = useRef<HTMLInputElement>(null);
   const pasadasMaxRef = useRef<HTMLInputElement>(null);
-  const [soloSinAutopago, setSoloSinAutopago] = useState(false);
   const [soloConPromoRenovacion, setSoloConPromoRenovacion] = useState(false);
   const [plantillaId, setPlantillaId] = useState("");
 
@@ -179,7 +179,6 @@ export default function ReglasCorreoTab() {
           : undefined,
       condicionPlanes: planesElegidos.length ? planesElegidos : undefined,
       condicionDiasAntesVencimiento: tipoEvento === "plan_proximo_vencer" ? Number(diasAntesRef.current?.value || 0) : undefined,
-      condicionSoloSinAutopago: tipoEvento === "plan_proximo_vencer" ? soloSinAutopago : undefined,
       condicionSoloConPromoRenovacion: tipoEvento === "plan_proximo_vencer" ? soloConPromoRenovacion : undefined,
       condicionDiasDespuesVencimiento: tipoEvento === "plan_vencido" ? Number(diasDespuesRef.current?.value || 0) : undefined,
       // Vacío = sin tope (no `|| 0`, que dejaría fuera a todos salvo a los de 0 pasadas).
@@ -205,7 +204,6 @@ export default function ReglasCorreoTab() {
     if (diasDespuesRef.current) diasDespuesRef.current.value = "";
     if (pasadasMaxRef.current) pasadasMaxRef.current.value = "";
     setPlanesElegidos([]);
-    setSoloSinAutopago(false);
     setSoloConPromoRenovacion(false);
   };
 
@@ -257,19 +255,6 @@ export default function ReglasCorreoTab() {
           <div className="field" style={{ marginBottom: 10 }}>
             <label>Días antes del vencimiento</label>
             <input ref={diasAntesRef} type="number" min={0} defaultValue={5} />
-          </div>
-        )}
-
-        {tipoEvento === "plan_proximo_vencer" && (
-          <div className="field" style={{ marginBottom: 10 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 400 }}>
-              <input type="checkbox" checked={soloSinAutopago} onChange={(e) => setSoloSinAutopago(e.target.checked)} />
-              Solo clientes sin tarjeta inscrita (sin pago automático)
-            </label>
-            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12.5 }}>
-              No le avisa a quien ya tenga tarjeta Oneclick registrada, sea de web o de local (a ese el cobro
-              automático lo va a renovar solo). El resto — web y local sin tarjeta — sí recibe el aviso.
-            </div>
           </div>
         )}
 

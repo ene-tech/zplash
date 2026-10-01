@@ -261,6 +261,15 @@ export async function cancelarCambioPatente(clienteId: string): Promise<boolean>
   return dataAccess.actualizarPatentePendiente(clienteId, null);
 }
 
+// Desde la ficha: pasa todo el historial de la patente vieja a esta y borra la
+// ficha vieja (ver dataAccess.fusionarClientes).
+export async function fusionarClientes(viejoId: string, nuevoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await tieneModulo("clientes"))) return { ok: false, error: "Sin permiso" };
+  const sesion = await sesionActual();
+  if (!sesion) return { ok: false, error: "Sin sesión" };
+  return dataAccess.fusionarClientes(viejoId, nuevoId, sesion.nombre);
+}
+
 export async function deleteClientes(ids: string[]): Promise<boolean> {
   if (!(await tieneModulo("clientes"))) return false;
   return dataAccess.deleteClientes(ids);

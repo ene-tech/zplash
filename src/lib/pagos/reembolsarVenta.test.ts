@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let respuestas: unknown[][] = [];
 const inserts: Record<string, unknown>[] = [];
+const updates: Record<string, unknown>[] = [];
 const chain = {
   from: () => chain,
   innerJoin: () => chain,
@@ -17,6 +18,12 @@ const chain = {
 const fakeTx = {
   execute: () => Promise.resolve(),
   select: () => chain,
+  update: () => ({
+    set: (cambios: Record<string, unknown>) => {
+      updates.push(cambios);
+      return { where: () => Promise.resolve() };
+    },
+  }),
   insert: () => ({
     values: (fila: Record<string, unknown>) => {
       inserts.push(fila);
@@ -69,6 +76,7 @@ describe("reembolsarVentaTarjeta", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     inserts.length = 0;
+    updates.length = 0;
     correos.length = 0;
   });
 
@@ -135,5 +143,20 @@ describe("reembolsarVentaTarjeta", () => {
     expect(r.ok).toBe(true);
     expect(refundOneclick).toHaveBeenCalledWith("oc123", "597055555543", "oc123", 19990);
     expect(inserts).toEqual([expect.objectContaining({ precio: -19990 })]);
+  });
+
+  it("anularVigencia en venta de plan -> resta un mes al vencimiento y lo anota", async () => {
+    respuestas = [[venta], [], [{ monto: 21990, token: "tok1" }], [{ vencimiento: "2026-10-15T12:00:00.000Z" }], [cliente]];
+    const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia", undefined, true);
+    expect(r.ok && r.vencimiento?.slice(0, 10)).toBe("2026-09-15");
+    expect(updates).toEqual([{ vencimiento: r.ok ? r.vencimiento : null }]);
+    expect(inserts).toEqual([expect.objectContaining({ notas: expect.stringContaining("vigencia anulada") })]);
+  });
+
+  it("anularVigencia en venta que no es plan -> no toca el vencimiento", async () => {
+    respuestas = [[{ ...venta, tipo: "Lavado único" }], [], [{ monto: 21990, token: "tok1" }], [cliente]];
+    const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia", undefined, true);
+    expect(r.ok).toBe(true);
+    expect(updates).toEqual([]);
   });
 });

@@ -11,10 +11,10 @@ export type ItemPersonalizado = { id: string; nombre: string; precio: number };
 // Estado y acciones del catálogo de servicios elegido para el registro:
 // selección múltiple normal, salvo "Lavado Completo Detailing" que es
 // single-select (radio) dentro de su categoría; más los ítems personalizados
-// (monto libre con su propio detalle de texto). El precio de Detailing
-// depende además del tamaño del vehículo (ver `tamano`, obligatorio para
-// cobrar el precio correcto — validarRegistroServicioAdicional exige elegirlo
-// antes de registrar si hay Detailing seleccionado).
+// (monto libre con su propio detalle de texto). El tamaño del vehículo se
+// elige primero (ServicioCatalogoSelector no muestra servicios sin él) y fija
+// el precio de cada servicio del catálogo (precios_tamano, o el general si esa
+// talla no tiene precio propio).
 export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInputElement | null>, setErr: (msg: string) => void) {
   const { data } = useAppData();
   const [serviciosSeleccionados, setServiciosSeleccionados] = useState<string[]>([]);
@@ -30,15 +30,16 @@ export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInpu
     (id) => catalogo.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING
   );
 
+  const precioTamano = (id: string) =>
+    tamano ? precioServicioTamano(data.precios, data.preciosTamano, id, tamano) : precioServicio(data.precios, id);
+
   const primerDetailingIdx = serviciosSeleccionados.findIndex(
     (id) => catalogo.find((s) => s.id === id)?.categoria === CATEGORIA_DETAILING
   );
   const lineasCatalogo: Linea[] = serviciosSeleccionados.map((id, idx) => {
     const s = catalogo.find((x) => x.id === id)!;
     const esDetailing = idx === primerDetailingIdx;
-    const precioBase =
-      esDetailing && tamano ? precioServicioTamano(data.precios, data.preciosTamano, s.id, tamano) : precioServicio(data.precios, s.id);
-    const precio = precioBase + (esDetailing && ajuste > 0 ? ajuste : 0);
+    const precio = precioTamano(s.id) + (esDetailing && ajuste > 0 ? ajuste : 0);
     return { id: s.id, nombre: s.nombre, precio };
   });
   const lineasPersonalizadas: Linea[] = itemsPersonalizados.map((i) => ({ id: i.id, nombre: i.nombre, precio: i.precio }));
@@ -50,10 +51,7 @@ export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInpu
   // demás categorías (Adicionales) siguen siendo multi-selección normal.
   const toggleServicio = (id: string, categoria: string) => {
     setServiciosSeleccionados((prev) => {
-      if (prev.includes(id)) {
-        if (categoria === CATEGORIA_DETAILING) setTamano(null);
-        return prev.filter((x) => x !== id);
-      }
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
       if (categoria === CATEGORIA_DETAILING) {
         return [...prev.filter((x) => catalogo.find((s) => s.id === x)?.categoria !== CATEGORIA_DETAILING), id];
       }
@@ -95,6 +93,7 @@ export function useServicioSeleccion(detallePersonalizadoRef: RefObject<HTMLInpu
     setAjuste,
     tamano,
     setTamano,
+    precioTamano,
     montoPersonalizadoTexto,
     setMontoPersonalizadoTexto,
     hayDetailingSeleccionado,

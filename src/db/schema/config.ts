@@ -137,4 +137,8 @@ export const config = pgTable("config", {
   localLat: numeric("local_lat", { mode: "number" }),
   localLng: numeric("local_lng", { mode: "number" }),
   radioAsistenciaMetros: integer("radio_asistencia_metros").notNull().default(150),
+  // Duración de una cita con varios servicios (ver duracionCita): la suma se
+  // rebaja este % y no pasa del tope (0 = sin tope). Agenda > Servicios.
+  agendaDescuentoCombinadoPct: integer("agenda_descuento_combinado_pct").notNull().default(20),
+  agendaTopeMinutos: integer("agenda_tope_minutos").notNull().default(0),
 });

@@ -128,7 +128,7 @@ Ponnos una nota del *1 al 7*. Responde solo con el número.`,
   textoOpinionGracias: `¡Gracias por tu nota! 🙌 Nos alegra que te haya gustado.
 
 ¿Nos ayudas con una reseña en Google? Nos sirve muchísimo:
-https://g.page/r/CAMBIAR-ESTE-LINK/review`,
+https://g.page/r/Cf5mvoMcBDUjEAE/review`,
 
   textoOpinionPedirComentario: `Gracias por la nota, y perdona que no diéramos el ancho 🙏
 
@@ -280,7 +280,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     categoria: "Fidelización",
     nombre: "Solicitud de reseña Google (cliente con plan)",
     mensaje:
-      "¡Hola {{nombre}}! Gracias por confiar en ZPlash con tu plan {{plan}} 🚗✨. ¿Nos regalas una reseña de 5 estrellas en Google? Nos ayuda muchísimo: https://g.page/r/CAMBIAR-ESTE-LINK/review",
+      "¡Hola {{nombre}}! Gracias por confiar en ZPlash con tu plan {{plan}} 🚗✨. ¿Nos regalas una reseña de 5 estrellas en Google? Nos ayuda muchísimo: https://g.page/r/Cf5mvoMcBDUjEAE/review",
     activo: true,
     metaAprobado: false,
     metaNombre: "mensaje_cliente_plan_review_google",

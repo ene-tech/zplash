@@ -1,4 +1,5 @@
-import { boolean, integer, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
+import type { TamanoVehiculo } from "@/types";
 import { timestamptz } from "./shared";
 
 // Catálogo de servicios (fusiona el antiguo listado hardcodeado
@@ -11,6 +12,8 @@ export const servicios = pgTable("servicios", {
   nombre: text("nombre").notNull(),
   categoria: text("categoria"),
   duracionMinutos: integer("duracion_minutos").notNull().default(30),
+  // Minutos por talla S/M/L/XL (Agenda > Servicios); null o 0 = usar duracionMinutos.
+  duracionTamano: jsonb("duracion_tamano").$type<Record<TamanoVehiculo, number>>(),
   activo: boolean("activo").notNull().default(true),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
 });

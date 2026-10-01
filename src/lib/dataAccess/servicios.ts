@@ -9,11 +9,25 @@ import { upsertRows } from "./shared";
 type ServicioRow = typeof servicios.$inferSelect;
 
 function servicioToRow(s: Servicio): typeof servicios.$inferInsert {
-  return { id: s.id, nombre: s.nombre, categoria: s.categoria || null, duracionMinutos: s.duracionMinutos, activo: s.activo };
+  return {
+    id: s.id,
+    nombre: s.nombre,
+    categoria: s.categoria || null,
+    duracionMinutos: s.duracionMinutos,
+    duracionTamano: s.duracionTamano ?? null,
+    activo: s.activo,
+  };
 }
 
 export function servicioFromRow(r: ServicioRow): Servicio {
-  return { id: r.id, nombre: r.nombre, categoria: r.categoria || undefined, duracionMinutos: r.duracionMinutos, activo: r.activo };
+  return {
+    id: r.id,
+    nombre: r.nombre,
+    categoria: r.categoria || undefined,
+    duracionMinutos: r.duracionMinutos,
+    duracionTamano: r.duracionTamano ?? undefined,
+    activo: r.activo,
+  };
 }
 
 export async function upsertServicios(rows: Servicio[]): Promise<boolean> {

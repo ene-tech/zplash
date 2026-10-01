@@ -6,6 +6,7 @@ import {
   anularSuscripcion,
   cobrarSuscripcionManual,
   enviarCuponAlCliente,
+  fusionarClientes,
   obtenerDetallePagosVentas,
   obtenerLibroComentarios,
   obtenerSuscripcionOneclick,
@@ -22,10 +23,12 @@ import {
   fmtDate,
   fmtFecha,
   formatTelefono,
+  isValidTelefono,
   periodoPlan,
   visitasDesdeContratacion,
   visitasPeriodoPlan,
   TIPO_VENTA_REEMBOLSO,
+  TIPOS_VENTA_PLAN,
   visitasUltimos30Dias,
 } from "@/lib/helpers";
 import { TIPO_LIBRO_LABELS, type Cliente, type Cupon, type LibroComentario, type Venta } from "@/types";
@@ -40,7 +43,7 @@ import { useGenerarCupones } from "@/components/tabs/ventaEmpresa/useGenerarCupo
 import { useCrearDescuento } from "@/components/tabs/ventaEmpresa/useCrearDescuento";
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
-  const { data: appData, commit, patchUi, loadingHistorial } = useAppData();
+  const { data: appData, commit, aplicarLocal, patchUi, loadingHistorial } = useAppData();
   const { inicio: inicioPeriodo, fin } = periodoPlan(c);
   // `fin` es exclusivo (inicio del ciclo siguiente); el período se muestra
   // hasta el día anterior, que es el que el cliente ve como vencimiento.
@@ -168,6 +171,9 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   // prellenado con el total de la venta; el tope real lo valida el servidor
   // contra lo cobrado por Transbank.
   const [montoReembolso, setMontoReembolso] = useState("");
+  // Solo para ventas de plan: el administrador elige si además se le quita al
+  // cliente el mes que dio esa compra (ver reembolsarVentaTarjeta).
+  const [anularVigencia, setAnularVigencia] = useState(false);
   const [reembolsando, setReembolsando] = useState(false);
   const [errReembolso, setErrReembolso] = useState("");
 
@@ -183,10 +189,15 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     setReembolsando(true);
     setErrReembolso("");
     try {
-      const r = await reembolsarVenta(v.id, motivoReembolso, Number(montoReembolso));
+      const r = await reembolsarVenta(v.id, motivoReembolso, Number(montoReembolso), anularVigencia && TIPOS_VENTA_PLAN.has(v.tipo));
       if (!r.ok) {
         setErrReembolso(r.error);
         return;
+      }
+      // El server ya escribió el vencimiento: solo se refleja local, sin commit.
+      const vencimiento = r.vencimiento;
+      if (vencimiento) {
+        aplicarLocal((d) => ({ clientes: d.clientes.map((x) => (x.id === c.id ? { ...x, vencimiento } : x)) }));
       }
       setReembolsosHechos((prev) => [r.venta, ...prev]);
       setReembolsoAbierto("");
@@ -348,6 +359,36 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     }
   }
 
+  // Fichas de la misma persona (mismo teléfono o correo): típicamente la patente
+  // vieja de un cambio de auto. Fusionarla deja todo su recorrido en esta ficha.
+  const otrasPatentes = appData.clientes.filter(
+    (o) =>
+      o.id !== c.id &&
+      ((!!c.telefono && isValidTelefono(c.telefono) && o.telefono === c.telefono) ||
+        (!!c.email && o.email?.toLowerCase() === c.email.toLowerCase()))
+  );
+  const [fusionando, setFusionando] = useState(false);
+  const [errFusion, setErrFusion] = useState("");
+  async function fusionar(o: Cliente) {
+    if (
+      !window.confirm(
+        `Se pasará todo el historial de ${o.patente} (ventas, ingresos, citas, mensajes, cobro automático) a ${c.patente} y se eliminará la ficha ${o.patente}. ¿Continuar?`
+      )
+    )
+      return;
+    setFusionando(true);
+    setErrFusion("");
+    const r = await fusionarClientes(o.id, c.id);
+    if (!r.ok) {
+      setErrFusion(r.error);
+      setFusionando(false);
+      return;
+    }
+    // Cambian ventas, ingresos, citas y la ficha a la vez: más simple recargar
+    // que parchar cada colección en memoria.
+    window.location.reload();
+  }
+
   return (
     <Dialog open onOpenChange={(open) => !open && cerrar()}>
       <DialogContent className="gap-6 rounded-2xl p-6 sm:max-w-4xl">
@@ -363,6 +404,17 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           <div>
             <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Patente</div>
             <div className="font-medium">{c.patente}</div>
+            {otrasPatentes.map((o) => (
+              <div key={o.id} className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                <span>
+                  Otra patente del cliente: <strong className="uppercase">{o.patente}</strong>
+                </span>
+                <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={fusionando} onClick={() => fusionar(o)}>
+                  Pasar su historial acá y eliminarla
+                </Button>
+              </div>
+            ))}
+            {errFusion && <p className="text-xs text-destructive">{errFusion}</p>}
           </div>
           <div>
             <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Teléfono</div>
@@ -718,6 +770,16 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                                       onChange={(e) => setMontoReembolso(e.target.value)}
                                       disabled={reembolsando}
                                     />
+                                    {TIPOS_VENTA_PLAN.has(v.tipo) && (
+                                      <label className="flex items-center gap-1.5 text-xs" title="Le resta al cliente el mes que dio esta compra">
+                                        <Checkbox
+                                          checked={anularVigencia}
+                                          onCheckedChange={(m) => setAnularVigencia(m === true)}
+                                          disabled={reembolsando}
+                                        />
+                                        ¿Anular también la vigencia del plan?
+                                      </label>
+                                    )}
                                     <Button
                                       size="sm"
                                       variant="destructive"
@@ -750,6 +812,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                                   setReembolsoAbierto(v.id);
                                   setMotivoReembolso("");
                                   setMontoReembolso(String(v.precio || ""));
+                                  setAnularVigencia(false);
                                   setErrReembolso("");
                                 }}
                               >

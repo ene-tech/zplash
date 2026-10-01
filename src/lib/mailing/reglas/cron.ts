@@ -26,6 +26,27 @@ import type { ReglaCorreo } from "@/types";
 const DIAS_VENTANA_PLAN_VENCIDO = 3;
 
 /**
+ * Patentes con cobro automático: a esos clientes nunca se les manda el aviso
+ * "tu plan vence" (correo ni WhatsApp) — se les renueva solo y el aviso los
+ * confunde. Sin mirar el origen: la tarjeta se inscribe por patente (Mi
+ * Cuenta → "Mis tarjetas"), un cliente LOCAL también puede tenerla.
+ *
+ * Cuenta LOS DOS cobros automáticos, no solo el propio: al cliente que sigue
+ * en WooCommerce (renovacionAutoWooDesde) también se le renueva solo. Mirar
+ * únicamente suscripcionesOneclick era inofensivo mientras el staging site
+ * lock tenía a WooCommerce sin cobrar (ago-2026), pero desde que se destrabó
+ * vuelve a renovar de verdad.
+ */
+export async function patentesConAutopago(): Promise<Set<string>> {
+  const db = getDb();
+  const [conOneclick, conWoo] = await Promise.all([
+    db.select({ patente: suscripcionesOneclick.patente }).from(suscripcionesOneclick).where(eq(suscripcionesOneclick.estado, "activa")),
+    db.select({ patente: clientes.patente }).from(clientes).where(isNotNull(clientes.renovacionAutoWooDesde)),
+  ]);
+  return new Set([...conOneclick, ...conWoo].map((r) => r.patente));
+}
+
+/**
  * Llamado por el cron diario (/api/correo/reglas/evaluar): evalúa reglas
  * "plan_proximo_vencer" (mismo query que procesarPendientesYVencimientos de
  * WhatsApp, ver @/lib/whatsapp/reglas/cron) y "plan_vencido" (nuevo: sin
@@ -39,22 +60,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
   const ahoraISO = new Date().toISOString();
   const db = getDb();
 
-  // Para condicionSoloSinAutopago (ver comentario en @/db/schema/mailReglas)
-  // — se calcula una sola vez acá afuera porque es la misma consulta para
-  // cualquier regla que la tenga marcada, y hoy son pocas filas (cobro
-  // automático recién está migrando desde WooCommerce).
-  //
-  // Cuenta LOS DOS cobros automáticos, no solo el propio: al cliente que sigue
-  // en WooCommerce (renovacionAutoWooDesde) también se le renueva solo, así que
-  // el aviso de vencimiento le sobra igual. Mirar únicamente suscripcionesOneclick
-  // era inofensivo mientras el staging site lock tenía a WooCommerce sin cobrar
-  // (ago-2026), pero desde que se destrabó vuelve a renovar de verdad: sin esto,
-  // 46 clientes que WooCommerce va a cobrar igual reciben un "tu plan vence".
-  const [conOneclick, conWoo] = await Promise.all([
-    db.select({ patente: suscripcionesOneclick.patente }).from(suscripcionesOneclick).where(eq(suscripcionesOneclick.estado, "activa")),
-    db.select({ patente: clientes.patente }).from(clientes).where(isNotNull(clientes.renovacionAutoWooDesde)),
-  ]);
-  const patentesConAutopago = new Set([...conOneclick, ...conWoo].map((r) => r.patente));
+  const conAutopago = await patentesConAutopago();
 
   // Una sola lectura para toda la corrida: los precios son una tabla de ~5
   // filas y no cambian entre cliente y cliente (ver {{precioX5}} más abajo).
@@ -89,12 +95,10 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
         !regla.condicionPlanes.includes(planVigente({ plan: row.plan ?? undefined, ilimitadoHasta: row.ilimitadoHasta ?? undefined }))
       )
         continue;
-      // Cliente con tarjeta inscrita: el aviso de vencimiento es ruido
-      // (Oneclick lo va a renovar solo). Sin mirar el origen — Mi Cuenta →
-      // "Mis tarjetas" inscribe por patente, un cliente LOCAL también puede
-      // tener cobro automático. Ver comentario del campo en
-      // @/db/schema/mailReglas.
-      if (regla.condicionSoloSinAutopago && row.patente && patentesConAutopago.has(row.patente)) continue;
+      // Cliente con cobro automático: el aviso de vencimiento es ruido (ver
+      // patentesConAutopago). Siempre, sin importar el flag viejo
+      // condicionSoloSinAutopago de la regla.
+      if (regla.tipoEvento === "plan_proximo_vencer" && row.patente && conAutopago.has(row.patente)) continue;
 
       // Mínimo y máximo de pasadas del ciclo EN CURSO (ver condicionPasadasMin
       // y condicionPasadasMax en @/db/schema/mailReglas). Se cuenta acá y no

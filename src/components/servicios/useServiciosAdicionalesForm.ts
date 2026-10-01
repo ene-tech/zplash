@@ -4,6 +4,8 @@ import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
 import {
   PATENTE_FORMATO_MSG,
+  duracionCita as calcularDuracionCita,
+  duracionServicioTamano,
   findClient,
   fmtTelefono,
   formatRut,
@@ -90,12 +92,16 @@ export function useServiciosAdicionalesForm(refs: FormRefs) {
   const montoCobradoTotal = estadoPago === "pagado" ? totalListado : estadoPago === "abono50" ? montoAbono : 0;
 
   // La Agenda queda alimentada por este mismo registro: la duración de la
-  // cita es la suma de las duraciones del catálogo elegido (equivalente a
-  // "procedimientos" en ConsultaPro), con un mínimo por si solo se
-  // vendieron ítems personalizados (sin duración propia).
-  const duracionCatalogoTotal = serviciosSeleccionados.reduce(
-    (sum, id) => sum + (seleccion.catalogo.find((s) => s.id === id)?.duracionMinutos || 0),
-    0
+  // cita sale de las duraciones del catálogo elegido (equivalente a
+  // "procedimientos" en ConsultaPro), rebajada y topada según la
+  // configuración de la Agenda (ver calcularDuracionCita), con un mínimo
+  // por si solo se vendieron ítems personalizados (sin duración propia).
+  const duracionCatalogoTotal = calcularDuracionCita(
+    serviciosSeleccionados.flatMap((id) => {
+      const s = seleccion.catalogo.find((x) => x.id === id);
+      return s ? [duracionServicioTamano(s, tamano)] : [];
+    }),
+    data.config
   );
   const duracionCita = lineas.length > 0 ? duracionCatalogoTotal || DURACION_DEFAULT_MINUTOS : 0;
   const horarioConfigurado = data.horariosAgenda.length > 0;

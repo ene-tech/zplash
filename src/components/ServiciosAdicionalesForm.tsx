@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef } from "react";
-import { useAppData } from "@/context/AppContext";
 import DatosTransferencia from "@/components/DatosTransferencia";
 import PriceInput from "@/components/PriceInput";
 import { fmtCLP, fmtTelefono, todayYMD } from "@/lib/helpers";
@@ -10,7 +9,6 @@ import { useServiciosAdicionalesForm } from "@/components/servicios/useServicios
 import ServicioCatalogoSelector from "@/components/servicios/ServicioCatalogoSelector";
 
 export default function ServiciosAdicionalesForm() {
-  const { data } = useAppData();
   const patenteRef = useRef<HTMLInputElement>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
   const telefonoRef = useRef<HTMLInputElement>(null);
@@ -77,7 +75,7 @@ export default function ServiciosAdicionalesForm() {
             </button>
           </div>
 
-          <ServicioCatalogoSelector {...r.seleccion} precios={data.precios} detallePersonalizadoRef={detallePersonalizadoRef} />
+          <ServicioCatalogoSelector {...r.seleccion} detallePersonalizadoRef={detallePersonalizadoRef} />
 
           {r.seleccion.lineas.length > 0 && (
             <DetailList className="mb-4">

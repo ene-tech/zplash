@@ -2,9 +2,23 @@ import "server-only";
 
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, politicasAceptadas, suscripcionesOneclick, ventas } from "@/db/schema";
+import {
+  citas,
+  clientes,
+  conversacionesWhatsapp,
+  correosAutomaticos,
+  cupones,
+  disparosReglaCorreo,
+  disparosReglaWhatsapp,
+  empresas,
+  ingresos,
+  opiniones,
+  politicasAceptadas,
+  suscripcionesOneclick,
+  ventas,
+} from "@/db/schema";
 import { POLITICAS_VERSION } from "@/lib/politicas";
-import { ESTADOS_TARJETA_VIVA, sigueVigenteHoy, uid } from "@/lib/helpers";
+import { ESTADOS_TARJETA_VIVA, mismaPersona, sigueVigenteHoy, uid } from "@/lib/helpers";
 import type { Cliente, ClientePatch } from "@/types";
 import { insertAuditoria } from "./auditoria";
 import { upsertRows } from "./shared";
@@ -142,6 +156,8 @@ export async function upsertClientes(
         }
       }
     }
+    // Una patente que nace como ficha propia pudo ser el cambio pedido por otra.
+    for (const row of nuevos) await absorberSolicitudCambioPatente(row.id, row.patente);
   }
 
   for (const { anterior, patch } of actualizaciones) {
@@ -400,4 +416,127 @@ export async function vincularPatenteACuenta(
     });
     return { ok: true as const, clienteId };
   });
+}
+
+/**
+ * Fusiona la ficha `viejoId` dentro de `nuevoId` y borra la vieja: el caso de
+ * un cambio de patente donde la patente nueva terminó con su propia ficha (el
+ * mesón o la web la dieron de alta aparte) en vez de reemplazar la de la
+ * ficha original. Todo lo que colgaba de la vieja (ventas, ingresos, citas,
+ * correos, WhatsApp, cobro automático, cupones) pasa a la nueva, así el
+ * recorrido del cliente queda completo en una sola ficha — y las filas de
+ * ventas/ingresos/citas conservan en su columna `patente` la patente con la
+ * que se hicieron, que es el rastro del cambio. Sin esto, borrar la ficha
+ * vieja se llevaba en cascada sus ventas e ingresos.
+ *
+ * De la ficha vieja se rescatan los datos de contacto que a la nueva le
+ * falten y, si su plan vencía después, el plan completo.
+ */
+export async function fusionarClientes(
+  viejoId: string,
+  nuevoId: string,
+  usuario = "cambio-de-patente"
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (viejoId === nuevoId) return { ok: false, error: "Es la misma ficha" };
+  try {
+    return await getDb().transaction(async (tx) => {
+      const filas = await tx.select().from(clientes).where(inArray(clientes.id, [viejoId, nuevoId]));
+      const viejo = filas.find((f) => f.id === viejoId);
+      const nuevo = filas.find((f) => f.id === nuevoId);
+      if (!viejo || !nuevo) return { ok: false as const, error: "No se encontró una de las fichas" };
+
+      // Cobro automático: una fila por patente (índice único). La tarjeta de la
+      // patente vieja pasa a la nueva, salvo que la nueva ya tenga la suya viva.
+      const subs = await tx
+        .select()
+        .from(suscripcionesOneclick)
+        .where(inArray(suscripcionesOneclick.patente, [viejo.patente, nuevo.patente]));
+      const subVieja = subs.find((s) => s.patente === viejo.patente);
+      const subNueva = subs.find((s) => s.patente === nuevo.patente);
+      if (subVieja && ESTADOS_TARJETA_VIVA.includes(subVieja.estado)) {
+        if (subNueva && ESTADOS_TARJETA_VIVA.includes(subNueva.estado)) {
+          return { ok: false as const, error: "Las dos patentes tienen cobro automático activo: cancela uno antes de fusionar" };
+        }
+        if (subNueva) await tx.delete(suscripcionesOneclick).where(eq(suscripcionesOneclick.id, subNueva.id));
+        await tx
+          .update(suscripcionesOneclick)
+          .set({ patente: nuevo.patente, clienteId: nuevoId, actualizadoEn: new Date().toISOString() })
+          .where(eq(suscripcionesOneclick.id, subVieja.id));
+      } else if (subVieja) {
+        await tx.update(suscripcionesOneclick).set({ clienteId: nuevoId }).where(eq(suscripcionesOneclick.id, subVieja.id));
+      }
+
+      for (const tabla of [ventas, ingresos, citas, correosAutomaticos, disparosReglaCorreo, conversacionesWhatsapp, disparosReglaWhatsapp, opiniones]) {
+        await tx.update(tabla).set({ clienteId: nuevoId }).where(eq(tabla.clienteId, viejoId));
+      }
+      await tx.update(empresas).set({ contactoClienteId: nuevoId }).where(eq(empresas.contactoClienteId, viejoId));
+      await tx.update(cupones).set({ patenteAsignada: nuevo.patente }).where(eq(cupones.patenteAsignada, viejo.patente));
+      // ponytail: las suscripciones push de la ficha vieja se van en cascada; el
+      // navegador del cliente se vuelve a suscribir al entrar a Mi Cuenta.
+
+      const planDelViejo =
+        viejo.vencimiento && (!nuevo.vencimiento || new Date(viejo.vencimiento) > new Date(nuevo.vencimiento));
+      const set: Partial<typeof clientes.$inferInsert> = {
+        telefono: nuevo.telefono || viejo.telefono,
+        email: nuevo.email || viejo.email,
+        rut: nuevo.rut || viejo.rut,
+        vehiculo: nuevo.vehiculo || viejo.vehiculo,
+        visitas: nuevo.visitas + viejo.visitas,
+        fechaContratacion: nuevo.fechaContratacion ?? viejo.fechaContratacion,
+        ...(planDelViejo
+          ? {
+              plan: viejo.plan,
+              vencimiento: viejo.vencimiento,
+              ilimitadoHasta: viejo.ilimitadoHasta,
+              fechaContratacion: viejo.fechaContratacion,
+            }
+          : {}),
+      };
+      await tx.update(clientes).set(set).where(eq(clientes.id, nuevoId));
+      await tx.delete(clientes).where(eq(clientes.id, viejoId));
+      await insertAuditoria([
+        {
+          tabla: "clientes",
+          registroId: nuevoId,
+          usuario,
+          accion: "update",
+          datosAnteriores: { fusionadoDesde: viejo },
+          datosNuevos: { patente: nuevo.patente, patenteAnterior: viejo.patente, ...set },
+        },
+      ]);
+      return { ok: true as const };
+    });
+  } catch (error) {
+    console.error("Error fusionando clientes", viejoId, nuevoId, error);
+    return { ok: false, error: "No se pudo fusionar" };
+  }
+}
+
+/**
+ * Si alguna ficha tenía pedido el cambio a `patente` (patentePendiente) y esa
+ * patente acaba de nacer como ficha propia `nuevoId`, se funde la vieja en la
+ * nueva: el cambio ya ocurrió, así que queda solo la nueva con todo el
+ * historial. Se llama después de cada alta de cliente; nunca lanza.
+ *
+ * Solo si las dos fichas son de la misma persona: mismo correo o mismo
+ * teléfono válido — las credenciales del portal y del bot de WhatsApp. Sin
+ * esto, cualquiera que comprara en la web (checkout público) la patente que
+ * otro pidió se quedaba con su ficha, su tarjeta y sus datos. Si no calzan,
+ * queda para el botón de la ficha, que pide el módulo "clientes".
+ */
+export async function absorberSolicitudCambioPatente(nuevoId: string, patente: string): Promise<void> {
+  try {
+    const [viejo] = await getDb()
+      .select()
+      .from(clientes)
+      .where(and(eq(clientes.patentePendiente, patente), sql`${clientes.id} <> ${nuevoId}`))
+      .limit(1);
+    if (!viejo) return;
+    const [nuevo] = await getDb().select().from(clientes).where(eq(clientes.id, nuevoId)).limit(1);
+    if (!nuevo || !mismaPersona(viejo, nuevo)) return;
+    const r = await fusionarClientes(viejo.id, nuevoId);
+    if (!r.ok) console.error("No se pudo absorber la solicitud de cambio de patente", viejo.id, nuevoId, r.error);
+  } catch (error) {
+    console.error("Error buscando solicitud de cambio de patente", patente, error);
+  }
 }

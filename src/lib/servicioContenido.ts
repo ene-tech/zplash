@@ -33,7 +33,7 @@ export const SERVICIO_CONTENIDO: Record<string, ServicioContenido> = {
   },
   "chasis-grafitado": {
     descripcion:
-      "Lavado del chasis a presión más aplicación de grafito protector en los bajos del vehículo, para prevenir corrosión y darle un terminado uniforme.",
+      "Lavado del chasis a presión más ducha química en los bajos del vehículo, que desprende grasa y suciedad adherida.",
   },
 };
 

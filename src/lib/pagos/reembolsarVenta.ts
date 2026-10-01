@@ -3,7 +3,15 @@ import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
-import { esEmailEnviable, fmtCLP, fmtFecha, PREFIJO_VENTA_REEMBOLSO, TIPO_VENTA_REEMBOLSO } from "@/lib/helpers";
+import {
+  esEmailEnviable,
+  fmtCLP,
+  fmtFecha,
+  PREFIJO_VENTA_REEMBOLSO,
+  sumarMesesFecha,
+  TIPO_VENTA_REEMBOLSO,
+  TIPOS_VENTA_PLAN,
+} from "@/lib/helpers";
 import { envolverHtmlBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { oneclickChildCommerceCode, oneclickTransaction, webpayTransaction } from "@/lib/transbank";
@@ -31,7 +39,8 @@ export function idVentaReembolso(ventaId: string): string {
   return PREFIJO_VENTA_REEMBOLSO + ventaId;
 }
 
-export type ResultadoReembolso = { ok: true; venta: Venta } | { ok: false; error: string };
+/** `vencimiento` viene solo si se anuló la vigencia (el nuevo valor del cliente). */
+export type ResultadoReembolso = { ok: true; venta: Venta; vencimiento?: string } | { ok: false; error: string };
 
 /**
  * Devuelve a la tarjeta un pago cobrado por Transbank (Webpay u Oneclick) y
@@ -47,12 +56,19 @@ export type ResultadoReembolso = { ok: true; venta: Venta } | { ok: false; error
  * anulación parcial por transacción. El motivo queda en `notas`.
  * Ventas sin pago Transbank detrás (efectivo, POS GETNET, WooCommerce legacy)
  * no se pueden reembolsar desde acá: esa plata no la movió esta plataforma.
+ *
+ * `anularVigencia` (solo ventas de plan, lo decide el administrador): le quita
+ * al cliente el mes que esa compra le sumó — vencimiento − 1 mes, simétrico a
+ * aplicarPagoAprobado/aplicarUpgradePlan, que dejan el vencimiento un mes
+ * después. Restar y no "vencer hoy" respeta los meses que el cliente tenga
+ * pagados aparte de esta venta.
  */
 export async function reembolsarVentaTarjeta(
   ventaId: string,
   motivo: string,
   operador: string,
-  montoPedido?: number
+  montoPedido?: number,
+  anularVigencia = false
 ): Promise<ResultadoReembolso> {
   // Qué compra se devolvió, para el correo al cliente (el contra-asiento solo
   // lo lleva en prosa dentro de `notas`). Objeto mutable y no un `let` directo:
@@ -151,10 +167,23 @@ export async function reembolsarVentaTarjeta(
       voucher: comprobante,
       notas: `Reembolso${monto < cobradoTotal ? " parcial" : ""} de "${venta.tipo}" del ${venta.fecha.slice(0, 10)} — ${motivo} (por ${operador})`,
     };
+
+    // Dentro de la transacción: si la plata ya volvió y el contra-asiento se
+    // escribe, la vigencia se ajusta en el mismo commit o nada.
+    let vencimiento: string | undefined;
+    if (anularVigencia && venta.clienteId && TIPOS_VENTA_PLAN.has(venta.tipo)) {
+      const [cli] = await tx.select({ vencimiento: clientes.vencimiento }).from(clientes).where(eq(clientes.id, venta.clienteId)).limit(1);
+      if (cli?.vencimiento) {
+        vencimiento = sumarMesesFecha(new Date(cli.vencimiento), -1).toISOString();
+        await tx.update(clientes).set({ vencimiento }).where(eq(clientes.id, venta.clienteId));
+        filaReembolso.notas += ` — vigencia anulada (vencimiento ${cli.vencimiento.slice(0, 10)} → ${vencimiento.slice(0, 10)})`;
+      }
+    }
+
     // Insert directo (no dataAccess.insertVentas): un contra-asiento negativo
     // no debe gatillar reglas de WhatsApp/correo por venta nueva.
     await tx.insert(ventas).values({ ...filaReembolso, clienteId: venta.clienteId });
-    return { ok: true, venta: filaReembolso };
+    return { ok: true, venta: filaReembolso, vencimiento };
   });
 
   // Correo de confirmación al cliente, con el mismo criterio que el ticket de
