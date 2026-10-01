@@ -39,7 +39,7 @@ export function textoPedirTamano(intro: string): string {
     lineas.push(`   _${TAMANO_EJEMPLOS[t]}_`);
     lineas.push(``);
   });
-  lineas.push(`Responde con el número o la letra (ej. *2* o *M*).`);
+  lineas.push(`Responda con el número o la letra (ej. *2* o *M*).`);
   return lineas.join("\n");
 }
 
@@ -60,8 +60,8 @@ export function textoPrecios(p: PreciosPublicos, tamano: TamanoVehiculo, intro: 
 
   lineas.push(`🚗 *Lavado Full Túnel*`);
   lineas.push(`${fmtCLP(p.lavadoUnico.precio)} — pago único, sin plan`);
-  lineas.push(`Aspira Autoservicio todo el tiempo que quieras`);
-  lineas.push(`No necesitas reservar, solo llegar y pasar.`, ``);
+  lineas.push(`Aspire Autoservicio todo el tiempo que quiera`);
+  lineas.push(`No necesita reservar, solo llegar y pasar.`, ``);
 
   lineas.push(`⭐ *Plan X5*`);
   // Mismo criterio que la card de la landing: el precio que se muestra grande
@@ -76,7 +76,7 @@ export function textoPrecios(p: PreciosPublicos, tamano: TamanoVehiculo, intro: 
 
   lineas.push(`🎟️ *Pack de ${p.tickets.cantidadMinima} Tickets o más*`);
   lineas.push(`${fmtCLP(p.tickets.precioBase)} (${fmtCLP(p.tickets.precioUnitario)} c/u) · válido ${p.tickets.vigenciaDias} días`);
-  lineas.push(`Para usar en cualquier patente, o las que tú digas — control total de tus tickets y reportes de uso.`, ``);
+  lineas.push(`Para usar en cualquier patente, o las que usted indique — control total de sus tickets y reportes de uso.`, ``);
 
   if (p.servicios.length) {
     lineas.push(`✨ *Servicios de Detailing*`);
@@ -96,6 +96,6 @@ export function textoPrecios(p: PreciosPublicos, tamano: TamanoVehiculo, intro: 
     }
   }
 
-  lineas.push(`Escribe *menu* para volver a las opciones.`);
+  lineas.push(`Escriba *menu* para volver a las opciones.`);
   return lineas.join("\n");
 }

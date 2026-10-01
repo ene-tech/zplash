@@ -15,7 +15,7 @@ import type { PlantillaWhatsapp, TextosBotWhatsapp } from "@/types";
 export const TEXTOS_BOT_WHATSAPP_DEFAULT: TextosBotWhatsapp = {
   menuPrincipal: `¡Hola! 👋 Soy el asistente de ZPlash.
 
-Elige una opción escribiendo el número, o envía tu *patente* para consultar tu plan:
+Elija una opción escribiendo el número, o envíe su *patente* para consultar su plan:
 
 1️⃣ Precios y Servicios
 2️⃣ Quiero contratar el plan
@@ -24,32 +24,32 @@ Elige una opción escribiendo el número, o envía tu *patente* para consultar t
 5️⃣ Quiero un descuento para mi primera vez
 6️⃣ Dejar mi opinión del lavado
 
-Ejemplo: escribe *AB1234* para ver el estado de tu plan.`,
+Ejemplo: escriba *AB1234* para ver el estado de su plan.`,
 
   textoPreciosIntro: `💰 *Precios*`,
 
-  textoPreciosPedirTamano: `Para cotizarte bien, primero dime el tamaño de tu vehículo 🚙`,
+  textoPreciosPedirTamano: `Para cotizarle bien, primero indíqueme el tamaño de su vehículo 🚙`,
 
-  textoPreciosTamanoInvalido: `No reconocí ese tamaño 🤔 Responde con el número (1 a 4) o la letra (S, M, L, XL). También puedes escribir *menu* para volver.`,
+  textoPreciosTamanoInvalido: `No reconocí ese tamaño 🤔 Responda con el número (1 a 4) o la letra (S, M, L, XL). También puede escribir *menu* para volver.`,
 
   textoContratarPlan: `🚗 *Plan X5 Full Túnel*
 
-Puedes contratarlo directamente en el local, o desde este link:
+Puede contratarlo directamente en el local, o desde este link:
 https://zplash.cl/servicios/plan-mensual`,
 
   textoInfoPlan: `🚗 *Plan X5 Full Túnel*
 
 ✅ *5 lavados Full Túnel* al mes (máximo 1 cada 24 horas)
 🧹 *Aspiradoras* de autoservicio sin límite de tiempo después de cada lavado
-💧 Si usas los 5, cada lavado extra te sale *$3.990*
+💧 Si usa los 5, cada lavado extra le sale *$3.990*
 
-Queda con cobro automático mensual y lo das de baja cuando quieras desde Mi Cuenta.`,
+Queda con cobro automático mensual y lo da de baja cuando quiera desde Mi Cuenta.`,
 
-  textoQr: `El QR te lo mostramos en caja cuando vengas 😊 Lo escaneas con tu celular y pagas con tu tarjeta ahí mismo.
+  textoQr: `El QR se lo mostramos en caja cuando venga 😊 Lo escanea con su celular y paga con su tarjeta ahí mismo.
 
-Si prefieres hacerlo antes, lo puedes pagar online.`,
+Si prefiere hacerlo antes, lo puede pagar online.`,
 
-  textoCambioAuto: `¡Gracias por avisarnos! 🙌 Envíanos la *patente de tu auto actual* y te dejamos la promo cargada en ella. Te confirmamos por aquí apenas quede lista 😊`,
+  textoCambioAuto: `¡Gracias por avisarnos! 🙌 Envíenos la *patente de su auto actual* y le dejamos la promo cargada en ella. Le confirmamos por aquí apenas quede lista 😊`,
 
   horarioUbicacion: `📍 *Ubicación*
 Prieto Norte 71, Temuco
@@ -62,33 +62,33 @@ Abierto todos los días
 Lunes a viernes: 08:30 - 20:00
 Sábado, domingo y festivos: 10:00 - 19:00`,
 
-  contactoHumano: `Un miembro de nuestro equipo te va a contactar por este mismo WhatsApp. También puedes llamar al +56 9 3905 9611.`,
+  contactoHumano: `Un miembro de nuestro equipo le escribirá por este mismo WhatsApp. También puede llamar al +56 9 3905 9611.`,
 
-  patenteNoEncontrada: `No encontramos ningún cliente con esa patente. Verifica que esté bien escrita (ej. AB1234) o escribe *4* para hablar con una persona.`,
+  patenteNoEncontrada: `No encontramos ningún cliente con esa patente. Verifique que esté bien escrita (ej. AB1234) o escriba *4* para hablar con una persona.`,
 
-  textoDescuentoInstrucciones: `🎉 ¡Bienvenido a ZPlash!
+  textoDescuentoInstrucciones: `🎉 ¡Le damos la bienvenida a ZPlash!
 
-Por tu primera vez te regalamos {{monto}} de descuento en tu lavado, válido por {{dias}} días.
+Por su primera vez le regalamos {{monto}} de descuento en su lavado, válido por {{dias}} días.
 
-Para generar tu código, dime primero tu *nombre completo*.`,
+Para generar su código, indíqueme primero su *nombre completo*.`,
 
-  textoDescuentoPedirNombre: `Para generar tu código de descuento, dime tu *nombre completo*.`,
+  textoDescuentoPedirNombre: `Para generar su código de descuento, indíqueme su *nombre completo*.`,
 
-  textoDescuentoPedirPatente: `Gracias 🙌 Ahora dime la *patente* de tu vehículo (ej. AB1234).`,
+  textoDescuentoPedirPatente: `Gracias 🙌 Ahora indíqueme la *patente* de su vehículo (ej. AB1234).`,
 
-  textoDescuentoPedirMail: `Perfecto. Por último, déjame tu *correo electrónico* para enviarte el código.`,
+  textoDescuentoPedirMail: `Perfecto. Por último, déjeme su *correo electrónico* para enviarle el código.`,
 
-  textoDescuentoMailInvalido: `Ese correo no parece válido. Escríbelo de nuevo (ej. nombre@correo.com).`,
+  textoDescuentoMailInvalido: `Ese correo no parece válido. Escríbalo de nuevo (ej. nombre@correo.com).`,
 
-  textoDescuentoYaCliente: `Ya eres cliente ZPlash 🙌 Este descuento es solo para quienes nunca han venido. Escribe *1* para ver nuestros precios.`,
+  textoDescuentoYaCliente: `Usted ya es cliente ZPlash 🙌 Este descuento es solo para quienes nunca han venido. Escriba *1* para ver nuestros precios.`,
 
-  textoDescuentoPatenteInvalida: `No reconocí esa patente. Escríbela de nuevo, por ejemplo: *AB1234*`,
+  textoDescuentoPatenteInvalida: `No reconocí esa patente. Escríbala de nuevo, por ejemplo: *AB1234*`,
 
-  textoDescuentoConfirmacion: `🎉 ¡Listo! Tu código de descuento es *{{codigo}}*
+  textoDescuentoConfirmacion: `🎉 ¡Listo! Su código de descuento es *{{codigo}}*
 
-Vale {{monto}} de descuento en tu próximo lavado. Válido hasta el {{fecha}}.
+Vale {{monto}} de descuento en su próximo lavado. Válido hasta el {{fecha}}.
 
-Muéstralo en el local al momento de pagar.`,
+Muéstrelo en el local al momento de pagar.`,
 
   patenteEstadoEncabezado: `🚗 *{{patente}}* — {{nombre}}`,
   patenteEstadoPlan: `Plan: {{plan}}`,
@@ -101,40 +101,40 @@ Muéstralo en el local al momento de pagar.`,
   // del cliente ya puesta cuando la conversación está enlazada a su ficha
   // (ver textoContratarPlan en @/lib/whatsapp/router). Al vencido —que es
   // justo al que se quiere recuperar— se le da el camino corto.
-  patenteEstadoAvisoVencido: `Tu plan no está vigente. Escribe *2* para renovarlo.`,
-  patenteEstadoCambioInvitacion: `✏️ ¿Cambiaste de vehículo? Escribe *cambio de patente* para actualizar tu patente registrada.`,
+  patenteEstadoAvisoVencido: `Su plan no está vigente. Escriba *2* para renovarlo.`,
+  patenteEstadoCambioInvitacion: `✏️ ¿Cambió de vehículo? Escriba *cambio de patente* para actualizar su patente registrada.`,
 
-  textoCambioPatenteSinCliente: `Primero envía tu patente actual para identificar tu cuenta, y luego escribe *cambio de patente*.`,
+  textoCambioPatenteSinCliente: `Primero envíe su patente actual para identificar su cuenta, y luego escriba *cambio de patente*.`,
 
-  textoCambioPatentePedirNueva: `Escríbeme la *patente nueva* de tu vehículo (ej. AB1234).`,
+  textoCambioPatentePedirNueva: `Escríbame la *patente nueva* de su vehículo (ej. AB1234).`,
 
-  textoCambioPatenteInvalida: `No reconocí esa patente. Escríbela de nuevo (ej. AB1234), o escribe *cancelar* para salir.`,
+  textoCambioPatenteInvalida: `No reconocí esa patente. Escríbala de nuevo (ej. AB1234), o escriba *cancelar* para salir.`,
 
-  textoCambioPatenteEsLaMisma: `Esa ya es tu patente registrada. Escribe otra, o *cancelar* para salir.`,
+  textoCambioPatenteEsLaMisma: `Esa ya es su patente registrada. Escriba otra, o *cancelar* para salir.`,
 
-  textoCambioPatenteYaExiste: `Ya hay un vehículo registrado con esa patente. Si crees que es un error, escribe *4* para hablar con una persona.`,
+  textoCambioPatenteYaExiste: `Ya hay un vehículo registrado con esa patente. Si cree que es un error, escriba *4* para hablar con una persona.`,
 
-  textoCambioPatenteConfirmacion: `✅ Listo, registramos tu solicitud para cambiar tu patente a *{{patente}}*. El cambio se aplicará automáticamente cuando termine tu plan actual e inicie el próximo período.`,
+  textoCambioPatenteConfirmacion: `✅ Listo, registramos su solicitud para cambiar su patente a *{{patente}}*. El cambio se aplicará automáticamente cuando termine su plan actual e inicie el próximo período.`,
 
-  textoOpinionPedirNota: `¿Cómo estuvo tu lavado? 🚗✨
+  textoOpinionPedirNota: `¿Cómo estuvo su lavado? 🚗✨
 
-Ponnos una nota del *1 al 7*. Responde solo con el número.`,
+Pónganos una nota del *1 al 7*. Responda solo con el número.`,
 
-  textoOpinionNotaInvalida: `Necesito un número del *1 al 7* (por ejemplo: *6*). También puedes escribir *menu* para volver.`,
+  textoOpinionNotaInvalida: `Necesito un número del *1 al 7* (por ejemplo: *6*). También puede escribir *menu* para volver.`,
 
   // El link de reseña hay que pegarlo en Web Settings → Menú Bot WhatsApp:
   // sale del perfil de Google Business del local ("Pedir reseñas" → copiar
   // enlace). Mientras diga CAMBIAR-ESTE-LINK el link manda a una página rota.
-  textoOpinionGracias: `¡Gracias por tu nota! 🙌 Nos alegra que te haya gustado.
+  textoOpinionGracias: `¡Gracias por su nota! 🙌 Nos alegra que le haya gustado.
 
-¿Nos ayudas con una reseña en Google? Nos sirve muchísimo:
+¿Nos ayuda con una reseña en Google? Nos sirve muchísimo:
 https://g.page/r/Cf5mvoMcBDUjEAE/review`,
 
-  textoOpinionPedirComentario: `Gracias por la nota, y perdona que no diéramos el ancho 🙏
+  textoOpinionPedirComentario: `Gracias por la nota, y disculpe que no diéramos el ancho 🙏
 
-¿Qué salió mal? Cuéntame en un mensaje y lo revisamos.`,
+¿Qué salió mal? Cuéntenos en un mensaje y lo revisamos.`,
 
-  textoOpinionGraciasReclamo: `Gracias por contarnos 🙏 Ya le avisamos al equipo y alguien te va a escribir por acá.`,
+  textoOpinionGraciasReclamo: `Gracias por contarnos 🙏 Ya le avisamos al equipo y alguien le va a escribir por acá.`,
 };
 
 /** Desde qué nota (escala 1-7) una opinión se considera buena: cierra

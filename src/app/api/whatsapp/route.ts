@@ -177,7 +177,7 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
     respuesta = await responderMensaje(textoEntrante, telefono, conversacion);
   } catch (error) {
     console.error("Error respondiendo mensaje de WhatsApp", error);
-    respuesta = { texto: "Ocurrió un error de nuestro lado. Intenta de nuevo en unos minutos." };
+    respuesta = { texto: "Ocurrió un error de nuestro lado. Intente de nuevo en unos minutos." };
   }
 
   // El router devuelve null cuando no hay nada que decir (un emoji suelto, un

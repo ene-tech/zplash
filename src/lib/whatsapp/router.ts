@@ -94,7 +94,7 @@ async function textoContratarPlan(conversacion: ConversacionWhatsapp, texto: str
   const [cliente] = await getClientesByIds([conversacion.clienteId]);
   if (!cliente?.patente) return { texto };
   const url = `https://zplash.cl/pagar?item=plan&patente=${encodeURIComponent(cliente.patente)}`;
-  return { texto: `${texto}\n\nO contrátalo directo para tu patente *${cliente.patente}*:\n${url}` };
+  return { texto: `${texto}\n\nO contrátelo directo para su patente *${cliente.patente}*:\n${url}` };
 }
 
 async function existeClienteConPatente(patente: string): Promise<boolean> {
