@@ -68,7 +68,7 @@ vi.mock("./aplicarPagoAprobado", () => ({
 }));
 vi.mock("./cuponPlan", () => ({ buscarCuponDescuentoPlan: () => Promise.resolve(null) }));
 
-import { cobrarSuscripcion, proximoCicloISO } from "./cobrarSuscripcion";
+import { cobrarSuscripcion, inicioCicloCobrado, proximoCicloISO } from "./cobrarSuscripcion";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const suscripcion = { id: "s1", patente: "AB1234", username: "AB1234", tbkUser: "tbk1", proximoCobro: "2026-09-01T00:00:00.000Z", clienteId: null } as any;
@@ -287,5 +287,22 @@ describe("precio del cliente rescatado", () => {
     respuestas = [precios, [{ id: "c1", precioPlanHeredado: null, plan: PLAN_X5, aceptoX5En: null }], []];
     await cobrarSuscripcion(suscripcion, { sinCliente });
     expect(pagosAplicados).toEqual([expect.objectContaining({ monto: 19990 })]);
+  });
+});
+
+describe("inicioCicloCobrado", () => {
+  const ahora = new Date("2026-09-20T13:00:00.000Z");
+
+  // JWCY71: upgrade aprobado el 9-sep, renovación con fecha 20-sep. El
+  // aprobado es anterior a la fecha de cobro, así que no frena la renovación.
+  it("fecha de cobro vencida -> el ciclo arranca en esa fecha", () => {
+    expect(inicioCicloCobrado("2026-09-18T15:00:00.000Z", ahora)).toBe("2026-09-18T15:00:00.000Z");
+  });
+
+  it("fecha reciente, futura o vacía -> al menos las últimas 24h", () => {
+    const haceUnDia = "2026-09-19T13:00:00.000Z";
+    expect(inicioCicloCobrado("2026-09-20T10:00:00.000Z", ahora)).toBe(haceUnDia);
+    expect(inicioCicloCobrado("2026-10-20T00:00:00.000Z", ahora)).toBe(haceUnDia);
+    expect(inicioCicloCobrado(null, ahora)).toBe(haceUnDia);
   });
 });

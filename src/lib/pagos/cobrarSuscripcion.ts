@@ -1,6 +1,6 @@
 import "server-only";
 import { TransactionDetail } from "transbank-sdk";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
@@ -38,6 +38,18 @@ export function proximoReintentoISO(actual: string | null): string {
   const manana = new Date(Date.now() + 23 * 60 * 60 * 1000);
   const d = actual ? new Date(actual) : null;
   return (d && !isNaN(d.getTime()) && d < manana ? d : manana).toISOString();
+}
+
+/** Desde cuándo un cobro "aprobada" cuenta como pago del ciclo que se va a
+ * cobrar: desde la fecha de cobro (`proximoCobro`, la que trae el llamador, no
+ * la releída — tras un aprobado esa ya saltó al mes siguiente), y como mínimo
+ * las últimas 24h, para que un doble clic del operador o un cobro anticipado
+ * recién hecho no salgan dos veces. Un aprobado anterior a la fecha de cobro
+ * (ej. un upgrade a mitad de mes) pagó el ciclo anterior y no frena este. */
+export function inicioCicloCobrado(proximoCobro: string | null, ahora = new Date()): string {
+  const haceUnDia = new Date(ahora.getTime() - 24 * 60 * 60 * 1000);
+  const fecha = proximoCobro ? new Date(proximoCobro) : null;
+  return (fecha && !isNaN(fecha.getTime()) && fecha < haceUnDia ? fecha : haceUnDia).toISOString();
 }
 
 type SuscripcionOneclick = typeof suscripcionesOneclick.$inferSelect;
@@ -203,10 +215,21 @@ export async function cobrarSuscripcion(
     // una segunda llamada llega hasta acá la primera ya terminó del todo (no
     // solo insertó su fila de reserva), así que este chequeo ve el resultado
     // real del intento anterior.
+    //
+    // El ciclo se cuenta desde la fecha de cobro, no por mes calendario (ver
+    // inicioCicloCobrado): con `cicloYm` un upgrade cobrado el 9-sep frenaba
+    // la renovación que vencía el 20-sep hasta el 1-oct (sep-2026: 17
+    // renovaciones esperando, JWCY71 11 días vencido).
     const [yaAprobado] = await tx
       .select({ id: cobrosOneclick.id })
       .from(cobrosOneclick)
-      .where(and(eq(cobrosOneclick.suscripcionId, suscripcion.id), eq(cobrosOneclick.cicloYm, cicloYm), eq(cobrosOneclick.estado, "aprobada")))
+      .where(
+        and(
+          eq(cobrosOneclick.suscripcionId, suscripcion.id),
+          gte(cobrosOneclick.creadoEn, inicioCicloCobrado(suscripcion.proximoCobro)),
+          eq(cobrosOneclick.estado, "aprobada")
+        )
+      )
       .limit(1);
     if (yaAprobado) {
       throw new Error("Este ciclo ya fue cobrado");
