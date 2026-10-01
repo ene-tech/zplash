@@ -15,6 +15,53 @@ import { usePushSubscription } from "@/hooks/usePushSubscription";
 import type { Cliente, ConversacionWhatsapp, MensajeWhatsapp } from "@/types";
 import { ArrowLeft, Bell, MessageCircle, Send } from "lucide-react";
 
+const NOMBRE_ADJUNTO: Record<string, string> = { image: "Foto", sticker: "Sticker", audio: "Audio", video: "Video", document: "Documento" };
+
+// Lo que no es texto llega guardado como "[tipo:id]" (ver textoNoTexto en
+// @/app/api/whatsapp/route) y las plantillas como "[Plantilla: nombre]",
+// porque Meta no devuelve el texto final; se muestra el cuerpo de la
+// plantilla de Web Settings, con las {{variables}} sin rellenar. Los
+// mensajes anteriores al 1-oct-2026 quedaron como "[image]" sin id.
+function ContenidoMensaje({ texto, plantillas }: { texto: string; plantillas: Map<string, string> }) {
+  const plantilla = /^\[Plantilla: (.+)\]$/.exec(texto)?.[1];
+  if (plantilla) {
+    const cuerpo = plantillas.get(plantilla);
+    return (
+      <>
+        <span className="block text-[10px] uppercase tracking-wide opacity-70">Plantilla · {plantilla}</span>
+        {cuerpo ?? texto}
+      </>
+    );
+  }
+  const adjunto = /^\[(image|sticker|audio|video|document|reaction)(?::([^\]]*))?\]\n?([\s\S]*)$/.exec(texto);
+  if (!adjunto) return <>{texto}</>;
+  const [, tipo, ref, pie] = adjunto;
+  if (tipo === "reaction") return <span className="text-2xl">{ref || "Reacción"}</span>;
+  const src = ref ? `/api/whatsapp/media/${ref}` : undefined;
+  const nombre = NOMBRE_ADJUNTO[tipo] || tipo;
+  return (
+    <>
+      {!src ? (
+        <span className="italic opacity-70">{nombre} (no se guardó el archivo)</span>
+      ) : tipo === "image" || tipo === "sticker" ? (
+        <a href={src} target="_blank" rel="noopener noreferrer">
+          {/* eslint-disable-next-line @next/next/no-img-element -- viene de un proxy privado, no pasa por next/image */}
+          <img src={src} alt={nombre} className={tipo === "sticker" ? "size-32" : "max-h-72 rounded-md"} />
+        </a>
+      ) : tipo === "audio" ? (
+        <audio controls src={src} className="max-w-full" />
+      ) : tipo === "video" ? (
+        <video controls src={src} className="max-h-72 rounded-md" />
+      ) : (
+        <a href={src} target="_blank" rel="noopener noreferrer" className="underline">
+          {nombre}
+        </a>
+      )}
+      {pie && <span className="mt-1 block">{pie}</span>}
+    </>
+  );
+}
+
 function textoDiagnosticoPush(diag: Awaited<ReturnType<typeof probarPushGerencia>>): string {
   if (!diag.vapidConfigurado) return "Falta configurar VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY en Vercel (producción).";
   if (!diag.gerenciaExiste) return "No existe un perfil llamado exactamente \"Gerencia\" en la base de datos.";
@@ -68,6 +115,10 @@ export default function MensajesView() {
   // son 2000+ clientes.
   const clientesPorTelefono = useMemo(() => indexarClientesPorTelefono(data.clientes), [data.clientes]);
   const clientesPorId = useMemo(() => new Map(data.clientes.map((c) => [c.id, c])), [data.clientes]);
+  const plantillasPorNombre = useMemo(
+    () => new Map(data.plantillasWhatsapp.filter((p) => p.metaNombre).map((p) => [p.metaNombre!, p.mensaje])),
+    [data.plantillasWhatsapp]
+  );
   const fichasDe = (c: ConversacionWhatsapp): Cliente[] => {
     const porTelefono = clientesPorTelefono.get(formatTelefono(c.telefono)) ?? [];
     if (porTelefono.length) return porTelefono;
@@ -246,7 +297,9 @@ export default function MensajesView() {
                               align={saliente ? "end" : "start"}
                               variant={fallido ? "destructive" : saliente ? "default" : "muted"}
                             >
-                              <BubbleContent className="whitespace-pre-wrap">{m.texto}</BubbleContent>
+                              <BubbleContent className="whitespace-pre-wrap">
+                                <ContenidoMensaje texto={m.texto} plantillas={plantillasPorNombre} />
+                              </BubbleContent>
                               {i === grupo.length - 1 && (
                                 <span
                                   className="px-1 text-[10px] text-muted-foreground group-data-[align=end]/bubble:self-end"

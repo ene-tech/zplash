@@ -46,7 +46,25 @@ type MetaMensaje = {
   id: string;
   type: string;
   text?: { body?: string };
+  reaction?: { emoji?: string };
+  image?: MetaMedia;
+  sticker?: MetaMedia;
+  audio?: MetaMedia;
+  video?: MetaMedia;
+  document?: MetaMedia;
 };
+type MetaMedia = { id?: string; caption?: string };
+
+// Lo que no es texto se guarda como "[tipo]" (el agente y ultimoEntrante
+// leen ese prefijo como "no es una pregunta"), con el id del archivo y el
+// emoji pegados para que el chat de MensajesView pueda mostrarlos: la foto
+// la baja /api/whatsapp/media/[id]. El pie de foto va en la línea siguiente.
+function textoNoTexto(msg: MetaMensaje): string {
+  if (msg.type === "reaction") return `[reaction:${msg.reaction?.emoji || ""}]`;
+  const media = msg[msg.type as "image" | "sticker" | "audio" | "video" | "document"] as MetaMedia | undefined;
+  if (!media?.id) return `[${msg.type}]`;
+  return `[${msg.type}:${media.id}]` + (media.caption ? `\n${media.caption}` : "");
+}
 
 type MetaStatus = {
   id: string;
@@ -113,7 +131,7 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
     id: uid(),
     conversacionId: conversacion.id,
     direccion: "entrante",
-    texto: textoEntrante || `[${msg.type}]`,
+    texto: textoEntrante || textoNoTexto(msg),
     tipo: "texto",
     whatsappMessageId: msg.id,
   });
