@@ -120,7 +120,8 @@ async function fichaVehiculo(c: Cliente) {
     db
       .select({ estado: suscripcionesOneclick.estado })
       .from(suscripcionesOneclick)
-      .where(eq(suscripcionesOneclick.clienteId, c.id))
+      // Por patente, como el resto de la app: cliente_id nunca se llena.
+      .where(eq(suscripcionesOneclick.patente, c.patente))
       .orderBy(desc(suscripcionesOneclick.creadoEn))
       .limit(1),
   ]);
