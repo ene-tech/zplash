@@ -3,6 +3,7 @@ import "server-only";
 import { listarReglasWhatsappActivas, marcarDisparoReglaWhatsapp, registrarDisparoReglaWhatsapp } from "@/lib/dataAccess/whatsapp";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { LAVADO_UNICO_KEY, mesKey, uid } from "@/lib/helpers";
+import { saltarInvitacionReferidos } from "@/lib/referidos";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
 
@@ -26,6 +27,9 @@ async function dispararPorVenta(regla: ReglaWhatsapp, venta: Venta): Promise<voi
   const cliente = await buscarCliente(venta.clienteId);
   const precioUpgrade =
     cliente && venta.tipo === LAVADO_UNICO_KEY ? (await calcularOfertasPlanDeCliente(cliente)).upgrade?.precio : undefined;
+  // Antes de registrar el disparo: así no queda marcado y la regla sigue
+  // normal para esta persona cuando termina la pausa.
+  if (cliente && saltarInvitacionReferidos(regla.plantillaWhatsappId, cliente.creadoEn)) return;
 
   const delayDias = regla.delayDias || 0;
   const enviarEn = new Date(Date.now() + delayDias * MS_POR_DIA).toISOString();
@@ -113,6 +117,7 @@ export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promis
 
     for (const regla of reglas) {
       if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(cliente.plan)) continue;
+      if (saltarInvitacionReferidos(regla.plantillaWhatsappId, cliente.creadoEn)) continue;
       const disparo = await registrarDisparoReglaWhatsapp({
         id: uid(),
         reglaId: regla.id,
@@ -131,6 +136,9 @@ export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promis
 
     for (const regla of reglasPrimerIngresoMes) {
       if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(cliente.plan)) continue;
+      // Sin disparo registrado: el mes sigue "sin primer ingreso" para esta
+      // regla y la invitación sale en su próxima visita después de la pausa.
+      if (saltarInvitacionReferidos(regla.plantillaWhatsappId, cliente.creadoEn)) continue;
       const disparo = await registrarDisparoReglaWhatsapp({
         id: uid(),
         reglaId: regla.id,

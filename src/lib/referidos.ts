@@ -16,6 +16,29 @@ const PREFIJO_PREMIO = "Premio referido - ";
 /** Plantilla del WhatsApp "te ganaste tu premio" que manda /api/referidos/premiar. */
 export const PLANTILLA_WHATSAPP_PREMIO_REFERIDO = "wa-premio-referido";
 
+/** Plantilla de la invitación a referir que mandan las reglas (lavado único y plan). */
+export const PLANTILLA_WHATSAPP_INVITACION_REFERIDOS = "wa-lavado-unico-referidos";
+
+// La campaña masiva "Regala y Gana" (2-oct-2026, ~18:00 Chile) llegó a toda la
+// base: hasta el lunes 5-oct 00:00 Chile la invitación de las reglas sale solo
+// a clientes NUEVOS (ficha creada después de la campaña). Se apaga sola.
+// ponytail: fechas fijas a propósito; borrar esto (y sus dos llamadas en
+// @/lib/whatsapp/reglas/disparadores) después del 5-oct.
+const CAMPANA_REFERIDOS_EN = new Date("2026-10-02T21:00:00Z");
+const PAUSA_REFERIDOS_HASTA = new Date("2026-10-05T03:00:00Z");
+
+export function saltarInvitacionReferidos(
+  plantillaWhatsappId: string | undefined,
+  clienteCreadoEn: string,
+  ahora: Date = new Date()
+): boolean {
+  return (
+    plantillaWhatsappId === PLANTILLA_WHATSAPP_INVITACION_REFERIDOS &&
+    ahora < PAUSA_REFERIDOS_HASTA &&
+    new Date(clienteCreadoEn) < CAMPANA_REFERIDOS_EN
+  );
+}
+
 export function loteReferido(patenteReferidor: string): string {
   return PREFIJO_REFERIDO + patenteReferidor;
 }
