@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
 import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtHorasVentanaUpgradePlan, ilimitadoVencido, requiereValidacionX5 } from "@/lib/helpers";
 import { aceptarPasoAX5 } from "@/lib/serverActions/clientes";
@@ -74,6 +76,17 @@ type Props = Pick<
   | "cuponDescuentoSoloWeb"
   | "precioPlanWeb"
   | "precioAdicional"
+  | "planVigente"
+  | "estadoIngreso"
+  | "pContratacion"
+  | "contratarPlan"
+  | "precioLavadoUnicoFinal"
+  | "registrarPagado"
+  | "cobrarLavadoUnico"
+  | "precioPromo2"
+  | "cobrarPromo2Lavados"
+  | "precioQrTarjeta"
+  | "perfilId"
 >;
 
 // Las distintas "ofertas" que el Operador puede ver sobre un cliente
@@ -100,8 +113,14 @@ export default function OperadorFoundOfertas(props: Props) {
   // el que vence antes primero. El `?? []` es para los tests, que montan el
   // componente con las props justas de cada tarjeta.
   const tickets = props.ticketsPatente ?? [];
+  // Sin plan vigente se le ofrecen las opciones del mesón (plan nuevo, QR,
+  // lavados). Con la venta de upgrade a mano el "plan nuevo" sería el mismo
+  // botón que la tarjeta de upgrade (contratarPlan delega en upgradeAPlan).
+  const sinPlan = props.planVigente === false;
+  const sinIngreso = props.planVigente && (props.estadoIngreso === "sin_pases" || props.estadoIngreso === "bloqueado");
   return (
     <>
+      {/* Ingresos ya pagados: no son venta, van antes que las opciones. */}
       {tickets.length > 0 && (
         <div className="offer-card">
           <div className="offer-head">
@@ -117,26 +136,6 @@ export default function OperadorFoundOfertas(props: Props) {
           <button className="btn secondary" onClick={() => props.usarTicket(tickets[0])} disabled={guardando}>
             Usar 1 ticket e ingresar
           </button>
-        </div>
-      )}
-      {props.cuponDescuentoSoloWeb && (
-        <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">Web</span>
-            <h4>Promoción especial contratando por la web</h4>
-          </div>
-          <div className="msg">
-            Cuéntaselo antes de cobrarle: {c.nombre} tiene {fmtDescuento(props.cuponDescuentoSoloWeb)} de descuento{" "}
-            <b>solo si contrata por la web</b> — acá no se puede aplicar. Entrando a su cuenta en la web con su patente{" "}
-            <span className="plate-tag">{c.patente}</span> el descuento ya le sale restado del precio, sin necesidad de
-            código. Válido hasta el {new Date(props.cuponDescuentoSoloWeb.fechaCaducidad).toLocaleDateString("es-CL")}.
-          </div>
-          {!!props.precioPlanWeb && (
-            <div className="price-row">
-              <span className="new">{fmtCLP(props.precioPlanWeb)}</span>
-              <span className="save">total pagando por la web</span>
-            </div>
-          )}
         </div>
       )}
       {props.citaDetailingPendiente && (
@@ -169,204 +168,349 @@ export default function OperadorFoundOfertas(props: Props) {
           </button>
         </div>
       )}
-      {props.showOffer && (
-        <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">{props.hayPromoRenovacion ? "Oferta" : "Recordatorio"}</span>
-            <h4>
-              {props.st.diasRestantes === undefined
-                ? "Renovación anticipada disponible"
-                : "Plan por vencer en " +
-                  (props.st.diasRestantes <= 0
-                    ? "hoy"
-                    : props.st.diasRestantes + " día" + (props.st.diasRestantes === 1 ? "" : "s"))}
-            </h4>
-          </div>
-          {props.hayPromoRenovacion ? (
-            <>
-              <div className="msg">
-                Ofrécele a {c.nombre} renovar su {c.plan} ahora mismo a precio preferencial.
-              </div>
-              <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
-              <div className="price-row">
-                <span className="old">{fmtCLP(props.pNormal)}</span>
-                <span className="new">{fmtCLP(props.pPromo)}</span>
-                <span className="save">Ahorra {fmtCLP(props.ahorro)}</span>
-              </div>
-              <button className="btn secondary" onClick={conAceptacion(props.renovar)} disabled={guardando}>
-                {rotulo("Renovar plan")} a precio preferencial
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="msg">
-                {c.nombre} no tiene promoción de renovación vigente (ver Configuración → Precios de planes), pero
-                igual puedes renovarle su {c.plan} ahora al precio normal.
-              </div>
-              <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
-              {/* pPromo, no pNormal: `renovar` cobra pPromo (ver
-                  usePlanActions), que acá NO es igual a pNormal — trae el
-                  cupón de descuento aplicado, y si el admin dejó un tramo por
-                  encima del preferencial el ahorro sale negativo y también cae
-                  en esta rama. Pintar pNormal anunciaba un precio y cobraba
-                  otro. */}
-              <div className="price-row">
-                <span className="new">{fmtCLP(props.pPromo)}</span>
-              </div>
-              <button className="btn secondary" onClick={conAceptacion(props.renovar)} disabled={guardando}>
-                {rotulo("Renovar plan")} ({fmtCLP(props.pPromo)})
-              </button>
-            </>
-          )}
-        </div>
-      )}
-      {props.showRenovacionSoloWeb && (
-        <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">Promoción online</span>
-            <h4>Renovación anticipada solo online</h4>
-          </div>
-          <div className="msg">
-            {c.nombre} puede renovar su {c.plan} antes de que venza a un precio preferencial disponible{" "}
-            <b>solo online</b> — no se puede cobrar acá. Menciónaselo: entrando a su cuenta en la web con su patente lo
-            renueva al tiro a ese precio, sin perder los días que le quedan.
-          </div>
-          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} lead="Cuéntale:" />
-          <div className="price-row">
-            <span className="old">{fmtCLP(props.pNormal)}</span>
-            <span className="new">{fmtCLP(props.pPromoWeb!)}</span>
-            <span className="save">solo por la web</span>
-          </div>
-        </div>
-      )}
-      {props.showReactivacion && (
-        <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">Promoción</span>
-            <h4>
-              Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
-            </h4>
-          </div>
-          <div className="msg">
-            Ofrécele a {c.nombre} activar el {PLANES[0]} ahora mismo a precio preferencial.
-          </div>
-          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
-          <div className="price-row">
-            <span className="new">{fmtCLP(props.precioReactivacion!)}</span>
-          </div>
-          {props.pNormal > 0 && (
-            <div style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-              Aclárale que es solo por este primer mes: la próxima renovación vale {fmtCLP(props.pNormal)} pagándola
-              antes del vencimiento.
+      {/* Todo lo que se le puede vender, en una sola lista numerada (ver
+          .opciones-venta en globals.css) para recorrerla con el cliente. */}
+      <div className="opciones-venta">
+        <div className="opciones-venta-head">Opciones para ofrecerle a {c.nombre || "el cliente"}</div>
+        {props.cuponDescuentoSoloWeb && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Web</span>
+              <h4>Promoción especial contratando por la web</h4>
             </div>
-          )}
-          <button className="btn secondary" onClick={conAceptacion(props.reactivar)} disabled={guardando}>
-            {rotulo("Reactivar plan")} a precio preferencial ({fmtCLP(props.precioReactivacion!)})
-          </button>
-        </div>
-      )}
-      {props.showReactivacionSoloWeb && (
-        <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">Promoción online</span>
-            <h4>
-              Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
-            </h4>
-          </div>
-          <div className="msg">
-            {c.nombre} tiene una promoción para reactivar su {c.plan} disponible <b>solo online</b> — no se puede cobrar
-            acá. Menciónasela: entrando a su cuenta en la web con su patente puede reactivarlo al tiro a ese precio, solo
-            por este primer mes
-            {props.pNormal > 0 && <> — después su renovación vale {fmtCLP(props.pNormal)} pagándola antes del vencimiento</>}.
-          </div>
-          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} lead="Cuéntale:" />
-          <div className="price-row">
-            <span className="new">{fmtCLP(props.precioReactivacionWeb!)}</span>
-            <span className="save">solo por la web</span>
-          </div>
-        </div>
-      )}
-      {props.showPagoAtrasado && (
-        <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">Plan vencido</span>
-            <h4>
-              Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
-            </h4>
-          </div>
-          {ilimitadoVencido(c) ? (
             <div className="msg">
-              {c.nombre} venía del {c.plan}, que no se renueva atrasado: se le cobra el {PLANES[0]} como plan nuevo, al
-              mismo precio que si hubiera pagado a tiempo, y su ciclo arranca de nuevo hoy.
+              Cuéntaselo antes de cobrarle: {c.nombre} tiene {fmtDescuento(props.cuponDescuentoSoloWeb)} de descuento{" "}
+              <b>solo si contrata por la web</b> — acá no se puede aplicar. Entrando a su cuenta en la web con su patente{" "}
+              <span className="plate-tag">{c.patente}</span> el descuento ya le sale restado del precio, sin necesidad de
+              código. Válido hasta el {new Date(props.cuponDescuentoSoloWeb.fechaCaducidad).toLocaleDateString("es-CL")}.
             </div>
-          ) : (
+            {!!props.precioPlanWeb && (
+              <div className="price-row">
+                <span className="new">{fmtCLP(props.precioPlanWeb)}</span>
+                <span className="save">total pagando por la web</span>
+              </div>
+            )}
+          </div>
+        )}
+        {props.cuponDescuentoVigente && (
+          <div className="offer-card nota">
+            <div className="offer-head">
+              <span className="badge">Descuento</span>
+              <h4>Descuento vigente para este vehículo</h4>
+            </div>
             <div className="msg">
-              {c.nombre} todavía está dentro del plazo para pagarlo atrasado: se le cobra su {c.plan} al mismo precio que
-              si hubiera pagado a tiempo y mantiene su fecha de vencimiento — el ciclo sigue corriendo desde donde
-              estaba, no arranca de nuevo hoy.
+              {c.nombre} tiene un descuento de {fmtDescuento(props.cuponDescuentoVigente)} en el Lavado Full Túnel o en
+              cualquier plan, válido hasta el{" "}
+              {new Date(props.cuponDescuentoVigente.fechaCaducidad).toLocaleDateString("es-CL")}. Ya está
+              restado en los precios de esta pantalla y se gasta con el primer cobro, sin necesidad de código.
             </div>
-          )}
-          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
-          <div className="price-row">
-            {props.pNormal > props.precioAtrasado && <span className="old">{fmtCLP(props.pNormal)}</span>}
-            <span className="new">{fmtCLP(props.precioAtrasado)}</span>
           </div>
-          <button className="btn secondary" onClick={conAceptacion(props.pagarAtrasado)} disabled={guardando}>
-            {rotulo("Pagar plan atrasado")} ({fmtCLP(props.precioAtrasado)})
-          </button>
-        </div>
-      )}
-      {props.esWebVencido && props.precioAtrasado > 0 && !props.showReactivacion && !props.showReactivacionSoloWeb && (
-        <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">Cliente Web</span>
-            <h4>No renovó automáticamente</h4>
+        )}
+        {props.showOffer && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">{props.hayPromoRenovacion ? "Oferta" : "Recordatorio"}</span>
+              <h4>
+                {props.st.diasRestantes === undefined
+                  ? "Renovación anticipada disponible"
+                  : "Plan por vencer en " +
+                    (props.st.diasRestantes <= 0
+                      ? "hoy"
+                      : props.st.diasRestantes + " día" + (props.st.diasRestantes === 1 ? "" : "s"))}
+              </h4>
+            </div>
+            {props.hayPromoRenovacion ? (
+              <>
+                <div className="msg">
+                  Ofrécele a {c.nombre} renovar su {c.plan} ahora mismo a precio preferencial.
+                </div>
+                <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
+                <div className="price-row">
+                  <span className="old">{fmtCLP(props.pNormal)}</span>
+                  <span className="new">{fmtCLP(props.pPromo)}</span>
+                  <span className="save">Ahorra {fmtCLP(props.ahorro)}</span>
+                </div>
+                <button className="btn secondary" onClick={conAceptacion(props.renovar)} disabled={guardando}>
+                  {rotulo("Renovar plan")} a precio preferencial
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="msg">
+                  {c.nombre} no tiene promoción de renovación vigente (ver Configuración → Precios de planes), pero
+                  igual puedes renovarle su {c.plan} ahora al precio normal.
+                </div>
+                <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
+                {/* pPromo, no pNormal: `renovar` cobra pPromo (ver
+                    usePlanActions), que acá NO es igual a pNormal — trae el
+                    cupón de descuento aplicado, y si el admin dejó un tramo por
+                    encima del preferencial el ahorro sale negativo y también cae
+                    en esta rama. Pintar pNormal anunciaba un precio y cobraba
+                    otro. */}
+                <div className="price-row">
+                  <span className="new">{fmtCLP(props.pPromo)}</span>
+                </div>
+                <button className="btn secondary" onClick={conAceptacion(props.renovar)} disabled={guardando}>
+                  {rotulo("Renovar plan")} ({fmtCLP(props.pPromo)})
+                </button>
+              </>
+            )}
           </div>
-          <div className="msg">
-            El pago automático de {c.nombre} falló y su plan quedó vencido. Puedes cobrarle el {PLANES[0]} acá mismo,
-            al mismo precio que le sale pagándolo por la web.
+        )}
+        {props.showRenovacionSoloWeb && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Promoción online</span>
+              <h4>Renovación anticipada solo online</h4>
+            </div>
+            <div className="msg">
+              {c.nombre} puede renovar su {c.plan} antes de que venza a un precio preferencial disponible{" "}
+              <b>solo online</b> — no se puede cobrar acá. Menciónaselo: entrando a su cuenta en la web con su patente lo
+              renueva al tiro a ese precio, sin perder los días que le quedan.
+            </div>
+            <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} lead="Cuéntale:" />
+            <div className="price-row">
+              <span className="old">{fmtCLP(props.pNormal)}</span>
+              <span className="new">{fmtCLP(props.pPromoWeb!)}</span>
+              <span className="save">solo por la web</span>
+            </div>
           </div>
-          <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
-          <div className="price-row">
-            <span className="new">{fmtCLP(props.precioAtrasado)}</span>
+        )}
+        {props.showReactivacion && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Promoción</span>
+              <h4>
+                Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
+              </h4>
+            </div>
+            <div className="msg">
+              Ofrécele a {c.nombre} activar el {PLANES[0]} ahora mismo a precio preferencial.
+            </div>
+            <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioReactivacion!)}</span>
+            </div>
+            {props.pNormal > 0 && (
+              <div style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+                Aclárale que es solo por este primer mes: la próxima renovación vale {fmtCLP(props.pNormal)} pagándola
+                antes del vencimiento.
+              </div>
+            )}
+            <button className="btn secondary" onClick={conAceptacion(props.reactivar)} disabled={guardando}>
+              {rotulo("Reactivar plan")} a precio preferencial ({fmtCLP(props.precioReactivacion!)})
+            </button>
           </div>
-          <button className="btn secondary" onClick={conAceptacion(props.renovarWeb)} disabled={guardando}>
-            Cobrar {PLANES[0]} ({fmtCLP(props.precioAtrasado)})
-          </button>
-        </div>
-      )}
-      {props.ventaUpgrade && (
-        <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">Promoción</span>
-            <h4>¿Lo pasamos al Plan X5?</h4>
+        )}
+        {props.showReactivacionSoloWeb && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Promoción online</span>
+              <h4>
+                Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
+              </h4>
+            </div>
+            <div className="msg">
+              {c.nombre} tiene una promoción para reactivar su {c.plan} disponible <b>solo online</b> — no se puede cobrar
+              acá. Menciónasela: entrando a su cuenta en la web con su patente puede reactivarlo al tiro a ese precio, solo
+              por este primer mes
+              {props.pNormal > 0 && <> — después su renovación vale {fmtCLP(props.pNormal)} pagándola antes del vencimiento</>}.
+            </div>
+            <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} lead="Cuéntale:" />
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioReactivacionWeb!)}</span>
+              <span className="save">solo por la web</span>
+            </div>
           </div>
-          <div className="msg">
-            {c.nombre} pagó un lavado único hace menos de {fmtHorasVentanaUpgradePlan(props.horasVentanaUpgrade)}. Ofrécele
-            quedar con el {PLANES[0]} este primer mes pagando solo el adicional.
+        )}
+        {props.showPagoAtrasado && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Plan vencido</span>
+              <h4>
+                Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
+              </h4>
+            </div>
+            {ilimitadoVencido(c) ? (
+              <div className="msg">
+                {c.nombre} venía del {c.plan}, que no se renueva atrasado: se le cobra el {PLANES[0]} como plan nuevo, al
+                mismo precio que si hubiera pagado a tiempo, y su ciclo arranca de nuevo hoy.
+              </div>
+            ) : (
+              <div className="msg">
+                {c.nombre} todavía está dentro del plazo para pagarlo atrasado: se le cobra su {c.plan} al mismo precio que
+                si hubiera pagado a tiempo y mantiene su fecha de vencimiento — el ciclo sigue corriendo desde donde
+                estaba, no arranca de nuevo hoy.
+              </div>
+            )}
+            <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
+            <div className="price-row">
+              {props.pNormal > props.precioAtrasado && <span className="old">{fmtCLP(props.pNormal)}</span>}
+              <span className="new">{fmtCLP(props.precioAtrasado)}</span>
+            </div>
+            <button className="btn secondary" onClick={conAceptacion(props.pagarAtrasado)} disabled={guardando}>
+              {rotulo("Pagar plan atrasado")} ({fmtCLP(props.precioAtrasado)})
+            </button>
           </div>
-          <div className="price-row">
-            <span className="new">+{fmtCLP(props.precioUpgrade)}</span>
+        )}
+        {props.esWebVencido && props.precioAtrasado > 0 && !props.showReactivacion && !props.showReactivacionSoloWeb && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Cliente Web</span>
+              <h4>No renovó automáticamente</h4>
+            </div>
+            <div className="msg">
+              El pago automático de {c.nombre} falló y su plan quedó vencido. Puedes cobrarle el {PLANES[0]} acá mismo,
+              al mismo precio que le sale pagándolo por la web.
+            </div>
+            <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioAtrasado)}</span>
+            </div>
+            <button className="btn secondary" onClick={conAceptacion(props.renovarWeb)} disabled={guardando}>
+              Cobrar {PLANES[0]} ({fmtCLP(props.precioAtrasado)})
+            </button>
           </div>
-          <button className="btn secondary" onClick={props.upgradeAPlan}>
-            Upgrade a {PLANES[0]} (+{fmtCLP(props.precioUpgrade)})
-          </button>
-        </div>
-      )}
-      {props.cuponDescuentoVigente && (
-        <div className="offer-card">
-          <div className="offer-head">
-            <span className="badge">Descuento</span>
-            <h4>Descuento vigente para este vehículo</h4>
+        )}
+        {props.ventaUpgrade && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Promoción</span>
+              <h4>¿Lo pasamos al Plan X5?</h4>
+            </div>
+            <div className="msg">
+              {c.nombre} pagó un lavado único hace menos de {fmtHorasVentanaUpgradePlan(props.horasVentanaUpgrade)}. Ofrécele
+              quedar con el {PLANES[0]} este primer mes pagando solo el adicional.
+            </div>
+            <div className="price-row">
+              <span className="new">+{fmtCLP(props.precioUpgrade)}</span>
+            </div>
+            <button className="btn secondary" onClick={props.upgradeAPlan}>
+              Upgrade a {PLANES[0]} (+{fmtCLP(props.precioUpgrade)})
+            </button>
           </div>
-          <div className="msg">
-            {c.nombre} tiene un descuento de {fmtDescuento(props.cuponDescuentoVigente)} en el Lavado Full Túnel o en
-            cualquier plan, válido hasta el{" "}
-            {new Date(props.cuponDescuentoVigente.fechaCaducidad).toLocaleDateString("es-CL")}. Ya está
-            restado en los precios de esta pantalla y se gasta con el primer cobro, sin necesidad de código.
+        )}
+        {sinPlan && !props.ventaUpgrade && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Plan</span>
+              <h4>Contratar {PLANES[0]}</h4>
+            </div>
+            <div className="msg">Plan nuevo pagado acá, en el mesón.</div>
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.pContratacion)}</span>
+            </div>
+            <button className="btn secondary" onClick={() => props.contratarPlan()} disabled={guardando}>
+              Contratar plan nuevo ({fmtCLP(props.pContratacion)})
+            </button>
           </div>
-        </div>
-      )}
+        )}
+        {sinPlan && props.precioQrTarjeta && (
+          <QrPlanConTarjeta patente={c.patente} precio={props.precioQrTarjeta} perfilId={props.perfilId} />
+        )}
+        {sinPlan && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Lavado</span>
+              <h4>Lavado Full Túnel</h4>
+            </div>
+            <div className="msg">Un lavado, sin plan.</div>
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioLavadoUnicoFinal)}</span>
+            </div>
+            <button className="btn secondary" onClick={props.registrarPagado} disabled={guardando}>
+              Cobrar Lavado Full Túnel ({fmtCLP(props.precioLavadoUnicoFinal)})
+            </button>
+          </div>
+        )}
+        {sinPlan && props.precioPromo2 > 0 && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Lavado</span>
+              <h4>Promo 2 lavados</h4>
+            </div>
+            <div className="msg">Pasa ahora y le queda 1 lavado para después.</div>
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioPromo2)}</span>
+            </div>
+            <button className="btn secondary" onClick={props.cobrarPromo2Lavados} disabled={guardando}>
+              Cobrar Promo 2 lavados ({fmtCLP(props.precioPromo2)})
+            </button>
+          </div>
+        )}
+        {sinIngreso && (
+          <div className="offer-card">
+            <div className="offer-head">
+              <span className="badge">Lavado</span>
+              <h4>{props.estadoIngreso === "sin_pases" ? "Lavado adicional" : "Lavado aparte del plan"}</h4>
+            </div>
+            <div className="msg">Hoy no puede entrar con su plan (ver la ficha abajo). Puede pagar un lavado e ingresar igual.</div>
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioLavadoUnicoFinal)}</span>
+            </div>
+            <button className="btn secondary" onClick={props.cobrarLavadoUnico} disabled={guardando}>
+              Comprar lavado por {fmtCLP(props.precioLavadoUnicoFinal)} e ingresar
+            </button>
+          </div>
+        )}
+      </div>
     </>
+  );
+}
+
+// Oneclick exige que el titular tipee la tarjeta en Transbank: el mesón no la
+// puede inscribir por él. Lo más cerca es que el cliente escanee esto y pague
+// el plan en su celular, parado acá — es el mismo link del bot de WhatsApp
+// (ver lib/whatsapp/router.ts), con la patente ya puesta, y deja la
+// renovación automática andando.
+function QrPlanConTarjeta({
+  patente,
+  precio,
+  perfilId,
+}: {
+  patente: string;
+  precio: { primerCobro: number; mensual: number };
+  perfilId?: string;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const conPromo = precio.primerCobro !== precio.mensual;
+  const monto = `${fmtCLP(precio.primerCobro)}${conPromo ? " el primer mes" : "/mes"}`;
+  // op = quién mostró el QR, para atribuirle la venta (ver operadorQr en
+  // /api/pagos/oneclick/inscribir, que lo valida contra los perfiles).
+  const url =
+    `${window.location.origin}/pagar?item=plan&patente=${encodeURIComponent(patente)}` +
+    (perfilId ? `&op=${encodeURIComponent(perfilId)}` : "");
+  return (
+    <div className="offer-card">
+      <div className="offer-head">
+        <span className="badge">Tarjeta</span>
+        <h4>{PLANES[0]} con cobro automático desde su celular</h4>
+      </div>
+      <div className="msg">
+        {conPromo && <>Desde el próximo mes, {fmtCLP(precio.mensual)}/mes automático. </>}
+        Que el cliente escanee el QR con la cámara, ponga su correo y pague con su tarjeta. <b>No le cobres acá</b>: el
+        plan queda pagado y se le renueva solo cada mes.
+      </div>
+      <div className="price-row">
+        <span className="new">{monto}</span>
+      </div>
+      {abierto && (
+        <div style={{ textAlign: "center", marginBottom: 12 }}>
+          <div
+            style={{
+              background: "#fff",
+              padding: 12,
+              borderRadius: 8,
+              display: "inline-block",
+            }}
+          >
+            <QRCodeSVG value={url} size={200} />
+          </div>
+        </div>
+      )}
+      <button className="btn secondary" onClick={() => setAbierto(!abierto)}>
+        {abierto ? "Cerrar QR" : "Mostrar QR para pagar con tarjeta"}
+      </button>
+    </div>
   );
 }

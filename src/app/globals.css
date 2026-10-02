@@ -2631,3 +2631,26 @@ tr:hover td {
     height: 58px;
   }
 }
+
+/* Operador: todas las opciones de venta del cliente encontrado en una sola
+   lista numerada (OperadorFoundOfertas). .nota = aviso sin número. Si no hay
+   ninguna tarjeta, el título no se muestra. */
+.opciones-venta {
+  counter-reset: opcion;
+}
+.opciones-venta:not(:has(.offer-card)) {
+  display: none;
+}
+.opciones-venta-head {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray);
+  margin-bottom: 10px;
+}
+.opciones-venta .offer-card:not(.nota) h4::before {
+  counter-increment: opcion;
+  content: counter(opcion) ". ";
+  color: var(--gold);
+}

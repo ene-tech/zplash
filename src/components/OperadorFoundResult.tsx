@@ -1,10 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { useRef } from "react";
 import {
   esNombreVacio,
-  fmtCLP,
   fmtTelefono,
   isValidTelefono,
   mensajeBloqueoReingreso,
@@ -168,99 +166,27 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
             }
           />
         </DetailList>
+        {/* Las opciones de cobro (lavado, plan, QR) están todas en la lista
+            numerada de arriba (OperadorFoundOfertas); acá solo el porqué. */}
         {r.planVigente && r.estadoIngreso === "sin_pases" ? (
-          <>
-            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
-              {mensajeSinPases(c)}
-            </div>
-            <button className="btn secondary" style={{ marginTop: 8 }} onClick={r.cobrarLavadoUnico} disabled={guardando}>
-              Comprar lavado adicional por {fmtCLP(r.precioLavadoUnicoFinal)} e ingresar de todas formas
-            </button>
-          </>
+          <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
+            {mensajeSinPases(c)} Para que ingrese igual, usa la opción de lavado de arriba.
+          </div>
         ) : r.planVigente && r.estadoIngreso === "bloqueado" ? (
-          <>
-            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
-              {mensajeBloqueoReingreso(data.ingresos, c.id, r.horasBloqueoReingreso)}
-            </div>
-            <button className="btn secondary" style={{ marginTop: 8 }} onClick={r.cobrarLavadoUnico} disabled={guardando}>
-              Comprar lavado por {fmtCLP(r.precioLavadoUnicoFinal)} e ingresar de todas formas
-            </button>
-          </>
+          <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
+            {mensajeBloqueoReingreso(data.ingresos, c.id, r.horasBloqueoReingreso)} Para que ingrese igual, usa la
+            opción de lavado de arriba.
+          </div>
         ) : r.planVigente ? (
           <button className="btn" style={{ marginTop: 16 }} onClick={r.registrar} disabled={guardando}>
             {guardando ? "Guardando…" : "Registrar ingreso"}
           </button>
         ) : (
-          <>
-            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
-              Este cliente no tiene un plan vigente. Elige el tipo de lavado:
-            </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-              <button className="btn" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.contratarPlan} disabled={guardando}>
-                {r.ventaUpgrade
-                  ? `Contratar plan nuevo (+${fmtCLP(r.precioUpgrade)} sobre el lavado ya pagado)`
-                  : `Contratar plan nuevo (${fmtCLP(r.pContratacion)})`}
-              </button>
-              <button className="btn secondary" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.registrarPagado} disabled={guardando}>
-                Lavado Full Túnel ({fmtCLP(r.precioLavadoUnicoFinal)})
-              </button>
-              {r.precioPromo2 > 0 && (
-                <button className="btn secondary" style={{ marginTop: 0, flex: "1 1 160px" }} onClick={r.cobrarPromo2Lavados} disabled={guardando}>
-                  Promo 2 lavados ({fmtCLP(r.precioPromo2)}) — pasa ahora y le queda 1
-                </button>
-              )}
-            </div>
-            <QrPlanConTarjeta patente={c.patente} precio={r.precioQrTarjeta} perfilId={r.perfilId} />
-          </>
+          <div className="hint" style={{ textAlign: "left", color: "var(--gray)", marginTop: 16 }}>
+            Este cliente no tiene un plan vigente. Elige una de las opciones de arriba.
+          </div>
         )}
       </div>
     </>
-  );
-}
-
-// Oneclick exige que el titular tipee la tarjeta en Transbank: el mesón no la
-// puede inscribir por él. Lo más cerca es que el cliente escanee esto y pague
-// el plan en su celular, parado acá — es el mismo link del bot de WhatsApp
-// (ver lib/whatsapp/router.ts), con la patente ya puesta, y deja la
-// renovación automática andando.
-function QrPlanConTarjeta({
-  patente,
-  precio,
-  perfilId,
-}: {
-  patente: string;
-  precio: { primerCobro: number; mensual: number };
-  perfilId?: string;
-}) {
-  const [abierto, setAbierto] = useState(false);
-  const conPromo = precio.primerCobro !== precio.mensual;
-  const monto = `${fmtCLP(precio.primerCobro)}${conPromo ? " el primer mes" : "/mes"}`;
-  if (!abierto) {
-    return (
-      <button className="btn secondary" style={{ marginTop: 10 }} onClick={() => setAbierto(true)}>
-        Pagar con tarjeta desde su celular — {monto} (queda automático)
-      </button>
-    );
-  }
-  // op = quién mostró el QR, para atribuirle la venta (ver operadorQr en
-  // /api/pagos/oneclick/inscribir, que lo valida contra los perfiles).
-  const url =
-    `${window.location.origin}/pagar?item=plan&patente=${encodeURIComponent(patente)}` +
-    (perfilId ? `&op=${encodeURIComponent(perfilId)}` : "");
-  return (
-    <div className="offer-card" style={{ marginTop: 10, textAlign: "center" }}>
-      <div style={{ background: "#fff", padding: 12, borderRadius: 8, display: "inline-block" }}>
-        <QRCodeSVG value={url} size={200} />
-      </div>
-      <div className="msg" style={{ marginTop: 8 }}>
-        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{monto}</div>
-        {conPromo && <div>Desde el próximo mes, {fmtCLP(precio.mensual)}/mes automático.</div>}
-        Que el cliente lo escanee con la cámara, ponga su correo y pague con su tarjeta. <b>No le cobres acá</b>: el plan
-        queda pagado y se le renueva solo cada mes.
-      </div>
-      <button className="btn secondary" onClick={() => setAbierto(false)}>
-        Cerrar
-      </button>
-    </div>
   );
 }
