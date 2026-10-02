@@ -38,6 +38,10 @@ describe("OperadorFoundOfertas — orden", () => {
     expect(lavado).toBeGreaterThan(-1);
     expect(lavado).toBeLessThan(promo2);
     expect(promo2).toBeLessThan(plan);
+    const vip = html.indexOf("Promociones exclusivas cliente VIP");
+    expect(html).toContain("<span>MARCOS VALERIA</span>");
+    expect(vip).toBeGreaterThan(lavado);
+    expect(vip).toBeLessThan(promo2);
   });
 });
 

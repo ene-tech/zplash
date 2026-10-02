@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
 import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtHorasVentanaUpgradePlan, ilimitadoVencido, requiereValidacionX5 } from "@/lib/helpers";
@@ -444,7 +444,18 @@ export default function OperadorFoundOfertas(props: Props) {
         )
           .filter(([, el]) => el)
           .sort(([a], [b]) => (a ?? 0) - (b ?? 0))
-          .map(([, el]) => el)}
+          // Lo que viene después del lavado suelto son las promociones.
+          .flatMap(([, el], i, todas) =>
+            (el as ReactElement).key === "lavado" && i < todas.length - 1
+              ? [
+                  el,
+                  <div key="vip" className="titulo-vip">
+                    Promociones exclusivas cliente VIP
+                    <span>{c.nombre}</span>
+                  </div>,
+                ]
+              : [el]
+          )}
       </div>
     </div>
   );

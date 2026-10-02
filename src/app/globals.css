@@ -2649,6 +2649,25 @@ tr:hover td {
   border: 2px solid #e0a800;
   color: #1a1815;
 }
+/* Separa el lavado suelto de las promociones: tiene que leerse de lejos y al sol. */
+.titulo-vip {
+  margin: 28px 0 18px;
+  padding-bottom: 12px;
+  border-bottom: 3px solid var(--gold);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  color: var(--gold);
+}
+.titulo-vip span {
+  display: block;
+  margin-top: 4px;
+  font-size: 28px;
+  color: var(--white);
+}
 /* Botón negro relleno con letra dorada: se distingue del texto de la tarjeta. */
 .ofertas-operador .offer-card .btn {
   background: #1a1815;
