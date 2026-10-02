@@ -112,6 +112,15 @@ export function construirVariables(opts: {
   };
 }
 
+// Monto del programa de referidos para la plantilla que lo pide (si no, no se
+// lee la config). Lo usan las reglas (ejecutarAccionRegla) y el envío masivo
+// (@/lib/whatsapp/masivo), que arman sus variables por separado.
+export async function descuentoReferidoSiLoPide(plantilla: PlantillaWhatsapp): Promise<number | undefined> {
+  return plantilla.metaVariables?.some((v) => v.toLowerCase() === "descuentoreferido")
+    ? (await getConfig()).descuentoReferidoValor
+    : undefined;
+}
+
 // Arma el preview (aplicarVariables sobre plantilla.mensaje, informativo en
 // logs si algo falla) y el envío real vía enviarMensajePlantilla, que exige
 // metaNombre — sin eso la plantilla sigue siendo solo un borrador de
@@ -271,9 +280,7 @@ export async function ejecutarAccionRegla(
     }
   }
 
-  const descuentoReferido = plantilla.metaVariables?.some((v) => v.toLowerCase() === "descuentoreferido")
-    ? (await getConfig()).descuentoReferidoValor
-    : undefined;
+  const descuentoReferido = await descuentoReferidoSiLoPide(plantilla);
   const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior, precioUpgrade, descuentoReferido, cupon });
 
   // Con PUSH_FALLBACK_A_WHATSAPP="true" (opt-in, ver plan de la PWA), si el

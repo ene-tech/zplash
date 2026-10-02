@@ -3,7 +3,7 @@ import "server-only";
 import { getClientesByIds, obtenerPlantillaWhatsapp, upsertCupones } from "@/lib/dataAccess";
 import { isValidTelefono, montoDescuento } from "@/lib/helpers";
 import type { AccionReglaWhatsapp, Cupon, ResultadoEnvioMasivoWhatsapp } from "@/types";
-import { construirVariables, crearCuponDescuento, enviarSegunPlantilla, generarCodigosCuponUnicos } from "./reglas";
+import { construirVariables, crearCuponDescuento, descuentoReferidoSiLoPide, enviarSegunPlantilla, generarCodigosCuponUnicos } from "./reglas";
 
 // Envío manual a un grupo de clientes elegido a mano en el momento (Web
 // Settings → Mensajes Únicos), para situaciones puntuales que no ameritan una
@@ -50,6 +50,7 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
   }
 
   const resultado: ResultadoEnvioMasivoWhatsapp = { total: clientesEncontrados.length, enviados: 0, fallidos: 0, sinTelefono: 0 };
+  const descuentoReferido = await descuentoReferidoSiLoPide(plantilla);
   const enviadoPor = opts.enviadoPor || "mensajes-masivos";
 
   // Cupones (si corresponde) se generan y guardan en un solo lote antes de
@@ -120,6 +121,7 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
       montoDescuento: montoDescuentoPesos,
       montoAPagar: montoAPagarPesos,
       diasValidez: cupon ? opts.cuponValidezDias ?? 7 : opts.diasValidez,
+      descuentoReferido,
     });
     const mensaje = await enviarSegunPlantilla(plantilla, cliente.telefono, variables, enviadoPor).catch((error) => {
       console.error(`Error en envío masivo de WhatsApp a cliente ${cliente.id}`, error);
