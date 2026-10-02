@@ -1,12 +1,12 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
-import { and, asc, desc, eq, gte, lt, lte, notLike } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, lt, lte, notLike, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, ingresos, mensajesWhatsapp, plantillasWhatsapp, suscripcionesOneclick } from "@/db/schema";
+import { clientes, cupones, ingresos, mensajesWhatsapp, plantillasWhatsapp, suscripcionesOneclick } from "@/db/schema";
 import { getConfig } from "@/lib/dataAccess/config";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
-import { fmtCLP, fmtFecha, isValidPatente, normPlate, pasesIncluidos, periodoPlan, planStatus, planVigente } from "@/lib/helpers";
+import { PROMO_2_LAVADOS_KEY, fmtCLP, fmtFecha, isValidPatente, normPlate, pasesIncluidos, periodoPlan, planStatus, planVigente } from "@/lib/helpers";
 import { cotizarPlanWeb } from "@/lib/pagos";
 import { POLITICAS } from "@/lib/politicas";
 // Sin la caché de Next (getPreciosPublicos): el agente también corre en el
@@ -115,7 +115,7 @@ async function fichaVehiculo(c: Cliente) {
   const db = getDb();
   const estado = planStatus(c);
   const plan = c.plan ? planVigente(c) : null;
-  const [cotizacion, [suscripcion]] = await Promise.all([
+  const [cotizacion, [suscripcion], tickets] = await Promise.all([
     cotizarPlanWeb(c, db),
     db
       .select({ estado: suscripcionesOneclick.estado })
@@ -124,6 +124,23 @@ async function fichaVehiculo(c: Cliente) {
       .where(eq(suscripcionesOneclick.patente, c.patente))
       .orderBy(desc(suscripcionesOneclick.creadoEn))
       .limit(1),
+    // Tickets de lavado gratis de esta patente: los asignados (ej. Promo
+    // Reactivación) y los de la Promo 2 Lavados, mismo criterio que Mi Cuenta.
+    // Sin esto el agente decía "no tiene código" a quien sí tenía uno.
+    db
+      .select({ codigo: cupones.codigo, fechaCaducidad: cupones.fechaCaducidad })
+      .from(cupones)
+      .where(
+        and(
+          eq(cupones.tipo, "vale"),
+          eq(cupones.usado, false),
+          gt(cupones.fechaCaducidad, new Date().toISOString()),
+          or(
+            eq(cupones.patenteAsignada, c.patente),
+            and(eq(cupones.nombreLote, PROMO_2_LAVADOS_KEY), sql`${cupones.patentesAutorizadas} ? ${c.patente}`)
+          )
+        )
+      ),
   ]);
 
   const cupon = cotizacion.cupon;
@@ -158,6 +175,9 @@ async function fichaVehiculo(c: Cliente) {
           : (suscripcion?.estado ?? "no inscrito"),
     cuponVigente: cupon
       ? `${cupon.esPorcentaje ? `${cupon.valor}%` : fmtCLP(cupon.valor)} de descuento, vence ${fmtFecha(cupon.fechaCaducidad)}, se aplica solo al pagar el plan con tarjeta (link o QR en caja)`
+      : "ninguno",
+    ticketsLavadoGratis: tickets.length
+      ? tickets.map((t) => `código ${t.codigo}, vence ${fmtFecha(t.fechaCaducidad)}`)
       : "ninguno",
     pagandoConTarjetaAutomatico: `${fmtCLP(primerCobro)} el primer mes, después ${fmtCLP(cotizacion.precioAutoMensual)} al mes automático`,
     motivoDelPrecio:
@@ -217,6 +237,7 @@ Resolver lo que el cliente pregunta y, cuando tenga sentido, ayudarlo a contrata
 - En el local: en caja le muestran un código QR que abre ese mismo link; lo paga con su tarjeta desde su celular ahí mismo.
 - El Plan Ilimitado antiguo ya no se vende. Si el cliente lo tenía y está vencido, explícale su situación y ofrécele el Plan X5 con su link. Deriva solo si tiene dudas de un cobro o de su suscripción antigua.
 - Los cupones de descuento de las campañas están cargados a la patente y se aplican solos al pagar el plan con tarjeta (link o QR). No se aplican a un lavado suelto ni pagando en efectivo en caja.
+- Los tickets de lavado gratis (ticketsLavadoGratis en consultar_vehiculos) se canjean dando el código en caja, para un lavado de esa patente. Si el cliente pide su código, dáselo tal cual: la herramienta solo muestra los de patentes registradas con su teléfono.
 - El precio exacto de cada cliente (con promociones y cupón) sale de consultar_vehiculos. Nunca calcules ni inventes un precio distinto.
 - Sin una patente cotizada, el Plan X5 se informa "desde" el precio de planPrimera (el que muestra la web) y se pide la patente para el precio exacto. El precio de lista (plan.precio) es pagar un mes en el local sin cobro automático: menciónalo solo si preguntan por esa forma de pago.
 - Nunca sugieras cancelar, dar de baja ni detener un cobro automático. Si el cliente lo pide, explica que se hace desde Mi Cuenta o deriva.
