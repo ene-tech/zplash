@@ -1,19 +1,24 @@
 import "server-only";
 
-import { supabase } from "@/lib/supabase";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
+// Las subidas van con el cliente admin (service role), no con la anon key: la
+// anon key es pública, y con las políticas de INSERT/UPDATE para anon que
+// necesitaba el cliente anterior cualquiera podía pisar los banners de la
+// landing o subir archivos a estos buckets. Ver
+// supabase/storage-sin-escritura-anon-2026-10-02.sql, que las saca. Quién
+// puede subir lo controla el guard de la Server Action (@/lib/serverActions/storage).
 const COMPROBANTES_BUCKET = "comprobantes-gastos";
 
 /** Sube el comprobante (boleta/factura escaneada) de un egreso y devuelve su URL pública, o null si falló. */
 export async function subirComprobanteGasto(id: string, file: File): Promise<string | null> {
   const path = `${id}-${file.name}`;
-  const { error } = await supabase.storage.from(COMPROBANTES_BUCKET).upload(path, file, { upsert: true });
+  const { error } = await getSupabaseAdmin().storage.from(COMPROBANTES_BUCKET).upload(path, file, { upsert: true });
   if (error) {
     console.error("Error subiendo comprobante", error);
     return null;
   }
-  const { data } = supabase.storage.from(COMPROBANTES_BUCKET).getPublicUrl(path);
+  const { data } = getSupabaseAdmin().storage.from(COMPROBANTES_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
 
@@ -22,12 +27,12 @@ const BANNERS_SERVICIOS_BUCKET = "banners-servicios";
 /** Sube la imagen de banner de un servicio (Web Settings) y devuelve su URL pública, o null si falló. */
 export async function subirBannerServicio(servicioId: string, file: File): Promise<string | null> {
   const path = `${servicioId}-${file.name}`;
-  const { error } = await supabase.storage.from(BANNERS_SERVICIOS_BUCKET).upload(path, file, { upsert: true });
+  const { error } = await getSupabaseAdmin().storage.from(BANNERS_SERVICIOS_BUCKET).upload(path, file, { upsert: true });
   if (error) {
     console.error("Error subiendo banner de servicio", error);
     return null;
   }
-  const { data } = supabase.storage.from(BANNERS_SERVICIOS_BUCKET).getPublicUrl(path);
+  const { data } = getSupabaseAdmin().storage.from(BANNERS_SERVICIOS_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
 

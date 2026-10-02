@@ -1,5 +1,6 @@
 export * from "./aplicarPagoAprobado";
 export * from "./aplicarPagoPackEmpresa";
+export * from "./aplicarRetornoWebpay";
 export * from "./aplicarUpgradePlan";
 export * from "./cancelarSuscripcionWooCommerceLegacy";
 export * from "./cobrarOfertaOneclick";

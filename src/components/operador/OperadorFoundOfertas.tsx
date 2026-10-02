@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtHorasVentanaUpgradePlan, ilimitadoVencido, requiereValidacionX5 } from "@/lib/helpers";
 import { aceptarPasoAX5 } from "@/lib/serverActions/clientes";

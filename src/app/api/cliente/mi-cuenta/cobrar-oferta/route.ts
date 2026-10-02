@@ -24,7 +24,7 @@ const TIPOS_VALIDOS = new Set<TipoCobrable>(["renovacion_temprana", "reactivacio
 // tiene tarjeta activa, useOfertaPlan cae de vuelta al flujo de Webpay.
 export async function POST(request: NextRequest) {
   try {
-    if (rateLimited(`cobrar-oferta:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
+    if (await rateLimited(`cobrar-oferta:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 

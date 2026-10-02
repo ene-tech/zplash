@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   if (!origenValido(request)) {
     return NextResponse.json({ ok: false, error: "Origen no permitido" }, { status: 403 });
   }
-  if (rateLimited(`descuento-bienvenida:${clienteIp(request)}`, LIMITE_IP, VENTANA_IP_MS)) {
+  if (await rateLimited(`descuento-bienvenida:${clienteIp(request)}`, LIMITE_IP, VENTANA_IP_MS)) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 

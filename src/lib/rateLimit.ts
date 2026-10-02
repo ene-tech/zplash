@@ -1,16 +1,41 @@
+import { sql } from "drizzle-orm";
 import type { NextRequest } from "next/server";
+import { getDb } from "@/db";
 
 /**
- * Límite de tasa en memoria (por instancia del proceso) usando ventana
- * deslizante. No es un límite global entre instancias serverless, pero
- * alcanza para frenar abuso/costos en una app de bajo tráfico como esta sin
- * depender de un servicio externo (Redis/Upstash). Si el tráfico crece al
- * punto de correr en múltiples instancias concurrentes, conviene migrar a
- * un límite compartido (ej. Upstash Ratelimit).
+ * Límite de tasa compartido entre todas las instancias, en Postgres (tabla
+ * rate_limits, ver supabase/rate-limits-2026-10-02.sql): ventana fija por
+ * clave. Antes vivía solo en memoria, y en Vercel cada instancia serverless
+ * tenía su propio contador, así que los límites de OTP, login y pagos se
+ * multiplicaban por la cantidad de instancias que levantara el tráfico.
+ *
+ * Si la base falla (o la tabla todavía no existe porque el SQL se aplica a
+ * mano después del deploy) cae al límite en memoria de siempre: un rate limit
+ * nunca debería tumbar el login.
  */
+export async function rateLimited(key: string, limite: number, ventanaMs: number): Promise<boolean> {
+  try {
+    // ponytail: las filas no se borran nunca (una por IP/clave); con el
+    // tráfico de un solo local son pocas — agregar un delete de vencidas si
+    // la tabla crece.
+    const [fila] = await getDb().execute<{ golpes: number }>(sql`
+      insert into rate_limits (clave, golpes, reinicia_en)
+      values (${key}, 1, now() + ${ventanaMs} * interval '1 millisecond')
+      on conflict (clave) do update set
+        golpes = case when rate_limits.reinicia_en <= now() then 1 else rate_limits.golpes + 1 end,
+        reinicia_en = case when rate_limits.reinicia_en <= now() then excluded.reinicia_en else rate_limits.reinicia_en end
+      returning golpes`);
+    return Number(fila.golpes) > limite;
+  } catch (error) {
+    console.error("Rate limit en Postgres no disponible, uso el de memoria", error);
+    return rateLimitedEnMemoria(key, limite, ventanaMs);
+  }
+}
+
+/** Respaldo por instancia (ventana deslizante) para cuando la base no responde. */
 const golpes = new Map<string, number[]>();
 
-export function rateLimited(key: string, limite: number, ventanaMs: number): boolean {
+export function rateLimitedEnMemoria(key: string, limite: number, ventanaMs: number): boolean {
   const ahora = Date.now();
   const historial = (golpes.get(key) || []).filter((t) => ahora - t < ventanaMs);
   if (historial.length >= limite) {

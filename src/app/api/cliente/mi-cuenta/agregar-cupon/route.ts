@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   }
   // Un código son 6 caracteres: sin límite, la cuenta sirve de oráculo para
   // adivinar tickets ajenos a fuerza bruta.
-  if (rateLimited(`agregar-cupon:${clienteIp(request)}`, LIMITE_IP, VENTANA_MS)) {
+  if (await rateLimited(`agregar-cupon:${clienteIp(request)}`, LIMITE_IP, VENTANA_MS)) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 

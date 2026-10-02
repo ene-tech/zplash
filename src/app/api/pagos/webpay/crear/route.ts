@@ -116,7 +116,7 @@ async function esPatenteDeLaSesion(patente: string): Promise<boolean> {
 
 export async function POST(request: NextRequest) {
   try {
-    if (rateLimited(`pagos-crear:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
+    if (await rateLimited(`pagos-crear:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 

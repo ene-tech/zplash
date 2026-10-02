@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   if (!origenValido(request)) {
     return NextResponse.json({ ok: false, error: "Origen no permitido" }, { status: 403 });
   }
-  if (rateLimited(`perfiles-crear:${clienteIp(request)}`, LIMITE_INTENTOS, VENTANA_MS)) {
+  if (await rateLimited(`perfiles-crear:${clienteIp(request)}`, LIMITE_INTENTOS, VENTANA_MS)) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 

@@ -123,7 +123,7 @@ function firmaValida(rawBody: string, firma: string | null, secreto: string): bo
 async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string | undefined) {
   const telefono = "+" + msg.from;
 
-  if (rateLimited(`whatsapp:${telefono}`, LIMITE_MENSAJES, VENTANA_MS)) return;
+  if (await rateLimited(`whatsapp:${telefono}`, LIMITE_MENSAJES, VENTANA_MS)) return;
 
   const conversacion = await buscarOCrearConversacion(telefono, nombreContacto);
   const textoEntrante = msg.type === "text" ? msg.text?.body || "" : "";

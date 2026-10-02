@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clienteIp, rateLimited } from "./rateLimit";
+import { clienteIp, rateLimitedEnMemoria as rateLimited } from "./rateLimit";
 
 beforeEach(() => {
   vi.useFakeTimers();

@@ -15,9 +15,10 @@ import type { Modulo } from "@/types";
 // firmar/leer la cookie está en @/lib/auth/cookieFirmada, compartida con la
 // sesión del Portal Cliente.
 //
-// Única excepción: `claveVersion` sí se revalida contra la base de datos
+// Única excepción: `claveVersion` y `modulos` sí se revalidan contra la base
 // (ver sesionVigente más abajo) para poder invalidar una sesión ya emitida
-// cuando la contraseña del perfil cambia, sin esperar a que expire sola.
+// cuando la contraseña del perfil cambia, y para que quitarle un módulo a
+// alguien rija al tiro y no recién cuando expire la cookie (hasta 12h).
 const COOKIE_NAME = "zplash_sesion";
 const DURACION_MS = 12 * 60 * 60 * 1000; // 12h: cubre un turno sin forzar reingresar la clave
 
@@ -56,12 +57,12 @@ async function sesionVigente(): Promise<SesionPayload | null> {
   const sesion = await leerSesion();
   if (!sesion) return null;
   const [fila] = await getDb()
-    .select({ claveVersion: perfiles.claveVersion })
+    .select({ claveVersion: perfiles.claveVersion, modulos: perfiles.modulos })
     .from(perfiles)
     .where(eq(perfiles.id, sesion.id))
     .limit(1);
   if (!fila || fila.claveVersion !== sesion.claveVersion) return null;
-  return sesion;
+  return { ...sesion, modulos: fila.modulos as Modulo[] };
 }
 
 export async function tieneSesionValida(): Promise<boolean> {

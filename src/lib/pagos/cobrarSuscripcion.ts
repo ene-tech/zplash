@@ -1,16 +1,15 @@
 import "server-only";
-import { TransactionDetail } from "transbank-sdk";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
 import { PASES_INCLUIDOS_X5, PLANES, PLAN_ILIMITADO_LEGACY, PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, planTrasRenovacionSinCliente, precioConCupon, precioConHeredado, precioOneclickDelPlan, requiereValidacionX5, sumarMesesFecha } from "@/lib/helpers";
 import { evaluarReglasCorreoPorCobroFallido, evaluarReglasCorreoPorValidacionX5 } from "@/lib/mailing/reglas";
-import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
 import type { Precios } from "@/types";
 import { aplicarPagoAprobado, visitasPeriodoActual } from "./aplicarPagoAprobado";
 import { buscarCuponDescuentoPlan } from "./cuponPlan";
+import { autorizarCobro, reconciliarCobrosEnCurso, reservarCobro, type CobroRecuperado } from "./oneclickCobro";
 
 /** Próximo ciclo mensual a partir de una fecha base, saltando meses ya
  * vencidos (ej. si el cron no corrió por 2 meses) hasta caer en el futuro.
@@ -53,6 +52,48 @@ export function inicioCicloCobrado(proximoCobro: string | null, ahora = new Date
 }
 
 type SuscripcionOneclick = typeof suscripcionesOneclick.$inferSelect;
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+/**
+ * Aplica un cargo que Transbank aprobó en un intento anterior cortado a mitad
+ * de camino (ver reconciliarCobrosEnCurso): es plata ya cobrada, así que se
+ * registra como la renovación que pagó —con el monto que de verdad se cobró—
+ * y el ciclo avanza, en vez de volver a cobrar la tarjeta. Lo usan
+ * cobrarSuscripcion y cobrarOfertaOneclick; a esta altura no se sabe cuál de
+ * los dos lo originó, y las tres ofertas también extienden el plan.
+ */
+export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOneclick, cobro: CobroRecuperado): Promise<void> {
+  let ventaId: string | null = "oc-" + cobro.id;
+  try {
+    await tx.transaction(async (tx2) => {
+      await aplicarPagoAprobado(
+        {
+          patente: suscripcion.patente,
+          monto: cobro.monto,
+          ventaId: ventaId as string,
+          metodoPago: "tarjeta",
+          creadoPor: "Automático (Oneclick, cobro recuperado)",
+          esServicioAdicional: false,
+          tipoVentaNuevo: "Renovación automática (Oneclick)",
+          tipoVentaExistente: "Renovación automática (Oneclick)",
+          email: suscripcion.email,
+        },
+        tx2
+      );
+    });
+  } catch (error) {
+    console.error("Cobro Oneclick recuperado pero no se pudo aplicar en la base — requiere revisión manual", suscripcion.id, cobro.id, error);
+    ventaId = null;
+  }
+  await tx
+    .update(cobrosOneclick)
+    .set({ estado: "aprobada", responseCode: 0, authorizationCode: cobro.authorizationCode, ventaId })
+    .where(eq(cobrosOneclick.id, cobro.id));
+  await tx
+    .update(suscripcionesOneclick)
+    .set({ proximoCobro: proximoCicloISO(suscripcion.proximoCobro), actualizadoEn: new Date().toISOString() })
+    .where(eq(suscripcionesOneclick.id, suscripcion.id));
+}
 
 /**
  * Cobra un ciclo de una suscripción Oneclick activa: usado tanto por el cron
@@ -108,6 +149,14 @@ export async function cobrarSuscripcion(
   // espera acá a que la primera termine de verdad antes de mirar el estado.
   const resultado = await getDb().transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${suscripcion.id}))`);
+    // Antes de todo: un intento anterior cortado a mitad de camino pudo haber
+    // cobrado sin dejar la fila en "aprobada". Si fue así, ESE es el pago de
+    // este ciclo: se aplica y no se vuelve a cobrar.
+    const recuperados = await reconciliarCobrosEnCurso(tx, suscripcion.id);
+    if (recuperados.length) {
+      for (const cobro of recuperados) await aplicarCobroRecuperado(tx, suscripcion, cobro);
+      return { estado: "aprobada" as const, buyOrder: recuperados[0].id, monto: recuperados[0].monto, clienteId: null, esReintento: false };
+    }
 
     // Las dos filas que puede necesitar el monto: la del X5 con renovación
     // automática (la de siempre) y la del ilimitado viejo, para el cliente que
@@ -207,7 +256,6 @@ export async function cobrarSuscripcion(
 
     const buyOrder = "oc" + Date.now().toString(36) + Math.floor(Math.random() * 36).toString(36);
     const cicloYm = mesActualKey();
-    const commerceCode = oneclickChildCommerceCode();
 
     // No bloquea reintentos tras un rechazo (pueden existir varias filas
     // "rechazada" el mismo ciclo) — solo evita cobrar dos veces si este ciclo
@@ -245,70 +293,62 @@ export async function cobrarSuscripcion(
       .limit(1);
     const esReintento = ultimoCobro?.estado === "rechazada";
 
-    await tx.insert(cobrosOneclick).values({ id: buyOrder, suscripcionId: suscripcion.id, cicloYm, monto, estado: "rechazada" });
+    // Reserva con commit propio, fuera de esta transacción (ver reservarCobro).
+    await reservarCobro({ id: buyOrder, suscripcionId: suscripcion.id, cicloYm, monto });
 
     let estado: "aprobada" | "rechazada" = "rechazada";
     let responseCode: number | null = null;
     let authorizationCode: string | null = null;
     let ventaId: string | null = null;
 
-    try {
-      const resultado = await oneclickTransaction().authorize(suscripcion.username, tbkUser, buyOrder, [
-        new TransactionDetail(monto, commerceCode, buyOrder),
-      ]);
-      // A diferencia de Webpay Plus, el resultado no trae response_code/
-      // authorization_code en la raíz: vienen por cada transacción hija dentro
-      // de `details[]` (acá siempre hay una sola, la de ZPlash).
-      const detalle = resultado.details?.[0];
-      responseCode = detalle?.response_code ?? null;
-      authorizationCode = detalle?.authorization_code || null;
+    // Si Transbank no contesta ni el cobro ni la consulta, esto tira y la
+    // reserva queda "en_curso" (ver autorizarCobro).
+    const detalle = await autorizarCobro(suscripcion.username, tbkUser, buyOrder, monto);
+    responseCode = detalle?.response_code ?? null;
+    authorizationCode = detalle?.authorization_code || null;
 
-      if (detalle?.response_code === 0) {
-        estado = "aprobada";
-        ventaId = "oc-" + buyOrder;
-        try {
-          // Savepoint aparte: si esto falla, Transbank ya cobró la tarjeta,
-          // así que NO puede perderse el registro de que el ciclo quedó
-          // "aprobada" (eso volvería a cobrar el mismo mes en el próximo
-          // intento) — solo se revierte la extensión de vencimiento/venta a
-          // medio aplicar, y se deja ventaId en null para que quede marcado
-          // para revisión manual en vez de simular una venta que no cuadra.
-          await tx.transaction(async (tx2) => {
-            await aplicarPagoAprobado(
-              {
-                patente: suscripcion.patente,
-                monto,
-                ventaId: ventaId as string,
-                metodoPago: "tarjeta",
-                creadoPor: "Automático (Oneclick)",
-                esServicioAdicional: false,
-                tipoVentaNuevo: "Renovación automática (Oneclick)",
-                tipoVentaExistente: "Renovación automática (Oneclick)",
-                // El correo con que se inscribió la tarjeta: si este cobro crea
-                // la ficha (primer cobro de una patente nueva), queda de contacto.
-                email: suscripcion.email,
-                cuponCodigo: aplicaCupon ? cupon?.codigo : undefined,
-                // Solo en el automático: ahí el plan sale de la política de
-                // rescate en vez de migrar a ciegas al X5. undefined en los
-                // tres caminos con el cliente delante.
-                pasadasDelCicloSinCliente: pasadasDelCiclo ?? undefined,
-              },
-              tx2
-            );
-          });
-        } catch (errorAplicar) {
-          console.error(
-            "Pago Oneclick aprobado por Transbank pero no se pudo aplicar en la base (cliente sin extender/venta) — requiere revisión manual",
-            suscripcion.id,
-            buyOrder,
-            errorAplicar
+    if (detalle?.response_code === 0) {
+      estado = "aprobada";
+      ventaId = "oc-" + buyOrder;
+      try {
+        // Savepoint aparte: si esto falla, Transbank ya cobró la tarjeta,
+        // así que NO puede perderse el registro de que el ciclo quedó
+        // "aprobada" (eso volvería a cobrar el mismo mes en el próximo
+        // intento) — solo se revierte la extensión de vencimiento/venta a
+        // medio aplicar, y se deja ventaId en null para que quede marcado
+        // para revisión manual en vez de simular una venta que no cuadra.
+        await tx.transaction(async (tx2) => {
+          await aplicarPagoAprobado(
+            {
+              patente: suscripcion.patente,
+              monto,
+              ventaId: ventaId as string,
+              metodoPago: "tarjeta",
+              creadoPor: "Automático (Oneclick)",
+              esServicioAdicional: false,
+              tipoVentaNuevo: "Renovación automática (Oneclick)",
+              tipoVentaExistente: "Renovación automática (Oneclick)",
+              // El correo con que se inscribió la tarjeta: si este cobro crea
+              // la ficha (primer cobro de una patente nueva), queda de contacto.
+              email: suscripcion.email,
+              cuponCodigo: aplicaCupon ? cupon?.codigo : undefined,
+              // Solo en el automático: ahí el plan sale de la política de
+              // rescate en vez de migrar a ciegas al X5. undefined en los
+              // tres caminos con el cliente delante.
+              pasadasDelCicloSinCliente: pasadasDelCiclo ?? undefined,
+            },
+            tx2
           );
-          ventaId = null;
-        }
+        });
+      } catch (errorAplicar) {
+        console.error(
+          "Pago Oneclick aprobado por Transbank pero no se pudo aplicar en la base (cliente sin extender/venta) — requiere revisión manual",
+          suscripcion.id,
+          buyOrder,
+          errorAplicar
+        );
+        ventaId = null;
       }
-    } catch (error) {
-      console.error("Error autorizando cobro Oneclick", suscripcion.id, error);
-      estado = "rechazada";
     }
 
     await tx

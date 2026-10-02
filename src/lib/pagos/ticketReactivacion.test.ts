@@ -53,7 +53,16 @@ describe("otorgarTicketReactivacion", () => {
   });
 
   it("emite un vale abierto que vence al cierre de la campaña y manda el código por correo", async () => {
-    const codigo = await otorgarTicketReactivacion({ patente: "ABCD12", email: "inscripcion@ejemplo.cl", creadoPor: "test" });
+    // Reloj fijo dentro de la campaña: sin esto el test empezó a fallar solo el
+    // día después de FIN_PROMO_TICKET.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(FIN_PROMO_TICKET.getTime() - 7 * 86400000));
+    let codigo: string | null;
+    try {
+      codigo = await otorgarTicketReactivacion({ patente: "ABCD12", email: "inscripcion@ejemplo.cl", creadoPor: "test" });
+    } finally {
+      vi.useRealTimers();
+    }
     const fila = insertados.at(-1)!;
 
     expect(codigo).toHaveLength(6);

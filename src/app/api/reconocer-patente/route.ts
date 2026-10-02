@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normPlate } from "@/lib/helpers";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
+import { tieneSesionValida } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,12 @@ export async function POST(request: NextRequest) {
   // el cliente hace res.json() sobre eso y explota con un error genérico
   // que se confunde con "sin conexión". Acá siempre se devuelve JSON.
   try {
-    if (rateLimited(`reconocer-patente:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
+    // Solo el panel del operador usa esto: sin sesión, cualquiera podía gastar
+    // la cuota pagada de Plate Recognizer desde afuera.
+    if (!(await tieneSesionValida())) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    if (await rateLimited(`reconocer-patente:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 

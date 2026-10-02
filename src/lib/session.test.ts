@@ -3,9 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // session.ts guarda la sesión en una cookie firmada con HMAC (ver comentario
 // al inicio de ese archivo): estos tests solo cubren esa capa criptográfica
 // (firmar/verificar/expirar), que es la que de verdad protege contra
-// forjar o alterar una sesión. sesionVigente()/tieneModulo() también tocan
-// la base de datos (claveVersion) y quedan fuera de esta pasada — mockear
-// @/db introduciría un patrón que hoy no existe en el repo.
+// forjar o alterar una sesión, más el caso de tieneModulo() que lee los
+// módulos de la base y no de la cookie.
 const cookieJar = new Map<string, { value: string }>();
 
 vi.mock("next/headers", () => ({
@@ -80,5 +79,22 @@ describe("cerrarSesion", () => {
     await crearSesion({ ...PERFIL, modulos: [...PERFIL.modulos] });
     await cerrarSesion();
     expect(await leerSesion()).toBeNull();
+  });
+});
+
+describe("tieneModulo", () => {
+  // Los módulos se leen de la base, no de la cookie: quitarle uno a alguien
+  // tiene que regir de inmediato, no cuando expire la sesión (hasta 12h).
+  it("un módulo quitado en la base ya no vale aunque la cookie lo traiga", async () => {
+    vi.doMock("server-only", () => ({}));
+    vi.doMock("@/db", () => ({
+      getDb: () => ({
+        select: () => ({ from: () => ({ where: () => ({ limit: () => Promise.resolve([{ claveVersion: 1, modulos: [] }]) }) }) }),
+      }),
+    }));
+    const { crearSesion, tieneModulo } = await import("./session");
+    await crearSesion({ ...PERFIL, modulos: [...PERFIL.modulos] });
+    expect(await tieneModulo("clientes")).toBe(false);
+    vi.doUnmock("@/db");
   });
 });

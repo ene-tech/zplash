@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   if (!origenValido(request)) {
     return NextResponse.json({ ok: false, error: "Origen no permitido" }, { status: 403 });
   }
-  if (rateLimited(`perfiles-login:${clienteIp(request)}`, LIMITE_INTENTOS, VENTANA_MS)) {
+  if (await rateLimited(`perfiles-login:${clienteIp(request)}`, LIMITE_INTENTOS, VENTANA_MS)) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Datos inválidos" }, { status: 400 });
   }
 
-  if (rateLimited(`perfiles-login-objetivo:${id}`, LIMITE_INTENTOS_PERFIL, VENTANA_MS_PERFIL)) {
+  if (await rateLimited(`perfiles-login-objetivo:${id}`, LIMITE_INTENTOS_PERFIL, VENTANA_MS_PERFIL)) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 

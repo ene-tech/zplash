@@ -15,7 +15,7 @@ const VENTANA_MS = 5 * 60 * 1000;
 // teléfono ni rut — porque cualquiera puede llamarlo con cualquier patente.
 export async function GET(request: NextRequest) {
   try {
-    if (rateLimited(`pagos-estado:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
+    if (await rateLimited(`pagos-estado:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 
@@ -33,7 +33,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       encontrado: true,
-      nombre: cliente.nombre,
+      // Solo el nombre de pila: con la patente (pintada en el auto) cualquiera
+      // consulta esto, y el nombre completo era el dato que faltaba para cruzar
+      // patente → persona.
+      nombre: cliente.nombre?.trim().split(/\s+/)[0] ?? "",
       plan: cliente.plan,
       vencimiento: cliente.vencimiento,
       estado: planStatus(cliente),

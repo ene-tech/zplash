@@ -59,7 +59,7 @@ export default function UbicacionTab() {
         </p>
         <div className="map-actions">
           <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn">
-            WhatsApp: +56 9 3905 9611
+            WhatsApp: +56 9 5796 9446
           </a>
         </div>
       </div>

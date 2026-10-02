@@ -16,7 +16,7 @@ const VENTANA_MS = 5 * 60 * 1000;
 // la tabla clientes, y no cambia si el cliente ya existe o es nuevo).
 export async function POST(request: NextRequest) {
   try {
-    if (rateLimited(`oneclick-inscribir:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
+    if (await rateLimited(`oneclick-inscribir:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 
@@ -99,7 +99,12 @@ export async function POST(request: NextRequest) {
       await db
         .update(suscripcionesOneclick)
         .set({
-          email,
+          // El correo de una tarjeta que ya cobra no se toca: este endpoint es
+          // público y pide solo la patente (va pintada en el auto), así que
+          // cualquiera podía poner el suyo y quedarse con los avisos de cobro
+          // y, vía aplicarPagoAprobado, con el acceso a Mi Cuenta de una ficha
+          // sin correo. Una fila sin tarjeta viva no tiene nada que robar.
+          ...(conservaTarjeta ? {} : { email }),
           tokenInscripcion: conservaTarjeta && body.soloGuardar ? respuesta.token + MARCA_SOLO_TARJETA : respuesta.token,
           ...(conservaTarjeta ? {} : { estado: estadoPendiente }),
           operadorQr,

@@ -1,4 +1,7 @@
 import "server-only";
+import { and, inArray, sql } from "drizzle-orm";
+import { getDb } from "@/db";
+import { clientes } from "@/db/schema";
 import { borrarCookieFirmada, escribirCookieFirmada, leerCookieFirmada } from "./cookieFirmada";
 
 // Sesión del Portal Cliente (src/app/cliente), autenticada por código de un
@@ -31,6 +34,17 @@ export async function cerrarSesionCliente(): Promise<void> {
   await borrarCookieFirmada(COOKIE_NAME);
 }
 
+/** La cookie dura 30 días y firma los clienteIds del momento del login: si
+ * después el operador le cambia el correo a una ficha (auto vendido, fraude),
+ * el dueño anterior seguía operando esa patente y su tarjeta hasta que la
+ * cookie venciera. Por eso cada lectura se queda solo con las fichas cuyo
+ * correo sigue siendo el de la sesión. */
 export async function leerSesionCliente(): Promise<SesionClientePayload | null> {
-  return leerCookieFirmada<SesionClientePayload>(COOKIE_NAME);
+  const sesion = await leerCookieFirmada<SesionClientePayload>(COOKIE_NAME);
+  if (!sesion?.clienteIds.length) return sesion;
+  const vigentes = await getDb()
+    .select({ id: clientes.id })
+    .from(clientes)
+    .where(and(inArray(clientes.id, sesion.clienteIds), sql`lower(${clientes.email}) = ${sesion.email.toLowerCase()}`));
+  return { ...sesion, clienteIds: vigentes.map((v) => v.id) };
 }

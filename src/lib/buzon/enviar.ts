@@ -1,6 +1,6 @@
 import "server-only";
 
-import nodemailer from "nodemailer";
+import nodemailer, { type SendMailOptions } from "nodemailer";
 import { conConexionImap, transporteSmtp, usuarioBuzon } from "./cliente";
 import { listarCarpetas } from "./leer";
 import type { EnvioCorreo, ResultadoEnvioCorreo } from "@/types";
@@ -20,7 +20,7 @@ export interface AdjuntoParaEnviar {
 // poder guardarlo en la carpeta Enviados por IMAP — a diferencia de
 // WhatsApp/Meta Cloud API, el servidor SMTP de Banahost no guarda copia
 // automática de lo que se envía, así que hay que hacer el APPEND a mano.
-async function compilarMensajeCrudo(mailOptions: nodemailer.SendMailOptions): Promise<Buffer> {
+async function compilarMensajeCrudo(mailOptions: SendMailOptions): Promise<Buffer> {
   const streamTransport = nodemailer.createTransport({ streamTransport: true, buffer: true });
   const info = await streamTransport.sendMail(mailOptions);
   return info.message as Buffer;

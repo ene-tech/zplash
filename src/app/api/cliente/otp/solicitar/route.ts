@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   if (!origenValido(request)) {
     return NextResponse.json({ ok: false, error: "Origen no permitido" }, { status: 403 });
   }
-  if (rateLimited(`cliente-otp-solicitar:${clienteIp(request)}`, LIMITE_IP, VENTANA_IP_MS)) {
+  if (await rateLimited(`cliente-otp-solicitar:${clienteIp(request)}`, LIMITE_IP, VENTANA_IP_MS)) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Error de servidor" }, { status: 500 });
   }
 
-  if (rateLimited(`cliente-otp-objetivo:${email}`, LIMITE_EMAIL, VENTANA_EMAIL_MS)) {
+  if (await rateLimited(`cliente-otp-objetivo:${email}`, LIMITE_EMAIL, VENTANA_EMAIL_MS)) {
     return NextResponse.json({ ok: false, error: "Demasiados códigos solicitados para este correo, espera unos minutos" }, { status: 429 });
   }
 

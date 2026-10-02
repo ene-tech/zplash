@@ -67,6 +67,14 @@ vi.mock("./aplicarPagoAprobado", () => ({
   visitasPeriodoActual: () => Promise.resolve(pasadasDelCiclo),
 }));
 vi.mock("./cuponPlan", () => ({ buscarCuponDescuentoPlan: () => Promise.resolve(null) }));
+// La reserva y la reconciliación de cobros "en_curso" se prueban en
+// oneclickCobro.test.ts; acá solo correrían la cola de `respuestas`.
+let recuperados: { id: string; monto: number; authorizationCode: string | null }[] = [];
+vi.mock("./oneclickCobro", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./oneclickCobro")>()),
+  reservarCobro: () => Promise.resolve(),
+  reconciliarCobrosEnCurso: () => Promise.resolve(recuperados),
+}));
 
 import { cobrarSuscripcion, inicioCicloCobrado, proximoCicloISO } from "./cobrarSuscripcion";
 
@@ -80,6 +88,21 @@ describe("cobrarSuscripcion", () => {
     pagosAplicados.length = 0;
     pasadasDelCiclo = 0;
     sinCliente = false;
+    recuperados = [];
+  });
+
+  // Un intento anterior se cortó después de que Transbank aprobó: ese cargo es
+  // el pago del ciclo. Se aplica con el monto cobrado y NO se vuelve a cobrar.
+  it("cargo recuperado de un intento cortado -> lo aplica y no cobra de nuevo", async () => {
+    recuperados = [{ id: "ocviejo", monto: 19990, authorizationCode: "a9" }];
+
+    const { estado } = await cobrarSuscripcion(suscripcion);
+
+    expect(estado).toBe("aprobada");
+    expect(authorize).not.toHaveBeenCalled();
+    expect(pagosAplicados).toEqual([expect.objectContaining({ monto: 19990, ventaId: "oc-ocviejo" })]);
+    expect(updates).toContainEqual(expect.objectContaining({ estado: "aprobada", authorizationCode: "a9", ventaId: "oc-ocviejo" }));
+    expect(avisoCobroFallido).not.toHaveBeenCalled();
   });
 
   it("ilimitado viejo sin aceptar Y pasado del tope -> no cobra, pausa y avisa por su propio evento", async () => {
