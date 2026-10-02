@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Cliente } from "@/types";
 
 const mockTieneModulo = vi.fn();
-vi.mock("@/lib/session", () => ({ tieneModulo: (m: string) => mockTieneModulo(m) }));
+vi.mock("@/lib/session", () => ({
+  tieneModulo: (m: string) => mockTieneModulo(m),
+  sesionActual: () => Promise.resolve({ id: "p1", nombre: "Marta", modulos: [] }),
+}));
 
 const mockObtenerSuscripcion = vi.fn();
 const mockSuspender = vi.fn();
 vi.mock("@/lib/dataAccess", () => ({
   obtenerSuscripcionOneclick: (p: string) => mockObtenerSuscripcion(p),
-  suspenderSuscripcionOneclick: (id: string) => mockSuspender(id),
+  suspenderSuscripcionOneclick: (id: string, actor: string) => mockSuspender(id, actor),
 }));
 
 const mockBuscarCliente = vi.fn();
@@ -45,7 +48,7 @@ describe("anularSuscripcion", () => {
     const { anularSuscripcion } = await import("./oneclick");
     expect(await anularSuscripcion("c1")).toEqual({ oneclick: true, woo: "sin_suscripcion" });
     // suspender, no cancelar: la inscripción sigue viva y el cron solo cobra "activa".
-    expect(mockSuspender).toHaveBeenCalledWith("s1");
+    expect(mockSuspender).toHaveBeenCalledWith("s1", "Marta");
     expect(mockCorreo).toHaveBeenCalledOnce();
   });
 

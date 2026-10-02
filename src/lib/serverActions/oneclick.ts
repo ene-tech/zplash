@@ -5,7 +5,7 @@ import type { SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import { tieneTarjetaViva } from "@/lib/helpers";
 import { buscarCliente, evaluarReglasCorreoPorSuscripcionCancelada } from "@/lib/mailing/reglas";
 import { cobrarSuscripcion, cortarCobroWooCommerceLegacy, type CorteWooCommerce } from "@/lib/pagos";
-import { tieneModulo } from "@/lib/session";
+import { sesionActual, tieneModulo } from "@/lib/session";
 
 export async function obtenerSuscripcionOneclick(patente: string): Promise<SuscripcionOneclickInfo | null> {
   if (!(await tieneModulo("clientes"))) return null;
@@ -48,17 +48,17 @@ export async function patentesConOneclickActiva(): Promise<string[]> {
 
 export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> {
   if (!(await tieneModulo("clientes"))) return false;
-  return dataAccess.cancelarSuscripcionOneclick(id);
+  return dataAccess.cancelarSuscripcionOneclick(id, await nombreOperador());
 }
 
 export async function suspenderSuscripcionOneclick(id: string): Promise<boolean> {
   if (!(await tieneModulo("clientes"))) return false;
-  return dataAccess.suspenderSuscripcionOneclick(id);
+  return dataAccess.suspenderSuscripcionOneclick(id, await nombreOperador());
 }
 
 export async function reactivarSuscripcionOneclick(id: string): Promise<boolean> {
   if (!(await tieneModulo("clientes"))) return false;
-  return dataAccess.reactivarSuscripcionOneclick(id);
+  return dataAccess.reactivarSuscripcionOneclick(id, await nombreOperador());
 }
 
 /**
@@ -81,7 +81,7 @@ export async function anularSuscripcion(clienteId: string): Promise<{ oneclick: 
 
   const suscripcion = await dataAccess.obtenerSuscripcionOneclick(cliente.patente);
   const oneclick = !!suscripcion && tieneTarjetaViva(suscripcion.estado);
-  if (suscripcion && oneclick) await dataAccess.suspenderSuscripcionOneclick(suscripcion.id);
+  if (suscripcion && oneclick) await dataAccess.suspenderSuscripcionOneclick(suscripcion.id, await nombreOperador());
 
   const arrastrabaWoo = !!cliente.renovacionAutoWooDesde;
   const woo = await cortarCobroWooCommerceLegacy(cliente, cliente.patente, "anulada desde la ficha del cliente");
@@ -94,4 +94,8 @@ export async function anularSuscripcion(clienteId: string): Promise<{ oneclick: 
   // WooCommerce caído, no un cobro suyo colgando.
   if (woo !== "error" || !arrastrabaWoo) await evaluarReglasCorreoPorSuscripcionCancelada(cliente);
   return { oneclick, woo };
+}
+
+async function nombreOperador(): Promise<string> {
+  return (await sesionActual())?.nombre ?? "operador";
 }

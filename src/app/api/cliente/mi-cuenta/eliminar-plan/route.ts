@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     .where(eq(clientes.id, objetivo.id));
 
   for (const s of suscripciones) {
-    await cancelarSuscripcionOneclick(s.id);
+    await cancelarSuscripcionOneclick(s.id, `cliente:${sesion.email}`);
   }
 
   await insertAuditoria([

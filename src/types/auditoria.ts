@@ -1,7 +1,7 @@
 // Tablas cubiertas por el log de auditoría (las que mueven dinero o datos de
 // clientes). Perfiles/precios/categoriasGasto/config quedan fuera a
 // propósito: bajo riesgo/volumen, ver evaluación en supabase/add-auditoria.sql.
-export type TablaAuditada = "clientes" | "ingresos" | "ventas" | "empresas" | "cupones" | "movimientos_contables" | "citas";
+export type TablaAuditada = "clientes" | "ingresos" | "ventas" | "empresas" | "cupones" | "movimientos_contables" | "citas" | "suscripciones_oneclick";
 
 // Una entrada del log de auditoría. Es de solo escritura desde la app (no
 // se carga a AppData/memoria, se revisa directo en Supabase); se genera y

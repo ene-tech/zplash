@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { clientes, cobrosOneclick, suscripcionesOneclick } from "@/db/schema";
 import { ESTADOS_TARJETA_VIVA, tieneTarjetaViva, uid } from "@/lib/helpers";
 import { oneclickInscription } from "@/lib/transbank";
+import { insertAuditoria } from "./auditoria";
 
 export interface SuscripcionOneclickInfo {
   id: string;
@@ -169,7 +170,7 @@ export async function listarSuscripcionesOneclick(): Promise<SuscripcionOneclick
  * compartirTarjetaOneclick) eso dejaría sin cobro a los otros autos de la
  * persona. Por eso solo se da de baja cuando esta es la última fila viva que
  * la usa; si quedan hermanas, se cancela nada más que localmente. */
-export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> {
+export async function cancelarSuscripcionOneclick(id: string, actor: string): Promise<boolean> {
   const db = getDb();
   const suscripcion = await obtenerSuscripcionOneclickPorId(id);
   if (!suscripcion) return false;
@@ -207,6 +208,7 @@ export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> 
     .update(suscripcionesOneclick)
     .set({ estado: "cancelada", tokenInscripcion: null, actualizadoEn: new Date().toISOString() })
     .where(eq(suscripcionesOneclick.id, id));
+  await auditarCambioEstado(suscripcion, "cancelada", actor);
   return true;
 }
 
@@ -214,23 +216,44 @@ export async function cancelarSuscripcionOneclick(id: string): Promise<boolean> 
  * poder reactivarla después con reactivarSuscripcionOneclick(). El cron
  * (/api/pagos/oneclick/cobrar) solo cobra estado "activa", así que
  * "suspendida" queda excluida automáticamente sin más cambios. */
-export async function suspenderSuscripcionOneclick(id: string): Promise<boolean> {
+export async function suspenderSuscripcionOneclick(id: string, actor: string): Promise<boolean> {
   const db = getDb();
+  const anterior = await obtenerSuscripcionOneclickPorId(id);
   await db
     .update(suscripcionesOneclick)
     .set({ estado: "suspendida", actualizadoEn: new Date().toISOString() })
     .where(eq(suscripcionesOneclick.id, id));
+  if (anterior) await auditarCambioEstado(anterior, "suspendida", actor);
   return true;
 }
 
 /** Vuelve a activar una suscripción "suspendida" (no recalcula proximoCobro:
  * si quedó vencido, el cron del día siguiente cobra normalmente, igual que
  * cualquier otra suscripción activa atrasada). */
-export async function reactivarSuscripcionOneclick(id: string): Promise<boolean> {
+export async function reactivarSuscripcionOneclick(id: string, actor: string): Promise<boolean> {
   const db = getDb();
+  const anterior = await obtenerSuscripcionOneclickPorId(id);
   await db
     .update(suscripcionesOneclick)
     .set({ estado: "activa", actualizadoEn: new Date().toISOString() })
     .where(eq(suscripcionesOneclick.id, id));
+  if (anterior) await auditarCambioEstado(anterior, "activa", actor);
   return true;
+}
+
+/** Deja en `auditoria` quién cambió el estado del cobro automático, porque
+ * suscripciones_oneclick solo guarda el último actualizadoEn. `actor` sigue la
+ * convención de la tabla: el nombre del perfil del operador, o
+ * `cliente:<email>` cuando lo hace el cliente desde Mi Cuenta. */
+async function auditarCambioEstado(anterior: { id: string; patente: string; estado: string }, estadoNuevo: string, actor: string) {
+  await insertAuditoria([
+    {
+      tabla: "suscripciones_oneclick",
+      registroId: anterior.id,
+      accion: "update",
+      datosAnteriores: { estado: anterior.estado },
+      datosNuevos: { estado: estadoNuevo, patente: anterior.patente },
+      usuario: actor,
+    },
+  ]);
 }

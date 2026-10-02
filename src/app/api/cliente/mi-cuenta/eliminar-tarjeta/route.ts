@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "No tienes una tarjeta guardada para ese vehículo" }, { status: 404 });
   }
 
-  await cancelarSuscripcionOneclick(suscripcion.id);
+  await cancelarSuscripcionOneclick(suscripcion.id, `cliente:${sesion.email}`);
 
   // El que arrastra la suscripción vieja de WooCommerce tiene DOS cobros
   // automáticos, y darle de baja solo el Oneclick lo dejaba pagando por allá

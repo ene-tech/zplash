@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await (body.pausar ? suspenderSuscripcionOneclick(suscripcion.id) : reactivarSuscripcionOneclick(suscripcion.id));
+  const actor = `cliente:${sesion.email}`;
+  await (body.pausar ? suspenderSuscripcionOneclick(suscripcion.id, actor) : reactivarSuscripcionOneclick(suscripcion.id, actor));
   return NextResponse.json({ ok: true });
 }
