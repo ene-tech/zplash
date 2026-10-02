@@ -2418,3 +2418,216 @@ tr:hover td {
 .banner-dots button.activo {
   background: var(--gold);
 }
+
+/* Portada de la landing (LandingHero): foto/video del túnel a sangre con
+   degradé oscuro para que el texto se lea sobre cualquier encuadre. */
+.landing-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: min(90vh, 900px);
+  display: flex;
+  align-items: flex-end;
+}
+.landing-hero-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 35%;
+  z-index: -2;
+}
+.landing-hero-kenburns {
+  animation: landing-kenburns 18s ease-out both;
+}
+@keyframes landing-kenburns {
+  from {
+    transform: scale(1.04);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-kenburns {
+    animation: none;
+  }
+}
+.landing-hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(20, 17, 15, 0.05) 0%, rgba(20, 17, 15, 0.3) 50%, rgba(20, 17, 15, 0.95) 100%),
+    linear-gradient(90deg, rgba(20, 17, 15, 0.7) 0%, rgba(20, 17, 15, 0) 65%);
+}
+.landing-hero-body {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 64px 24px 48px;
+}
+.landing-hero-eyebrow {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid rgba(255, 199, 44, 0.5);
+  border-radius: 999px;
+  padding: 6px 14px;
+  margin-bottom: 18px;
+}
+.landing-hero-title {
+  font-family: var(--font-outfit), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: -0.02em;
+  font-size: clamp(36px, 5vw, 62px);
+  line-height: 1.05;
+  max-width: 14ch;
+  margin: 0 0 18px;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+.landing-hero-title span {
+  color: var(--gold);
+}
+.landing-hero-sub {
+  font-size: clamp(15px, 1.6vw, 19px);
+  color: var(--silver);
+  max-width: 46ch;
+  margin: 0;
+}
+.landing-hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+.landing-hero-ctas .btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.landing-hero-cta {
+  font-size: 16px;
+  padding: 16px 30px;
+}
+.landing-hero-facts {
+  list-style: none;
+  padding: 0;
+  margin: 32px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  font-size: 13.5px;
+  color: var(--silver);
+}
+.landing-hero-facts li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.landing-hero-facts svg {
+  width: 16px;
+  height: 16px;
+  color: var(--gold);
+}
+.landing-hero-facts a {
+  color: inherit;
+}
+
+/* "Cómo funciona": los 4 pasos del lavado con foto real de cada uno. */
+.como-funciona-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+.como-funciona-foto {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+.como-funciona-foto img {
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+.como-funciona-paso:hover .como-funciona-foto img {
+  transform: scale(1.05);
+}
+.como-funciona-num {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #1a1815;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.como-funciona-paso h3 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+.como-funciona-paso p {
+  color: var(--gray);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Botón flotante de WhatsApp (landing), abajo a la derecha. */
+.whatsapp-flotante {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 50;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: #25d366;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(37, 211, 102, 0.6);
+  animation: whatsapp-pulso 2.4s ease-out infinite;
+  transition: transform 0.15s;
+}
+.whatsapp-flotante:hover {
+  transform: scale(1.08);
+}
+.whatsapp-flotante svg {
+  width: 36px;
+  height: 36px;
+}
+@keyframes whatsapp-pulso {
+  0% {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(37, 211, 102, 0.6);
+  }
+  70%,
+  100% {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 18px rgba(37, 211, 102, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whatsapp-flotante {
+    animation: none;
+  }
+}
+@media (max-width: 640px) {
+  .whatsapp-flotante {
+    right: 16px;
+    bottom: 16px;
+    width: 58px;
+    height: 58px;
+  }
+}

@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import Link from "next/link";
 import AnnounceBar from "@/components/cliente/AnnounceBar";
 import DescuentoBienvenidaModal from "@/components/cliente/DescuentoBienvenidaModal";
@@ -6,6 +8,7 @@ import TiposLavadoTab from "@/components/cliente/TiposLavadoTab";
 import DetailingTab from "@/components/cliente/DetailingTab";
 import FaqTab from "@/components/cliente/FaqTab";
 import UbicacionTab from "@/components/cliente/UbicacionTab";
+import LandingHero, { ComoFunciona, WhatsAppFlotante } from "@/components/cliente/LandingHero";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 
 // Única puerta pública del sitio (reemplazo del home de WordPress): todo el
@@ -16,6 +19,9 @@ import { getPreciosPublicos } from "@/lib/preciosPublicos";
 // TAG_CONTENIDO_PUBLICO) y no una lectura a la base por visitante.
 export const dynamic = "force-dynamic";
 
+// Subir un video a public/tunel/hero.mp4 lo pone de fondo en la portada.
+const HAY_VIDEO_HERO = existsSync(path.join(process.cwd(), "public/tunel/hero.mp4"));
+
 export default async function LandingPage() {
   const precios = await getPreciosPublicos();
 
@@ -24,10 +30,16 @@ export default async function LandingPage() {
       <DescuentoBienvenidaModal valor={precios.descuentoBienvenida.valor} dias={precios.descuentoBienvenida.diasValidez} />
       <AnnounceBar />
       <SiteNav detailing={precios.servicios.length > 0} />
+      <LandingHero precios={precios} video={HAY_VIDEO_HERO} />
+      <WhatsAppFlotante />
 
       <div className="content">
         <div id="lavados" className="anchor-section">
           <TiposLavadoTab precios={precios} />
+        </div>
+
+        <div id="como-funciona" className="anchor-section">
+          <ComoFunciona />
         </div>
 
         {precios.servicios.length > 0 && (
