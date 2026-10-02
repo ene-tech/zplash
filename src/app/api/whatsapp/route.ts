@@ -1,11 +1,11 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente } from "@/lib/dataAccess";
+import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente, registrarGastoAgenteWhatsapp } from "@/lib/dataAccess";
 import { ENVIADO_POR_AGENTE, opcionDeTexto, uid } from "@/lib/helpers";
 import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
 import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
-import { claveAnthropic, responderConAgente } from "@/lib/whatsapp/agente";
+import { claveAnthropic, costoUsd, MODELO, responderConAgente } from "@/lib/whatsapp/agente";
 import { responderMensaje } from "@/lib/whatsapp/router";
 import type { EstadoMensajeWhatsapp } from "@/types";
 
@@ -165,6 +165,10 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
     // Fuera del try: si falla el registro de un mensaje ya enviado, no hay
     // que mandarle además el menú al cliente.
     if (agente) {
+      // Se cobra aunque no conteste (NO_RESPONDER, o el cliente volvió a escribir).
+      await registrarGastoAgenteWhatsapp(conversacion.id, MODELO, costoUsd(agente.uso)).catch((e) =>
+        console.error("No se pudo registrar el gasto del agente WhatsApp", e)
+      );
       const quien = nombreContacto || conversacion.nombreContacto || telefono;
       if (agente.derivar) await avisarGerencia(quien, conversacion.id, { title: "El asistente derivó un chat", body: `${quien}: ${agente.derivar}` });
       if (agente.texto) await enviarMensajeTexto(telefono, agente.texto, ENVIADO_POR_AGENTE);

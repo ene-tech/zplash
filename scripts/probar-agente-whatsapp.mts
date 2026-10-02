@@ -11,18 +11,11 @@
 // Necesita ANTHROPIC_API_KEY. Cada conversación cuesta ~US$0,05-0,15.
 import postgres from "postgres";
 import { conversacionFromRow } from "@/lib/dataAccess/whatsapp/conversaciones";
-import { MODELO, responderConAgente, type ModeloAgente } from "@/lib/whatsapp/agente";
+import { costoUsd, MODELO, responderConAgente } from "@/lib/whatsapp/agente";
 
 const cantidad = Number(process.argv[2] ?? 15);
 const dias = Number(process.argv[3] ?? 7);
 const filtro = process.argv[4] ?? ".";
-// US$ por millón de tokens: entrada, caché leída, caché escrita, salida.
-const PRECIOS: Record<ModeloAgente, { entrada: number; cacheLeida: number; cacheEscrita: number; salida: number }> = {
-  "claude-opus-5": { entrada: 5, cacheLeida: 0.5, cacheEscrita: 6.25, salida: 25 },
-  "claude-sonnet-5": { entrada: 2, cacheLeida: 0.2, cacheEscrita: 2.5, salida: 10 },
-  "claude-haiku-4-5": { entrada: 1, cacheLeida: 0.1, cacheEscrita: 1.25, salida: 5 },
-};
-const PRECIO = PRECIOS[MODELO];
 console.log(`Modelo: ${MODELO}`);
 
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false, max: 1 });
@@ -53,8 +46,7 @@ try {
         console.log(`🤖 (no responde)${r.derivar ? ` · DERIVA: ${r.derivar}` : ""}`);
         continue;
       }
-      const usd =
-        (r.uso.entrada * PRECIO.entrada + r.uso.cacheLeida * PRECIO.cacheLeida + r.uso.cacheEscrita * PRECIO.cacheEscrita + r.uso.salida * PRECIO.salida) / 1e6;
+      const usd = costoUsd(r.uso);
       totalUsd += usd;
       console.log(`🤖 ${r.texto}`);
       console.log(`   herramientas: ${r.herramientas.join(", ") || "ninguna"}${r.derivar ? ` · DERIVA: ${r.derivar}` : ""} · US$${usd.toFixed(3)}`);

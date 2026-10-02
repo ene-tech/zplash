@@ -58,3 +58,8 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
   if (!sesion) return vacio;
   return enviarMensajesMasivosWhatsappImpl({ ...opts, enviadoPor: sesion.nombre });
 }
+
+export async function sumarGastoAgenteWhatsapp(desdeISO: string, hastaISO: string): Promise<{ usd: number; atenciones: number }> {
+  if (!(await tieneModulo("web_settings"))) return { usd: 0, atenciones: 0 };
+  return dataAccess.sumarGastoAgenteWhatsapp(desdeISO, hastaISO);
+}

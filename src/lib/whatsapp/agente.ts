@@ -41,6 +41,18 @@ const PARAMETROS_MODELO = {
   "claude-haiku-4-5": { thinking: { type: "enabled", budget_tokens: 2048 } },
 } satisfies Record<string, Partial<Anthropic.Beta.MessageCreateParamsNonStreaming>>;
 export type ModeloAgente = keyof typeof PARAMETROS_MODELO;
+// US$ por millón de tokens (lista de Anthropic): entrada, caché leída, caché
+// escrita, salida. Si cambian los precios, cambiar acá: de esto sale el
+// contador de gasto del agente (Historial WhatsApp).
+const PRECIOS: Record<ModeloAgente, RespuestaAgente["uso"]> = {
+  "claude-opus-5": { entrada: 5, cacheLeida: 0.5, cacheEscrita: 6.25, salida: 25 },
+  "claude-sonnet-5": { entrada: 2, cacheLeida: 0.2, cacheEscrita: 2.5, salida: 10 },
+  "claude-haiku-4-5": { entrada: 1, cacheLeida: 0.1, cacheEscrita: 1.25, salida: 5 },
+};
+export function costoUsd(uso: RespuestaAgente["uso"], modelo: ModeloAgente = MODELO): number {
+  const p = PRECIOS[modelo];
+  return (uso.entrada * p.entrada + uso.cacheLeida * p.cacheLeida + uso.cacheEscrita * p.cacheEscrita + uso.salida * p.salida) / 1e6;
+}
 // AGENTE_WHATSAPP_MODELO elige cuál (ver scripts/probar-agente-whatsapp.mts
 // para compararlos); cualquier otro valor cae en Opus 5.
 export const MODELO: ModeloAgente =

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { contarMensajesWhatsappGenerados, listarHistorialReglasWhatsapp } from "@/lib/serverActions";
+import { contarMensajesWhatsappGenerados, listarHistorialReglasWhatsapp, sumarGastoAgenteWhatsapp } from "@/lib/serverActions";
 import { fmtCLP, fmtFecha, fmtHora, primerDiaMesActualYMD, todayYMD } from "@/lib/helpers";
 import type { EstadoDisparoReglaWhatsapp, HistorialReglaWhatsapp, OrigenTipoDisparoReglaWhatsapp } from "@/types";
 
@@ -22,13 +22,21 @@ function GastoWhatsappResumen() {
   const [hasta, setHasta] = useState(todayYMD());
   const [tipoCambio, setTipoCambio] = useState(TIPO_CAMBIO_CLP_DEFAULT);
   const [total, setTotal] = useState<number | null>(null);
+  const [agente, setAgente] = useState<{ usd: number; atenciones: number } | null>(null);
 
   useEffect(() => {
     let cancelado = false;
     (async () => {
       setTotal(null);
-      const n = await contarMensajesWhatsappGenerados(`${desde}T00:00:00`, `${hasta}T23:59:59.999`);
-      if (!cancelado) setTotal(n);
+      setAgente(null);
+      const [n, ia] = await Promise.all([
+        contarMensajesWhatsappGenerados(`${desde}T00:00:00`, `${hasta}T23:59:59.999`),
+        sumarGastoAgenteWhatsapp(`${desde}T00:00:00`, `${hasta}T23:59:59.999`),
+      ]);
+      if (!cancelado) {
+        setTotal(n);
+        setAgente(ia);
+      }
     })();
     return () => {
       cancelado = true;
@@ -89,6 +97,25 @@ function GastoWhatsappResumen() {
             <div className="lbl">Costo estimado en CLP</div>
           </div>
         </div>
+      )}
+      {agente && (
+        <>
+          <div style={{ fontWeight: 700, margin: "16px 0 10px" }}>Gasto del agente con IA (Claude)</div>
+          <div className="stat-grid">
+            <div className="stat-card">
+              <div className="num">{agente.atenciones}</div>
+              <div className="lbl">Mensajes atendidos</div>
+            </div>
+            <div className="stat-card">
+              <div className="num">US$ {agente.usd.toFixed(2)}</div>
+              <div className="lbl">Costo Anthropic{agente.atenciones ? ` (US$${(agente.usd / agente.atenciones).toFixed(3)} c/u)` : ""}</div>
+            </div>
+            <div className="stat-card ok">
+              <div className="num">{fmtCLP(agente.usd * tipoCambio)}</div>
+              <div className="lbl">Costo en CLP</div>
+            </div>
+          </div>
+        </>
       )}
       <div className="hint" style={{ textAlign: "left", fontSize: 12, color: "var(--gray)", margin: "8px 0 0" }}>
         Incluye Reglas WhatsApp y Mensajes Únicos; no incluye las respuestas automáticas del bot por menú.

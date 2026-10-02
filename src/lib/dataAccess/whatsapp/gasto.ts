@@ -2,8 +2,8 @@ import "server-only";
 
 import { and, eq, gte, isNotNull, lte, notInArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { mensajesWhatsapp } from "@/db/schema";
-import { ENVIADO_POR_AGENTE } from "@/lib/helpers";
+import { gastoAgenteWhatsapp, mensajesWhatsapp } from "@/db/schema";
+import { ENVIADO_POR_AGENTE, uid } from "@/lib/helpers";
 
 // enviadoPor de pruebas manuales hechas durante desarrollo (no vienen de
 // ningún flujo real: ni reglas, ni mensajes masivos, ni respuesta manual de
@@ -32,4 +32,18 @@ export async function contarMensajesWhatsappGenerados(desdeISO: string, hastaISO
       )
     );
   return rows[0]?.total ?? 0;
+}
+
+export async function registrarGastoAgenteWhatsapp(conversacionId: string, modelo: string, costoUsd: number): Promise<void> {
+  await getDb().insert(gastoAgenteWhatsapp).values({ id: uid(), conversacionId, modelo, costoUsd });
+}
+
+// Suma de lo que costó el agente con IA entre desdeISO y hastaISO (ver
+// gastoAgenteWhatsapp en @/db/schema/whatsapp).
+export async function sumarGastoAgenteWhatsapp(desdeISO: string, hastaISO: string): Promise<{ usd: number; atenciones: number }> {
+  const rows = await getDb()
+    .select({ usd: sql<number>`coalesce(sum(${gastoAgenteWhatsapp.costoUsd}), 0)::float`, atenciones: sql<number>`count(*)::int` })
+    .from(gastoAgenteWhatsapp)
+    .where(and(gte(gastoAgenteWhatsapp.creadoEn, desdeISO), lte(gastoAgenteWhatsapp.creadoEn, hastaISO)));
+  return rows[0] ?? { usd: 0, atenciones: 0 };
 }

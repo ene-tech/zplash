@@ -221,3 +221,19 @@ export const opiniones = pgTable(
     index("opiniones_cliente_id_idx").on(t.clienteId),
   ]
 );
+
+// Una fila por cada vez que el agente con IA (@/lib/whatsapp/agente) atiende
+// un mensaje, conteste o no: lo que cobra Anthropic por esa llamada, calculado
+// con costoUsd. Alimenta el contador de gasto del agente (Historial WhatsApp).
+// No incluye las corridas de scripts/probar-agente-whatsapp.mts.
+export const gastoAgenteWhatsapp = pgTable(
+  "gasto_agente_whatsapp",
+  {
+    id: text("id").primaryKey(),
+    conversacionId: text("conversacion_id").references(() => conversacionesWhatsapp.id, { onDelete: "set null" }),
+    modelo: text("modelo").notNull(),
+    costoUsd: numeric("costo_usd", { precision: 10, scale: 5, mode: "number" }).notNull(),
+    creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+  },
+  (t) => [index("gasto_agente_whatsapp_creado_en_idx").on(t.creadoEn)]
+);
