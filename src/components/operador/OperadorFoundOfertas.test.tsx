@@ -29,10 +29,22 @@ function render(props: Record<string, unknown>) {
   return renderToStaticMarkup(<OperadorFoundOfertas {...({ c, ...props } as unknown as Parameters<typeof OperadorFoundOfertas>[0])} />);
 }
 
+describe("OperadorFoundOfertas — orden", () => {
+  it("las opciones cobrables van de menor a mayor precio", () => {
+    const html = render({ planVigente: false, pContratacion: 19990, precioLavadoUnicoFinal: 7990, precioPromo2: 12990 });
+    const lavado = html.indexOf("Cobrar Lavado Full Túnel");
+    const promo2 = html.indexOf("Cobrar Promo 2 lavados");
+    const plan = html.indexOf("Contratar plan nuevo");
+    expect(lavado).toBeGreaterThan(-1);
+    expect(lavado).toBeLessThan(promo2);
+    expect(promo2).toBeLessThan(plan);
+  });
+});
+
 describe("OperadorFoundOfertas — descuento solo web", () => {
   it("muestra el recuadro Web con el monto y sin prometer que se aplica acá", () => {
     const html = render({ cuponDescuentoSoloWeb: cupon("web", 4000) });
-    expect(html).toContain(">Web<");
+    expect(html).not.toContain("badge");
     expect(html).toContain("Promoción especial contratando por la web");
     expect(html).toContain("$4.000");
     expect(html).toContain("CZTF29");

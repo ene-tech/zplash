@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
 import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtHorasVentanaUpgradePlan, ilimitadoVencido, requiereValidacionX5 } from "@/lib/helpers";
@@ -119,12 +119,11 @@ export default function OperadorFoundOfertas(props: Props) {
   const sinPlan = props.planVigente === false;
   const sinIngreso = props.planVigente && (props.estadoIngreso === "sin_pases" || props.estadoIngreso === "bloqueado");
   return (
-    <>
+    <div className="ofertas-operador">
       {/* Ingresos ya pagados: no son venta, van antes que las opciones. */}
       {tickets.length > 0 && (
         <div className="offer-card">
           <div className="offer-head">
-            <span className="badge">Túnel</span>
             <h4>{tickets.length === 1 ? "Tiene 1 lavado pagado" : `Tiene ${tickets.length} lavados pagados`}</h4>
           </div>
           <div className="msg">
@@ -141,7 +140,6 @@ export default function OperadorFoundOfertas(props: Props) {
       {props.citaDetailingPendiente && (
         <div className="offer-card">
           <div className="offer-head">
-            <span className="badge">Túnel</span>
             <h4>Pasada por el túnel pendiente</h4>
           </div>
           <div className="msg">
@@ -156,7 +154,6 @@ export default function OperadorFoundOfertas(props: Props) {
       {props.lavadoWebPendiente && (
         <div className="offer-card">
           <div className="offer-head">
-            <span className="badge">Túnel</span>
             <h4>Lavado pagado online, pendiente de canjear</h4>
           </div>
           <div className="msg">
@@ -168,14 +165,13 @@ export default function OperadorFoundOfertas(props: Props) {
           </button>
         </div>
       )}
-      {/* Todo lo que se le puede vender, en una sola lista numerada (ver
+      {/* Todo lo que se le puede vender, en una sola lista (ver
           .opciones-venta en globals.css) para recorrerla con el cliente. */}
       <div className="opciones-venta">
         <div className="opciones-venta-head">Opciones para ofrecerle a {c.nombre || "el cliente"}</div>
         {props.cuponDescuentoSoloWeb && (
           <div className="offer-card">
             <div className="offer-head">
-              <span className="badge">Web</span>
               <h4>Promoción especial contratando por la web</h4>
             </div>
             <div className="msg">
@@ -193,9 +189,8 @@ export default function OperadorFoundOfertas(props: Props) {
           </div>
         )}
         {props.cuponDescuentoVigente && (
-          <div className="offer-card nota">
+          <div className="offer-card">
             <div className="offer-head">
-              <span className="badge">Descuento</span>
               <h4>Descuento vigente para este vehículo</h4>
             </div>
             <div className="msg">
@@ -206,10 +201,12 @@ export default function OperadorFoundOfertas(props: Props) {
             </div>
           </div>
         )}
-        {props.showOffer && (
-          <div className="offer-card">
+        {/* Lo que se cobra, ordenado de menor a mayor precio. */}
+        {(
+        [
+        [props.pPromo, props.showOffer && (
+          <div key="renovar" className="offer-card">
             <div className="offer-head">
-              <span className="badge">{props.hayPromoRenovacion ? "Oferta" : "Recordatorio"}</span>
               <h4>
                 {props.st.diasRestantes === undefined
                   ? "Renovación anticipada disponible"
@@ -256,11 +253,10 @@ export default function OperadorFoundOfertas(props: Props) {
               </>
             )}
           </div>
-        )}
-        {props.showRenovacionSoloWeb && (
-          <div className="offer-card">
+        )],
+        [props.pPromoWeb, props.showRenovacionSoloWeb && (
+          <div key="renovar-web" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Promoción online</span>
               <h4>Renovación anticipada solo online</h4>
             </div>
             <div className="msg">
@@ -275,11 +271,10 @@ export default function OperadorFoundOfertas(props: Props) {
               <span className="save">solo por la web</span>
             </div>
           </div>
-        )}
-        {props.showReactivacion && (
-          <div className="offer-card">
+        )],
+        [props.precioReactivacion, props.showReactivacion && (
+          <div key="reactivar" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Promoción</span>
               <h4>
                 Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
               </h4>
@@ -301,11 +296,10 @@ export default function OperadorFoundOfertas(props: Props) {
               {rotulo("Reactivar plan")} a precio preferencial ({fmtCLP(props.precioReactivacion!)})
             </button>
           </div>
-        )}
-        {props.showReactivacionSoloWeb && (
-          <div className="offer-card">
+        )],
+        [props.precioReactivacionWeb, props.showReactivacionSoloWeb && (
+          <div key="reactivar-web" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Promoción online</span>
               <h4>
                 Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
               </h4>
@@ -322,11 +316,10 @@ export default function OperadorFoundOfertas(props: Props) {
               <span className="save">solo por la web</span>
             </div>
           </div>
-        )}
-        {props.showPagoAtrasado && (
-          <div className="offer-card">
+        )],
+        [props.precioAtrasado, props.showPagoAtrasado && (
+          <div key="atrasado" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Plan vencido</span>
               <h4>
                 Plan vencido hace {props.diasVenc} día{props.diasVenc === 1 ? "" : "s"}
               </h4>
@@ -352,11 +345,10 @@ export default function OperadorFoundOfertas(props: Props) {
               {rotulo("Pagar plan atrasado")} ({fmtCLP(props.precioAtrasado)})
             </button>
           </div>
-        )}
-        {props.esWebVencido && props.precioAtrasado > 0 && !props.showReactivacion && !props.showReactivacionSoloWeb && (
-          <div className="offer-card">
+        )],
+        [props.precioAtrasado, props.esWebVencido && props.precioAtrasado > 0 && !props.showReactivacion && !props.showReactivacionSoloWeb && (
+          <div key="web-vencido" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Cliente Web</span>
               <h4>No renovó automáticamente</h4>
             </div>
             <div className="msg">
@@ -371,11 +363,10 @@ export default function OperadorFoundOfertas(props: Props) {
               Cobrar {PLANES[0]} ({fmtCLP(props.precioAtrasado)})
             </button>
           </div>
-        )}
-        {props.ventaUpgrade && (
-          <div className="offer-card">
+        )],
+        [props.precioUpgrade, props.ventaUpgrade && (
+          <div key="upgrade" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Promoción</span>
               <h4>¿Lo pasamos al Plan X5?</h4>
             </div>
             <div className="msg">
@@ -389,11 +380,10 @@ export default function OperadorFoundOfertas(props: Props) {
               Upgrade a {PLANES[0]} (+{fmtCLP(props.precioUpgrade)})
             </button>
           </div>
-        )}
-        {sinPlan && !props.ventaUpgrade && (
-          <div className="offer-card">
+        )],
+        [props.pContratacion, sinPlan && !props.ventaUpgrade && (
+          <div key="contratar" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Plan</span>
               <h4>Contratar {PLANES[0]}</h4>
             </div>
             <div className="msg">Plan nuevo pagado acá, en el mesón.</div>
@@ -404,14 +394,13 @@ export default function OperadorFoundOfertas(props: Props) {
               Contratar plan nuevo ({fmtCLP(props.pContratacion)})
             </button>
           </div>
-        )}
-        {sinPlan && props.precioQrTarjeta && (
-          <QrPlanConTarjeta patente={c.patente} precio={props.precioQrTarjeta} perfilId={props.perfilId} />
-        )}
-        {sinPlan && (
-          <div className="offer-card">
+        )],
+        [props.precioQrTarjeta?.primerCobro, sinPlan && props.precioQrTarjeta && (
+          <QrPlanConTarjeta key="qr" patente={c.patente} precio={props.precioQrTarjeta} perfilId={props.perfilId} />
+        )],
+        [props.precioLavadoUnicoFinal, sinPlan && (
+          <div key="lavado" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Lavado</span>
               <h4>Lavado Full Túnel</h4>
             </div>
             <div className="msg">Un lavado, sin plan.</div>
@@ -422,11 +411,10 @@ export default function OperadorFoundOfertas(props: Props) {
               Cobrar Lavado Full Túnel ({fmtCLP(props.precioLavadoUnicoFinal)})
             </button>
           </div>
-        )}
-        {sinPlan && props.precioPromo2 > 0 && (
-          <div className="offer-card">
+        )],
+        [props.precioPromo2, sinPlan && props.precioPromo2 > 0 && (
+          <div key="promo2" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Lavado</span>
               <h4>Promo 2 lavados</h4>
             </div>
             <div className="msg">Pasa ahora y le queda 1 lavado para después.</div>
@@ -437,11 +425,10 @@ export default function OperadorFoundOfertas(props: Props) {
               Cobrar Promo 2 lavados ({fmtCLP(props.precioPromo2)})
             </button>
           </div>
-        )}
-        {sinIngreso && (
-          <div className="offer-card">
+        )],
+        [props.precioLavadoUnicoFinal, sinIngreso && (
+          <div key="lavado-extra" className="offer-card">
             <div className="offer-head">
-              <span className="badge">Lavado</span>
               <h4>{props.estadoIngreso === "sin_pases" ? "Lavado adicional" : "Lavado aparte del plan"}</h4>
             </div>
             <div className="msg">Hoy no puede entrar con su plan (ver la ficha abajo). Puede pagar un lavado e ingresar igual.</div>
@@ -452,9 +439,14 @@ export default function OperadorFoundOfertas(props: Props) {
               Comprar lavado por {fmtCLP(props.precioLavadoUnicoFinal)} e ingresar
             </button>
           </div>
-        )}
+        )],
+        ] as [number | undefined, ReactNode][]
+        )
+          .filter(([, el]) => el)
+          .sort(([a], [b]) => (a ?? 0) - (b ?? 0))
+          .map(([, el]) => el)}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -483,7 +475,6 @@ function QrPlanConTarjeta({
   return (
     <div className="offer-card">
       <div className="offer-head">
-        <span className="badge">Tarjeta</span>
         <h4>{PLANES[0]} con cobro automático desde su celular</h4>
       </div>
       <div className="msg">

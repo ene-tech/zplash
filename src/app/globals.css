@@ -2622,11 +2622,8 @@ tr:hover td {
 }
 
 /* Operador: todas las opciones de venta del cliente encontrado en una sola
-   lista numerada (OperadorFoundOfertas). .nota = aviso sin número. Si no hay
-   ninguna tarjeta, el título no se muestra. */
-.opciones-venta {
-  counter-reset: opcion;
-}
+   lista (OperadorFoundOfertas). Si no hay ninguna tarjeta, el título no se
+   muestra. */
 .opciones-venta:not(:has(.offer-card)) {
   display: none;
 }
@@ -2638,8 +2635,22 @@ tr:hover td {
   color: var(--gray);
   margin-bottom: 10px;
 }
-.opciones-venta .offer-card:not(.nota) h4::before {
-  counter-increment: opcion;
-  content: counter(opcion) ". ";
-  color: var(--gold);
+/* En el mesón la pantalla se mira al sol: el degradé dorado translúcido sobre
+   fondo oscuro se lava. Ahí las tarjetas van en crema con texto negro (~16:1):
+   fondo claro aguanta el reflejo mejor que uno oscuro. Se redefinen las
+   variables dentro de la tarjeta para que precio, patente, botón y los
+   avisos con estilo inline se inviertan solos. */
+.ofertas-operador .offer-card {
+  --gold: #1a1815;
+  --white: #1a1815;
+  --gray: #5c5546;
+  --green: #0a6b35;
+  background: #fff3c4;
+  border: 2px solid #e0a800;
+  color: #1a1815;
+}
+/* Botón negro relleno con letra dorada: se distingue del texto de la tarjeta. */
+.ofertas-operador .offer-card .btn {
+  background: #1a1815;
+  color: #ffc72c;
 }

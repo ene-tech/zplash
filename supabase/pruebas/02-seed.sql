@@ -37,8 +37,8 @@ on conflict (id) do nothing;
 
 -- Clientes inventados, para probar el POS con cliente asociado.
 insert into clientes (id, nombre, patente, telefono, email, vehiculo) values
-  ('cli-prueba-1', 'Cliente Prueba Uno', 'PRUEB1', '+56900000001', 'prueba1@ejemplo.cl', 'Auto de prueba'),
-  ('cli-prueba-2', 'Cliente Prueba Dos', 'PRUEB2', '+56900000002', 'prueba2@ejemplo.cl', 'Auto de prueba')
+  ('cli-prueba-1', 'Cliente Prueba Uno', 'PRUE01', '+56900000001', 'prueba1@ejemplo.cl', 'Auto de prueba'),
+  ('cli-prueba-2', 'Cliente Prueba Dos', 'PRUE02', '+56900000002', 'prueba2@ejemplo.cl', 'Auto de prueba')
 on conflict (id) do nothing;
 
 -- Empresa inventada, para probar la venta con factura.
