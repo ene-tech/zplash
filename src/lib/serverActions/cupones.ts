@@ -40,6 +40,18 @@ export async function deleteCupones(ids: string[]): Promise<boolean> {
 const TEMPLATE_ENTREGA_CUPON = "entrega_codigo_cupon";
 const IDIOMA_TEMPLATE = "es_CL";
 
+/** Condiciones de uso en una línea, para que el cliente sepa si puede
+ * regalarlo. Un "vale" sin `patentesAutorizadas` lo canjea cualquier auto
+ * (ver patenteAutorizadaParaCupon). Va pegado al beneficio en el template
+ * (su texto está aprobado y fijo en Meta, ver crear-template-entrega-cupon),
+ * por eso sin saltos de línea: Meta rechaza variables con 
+. */
+function condicionesCupon(c: Cupon): string {
+  if (c.tipo !== "vale") return "un solo uso";
+  if (!c.patentesAutorizadas?.length) return "válido para cualquier vehículo, lo puedes compartir con quien quieras, un solo uso";
+  return `válido solo para la patente ${c.patentesAutorizadas.join(", ")}, un solo uso`;
+}
+
 /** Entrega al cliente el código de un cupón recién generado desde su ficha,
  * por los dos canales que tenemos: WhatsApp y correo. Cada uno devuelve su
  * propio resultado en texto porque casi siempre uno de los dos no aplica (la
@@ -58,7 +70,7 @@ export async function enviarCuponAlCliente(clienteId: string, codigo: string): P
   const cupon = await dataAccess.obtenerCuponPorCodigo(codigo.trim().toUpperCase());
   if (!cliente || !cupon) return { correo: "Cupón no encontrado", whatsapp: "Cupón no encontrado" };
 
-  const beneficio = beneficioCupon(cupon);
+  const beneficio = `${beneficioCupon(cupon)} (${condicionesCupon(cupon)})`;
   const vence = fmtFecha(cupon.fechaCaducidad);
   const nombre = cliente.nombre || "";
 

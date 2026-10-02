@@ -235,5 +235,8 @@ export async function GET() {
     // que el cliente vea de dónde sale el precio más bajo y no parezca un error.
     descuentos: Object.fromEntries([...cuponesPorPatente].map(([p, c]) => [p, { codigo: c.codigo, beneficio: beneficioCupon(c) }])),
     politicasAceptadas: politicasOk,
+    // Lo que recibe el amigo y lo que gana quien invita (ver @/lib/referidos):
+    // Configuración → Programa de referidos.
+    descuentoReferido: config.descuentoReferidoValor,
   });
 }

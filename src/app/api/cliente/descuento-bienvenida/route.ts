@@ -6,6 +6,7 @@ import { fmtCLP, isValidEmail, isValidPatente, normPlate } from "@/lib/helpers";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
+import { loteReferido } from "@/lib/referidos";
 
 export const runtime = "nodejs";
 
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 
-  let body: { patente?: unknown; email?: unknown };
+  let body: { patente?: unknown; email?: unknown; ref?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -57,12 +58,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Llegó por el link de un cliente (zplash.cl/?ref=PATENTE, ver
+    // @/lib/referidos): el cupón queda marcado con quien lo invitó, para
+    // premiarlo cuando el amigo lo use. Un ref que no es cliente se ignora en
+    // silencio — el amigo igual recibe su descuento normal.
+    const ref = normPlate(typeof body.ref === "string" ? body.ref : "");
+    const referidor = ref && ref !== patente && isValidPatente(ref) ? await buscarClientePorPatente(ref) : null;
+
     const config = await getConfig();
     const cupon = await emitirCuponDescuentoPrimeraVez({
       patente,
-      valor: config.descuentoPrimeraVezValor,
-      diasValidez: config.descuentoPrimeraVezDiasValidez,
-      nombreLote: "Web - Primera vez",
+      valor: referidor ? config.descuentoReferidoValor : config.descuentoPrimeraVezValor,
+      diasValidez: referidor ? config.descuentoReferidoDiasValidez : config.descuentoPrimeraVezDiasValidez,
+      nombreLote: referidor ? loteReferido(referidor.patente) : "Web - Primera vez",
       creadoPor: "landing-web",
     });
 

@@ -12,16 +12,8 @@ import { envolverHtmlBase } from "@/lib/mailing/plantillaBase";
  * reconoce si el cliente ya la usó (ver abajo). */
 export const LOTE_TICKET_REACTIVACION = "Promo Reactivación Web";
 
-/** 30 días corridos desde el registro de la tarjeta. */
-export const DIAS_TICKET_REACTIVACION = 30;
-
-/** Campaña de reactivación ago-2026: el ticket vence el 30-sep para todos, no
- * a los 30 días de cada pago — es la fecha que promete el correo que se les
- * mandó, y así los que reactiven el último día no arrastran un lavado gratis
- * hasta noviembre. Pasada esa fecha vuelve solo a DIAS_TICKET_REACTIVACION,
- * para no quedar emitiendo tickets ya vencidos si nadie se acuerda de sacar
- * esto. */
-export const FIN_PROMO_TICKET = new Date("2026-09-30T23:59:59-03:00");
+/** 60 días corridos desde el registro de la tarjeta. */
+export const DIAS_TICKET_REACTIVACION = 60;
 
 function htmlTicket(nombre: string, codigo: string, caducidad: string): string {
   return envolverHtmlBase(`
@@ -96,9 +88,7 @@ export async function otorgarTicketReactivacion(opts: {
   const codigo = generarCodigoCupon(new Set(existentes.map((r) => r.codigo)));
 
   const ahora = new Date();
-  const fechaCaducidad = (
-    ahora < FIN_PROMO_TICKET ? FIN_PROMO_TICKET : new Date(ahora.getTime() + DIAS_TICKET_REACTIVACION * 86400000)
-  ).toISOString();
+  const fechaCaducidad = new Date(ahora.getTime() + DIAS_TICKET_REACTIVACION * 86400000).toISOString();
   await db.insert(cupones).values({
     id: uid(),
     codigo,

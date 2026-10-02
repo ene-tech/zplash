@@ -115,7 +115,19 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const dNombreRef = useRef<HTMLInputElement>(null);
   const dCaducidadRef = useRef<HTMLInputElement>(null);
   const dPatenteRef = useRef<HTMLInputElement>(null);
-  const generarCupones = useGenerarCupones({ nombreRef, cantidadRef, caducidadRef, razonSocialRef, rutRef, direccionRef, giroRef });
+  const generarCupones = useGenerarCupones(
+    { nombreRef, cantidadRef, caducidadRef, razonSocialRef, rutRef, direccionRef, giroRef },
+    { patente: c.patente, email: c.email }
+  );
+  // Emitido desde la ficha, el ticket le llega solo al cliente (WhatsApp y
+  // correo) con beneficio, caducidad y condiciones, para que lo pueda usar o
+  // reenviar sin que nadie se acuerde de apretar "Enviar". De a uno: son
+  // mensajes al mismo número y el resultado de cada uno se pinta en su fila.
+  async function generarYEnviar() {
+    const nuevos = await generarCupones.generar();
+    for (const cup of nuevos ?? []) await enviarCodigo(cup.codigo);
+    return nuevos;
+  }
   const crearDescuento = useCrearDescuento({ dNombreRef, dCaducidadRef, dPatenteRef });
   const { setPatentesAbierto, setPatentesTexto } = generarCupones;
   const nCupones = appData.cupones.length;
@@ -674,6 +686,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           {entregar === "vale" && (
             <GenerarCuponesForm
               {...generarCupones}
+              generar={generarYEnviar}
               nombreRef={nombreRef}
               cantidadRef={cantidadRef}
               caducidadRef={caducidadRef}

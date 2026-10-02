@@ -19,6 +19,7 @@ const marcadosCorreo: string[] = [];
 const enviosWhatsapp: string[] = [];
 const enviosCorreo: string[] = [];
 let metaVariables: string[] = [];
+let ultimosParametros: string[] = [];
 
 vi.mock("@/lib/dataAccess/whatsapp", () => ({
   marcarDisparoReglaWhatsapp: (_id: string, cambios: { estado: string }) => {
@@ -32,10 +33,12 @@ vi.mock("@/lib/dataAccess/clientes", () => ({
   clienteFromRow: (r: unknown) => r,
   limpiarEmailCliente: () => Promise.resolve(true),
 }));
+vi.mock("@/lib/dataAccess/config", () => ({ getConfig: () => Promise.resolve({ descuentoReferidoValor: 3000 }) }));
 vi.mock("@/lib/push/enviar", () => ({ enviarPush: () => Promise.resolve(false) }));
 vi.mock("@/lib/whatsapp/enviar", () => ({
-  enviarMensajePlantilla: (telefono: string) => {
+  enviarMensajePlantilla: (telefono: string, _nombre: string, _idioma: string, parametros: string[]) => {
     enviosWhatsapp.push(telefono);
+    ultimosParametros = parametros;
     return Promise.resolve({ id: "m1", estado: "enviado" });
   },
 }));
@@ -91,6 +94,17 @@ describe("template de WhatsApp con {{precioUpgrade}}", () => {
     metaVariables = ["nombre", "precioupgrade"];
     await ejecutarAccionRegla(REGLA_WHATSAPP, "d1", CLIENTE, 9990, undefined, 5000);
     expect(enviosWhatsapp).toEqual([CLIENTE.telefono]);
+  });
+});
+
+// La invitación a referir reemplaza al upgrade en la regla del lavado único:
+// sale aunque el cliente no califique al upgrade, con el monto de la config.
+describe("template de WhatsApp con {{descuentoReferido}}", () => {
+  it("sale sin precio de upgrade y con el monto del referido", async () => {
+    metaVariables = ["nombre", "descuentoreferido", "descuentoreferido", "patente"];
+    await ejecutarAccionRegla(REGLA_WHATSAPP, "d1", CLIENTE, 9990);
+    expect(enviosWhatsapp).toEqual([CLIENTE.telefono]);
+    expect(ultimosParametros).toEqual(["Ana", "$3.000", "$3.000", "SZGH65"]);
   });
 });
 

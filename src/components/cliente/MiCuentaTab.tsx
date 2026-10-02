@@ -19,6 +19,7 @@ import { DatosFacturacionSection } from "@/components/cliente/miCuenta/DatosFact
 import { AvisoPoliticas } from "@/components/cliente/miCuenta/AvisoPoliticas";
 import { LibroComentarios } from "@/components/cliente/miCuenta/LibroComentarios";
 import { PromoModal } from "@/components/cliente/miCuenta/PromoModal";
+import { InvitarAmigo } from "@/components/cliente/miCuenta/InvitarAmigo";
 
 interface Tarjeta {
   patente: string;
@@ -79,6 +80,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
   // ese tercer estado el aviso de políticas parpadea en cada carga para quien
   // ya aceptó.
   const [politicasAceptadas, setPoliticasAceptadas] = useState<boolean | undefined>(undefined);
+  const [descuentoReferido, setDescuentoReferido] = useState(0);
 
   const cargarMiCuenta = useCallback(() => {
     fetch("/api/cliente/mi-cuenta")
@@ -96,6 +98,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
             cupones: CuponCuenta[];
             descuentos: Record<string, { codigo: string; beneficio: string }>;
             politicasAceptadas: boolean;
+            descuentoReferido: number;
           } | null
         ) => {
           if (!data) return;
@@ -109,6 +112,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
           setCupones(data.cupones || []);
           setDescuentos(data.descuentos || {});
           setPoliticasAceptadas(data.politicasAceptadas);
+          setDescuentoReferido(data.descuentoReferido || 0);
         }
       );
   }, []);
@@ -132,6 +136,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
       <ActivarNotificaciones />
       <FilaEnVivo />
       <TicketsYCuponesSection cupones={cupones} vehiculos={sesion.vehiculos} onAgregado={cargarMiCuenta} />
+      <InvitarAmigo patentes={sesion.vehiculos.map((v) => v.patente)} valor={descuentoReferido} />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <h3 style={{ margin: 0 }}>Mis vehículos</h3>

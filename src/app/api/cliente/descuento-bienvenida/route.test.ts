@@ -12,7 +12,8 @@ vi.mock("@/lib/dataAccess/clientes", () => ({
 const mockEmitirCupon = vi.fn();
 vi.mock("@/lib/dataAccess", () => ({
   emitirCuponDescuentoPrimeraVez: (opts: unknown) => mockEmitirCupon(opts),
-  getConfig: () => Promise.resolve({ descuentoPrimeraVezValor: 3000, descuentoPrimeraVezDiasValidez: 7 }),
+  getConfig: () =>
+    Promise.resolve({ descuentoPrimeraVezValor: 3000, descuentoPrimeraVezDiasValidez: 7, descuentoReferidoValor: 5000, descuentoReferidoDiasValidez: 30 }),
 }));
 
 const mockEnviar = vi.fn();
@@ -73,6 +74,16 @@ describe("POST /api/cliente/descuento-bienvenida", () => {
     expect((await pedir({ patente: "XX", email: "nuevo@ejemplo.cl" })).status).toBe(400);
     expect((await pedir({ patente: "AB1234", email: "no-es-mail" })).status).toBe(400);
     expect(mockEmitirCupon).not.toHaveBeenCalled();
+  });
+
+  it("marca el cupón con quien invitó solo si el ref es un cliente", async () => {
+    mockBuscarClientePorPatente.mockImplementation((p: string) => Promise.resolve(p === "CD5678" ? { id: "c2", patente: "CD5678" } : null));
+
+    await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", ref: "cd5678" });
+    expect(mockEmitirCupon).toHaveBeenLastCalledWith(expect.objectContaining({ nombreLote: "Referido - CD5678", valor: 5000, diasValidez: 30 }));
+
+    await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", ref: "ZZ9999" });
+    expect(mockEmitirCupon).toHaveBeenLastCalledWith(expect.objectContaining({ nombreLote: "Web - Primera vez", valor: 3000, diasValidez: 7 }));
   });
 
   it("devuelve el código igual si el correo no sale", async () => {

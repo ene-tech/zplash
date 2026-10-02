@@ -8,6 +8,7 @@ import { clientes, cupones as cuponesTabla } from "@/db/schema";
 // evaluarReglasPorVenta (ver @/lib/whatsapp/reglas/disparadores) e importa
 // este archivo transitivamente.
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
+import { getConfig } from "@/lib/dataAccess/config";
 import { upsertCupones } from "@/lib/dataAccess/cupones";
 import { marcarDisparoReglaWhatsapp, obtenerPlantillaWhatsapp } from "@/lib/dataAccess/whatsapp";
 import { aplicarVariables, fmtCLP, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
@@ -81,6 +82,12 @@ export function construirVariables(opts: {
   // vacio cuando no hay tramos de renovacion anticipada configurados (hoy no
   // hay ninguno). Lo pasa procesarVencimientosCorreo.
   precioX5?: number;
+  // Monto del programa de referidos (ver @/lib/referidos): lo que recibe el
+  // amigo y lo que gana quien invita. Lo pasa ejecutarAccionRegla solo si la
+  // plantilla lo pide, para no leer la config en cada envío.
+  descuentoReferido?: number;
+  // Solo "ticket_por_vencer" (ver ./cron): el cupón que está por vencer.
+  cupon?: { codigo: string; fechaCaducidad: string };
 }): Record<string, string> {
   return {
     nombre: opts.cliente.nombre || "",
@@ -99,6 +106,9 @@ export function construirVariables(opts: {
     precioUpgrade: opts.precioUpgrade !== undefined ? fmtCLP(opts.precioUpgrade) : "",
     pasadas: opts.pasadas !== undefined ? String(opts.pasadas) : "",
     precioX5: opts.precioX5 !== undefined ? fmtCLP(opts.precioX5) : "",
+    descuentoReferido: opts.descuentoReferido !== undefined ? fmtCLP(opts.descuentoReferido) : "",
+    codigoCupon: opts.cupon?.codigo || "",
+    fechaVencimientoCupon: opts.cupon ? fmtFecha(opts.cupon.fechaCaducidad) : "",
   };
 }
 
@@ -199,14 +209,16 @@ export function crearCuponDescuento(opts: {
 // "plan_proximo_vencer" no aplica. `patenteAnterior` solo se usa en
 // "cambio_patente" (ver evaluarReglasPorCambioPatente en ./disparadores),
 // para el placeholder {{patenteAnterior}}. `precioUpgrade` solo lo pasa
-// dispararPorVenta para ventas "Lavado único" (ver ./disparadores).
+// dispararPorVenta para ventas "Lavado único" (ver ./disparadores). `cupon`
+// solo lo pasa el aviso "ticket_por_vencer" (ver ./cron).
 export async function ejecutarAccionRegla(
   regla: ReglaWhatsapp,
   disparoId: string,
   cliente: Cliente,
   ventaMonto?: number,
   patenteAnterior?: string,
-  precioUpgrade?: number
+  precioUpgrade?: number,
+  cupon?: { id: string; codigo: string; fechaCaducidad: string }
 ): Promise<void> {
   // Cliente marcado "no recibe mensajes automáticos" en su ficha (ver
   // sinComunicacionAuto en @/db/schema/clientes). Se corta acá, el único
@@ -237,7 +249,7 @@ export async function ejecutarAccionRegla(
     return;
   }
 
-  let cuponId: string | undefined;
+  let cuponId = cupon?.id;
   let montoOferta: number | undefined;
   let diasValidez: number | undefined;
   if (regla.accion === "cupon_descuento") {
@@ -259,7 +271,10 @@ export async function ejecutarAccionRegla(
     }
   }
 
-  const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior, precioUpgrade });
+  const descuentoReferido = plantilla.metaVariables?.some((v) => v.toLowerCase() === "descuentoreferido")
+    ? (await getConfig()).descuentoReferidoValor
+    : undefined;
+  const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior, precioUpgrade, descuentoReferido, cupon });
 
   // Con PUSH_FALLBACK_A_WHATSAPP="true" (opt-in, ver plan de la PWA), si el
   // cliente tiene una suscripción push activa y el envío llega, nos ahorramos

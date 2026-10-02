@@ -17,15 +17,15 @@ function coincideVenta(regla: ReglaWhatsapp, venta: Venta): boolean {
 }
 
 async function dispararPorVenta(regla: ReglaWhatsapp, venta: Venta): Promise<void> {
-  // Precio de upgrade a plan, mismo cálculo y mismo corte que la regla de
-  // correo (ver dispararPorVenta en @/lib/mailing/reglas/disparadores): la
-  // regla del "Lavado único" es la que invita al upgrade, así que si el
-  // cliente no califica (ej. tiene plan vigente y pagó un lavado extra) no se
-  // registra disparo — ni se le manda nada ni queda como "error".
+  // Precio de upgrade a plan, mismo cálculo que la regla de correo (ver
+  // dispararPorVenta en @/lib/mailing/reglas/disparadores). El corte cuando el
+  // cliente no califica NO va acá sino en ejecutarAccionRegla, mirando si la
+  // plantilla pide {{precioUpgrade}}: la regla del "Lavado único" puede mandar
+  // el upgrade o la invitación a referir (que sale a todos), y eso lo decide
+  // la plantilla elegida, no el tipo de venta.
   const cliente = await buscarCliente(venta.clienteId);
   const precioUpgrade =
     cliente && venta.tipo === LAVADO_UNICO_KEY ? (await calcularOfertasPlanDeCliente(cliente)).upgrade?.precio : undefined;
-  if (regla.condicionTipoVenta === LAVADO_UNICO_KEY && precioUpgrade === undefined) return;
 
   const delayDias = regla.delayDias || 0;
   const enviarEn = new Date(Date.now() + delayDias * MS_POR_DIA).toISOString();

@@ -19,7 +19,12 @@ type GenerarCuponesRefs = {
 // a una empresa: el valor total del lote (si corresponde) se registra como
 // una única Venta en el cierre de caja de hoy, y cada cupón se canjea
 // después por separado desde el perfil operador.
-export function useGenerarCupones(refs: GenerarCuponesRefs) {
+//
+// `cliente` (atajo desde la ficha, ver ClienteInfoModal): deja el lote anotado
+// a su patente y correo, para que aparezca en su ficha y en "Mis tickets y
+// cupones" aunque quede abierto a cualquier patente — en un "vale"
+// `patenteAsignada` no restringe el canje, eso lo decide `patentesAutorizadas`.
+export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente: string; email?: string }) {
   const { data, commit } = useAppData();
   const { nombreRef, cantidadRef, caducidadRef, razonSocialRef, rutRef, direccionRef, giroRef } = refs;
   const [valorTexto, setValorTexto] = useState("");
@@ -47,18 +52,20 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
     if (giroRef.current) giroRef.current.value = empresa.giro || "";
   };
 
-  const generar = async () => {
+  // Devuelve los cupones emitidos (o null si no se emitió nada) para que la
+  // ficha se los mande al cliente apenas salen.
+  const generar = async (): Promise<Cupon[] | null> => {
     const nombreLote = nombreRef.current?.value.trim() || "";
     const cantidad = Number(cantidadRef.current?.value || 0);
     const valorTotal = Number(valorTexto || 0);
     const fechaCaducidad = caducidadRef.current?.value || "";
     if (!nombreLote || !cantidad || cantidad < 1 || !fechaCaducidad) {
       setErr({ msg: "Completa nombre, cantidad y fecha de caducidad", ok: false });
-      return;
+      return null;
     }
     if (cantidad > 500) {
       setErr({ msg: "Máximo 500 cupones por lote", ok: false });
-      return;
+      return null;
     }
     if (valorTotal > 0 && tipoDoc === "Factura") {
       const razonSocial = razonSocialRef.current?.value.trim();
@@ -67,20 +74,20 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
       const giro = giroRef.current?.value.trim();
       if (!razonSocial || !rut || !direccion || !giro) {
         setErr({ msg: "Completa Razón Social, RUT, Dirección y Giro para la factura", ok: false });
-        return;
+        return null;
       }
       if (!isValidRut(rut)) {
         setErr({ msg: RUT_FORMATO_MSG, ok: false });
-        return;
+        return null;
       }
     }
     if (valorTotal > 0 && !metodoPago) {
       setErr({ msg: "Selecciona la forma de pago", ok: false });
-      return;
+      return null;
     }
     if (valorTotal > 0 && metodoPago === "transferencia" && !estadoTransferencia) {
       setErr({ msg: "Indica si la transferencia está pagada o por pagar", ok: false });
-      return;
+      return null;
     }
 
     const razonSocial = tipoDoc === "Factura" ? razonSocialRef.current?.value.trim() || "" : "";
@@ -92,7 +99,7 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
       const invalida = patentesAutorizadas.find((p) => !isValidPatente(p));
       if (invalida) {
         setErr({ msg: `Patente inválida: ${invalida}. ${PATENTE_FORMATO_MSG}`, ok: false });
-        return;
+        return null;
       }
       // Con las dos reglas juntas el lote se queda sin canjes posibles apenas
       // cada patente autorizada use el suyo: se avisa acá en vez de generar
@@ -102,7 +109,7 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
           msg: `Con un cupón por patente necesitas al menos ${cantidad} patentes autorizadas (hay ${patentesAutorizadas.length}): el resto del lote quedaría sin poder canjearse`,
           ok: false,
         });
-        return;
+        return null;
       }
     }
 
@@ -127,6 +134,8 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
         rut: rut || undefined,
         patentesAutorizadas: patentesAutorizadas?.length ? patentesAutorizadas : undefined,
         unCuponPorPatente,
+        patenteAsignada: cliente?.patente || undefined,
+        email: cliente?.email?.trim() || undefined,
       });
     }
 
@@ -176,7 +185,7 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
     });
     if (!ok) {
       setErr({ msg: "No se pudieron generar los cupones (sin conexión). Intenta de nuevo.", ok: false });
-      return;
+      return null;
     }
     setErr({
       msg:
@@ -200,6 +209,7 @@ export function useGenerarCupones(refs: GenerarCuponesRefs) {
     setHayValor(false);
     setMetodoPago(null);
     setEstadoTransferencia(null);
+    return nuevos;
   };
 
   return {

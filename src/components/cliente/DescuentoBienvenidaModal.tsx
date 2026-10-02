@@ -11,6 +11,9 @@ const DISMISS_KEY = "zplash_popup_descuento_bienvenida";
 // (localStorage, no sessionStorage): quien lo cerró o ya canjeó no tiene por
 // qué volver a verlo en cada visita.
 const DELAY_MS = 3500;
+// Llegó por el link de un cliente (ver @/lib/referidos): vino a buscar el
+// regalo, así que no se le hace esperar.
+const DELAY_REFERIDO_MS = 600;
 
 type Emitido = { codigo: string; valor: number; fechaCaducidad: string; correoEnviado: boolean };
 
@@ -20,17 +23,27 @@ type Emitido = { codigo: string; valor: number; fechaCaducidad: string; correoEn
 // para que el texto no se desincronice del cupón que se emite de verdad.
 export default function DescuentoBienvenidaModal({ valor, dias }: { valor: number; dias: number }) {
   const [descartado, descartar] = useDescartable(DISMISS_KEY);
+  // Lazy y no en un efecto: en el server da "" y en el cliente el ref, pero el
+  // diálogo arranca cerrado en los dos, así que no hay diferencia de hidratación.
+  const [ref] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("ref") || ""));
   const [listo, setListo] = useState(false);
   const [patente, setPatente] = useState("");
   const [email, setEmail] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [err, setErr] = useState("");
   const [emitido, setEmitido] = useState<Emitido | null>(null);
+  // Con ref el descarte guardado no lo esconde, así que cerrar necesita su
+  // propio estado para esta visita.
+  const [cerrado, setCerrado] = useState(false);
+  const cerrar = () => {
+    setCerrado(true);
+    descartar();
+  };
 
   useEffect(() => {
-    const t = setTimeout(() => setListo(true), DELAY_MS);
+    const t = setTimeout(() => setListo(true), ref ? DELAY_REFERIDO_MS : DELAY_MS);
     return () => clearTimeout(t);
-  }, []);
+  }, [ref]);
 
   async function enviar() {
     setErr("");
@@ -39,7 +52,7 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
       const res = await fetch("/api/cliente/descuento-bienvenida", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patente, email }),
+        body: JSON.stringify({ patente, email, ref }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
@@ -55,7 +68,7 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
   }
 
   return (
-    <Dialog open={listo && !descartado} onOpenChange={(open) => !open && descartar()}>
+    <Dialog open={listo && (!descartado || !!ref) && !cerrado} onOpenChange={(open) => !open && cerrar()}>
       <DialogContent className="promo-popup p-0 gap-0 overflow-hidden">
         <div className="promo-popup-foto" />
 
@@ -80,7 +93,7 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
               <p className="hint" style={{ textAlign: "center" }}>
                 Tu código de respaldo · vence el {new Date(emitido.fechaCaducidad).toLocaleDateString("es-CL")}
               </p>
-              <button type="button" className="btn" style={{ width: "100%" }} onClick={descartar}>
+              <button type="button" className="btn" style={{ width: "100%" }} onClick={cerrar}>
                 Entendido
               </button>
             </>
@@ -92,7 +105,9 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
                     es el gancho, tiene que leerse de una. */}
                 <DialogTitle>
                   <span className="promo-popup-monto">{fmtCLP(valor)}</span>
-                  <span className="promo-popup-subtitulo">de descuento en tu primer lavado</span>
+                  <span className="promo-popup-subtitulo">
+                    {ref ? "de regalo de un amigo para tu primer lavado" : "de descuento en tu primer lavado"}
+                  </span>
                 </DialogTitle>
                 <DialogDescription>
                   ¿Primera vez en ZPlash? Deja tu patente y tu correo y te mandamos el descuento — válido por {dias} días.
@@ -129,7 +144,7 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
               <button type="button" className="btn" style={{ width: "100%", marginTop: 4 }} onClick={enviar} disabled={enviando}>
                 {enviando ? "Generando..." : "Quiero mi descuento"}
               </button>
-              <button type="button" className="promo-popup-descartar" onClick={descartar}>
+              <button type="button" className="promo-popup-descartar" onClick={cerrar}>
                 No, gracias
               </button>
             </>

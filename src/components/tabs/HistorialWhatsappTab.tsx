@@ -129,6 +129,7 @@ const ETIQUETA_ORIGEN: Record<OrigenTipoDisparoReglaWhatsapp, string> = {
   ingreso: "Ingreso",
   cobro: "Cobro",
   cliente: "Vencimiento",
+  cupon: "Ticket",
 };
 
 const COLOR_ESTADO: Record<EstadoDisparoReglaWhatsapp, string> = {

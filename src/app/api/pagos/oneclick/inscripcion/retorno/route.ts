@@ -238,8 +238,7 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
     if (estado === "aprobada" && veniaVencido) {
       // Promo: registrar tarjeta de pago automático teniendo el plan vencido
       // deja 1 ticket de lavado full túnel gratis, para cualquier vehículo,
-      // vigente hasta el cierre de la campaña (ver FIN_PROMO_TICKET; después
-      // vuelve a ser a 30 días) y un correo con el código —una sola vez por
+      // vigente DIAS_TICKET_REACTIVACION días, y un correo con el código —una sola vez por
       // cliente, ver otorgarTicketReactivacion, que devuelve null si ya la
       // usó. Fuera de la transacción del cobro (cobrarSuscripcion abre la
       // suya): el cargo ya está hecho, y no emitir el ticket nunca puede

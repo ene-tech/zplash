@@ -15,6 +15,7 @@ import {
   Mail,
   RefreshCw,
   Tag,
+  Users,
   Wind,
   type LucideIcon,
 } from "lucide-react";
@@ -30,6 +31,7 @@ import {
   PlanesSection,
   PrimeraVezSection,
   ReactivacionSection,
+  ReferidosSection,
   ServiciosSection,
   UpgradeSection,
 } from "@/components/tabs/config";
@@ -45,6 +47,7 @@ const SECCIONES: { id: string; label: string; icon: LucideIcon; Componente: Reac
   { id: "aspirado", label: "Zona aspirado", icon: Wind, Componente: AspiradoSection },
   { id: "upgrade", label: "Upgrade a plan", icon: ArrowUpCircle, Componente: UpgradeSection },
   { id: "primera-vez", label: "Descuento de primera vez", icon: Gift, Componente: PrimeraVezSection },
+  { id: "referidos", label: "Programa de referidos", icon: Users, Componente: ReferidosSection },
   { id: "web", label: "Precios de Lavados en Pagina Web", icon: Globe, Componente: PagosWebSection },
   { id: "servicios", label: "Servicios adicionales", icon: ListPlus, Componente: ServiciosSection },
   { id: "correo", label: "Firma de correo", icon: Mail, Componente: CorreoFirmaSection },

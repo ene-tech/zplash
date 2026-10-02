@@ -125,6 +125,9 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   // ingreso del cliente dentro del mes calendario — el origenId de su disparo
   // es `${clienteId}:${YYYY-MM}` en vez del id del Ingreso, así el unique de
   // abajo bloquea cualquier ingreso siguiente del mismo cliente en ese mes.
+  // "ticket_por_vencer": cron diario, avisa N días (condicionDiasAntesVencimiento)
+  // antes de que venza un ticket sin usar de la promo de reactivación (ver
+  // LOTE_TICKET_REACTIVACION), al cliente de su patente_asignada.
   tipoEvento: text("tipo_evento").notNull(),
   // Solo aplica a tipoEvento="venta_creada": matchea venta.tipo tal cual
   // ("Lavado único", "Plan nuevo", etc.). Null = cualquier tipo de venta.

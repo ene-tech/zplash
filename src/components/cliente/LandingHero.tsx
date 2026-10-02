@@ -10,8 +10,13 @@ import { WhatsAppIcon } from "./AnnounceBar";
 const PASOS = [
   {
     src: "/tunel/barrera-qr.jpg",
-    titulo: "Entra con tu QR",
-    detalle: "Paga en el local o desde la web y la barrera se abre con tu código.",
+    titulo: (
+      <>
+        Paga por internet <a href="/cliente">AQUÍ</a> o en local con cualquier
+        medio de pago
+      </>
+    ),
+    detalle: "La barrera se abre con tu patente.",
   },
   {
     src: "/tunel/espuma-volvo.jpg",
@@ -104,7 +109,7 @@ export function ComoFunciona() {
             <div className="como-funciona-foto">
               <Image
                 src={p.src}
-                alt={p.titulo}
+                alt={p.detalle}
                 fill
                 sizes="(max-width: 640px) 100vw, 25vw"
               />

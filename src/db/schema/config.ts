@@ -107,6 +107,11 @@ export const config = pgTable("config", {
   // ahora autoadministrable desde Web Settings → Menú Bot WhatsApp.
   descuentoPrimeraVezValor: integer("descuento_primera_vez_valor").notNull().default(1000),
   descuentoPrimeraVezDiasValidez: integer("descuento_primera_vez_dias_validez").notNull().default(7),
+  // Programa de referidos (ver @/lib/referidos): monto y vigencia del cupón
+  // que recibe el amigo que llega por un link ?ref= y del premio que gana
+  // quien lo invitó. Configuración → Programa de referidos.
+  descuentoReferidoValor: integer("descuento_referido_valor").notNull().default(2000),
+  descuentoReferidoDiasValidez: integer("descuento_referido_dias_validez").notNull().default(30),
   // Contenido editable de las respuestas del bot de WhatsApp (ver
   // TextosBotWhatsapp en @/types y TEXTOS_BOT_WHATSAPP_DEFAULT en
   // @/lib/whatsapp/contenido). Se guarda parcial a propósito (default {}):

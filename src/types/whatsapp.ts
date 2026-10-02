@@ -165,7 +165,8 @@ export type TipoEventoReglaWhatsapp =
   | "cobro_fallido"
   | "ingreso_plan_registrado"
   | "cambio_patente"
-  | "primer_ingreso_mes";
+  | "primer_ingreso_mes"
+  | "ticket_por_vencer";
 export type AccionReglaWhatsapp = "cupon_descuento" | "mensaje_simple";
 
 // Regla de negocio ("cuándo mandar qué") — ver plan de "motor de reglas
@@ -193,7 +194,7 @@ export interface ReglaWhatsapp {
   creadoPor?: string;
 }
 
-export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente" | "cobro" | "ingreso";
+export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente" | "cobro" | "ingreso" | "cupon";
 export type EstadoDisparoReglaWhatsapp = "programado" | "enviado" | "error";
 
 // Auditoría + idempotencia de cada disparo de una ReglaWhatsapp — ver

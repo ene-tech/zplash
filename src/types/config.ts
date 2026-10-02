@@ -115,6 +115,10 @@ export interface ConfigGlobal {
   // manejarPasoRegistroDescuento en @/lib/whatsapp/router).
   descuentoPrimeraVezValor: number;
   descuentoPrimeraVezDiasValidez: number;
+  // Monto (CLP) y días de vigencia del programa de referidos: el cupón del
+  // amigo invitado y el premio de quien invita (ver @/lib/referidos).
+  descuentoReferidoValor: number;
+  descuentoReferidoDiasValidez: number;
   // Contenido editable de las respuestas automáticas del bot de WhatsApp —
   // ver TextosBotWhatsapp.
   textosBotWhatsapp: TextosBotWhatsapp;

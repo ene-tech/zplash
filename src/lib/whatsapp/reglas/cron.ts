@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, gte, isNotNull, lt, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, ingresos } from "@/db/schema";
+import { clientes, cupones, ingresos } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import {
   listarDisparosProgramadosVencidos,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/dataAccess/whatsapp";
 import { periodoPlan, planVigente, uid } from "@/lib/helpers";
 import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
+import { LOTE_TICKET_REACTIVACION } from "@/lib/pagos/ticketReactivacion";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 
@@ -20,7 +21,9 @@ import type { DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 // disparos "venta_creada" con delayDias > 0 cuya fecha ya llegó, generando
 // recién ahí el Cupon (para que los días de validez cuenten desde que el
 // cliente recibe el mensaje, no desde la compra); (2) evalúa reglas
-// "plan_proximo_vencer" escaneando clientes por vencimiento.
+// "plan_proximo_vencer" escaneando clientes por vencimiento; (3) evalúa
+// "ticket_por_vencer" escaneando los tickets sin usar de la promo de
+// reactivación.
 export async function procesarPendientesYVencimientos(): Promise<{ procesados: number; errores: number }> {
   let procesados = 0;
   let errores = 0;
@@ -112,6 +115,57 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
         procesados++;
       } catch (error) {
         console.error("Error disparando regla WhatsApp de vencimiento", regla.id, row.id, error);
+        await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+        errores++;
+      }
+    }
+  }
+
+  let reglasTicket: ReglaWhatsapp[] = [];
+  try {
+    reglasTicket = await listarReglasWhatsappActivas("ticket_por_vencer");
+  } catch (error) {
+    console.error("Error cargando reglas WhatsApp (ticket_por_vencer)", error);
+  }
+  for (const regla of reglasTicket) {
+    const hastaISO = new Date(Date.now() + (regla.condicionDiasAntesVencimiento ?? 0) * MS_POR_DIA).toISOString();
+    const filas = await getDb()
+      .select({ cupon: cupones, cliente: clientes })
+      .from(cupones)
+      .innerJoin(clientes, eq(clientes.patente, cupones.patenteAsignada))
+      .where(
+        and(
+          eq(cupones.nombreLote, LOTE_TICKET_REACTIVACION),
+          eq(cupones.usado, false),
+          gte(cupones.fechaCaducidad, ahoraISO),
+          lte(cupones.fechaCaducidad, hastaISO)
+        )
+      );
+
+    for (const { cupon, cliente } of filas) {
+      // origenId con la fecha de caducidad: si se le alarga la vigencia al
+      // ticket, vuelve a ser elegible para el aviso de la fecha nueva.
+      const disparo = await registrarDisparoReglaWhatsapp({
+        id: uid(),
+        reglaId: regla.id,
+        origenTipo: "cupon",
+        origenId: `${cupon.id}:${cupon.fechaCaducidad}`,
+        clienteId: cliente.id,
+        patente: cliente.patente,
+        estado: "programado",
+        enviarEn: ahoraISO,
+      });
+      if (!disparo) continue; // ya se avisó este vencimiento
+
+      try {
+        await ejecutarAccionRegla(regla, disparo.id, clienteFromRow(cliente), undefined, undefined, undefined, {
+          id: cupon.id,
+          codigo: cupon.codigo,
+          fechaCaducidad: cupon.fechaCaducidad,
+        });
+        procesados++;
+      } catch (error) {
+        console.error("Error disparando regla WhatsApp de ticket por vencer", regla.id, cupon.id, error);
         await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
         errores++;
       }

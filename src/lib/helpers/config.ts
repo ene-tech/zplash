@@ -22,6 +22,8 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   horasBloqueoReingresoPlan: 24.5,
   descuentoPrimeraVezValor: 1000,
   descuentoPrimeraVezDiasValidez: 7,
+  descuentoReferidoValor: 2000,
+  descuentoReferidoDiasValidez: 30,
   textosBotWhatsapp: TEXTOS_BOT_WHATSAPP_DEFAULT,
   firmaCorreo: "",
   radioAsistenciaMetros: 150,
