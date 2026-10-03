@@ -1,13 +1,29 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { cupones } from "@/db/schema";
+import { clientes, cupones } from "@/db/schema";
 import type { Cupon } from "@/types";
-import { generarCodigoCupon, uid } from "@/lib/helpers";
+import { PROMO_2_LAVADOS_KEY, generarCodigoCupon, uid } from "@/lib/helpers";
 import { upsertRows } from "./shared";
 
 type CuponRow = typeof cupones.$inferSelect;
+
+/** Qué cupones son de una cuenta del portal cliente: los atados a su correo y
+ * los de la Promo 2 Lavados de alguna de sus patentes (el porqué, en
+ * cuponesDeLaCuenta de /api/cliente/mi-cuenta). Compartido con
+ * /ocultar-cupon, para que solo se pueda eliminar lo que la cuenta ve. */
+export function cuponesDeLaCuentaWhere(email: string, clienteIds: string[]) {
+  const porEmail = sql`lower(${cupones.email}) = ${email.trim().toLowerCase()}`;
+  if (!clienteIds.length) return porEmail;
+  return or(
+    porEmail,
+    and(
+      eq(cupones.nombreLote, PROMO_2_LAVADOS_KEY),
+      sql`jsonb_exists_any(${cupones.patentesAutorizadas}, ARRAY(SELECT ${clientes.patente} FROM ${clientes} WHERE ${inArray(clientes.id, clienteIds)}))`
+    )
+  );
+}
 
 export function cuponToRow(c: Cupon): typeof cupones.$inferInsert {
   return {

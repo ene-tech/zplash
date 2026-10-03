@@ -64,4 +64,8 @@ export const cupones = pgTable("cupones", {
   // cupones que no vienen de una compra web con email (generados a mano en
   // B2B/Tickets/Dsctos, o descuentos individuales del bot).
   email: text("email"),
+  // El cliente lo eliminó de "Mis tickets y cupones" (solo caducados, ver
+  // /api/cliente/mi-cuenta/ocultar-cupon). La fila no se borra: el historial
+  // del lote y la medición de campañas la siguen necesitando.
+  ocultoEnCuenta: boolean("oculto_en_cuenta").notNull().default(false),
 });

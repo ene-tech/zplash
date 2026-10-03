@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
 import { AgregarCupon } from "./AgregarCupon";
 
@@ -35,6 +36,26 @@ export function TicketsYCuponesSection({
   vehiculos: VehiculoSesion[];
   onAgregado: () => void;
 }) {
+  const [eliminando, setEliminando] = useState("");
+
+  // Solo caducados: ver /api/cliente/mi-cuenta/ocultar-cupon.
+  async function eliminar(codigo: string) {
+    if (!window.confirm(`¿Eliminar el ticket ${codigo} de tu cuenta?`)) return;
+    setEliminando(codigo);
+    try {
+      const res = await fetch("/api/cliente/mi-cuenta/ocultar-cupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo }),
+      });
+      if (!res.ok) window.alert((await res.json().catch(() => null))?.error || "No se pudo eliminar");
+      else onAgregado();
+    } catch {
+      window.alert("Sin conexión. Intenta de nuevo.");
+    }
+    setEliminando("");
+  }
+
   return (
     <div style={{ marginBottom: 26 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
@@ -70,6 +91,18 @@ export function TicketsYCuponesSection({
                   </td>
                   <td>
                     <span className={`status-pill ${estadoClase(c.estado)}`}>{c.estado}</span>
+                    {c.estado === "Caducado" && (
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        style={{ marginLeft: 8, padding: "2px 8px", fontSize: 12 }}
+                        onClick={() => eliminar(c.codigo)}
+                        disabled={eliminando === c.codigo}
+                        aria-label={`Eliminar ticket ${c.codigo}`}
+                      >
+                        {eliminando === c.codigo ? "..." : "Eliminar"}
+                      </button>
+                    )}
                   </td>
                   <td>{c.patente || "-"}</td>
                 </tr>
