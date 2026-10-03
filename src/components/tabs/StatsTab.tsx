@@ -51,6 +51,8 @@ export default function StatsTab() {
     );
   }
 
+  const referidos = r.data.cupones.filter((c) => c.nombreLote.startsWith("Referido - "));
+
   return (
     <div>
       {pestanas}
@@ -100,6 +102,21 @@ export default function StatsTab() {
         pctMontoQrDePlanes={r.pctMontoQrDePlanes}
         rankingQr={r.rankingQr}
       />
+
+      {/* Cada patente que llega con ?ref= recibe un cupón "Referido - PATENTEQUEINVITÓ"
+          (ver lib/referidos.ts), así que contar esos cupones = registros por referido.
+          Histórico, no sigue el período de arriba. */}
+      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Programa de referidos</h3>
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="num">{referidos.length}</div>
+          <div className="lbl">Patentes registradas por referido</div>
+        </div>
+        <div className="stat-card ok">
+          <div className="num">{referidos.filter((c) => c.usado).length}</div>
+          <div className="lbl">Cupones de referido canjeados</div>
+        </div>
+      </div>
 
       <StatsUsoPlanes
         promedioVisitasPlan={r.promedioVisitasPlan}
