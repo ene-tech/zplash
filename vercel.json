@@ -6,7 +6,6 @@
     { "path": "/api/whatsapp/reglas/evaluar", "schedule": "0 14 * * *" },
     { "path": "/api/correo/reglas/evaluar", "schedule": "0 14 * * *" },
     { "path": "/api/correo/filtros/evaluar", "schedule": "*/15 * * * *" },
-    { "path": "/api/correo/resenas/evaluar", "schedule": "*/30 * * * *" },
     { "path": "/api/referidos/premiar", "schedule": "0 15 * * *" }
   ]
 }

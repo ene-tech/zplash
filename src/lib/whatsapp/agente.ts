@@ -54,9 +54,9 @@ export function costoUsd(uso: RespuestaAgente["uso"], modelo: ModeloAgente = MOD
   return (uso.entrada * p.entrada + uso.cacheLeida * p.cacheLeida + uso.cacheEscrita * p.cacheEscrita + uso.salida * p.salida) / 1e6;
 }
 // AGENTE_WHATSAPP_MODELO elige cuál (ver scripts/probar-agente-whatsapp.mts
-// para compararlos); cualquier otro valor cae en Opus 5.
+// para compararlos); cualquier otro valor cae en Haiku 4.5, el más barato.
 export const MODELO: ModeloAgente =
-  (process.env.AGENTE_WHATSAPP_MODELO as ModeloAgente) in PARAMETROS_MODELO ? (process.env.AGENTE_WHATSAPP_MODELO as ModeloAgente) : "claude-opus-5";
+  (process.env.AGENTE_WHATSAPP_MODELO as ModeloAgente) in PARAMETROS_MODELO ? (process.env.AGENTE_WHATSAPP_MODELO as ModeloAgente) : "claude-haiku-4-5";
 const MAX_VUELTAS = 6;
 // Lo que se le muestra de historial: las campañas se contestan hasta días
 // después, y sin el mensaje que les llegó el agente no sabe de qué oferta
