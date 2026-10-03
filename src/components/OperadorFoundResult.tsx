@@ -109,7 +109,10 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
             />
           )}
           <DetailRow
-            label="Teléfono"
+            // Vacío también cuando el número no tenía WhatsApp (ver
+            // vaciarTelefonoSinWhatsapp): si el cliente repite el mismo, se
+            // vuelve a vaciar solo.
+            label={c.telefono && isValidTelefono(c.telefono) ? "Teléfono" : "Teléfono (pida un celular con WhatsApp)"}
             value={
               c.telefono && isValidTelefono(c.telefono) ? (
                 fmtTelefono(c.telefono)

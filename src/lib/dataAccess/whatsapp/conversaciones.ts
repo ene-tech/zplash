@@ -134,6 +134,37 @@ export async function actualizarEstadoMensaje(whatsappMessageId: string, estado:
   }
 }
 
+// Meta responde (#131026) cuando el número no tiene WhatsApp. Un solo fallo
+// no basta: también sale con una app vieja, y Meta a veces manda "failed" y
+// después "read" del mismo mensaje (pasó el 28-sep-2026). Se vacía el celular
+// cuando falló en 2 días distintos y ese número nunca recibió ni mandó nada;
+// el operador lo pide de nuevo en la próxima visita (la ficha queda
+// incompleta, ver useOperadorFoundResult). El número viejo queda en
+// conversaciones_whatsapp.telefono, enlazado por cliente_id.
+export async function vaciarTelefonoSinWhatsapp(whatsappMessageId: string): Promise<string[]> {
+  const filas = await getDb().execute<{ id: string }>(sql`
+    with tel as (
+      select c.telefono from ${mensajesWhatsapp} m
+      join ${conversacionesWhatsapp} c on c.id = m.conversacion_id
+      where m.whatsapp_message_id = ${whatsappMessageId}
+    ), historial as (
+      select
+        count(distinct (m.creado_en at time zone 'America/Santiago')::date)
+          filter (where m.estado = 'fallido' and m.error like '(#131026)%') as dias_fallidos,
+        count(*) filter (where m.estado in ('entregado', 'leido') or m.direccion = 'entrante') as recibidos
+      from ${mensajesWhatsapp} m
+      join ${conversacionesWhatsapp} c on c.id = m.conversacion_id
+      where c.telefono = (select telefono from tel)
+    )
+    update ${clientes} set telefono = null
+    where telefono = (select telefono from tel)
+      and (select dias_fallidos from historial) >= 2
+      and (select recibidos from historial) = 0
+    returning id
+  `);
+  return [...filas].map((f) => f.id);
+}
+
 export async function listarConversaciones(): Promise<ConversacionWhatsapp[]> {
   const rows = await getDb().select().from(conversacionesWhatsapp).orderBy(desc(conversacionesWhatsapp.ultimoMensajeEn));
   return rows.map(conversacionFromRow);

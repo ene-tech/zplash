@@ -1,6 +1,6 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente, registrarGastoAgenteWhatsapp } from "@/lib/dataAccess";
+import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente, registrarGastoAgenteWhatsapp, vaciarTelefonoSinWhatsapp } from "@/lib/dataAccess";
 import { ENVIADO_POR_AGENTE, opcionDeTexto, uid } from "@/lib/helpers";
 import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
@@ -274,7 +274,16 @@ export async function POST(request: NextRequest) {
 
       for (const status of value.statuses || []) {
         const estado = ESTADO_META_A_LOCAL[status.status];
-        if (estado) await actualizarEstadoMensaje(status.id, estado, estado === "fallido" ? motivoDeStatus(status) : undefined);
+        if (!estado) continue;
+        const motivo = estado === "fallido" ? motivoDeStatus(status) : undefined;
+        await actualizarEstadoMensaje(status.id, estado, motivo);
+        if (motivo?.startsWith("(#131026)")) {
+          const vaciados = await vaciarTelefonoSinWhatsapp(status.id).catch((e) => {
+            console.error("No se pudo vaciar el celular sin WhatsApp", status.id, e);
+            return [];
+          });
+          if (vaciados.length) console.info("[celular-sin-whatsapp] vaciado", vaciados);
+        }
       }
     }
   }
