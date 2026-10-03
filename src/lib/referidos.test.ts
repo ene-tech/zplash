@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loteReferido, lotePremioReferido, premiosPendientes, saltarInvitacionReferidos } from "./referidos";
+import { acumularPremio, loteReferido, lotePremioReferido, premiosPendientes, saltarInvitacionReferidos } from "./referidos";
 
 describe("saltarInvitacionReferidos (fin de semana post campaña)", () => {
   const sabado = new Date("2026-10-03T15:00:00Z");
@@ -24,5 +24,18 @@ describe("premiosPendientes", () => {
     expect(pendientes).toEqual([
       { patenteReferidor: "AB1234", codigoAmigo: "BBB222", nombreLote: lotePremioReferido("BBB222") },
     ]);
+  });
+});
+
+describe("acumularPremio", () => {
+  it("suma los premios previos hasta el tope y deja afuera el que no entra", () => {
+    const previos = [
+      { codigo: "A", valor: 2000 },
+      { codigo: "B", valor: 4000 },
+      { codigo: "C", valor: 2000 },
+    ];
+    expect(acumularPremio(2000, previos, 8000)).toEqual({ valor: 8000, absorbidos: ["A", "B"] });
+    expect(acumularPremio(2000, [], 8000)).toEqual({ valor: 2000, absorbidos: [] });
+    expect(acumularPremio(2000, [{ codigo: "X", valor: 8000 }], 8000)).toEqual({ valor: 2000, absorbidos: [] });
   });
 });

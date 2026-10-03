@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, like } from "drizzle-orm";
+import { and, asc, eq, gt, like } from "drizzle-orm";
 import { getDb } from "@/db";
 import { cupones } from "@/db/schema";
 import { rechazoSiNoEsCron } from "@/lib/cron";
-import { buscarClientePorPatente, getConfig, obtenerPlantillaWhatsapp, upsertCupones } from "@/lib/dataAccess";
+import { buscarClientePorPatente, cuponToRow, getConfig, obtenerPlantillaWhatsapp } from "@/lib/dataAccess";
+import { consumirCupon } from "@/lib/pagos";
 import { fmtCLP, generarCodigoCupon, uid } from "@/lib/helpers";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
-import { PLANTILLA_WHATSAPP_PREMIO_REFERIDO, premiosPendientes } from "@/lib/referidos";
+import { PLANTILLA_WHATSAPP_PREMIO_REFERIDO, acumularPremio, premiosPendientes } from "@/lib/referidos";
 import { construirVariables, enviarSegunPlantilla } from "@/lib/whatsapp/reglas/motor";
 import type { Cupon } from "@/types";
 
@@ -47,26 +48,59 @@ export async function GET(request: NextRequest) {
     const ahora = new Date();
     const codigo = generarCodigoCupon(codigos);
     codigos.add(codigo);
-    const premio: Cupon = {
-      id: uid(),
-      codigo,
-      nombreLote: p.nombreLote,
-      valor: config.descuentoReferidoValor,
-      numeroLote: 1,
-      totalLote: 1,
-      fechaCaducidad: new Date(ahora.getTime() + config.descuentoReferidoDiasValidez * 86400000).toISOString(),
-      usado: false,
-      creadoEn: ahora.toISOString(),
-      creadoPor: "referidos-cron",
-      tipo: "descuento",
-      patenteAsignada: p.patenteReferidor,
-      // Con el correo queda listado en "Mis tickets y cupones" de Mi Cuenta.
-      email,
-    };
-    if (!(await upsertCupones([premio]))) {
-      console.error("No se pudo emitir el premio de referido", p);
-      continue;
-    }
+    // Los premios sin usar de esta patente se suman al nuevo (ver
+    // acumularPremio) y quedan usados con operadorUso "acumulado-en-CODIGO".
+    // Siguen existiendo, así que su nombreLote sigue marcando "ya premiado".
+    // Todo en una transacción: si algo falla no se quema ninguno y mañana se
+    // reintenta.
+    // ponytail: si el mesón tiene la ficha abierta con un premio viejo y lo
+    // cobra justo después del cron, ese $2.000 se descuenta dos veces. Ventana
+    // de segundos a mediodía; si pasa, quemar con WHERE usado = false en el
+    // commit del mesón.
+    const premio = await db
+      .transaction(async (tx) => {
+        const previos = await tx
+          .select({ codigo: cupones.codigo, valor: cupones.valor })
+          .from(cupones)
+          .where(
+            and(
+              like(cupones.nombreLote, "Premio referido - %"),
+              eq(cupones.patenteAsignada, p.patenteReferidor),
+              eq(cupones.usado, false),
+              gt(cupones.fechaCaducidad, ahora.toISOString())
+            )
+          )
+          .orderBy(asc(cupones.fechaCaducidad));
+        const { valor, absorbidos } = acumularPremio(config.descuentoReferidoValor, previos);
+        for (const c of absorbidos) {
+          if (!(await consumirCupon(c, p.patenteReferidor, `acumulado-en-${codigo}`, tx))) {
+            throw new Error(`El premio ${c} se usó mientras se acumulaba`);
+          }
+        }
+        const nuevo: Cupon = {
+          id: uid(),
+          codigo,
+          nombreLote: p.nombreLote,
+          valor,
+          numeroLote: 1,
+          totalLote: 1,
+          fechaCaducidad: new Date(ahora.getTime() + config.descuentoReferidoDiasValidez * 86400000).toISOString(),
+          usado: false,
+          creadoEn: ahora.toISOString(),
+          creadoPor: "referidos-cron",
+          tipo: "descuento",
+          patenteAsignada: p.patenteReferidor,
+          // Con el correo queda listado en "Mis tickets y cupones" de Mi Cuenta.
+          email,
+        };
+        await tx.insert(cupones).values(cuponToRow(nuevo));
+        return nuevo;
+      })
+      .catch((error) => {
+        console.error("No se pudo emitir el premio de referido", p, error);
+        return null;
+      });
+    if (!premio) continue;
     emitidos++;
 
     // El aviso va por WhatsApp (lo que el cliente lee) y por correo solo si no

@@ -47,6 +47,29 @@ export function lotePremioReferido(codigoAmigo: string): string {
   return PREFIJO_PREMIO + codigoAmigo;
 }
 
+/** Hasta dónde se juntan premios en un solo cupón. Un cobro aplica UN cupón
+ * (ver cuponDescuentoDePatente), así que el cron suma los premios sin usar en
+ * el nuevo. Tope por debajo del lavado único ($9.990): Webpay no cobra $0 (ver
+ * ponytail en precioConCupon). Lo que no entra queda como cupón aparte. */
+export const TOPE_PREMIO_ACUMULADO = 8000;
+
+/** Valor del premio nuevo y códigos de los premios previos (vigentes, sin usar,
+ * de la misma patente, ordenados por vencimiento) que absorbe sin pasar el tope. */
+export function acumularPremio(
+  valorNuevo: number,
+  previos: { codigo: string; valor: number }[],
+  tope: number = TOPE_PREMIO_ACUMULADO
+): { valor: number; absorbidos: string[] } {
+  let valor = valorNuevo;
+  const absorbidos: string[] = [];
+  for (const p of previos) {
+    if (valor + p.valor > tope) continue;
+    valor += p.valor;
+    absorbidos.push(p.codigo);
+  }
+  return { valor, absorbidos };
+}
+
 /** Premios por emitir: un cupón de amigo usado cuyo premio todavía no existe.
  * ponytail: sin tope por referidor — si aparecen abusos (una persona
  * inscribiendo patentes ajenas), contar premios por patente en el mes y cortar. */
