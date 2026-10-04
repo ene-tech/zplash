@@ -18,5 +18,9 @@ Antes de dar por cerrado un cambio, según el tipo de trabajo:
 - **Cambio visual en landing, portal cliente (`/cliente`) u operador** → usar skill `run` para levantar la app y verificar el cambio en el navegador antes de darlo por bueno (no asumir por el código).
 - **Después de una tanda de commits rápidos/parches sueltos** (ej. varios ajustes de mobile seguidos) → correr skill `simplify` antes de cerrar la rama.
 - **Pregunta de negocio, no de código** (a quién mandar una campaña, si funcionó un descuento, cuánto se vendió en planes, qué clientes están en riesgo) → delegar al agente `comercial` (`.claude/agents/comercial.md`), que consulta la base en solo-lectura con `scripts/q.mts` y trae codificadas las trampas de clasificación de ventas. No improvisar SQL sobre `ventas` sin leerlo primero.
+- **Reclamo de un cliente u operador concreto** ("renovó y aparece vencido", "le cobraron y el bot dice que no", "sin conexión en el operador") → delegar al agente `soporte` (`.claude/agents/soporte.md`), que parte por `scripts/diag-cliente.mts` y trae las causas ya vistas.
+- **Cambio de esquema o de datos en Supabase** → skill `sql-supabase` antes de escribir el SQL (se aplica a mano, nunca `db:migrate`).
+- **Template nuevo o editado de WhatsApp en Meta** → skill `template-meta` antes de escribir el script `crear-template-*`.
+- **Commitear / subir a producción** → skill `subir-a-prod` (stagear solo lo propio, SQL antes del push, `origin/main` es lo que corre).
 
 - **Tocaste el agente de WhatsApp con IA** (`src/lib/whatsapp/agente.ts`: modelo, parámetros, instrucciones o herramientas) → cargar skill `claude-api` antes de editar (la API cambia seguido: thinking, effort, fallbacks) y después correr `scripts/probar-agente-whatsapp.mts` contra conversaciones reales para ver que no empeoró.
