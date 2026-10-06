@@ -2,7 +2,8 @@
 
 import { useApp } from "@/context/AppContext";
 import { entregarPromoLavados, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { PROMOS_LAVADOS, marcarDescuentoUsado, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { PROMOS_LAVADOS, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { conReglaVigente } from "./reglaVigente";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
@@ -195,7 +196,14 @@ export function useIngresoActions(
   // Canje sin código de un ticket que autoriza a esta patente (Promo 2
   // Lavados, Pack de Tickets con flota — ver ticketsVigentesDePatente): el
   // mismo registro que el canje por código del panel (registrarIngresoCupon).
-  const usarTicket = async (cliente: Cliente, ticket: Cupon) => {
+  const usarTicket = async (cliente: Cliente, ticketEnMemoria: Cupon) => {
+    // La lista sale de la copia del mesón: el dueño del pack pudo haber sacado
+    // esta patente de la regla desde Mi Cuenta (ver conReglaVigente).
+    const ticket = await conReglaVigente(ticketEnMemoria);
+    if (!patenteAutorizadaParaCupon(ticket, cliente.patente)) {
+      setGuardarErr("Este ticket ya no está autorizado para esta patente: el dueño del pack cambió la regla");
+      return;
+    }
     const ok = await commit(registrarIngresoCupon(data, cliente, ticket, ui.perfilActual?.nombre));
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO_INGRESO);

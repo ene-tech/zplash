@@ -21,6 +21,7 @@ import {
 import { registrarIngresoCupon } from "@/lib/logic";
 import type { Cliente, Cupon } from "@/types";
 import { validarQuickAddCliente } from "./validarQuickAdd";
+import { conReglaVigente } from "./reglaVigente";
 
 /** Refresco del reloj del bloqueo horario: no necesita mayor precisión que
  * "dentro del minuto", así que 30s alcanza sin recalcular en cada render. */
@@ -118,11 +119,12 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       setCuponErr({ msg: PATENTE_FORMATO_MSG, ok: false });
       return;
     }
-    const cupon = data.cupones.find((c) => c.codigo === codigo);
-    if (!cupon) {
+    const enMemoria = data.cupones.find((c) => c.codigo === codigo);
+    if (!enMemoria) {
       setCuponErr({ msg: "Código no encontrado", ok: false });
       return;
     }
+    const cupon = await conReglaVigente(enMemoria);
     if (cupon.tipo === "descuento") {
       setCuponErr({ msg: "Este código es un descuento: ingrésalo al cobrar el lavado (patente no encontrada), no acá", ok: false });
       return;

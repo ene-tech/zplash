@@ -45,8 +45,9 @@ type Opcion = {
 // precio por lavado y el ahorro contra el suelto para que la comparación se
 // haga sola. Los precios salen siempre de la base (getPreciosPublicos), los
 // mismos que cobra webpay/crear; un pack en $0 está apagado y no se muestra.
-// La usan la landing (/) y la landing para compartir (/tickets).
-export default function EscaleraTickets({ precios }: { precios: PreciosPublicos }) {
+// La usan la landing (/) y la landing para compartir (/tickets). `children` va
+// al final de la misma grilla (la landing pone ahí el pack de 10/+ tickets).
+export default function EscaleraTickets({ precios, children }: { precios: PreciosPublicos; children?: React.ReactNode }) {
   const unitario = precios.lavadoUnico.precio;
   const opciones: Opcion[] = [
     {
@@ -107,6 +108,7 @@ export default function EscaleraTickets({ precios }: { precios: PreciosPublicos 
             </Link>
           </div>
         ))}
+      {children}
     </div>
   );
 }

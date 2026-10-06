@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { esTarjetaWeb, esVentaNuevaWeb, inRange, normPlate, TIPO_VENTA_REEMBOLSO, todayYMD } from "@/lib/helpers";
 import { ventasAFacturarPorCliente } from "@/lib/logic";
+import { emitirFacturaVentas } from "@/lib/serverActions";
 import { PRODUCTOS_CIERRE } from "./productos";
 
 // Los desgloses expandibles de cada fila (por medio de pago / por tipo de
@@ -322,6 +323,19 @@ export function useCierreData() {
     [ventas, commit]
   );
 
+  // Emite la factura en SimpleFactura (el server ya la marca emitida en la
+  // base) y refleja el cambio en el estado local con marcarEmitida.
+  const emitirFactura = useCallback(
+    async (ventaIds: string[]) => {
+      if (!window.confirm("¿Emitir la factura electrónica en el SII? No se puede deshacer.")) return;
+      const r = await emitirFacturaVentas(ventaIds);
+      if (!r.ok) return window.alert(`No se emitió la factura: ${r.error}`);
+      marcarEmitida(ventaIds);
+      window.alert(`Factura N° ${r.folio} emitida.`);
+    },
+    [marcarEmitida]
+  );
+
   // Separado del useMemo de arriba a propósito: `ui.facturaSearch` cambia en
   // cada tecla del buscador de "Clientes con Factura" y no depende de nada
   // del período (desde/hasta) ni del resto de ventas/movimientos — recalcular
@@ -357,5 +371,6 @@ export function useCierreData() {
     ...periodo,
     facturaFiltrados,
     marcarEmitida,
+    emitirFactura,
   };
 }

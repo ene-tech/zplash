@@ -8,3 +8,4 @@ export * from "./operadorNotFound";
 export * from "./devolucionPos";
 export * from "./pos";
 export * from "./serviciosAdicionales";
+export * from "./fabricacion";

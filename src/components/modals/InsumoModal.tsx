@@ -116,7 +116,7 @@ export default function InsumoModal({ data: ins }: { data: Insumo | null }) {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="ins-stock">Stock actual</Label>
-            <Input id="ins-stock" ref={stockRef} type="number" min={0} defaultValue={it.stock ?? 0} />
+            <Input id="ins-stock" ref={stockRef} type="number" min={0} step="any" defaultValue={it.stock ?? 0} />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="ins-stock-min">Stock Mínimo</Label>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
 import { AgregarCupon } from "./AgregarCupon";
+import { PacksTicketsGestion } from "./PacksTicketsGestion";
 
 // Lo que devuelve GET /api/cliente/mi-cuenta en `cupones` (ver
 // cuponesDeLaCuenta ahí): ya viene con el estado y el beneficio resueltos, así
@@ -15,6 +16,11 @@ export interface CuponCuenta {
   estado: string;
   beneficio: string;
   patente: string | null;
+  fechaUso: string | null;
+  fechaCaducidad: string;
+  patentesAutorizadas: string[];
+  /** Solo en un Pack de Tickets web de este correo: se gestiona en PacksTicketsGestion. */
+  loteId: string | null;
 }
 
 function estadoClase(estado: string): "ok" | "warn" | "bad" {
@@ -37,6 +43,7 @@ export function TicketsYCuponesSection({
   onAgregado: () => void;
 }) {
   const [eliminando, setEliminando] = useState("");
+  const sueltos = cupones.filter((c) => !c.loteId);
 
   // Solo caducados: ver /api/cliente/mi-cuenta/ocultar-cupon.
   async function eliminar(codigo: string) {
@@ -57,64 +64,70 @@ export function TicketsYCuponesSection({
   }
 
   return (
-    <div style={{ marginBottom: 26 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
-        <h3 style={{ margin: 0 }}>Mis tickets y cupones</h3>
-        <AgregarCupon vehiculos={vehiculos} onAgregado={onAgregado} />
-      </div>
-      {cupones.length > 0 ? (
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Beneficio</th>
-                <th>Lote</th>
-                <th>Estado</th>
-                <th>Patente</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cupones.map((c) => (
-                <tr key={c.codigo}>
-                  <td className="plate-tag">{c.codigo}</td>
-                  <td>{c.beneficio}</td>
-                  <td>
-                    {c.nombreLote}
-                    {/* El N° solo dice algo en un lote de varios tickets: un
-                        descuento suelto siempre sería "1/1". */}
-                    {c.totalLote > 1 && (
-                      <div style={{ color: "var(--gray)", fontSize: 12 }}>
-                        N° {c.numeroLote}/{c.totalLote}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`status-pill ${estadoClase(c.estado)}`}>{c.estado}</span>
-                    {c.estado === "Caducado" && (
-                      <button
-                        type="button"
-                        className="btn ghost"
-                        style={{ marginLeft: 8, padding: "2px 8px", fontSize: 12 }}
-                        onClick={() => eliminar(c.codigo)}
-                        disabled={eliminando === c.codigo}
-                        aria-label={`Eliminar ticket ${c.codigo}`}
-                      >
-                        {eliminando === c.codigo ? "..." : "Eliminar"}
-                      </button>
-                    )}
-                  </td>
-                  <td>{c.patente || "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <>
+      <PacksTicketsGestion cupones={cupones} vehiculos={vehiculos} onCambio={onAgregado} />
+      <div style={{ marginBottom: 26 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
+          <h3 style={{ margin: 0 }}>Mis tickets y cupones</h3>
+          <AgregarCupon vehiculos={vehiculos} onAgregado={onAgregado} />
         </div>
-      ) : (
-        <p className="card" style={{ color: "var(--gray)", fontSize: 14, margin: 0 }}>
-          No tienes tickets ni cupones — usa &quot;+ Agregar cupón o ticket&quot; si recibiste un código.
-        </p>
-      )}
-    </div>
+        {sueltos.length > 0 ? (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Beneficio</th>
+                  <th>Lote</th>
+                  <th>Estado</th>
+                  <th>Patente</th>
+                  <th>Fecha de uso</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sueltos.map((c) => (
+                  <tr key={c.codigo}>
+                    <td className="plate-tag">{c.codigo}</td>
+                    <td>{c.beneficio}</td>
+                    <td>
+                      {c.nombreLote}
+                      {/* El N° solo dice algo en un lote de varios tickets: un
+                          descuento suelto siempre sería "1/1". */}
+                      {c.totalLote > 1 && (
+                        <div style={{ color: "var(--gray)", fontSize: 12 }}>
+                          N° {c.numeroLote}/{c.totalLote}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-pill ${estadoClase(c.estado)}`}>{c.estado}</span>
+                      {c.estado === "Caducado" && (
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          style={{ marginLeft: 8, padding: "2px 8px", fontSize: 12 }}
+                          onClick={() => eliminar(c.codigo)}
+                          disabled={eliminando === c.codigo}
+                          aria-label={`Eliminar ticket ${c.codigo}`}
+                        >
+                          {eliminando === c.codigo ? "..." : "Eliminar"}
+                        </button>
+                      )}
+                    </td>
+                    <td>{c.patente || "-"}</td>
+                    <td>{c.fechaUso ? new Date(c.fechaUso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" }) : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="card" style={{ color: "var(--gray)", fontSize: 14, margin: 0 }}>
+            {cupones.length ? "No tienes otros tickets ni cupones" : "No tienes tickets ni cupones"} — usa &quot;+ Agregar
+            cupón o ticket&quot; si recibiste un código.
+          </p>
+        )}
+      </div>
+    </>
   );
 }

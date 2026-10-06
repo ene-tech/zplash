@@ -21,7 +21,8 @@ export const insumos = pgTable("insumos", {
   nombre: text("nombre").notNull(),
   categoriaId: text("categoria_id").references(() => categoriasInsumo.id, { onDelete: "set null" }),
   valorCompra: numeric("valor_compra", { mode: "number" }).notNull().default(0),
-  stock: integer("stock").notNull().default(0),
+  // numeric: los químicos que llegan de la fábrica se cuentan en litros (ver fabricacion.ts).
+  stock: numeric("stock", { mode: "number" }).notNull().default(0),
   stockMin: integer("stock_min").notNull().default(0),
   stockMax: integer("stock_max").notNull().default(0),
   proveedorId: text("proveedor_id").references(() => proveedores.id, { onDelete: "set null" }),

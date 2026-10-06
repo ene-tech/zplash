@@ -93,6 +93,7 @@ export * from "./estanques";
 export * from "./funcionario";
 export * from "./ingresos";
 export * from "./inventario";
+export * from "./fabricacion";
 export * from "./libro";
 export * from "./mail";
 export * from "./mantencion";

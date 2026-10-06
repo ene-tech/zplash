@@ -1,5 +1,8 @@
 "use server";
 
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { cupones } from "@/db/schema";
 import * as dataAccess from "@/lib/dataAccess";
 import {
   beneficioCupon,
@@ -23,6 +26,21 @@ import type { Cupon } from "@/types";
 export async function upsertCupones(rows: Cupon[]): Promise<boolean> {
   if (!(await tieneAlgunModulo(MODULOS_CREAN_CUPONES))) return false;
   return dataAccess.upsertCupones(rows);
+}
+
+/** Regla de patentes vigente en la base de un ticket ([] = cualquier patente;
+ * null = sin permiso o el código no existe). El dueño de un Pack de Tickets la
+ * puede cambiar desde Mi Cuenta (/regla-patentes) mientras el mesón sigue con
+ * la copia que cargó al abrir: el canje la consulta justo antes de validar
+ * (ver conReglaVigente en @/components/operador/reglaVigente). */
+export async function reglaPatentesVigente(codigo: string): Promise<string[] | null> {
+  if (!(await tieneAlgunModulo(MODULOS_CREAN_CUPONES))) return null;
+  const [fila] = await getDb()
+    .select({ patentes: cupones.patentesAutorizadas })
+    .from(cupones)
+    .where(eq(cupones.codigo, codigo))
+    .limit(1);
+  return fila ? fila.patentes || [] : null;
 }
 
 export async function deleteCupones(ids: string[]): Promise<boolean> {

@@ -121,7 +121,7 @@ export default function CierreTab() {
         </div>
       </div>
 
-      <FacturasPendientesTablas facturaPendientesPeriodo={r.facturaPendientesPeriodo} facturasEmpresaPeriodo={r.facturasEmpresaPeriodo} marcarEmitida={r.marcarEmitida} />
+      <FacturasPendientesTablas facturaPendientesPeriodo={r.facturaPendientesPeriodo} facturasEmpresaPeriodo={r.facturasEmpresaPeriodo} marcarEmitida={r.marcarEmitida} emitirFactura={r.emitirFactura} />
 
       <ServiciosAdicionalesPeriodoTabla items={r.serviciosAdicionalesItems} />
 

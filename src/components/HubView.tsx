@@ -96,6 +96,13 @@ export default function HubView() {
             <div className="desc">Productos, SKUs, stock y proveedores</div>
           </button>
         )}
+        {modulos.includes("fabricacion") && (
+          <button className="role-btn" onClick={() => patchUi({ view: "fabricacion" })}>
+            <div className="icon">🧪</div>
+            <div className="label">Fabricación</div>
+            <div className="desc">Materias primas, fórmulas y recepciones de la fábrica</div>
+          </button>
+        )}
         {modulos.includes("web_settings") && (
           <button className="role-btn" onClick={() => patchUi({ view: "web_settings" })}>
             <div className="icon">🌐</div>

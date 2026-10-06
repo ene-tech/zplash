@@ -34,7 +34,11 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
       <p style={{ color: "var(--gray)", fontSize: 14, margin: "-6px 0 18px" }}>
         Compra tus tickets de una vez, sin plan: mientras más llevas, menos pagas por cada lavado.
       </p>
-      {precios && <EscaleraTickets precios={precios} />}
+      {precios && (
+        <EscaleraTickets precios={precios}>
+          <TicketsCard precios={precios} />
+        </EscaleraTickets>
+      )}
 
       <div className="card pricing-card pricing-card--featured" style={{ marginBottom: 22, height: "auto" }}>
         <span className="pricing-card-badge">¿Lavas todos los meses?</span>
@@ -90,8 +94,6 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
             Ver detalles
           </Link>
         </div>
-
-        <TicketsCard precios={precios} />
       </div>
     </div>
   );

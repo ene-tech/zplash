@@ -1,11 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import { fmtCLP } from "@/lib/helpers";
 import type { useCierreData } from "./useCierreData";
 
-type Props = Pick<ReturnType<typeof useCierreData>, "facturaPendientesPeriodo" | "facturasEmpresaPeriodo" | "marcarEmitida">;
+type Props = Pick<ReturnType<typeof useCierreData>, "facturaPendientesPeriodo" | "facturasEmpresaPeriodo" | "marcarEmitida" | "emitirFactura">;
 
-export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmpresaPeriodo, marcarEmitida }: Props) {
+export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmpresaPeriodo, marcarEmitida, emitirFactura }: Props) {
+  // Bloquea los botones mientras SimpleFactura responde: un segundo clic emitiría otra factura.
+  const [emitiendo, setEmitiendo] = useState(false);
+  const acciones = (ventaIds: string[]) => (
+    <div style={{ display: "flex", gap: 6 }}>
+      <button
+        className="btn"
+        disabled={emitiendo}
+        onClick={async () => {
+          setEmitiendo(true);
+          await emitirFactura(ventaIds).finally(() => setEmitiendo(false));
+        }}
+      >
+        {emitiendo ? "Emitiendo…" : "Emitir factura"}
+      </button>
+      <button className="btn ghost" disabled={emitiendo} onClick={() => marcarEmitida(ventaIds)} title="Ya se emitió por fuera (portal SII o SimpleFactura)">
+        Ya emitida
+      </button>
+    </div>
+  );
   return (
     <>
       {facturaPendientesPeriodo.length > 0 && (
@@ -39,9 +59,7 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                   </td>
                   <td style={{ fontWeight: 600 }}>{fmtCLP(grupo.montoTotal)}</td>
                   <td>
-                    <button className="btn ghost" onClick={() => marcarEmitida(grupo.ventaIdsTotal)}>
-                      Factura emitida
-                    </button>
+                    {acciones(grupo.ventaIdsTotal)}
                   </td>
                 </tr>
               ))}
@@ -82,9 +100,7 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                   <td>{v.email || "-"}</td>
                   <td>{fmtCLP(v.precio)}</td>
                   <td>
-                    <button className="btn ghost" onClick={() => marcarEmitida([v.id])}>
-                      Factura emitida
-                    </button>
+                    {acciones([v.id])}
                   </td>
                 </tr>
               ))}

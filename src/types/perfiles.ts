@@ -21,6 +21,7 @@ export type Modulo =
   | "agenda"
   | "web_settings"
   | "inventario"
+  | "fabricacion"
   | "mantencion"
   | "estanques"
   | "mensajes"

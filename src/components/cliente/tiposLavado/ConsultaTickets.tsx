@@ -79,12 +79,13 @@ export function ConsultaTickets() {
                 <th>Lote</th>
                 <th>Estado</th>
                 <th>Patente de uso</th>
+                <th>Fecha de uso</th>
               </tr>
             </thead>
             <tbody>
               {tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <div className="empty">No encontramos tickets para ese RUT</div>
                   </td>
                 </tr>
@@ -100,6 +101,7 @@ export function ConsultaTickets() {
                       <span className={`status-pill ${estadoClase(t.estado)}`}>{t.estado}</span>
                     </td>
                     <td>{t.patenteUso || "-"}</td>
+                    <td>{t.fechaUso ? new Date(t.fechaUso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" }) : "-"}</td>
                   </tr>
                 ))
               )}

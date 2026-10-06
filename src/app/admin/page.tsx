@@ -12,6 +12,7 @@ const AdminView = dynamic(() => import("@/components/AdminView"));
 const HubView = dynamic(() => import("@/components/HubView"));
 const ContabilidadView = dynamic(() => import("@/components/ContabilidadView"));
 const InventarioView = dynamic(() => import("@/components/InventarioView"));
+const FabricacionView = dynamic(() => import("@/components/FabricacionView"));
 const PosView = dynamic(() => import("@/components/PosView"));
 const MantencionView = dynamic(() => import("@/components/MantencionView"));
 const EstanquesView = dynamic(() => import("@/components/EstanquesView"));
@@ -53,6 +54,7 @@ function ZplashApp() {
       {ui.view === "servicios" && <ServiciosAdicionalesView />}
       {ui.view === "web_settings" && <WebSettingsView />}
       {ui.view === "inventario" && <InventarioView />}
+      {ui.view === "fabricacion" && <FabricacionView />}
       {ui.view === "pos" && <PosView />}
       {ui.view === "mantencion" && <MantencionView />}
       {ui.view === "estanques" && <EstanquesView />}

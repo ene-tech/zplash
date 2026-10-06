@@ -91,6 +91,18 @@ export async function ventasPorIds(ids: string[]): Promise<Venta[]> {
   return (await getDb().select().from(ventas).where(inArray(ventas.id, ids))).map(ventaFromRow);
 }
 
+/** Solo prende factura_emitida: lo usa la emisión por SimpleFactura, que no
+ * debe re-escribir el resto de la fila. */
+export async function marcarFacturaEmitida(ids: string[]): Promise<boolean> {
+  try {
+    await getDb().update(ventas).set({ facturaEmitida: true }).where(inArray(ventas.id, ids));
+    return true;
+  } catch (error) {
+    console.error("Error marcando factura emitida", error);
+    return false;
+  }
+}
+
 /** true si el upsert intenta reclasificar una venta que registró sola la
  * plataforma (ver esVentaAutomatica en @/lib/helpers): cambiarle el tipo, el
  * medio de pago o el monto a un cobro Webpay/Oneclick/WooCommerce, o a un lote

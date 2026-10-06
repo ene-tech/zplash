@@ -60,3 +60,7 @@ clientes-*
 
 # Build de la instancia de pruebas (npm run dev:pruebas)
 .next-pruebas
+
+# Cualquier otro distDir de next dev (NEXT_DIST_DIR): si no está ignorado,
+# Tailwind escanea su cache binaria y rompe globals.css con clases basura.
+/.next-*/

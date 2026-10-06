@@ -22,6 +22,7 @@ import {
 import { ingresoFromRow } from "@/lib/dataAccess/ingresos";
 import { buscarCuponDescuentoPlan, yaTieneTicketReactivacion } from "@/lib/pagos";
 import { ventaFromRow } from "@/lib/dataAccess/ventas";
+import { esTicketGestionable, loteIdDeTicket } from "@/lib/ticketsGestion";
 import type { Cupon } from "@/types";
 
 export const runtime = "nodejs";
@@ -50,6 +51,7 @@ async function cuponesDeLaCuenta(email: string, clienteIds: string[]) {
     .from(cupones)
     .where(and(cuponesDeLaCuentaWhere(email, clienteIds), eq(cupones.ocultoEnCuenta, false)))
     .orderBy(desc(cupones.creadoEn));
+  const emailSesion = email.trim().toLowerCase();
   return filas.map(cuponFromRow).map((c) => ({
     codigo: c.codigo,
     nombreLote: c.nombreLote,
@@ -60,6 +62,13 @@ async function cuponesDeLaCuenta(email: string, clienteIds: string[]) {
     // patenteUso solo existe una vez canjeado; hasta entonces se muestra la
     // patente a la que quedó atado el descuento (null = lo puede usar cualquiera).
     patente: c.patenteUso || c.patenteAsignada || null,
+    fechaUso: c.fechaUso || null,
+    fechaCaducidad: c.fechaCaducidad,
+    patentesAutorizadas: c.patentesAutorizadas || [],
+    // Solo un Pack de Tickets web cuyo dueño es este correo (no un ticket de
+    // flota que se ve por patente) se gestiona desde acá: ver /regla-patentes.
+    loteId:
+      esTicketGestionable(c) && (c.email || "").trim().toLowerCase() === emailSesion ? loteIdDeTicket(c.id) : null,
   }));
 }
 

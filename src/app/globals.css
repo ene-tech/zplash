@@ -1745,6 +1745,24 @@ tr:hover td {
   position: absolute;
   left: 0;
 }
+/* Captura de pantalla dentro de un paso del FAQ (ver FaqAccordion). */
+.faq-answer-list li.faq-captura {
+  padding-left: 0;
+  margin: 4px 0 8px;
+}
+.faq-answer-list li.faq-captura::before {
+  content: none;
+}
+.faq-captura img {
+  display: block;
+  /* Tope por los dos lados: la tabla es ancha y el formulario es alto. */
+  max-width: min(100%, 560px);
+  max-height: 520px;
+  width: auto;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
 /* Chip circular con ícono (lucide), mismo tratamiento dorado con glow que
    ya usan .btn/.status-pill, para reemplazar los emojis sueltos que iban
    antes en los <h3> de la web de clientes — así se leen como parte del
