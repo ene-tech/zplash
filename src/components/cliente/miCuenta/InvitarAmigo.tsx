@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { fmtCLP } from "@/lib/helpers";
+import { linkReferido, mensajeInvitacionReferido } from "@/lib/referidos";
 
 // Programa de referidos (ver @/lib/referidos): el link lleva la patente del
 // cliente, el amigo recibe el descuento de bienvenida y, cuando lo usa, el
@@ -13,8 +14,8 @@ export function InvitarAmigo({ patentes, valor }: { patentes: string[]; valor: n
 
   if (!patentes.length || !valor) return null;
 
-  const link = `${window.location.origin}/?ref=${encodeURIComponent(patente)}`;
-  const mensaje = `Te regalo ${fmtCLP(valor)} de descuento en tu primer lavado en ZPlash: ${link}`;
+  const link = linkReferido(window.location.origin, patente);
+  const mensaje = mensajeInvitacionReferido(link, fmtCLP(valor));
 
   async function copiar() {
     try {

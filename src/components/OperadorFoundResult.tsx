@@ -15,6 +15,7 @@ import type { Cliente } from "@/types";
 import { DetailList, DetailRow } from "@/components/DetailList";
 import { useOperadorFoundResult } from "@/components/operador/useOperadorFoundResult";
 import OperadorFoundOfertas from "@/components/operador/OperadorFoundOfertas";
+import QrReferido from "@/components/operador/QrReferido";
 import { useAppData } from "@/context/AppContext";
 
 export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: () => void }) {
@@ -190,6 +191,7 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
           </div>
         )}
       </div>
+      <QrReferido patente={c.patente} valor={data.config.descuentoReferidoValor} />
     </>
   );
 }

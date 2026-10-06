@@ -39,6 +39,16 @@ export function saltarInvitacionReferidos(
   );
 }
 
+/** Link que comparte el cliente: su código de referido es la patente. */
+export function linkReferido(origin: string, patente: string): string {
+  return `${origin}/?ref=${encodeURIComponent(patente)}`;
+}
+
+/** Texto que el cliente reenvía por WhatsApp (Mi Cuenta y el QR del operador). */
+export function mensajeInvitacionReferido(link: string, valorFormateado: string): string {
+  return `Te regalo ${valorFormateado} de descuento en tu primer lavado en ZPlash: ${link}`;
+}
+
 export function loteReferido(patenteReferidor: string): string {
   return PREFIJO_REFERIDO + patenteReferidor;
 }
