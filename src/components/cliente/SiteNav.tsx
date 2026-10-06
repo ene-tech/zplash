@@ -20,7 +20,7 @@ const navFont = Archivo_Black({ weight: "400", subsets: ["latin"] });
 // wrappers .anchor-section en app/page.tsx.
 const SECCIONES = [
   { href: "#lavados", label: "Lavados" },
-  { href: "#detailing", label: "Adicionales" },
+  { href: "#detailing", label: "Lavado de Chasis" },
   { href: "#faq", label: "Preguntas Frecuentes" },
   { href: "#ubicacion", label: "Ubicación" },
 ];

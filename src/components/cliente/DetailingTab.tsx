@@ -29,7 +29,7 @@ export default function DetailingTab({ precios }: { precios: PreciosPublicos | n
 
   return (
     <div>
-      <h2 className="section-title">SERVICIOS ADICIONALES</h2>
+      <h2 className="section-title">LAVADO DE CHASIS</h2>
 
       {!precios ? (
         <div className="empty">Cargando servicios...</div>
@@ -58,7 +58,9 @@ export default function DetailingTab({ precios }: { precios: PreciosPublicos | n
           )}
           {categorias.map((cat) => (
             <div key={cat} style={{ marginBottom: 22 }}>
-              <h3 style={{ marginBottom: 12 }}>{cat}</h3>
+              {/* Con una sola categoría (hoy solo queda el chasis) el título de
+                  la sección ya la nombra; repetirla debajo sobra. */}
+              {categorias.length > 1 && <h3 style={{ marginBottom: 12 }}>{cat}</h3>}
               <div className="service-grid">
                 {precios.servicios
                   .filter((s) => (s.categoria || "Otros") === cat)
