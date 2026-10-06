@@ -35,10 +35,52 @@ export function InvitarAmigo({ patentes, valor }: { patentes: string[]; valor: n
         </span>
         <Billete etiqueta="Ganas" valor={valor} />
       </div>
-      <p style={{ fontSize: 14, color: "var(--gray)" }}>
-        Comparte tu link: tu amigo recibe {fmtCLP(valor)} de descuento en su primer lavado y, cuando lo use, te dejamos{" "}
-        {fmtCLP(valor)} de descuento a ti para tu próximo pago. Si invitas a varios, ganas un descuento por cada amigo y se usa
-        uno por visita.
+      <ol style={{ listStyle: "none", padding: 0, margin: "0 0 10px", display: "grid", gap: 10 }}>
+        {[
+          <>
+            <strong>Comparte tu link</strong> por WhatsApp o donde quieras.
+          </>,
+          <>
+            <strong>Tu amigo recibe {fmtCLP(valor)}</strong> de descuento en su primer lavado.
+          </>,
+          <>
+            <strong>Cuando lo use, tú ganas {fmtCLP(valor)}</strong> de descuento para tu próximo pago.
+          </>,
+        ].map((paso, i) => (
+          <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, lineHeight: 1.35 }}>
+            <span
+              aria-hidden
+              style={{
+                flex: "0 0 26px",
+                height: 26,
+                borderRadius: "50%",
+                background: "#1f7a3d",
+                color: "#fff",
+                fontWeight: 800,
+                fontSize: 14,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {i + 1}
+            </span>
+            <span style={{ paddingTop: 3 }}>{paso}</span>
+          </li>
+        ))}
+      </ol>
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: "#1f7a3d",
+          background: "rgba(46, 154, 79, 0.1)",
+          borderRadius: 8,
+          padding: "8px 12px",
+          margin: "0 0 14px",
+        }}
+      >
+        Sin límite: ganas {fmtCLP(valor)} por cada amigo que invites (se usa un descuento por visita).
       </p>
       {patentes.length > 1 && (
         <div className="field">
