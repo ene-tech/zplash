@@ -495,8 +495,10 @@ function QrPlanConTarjeta({
   const monto = `${fmtCLP(precio.primerCobro)}${conPromo ? " el primer mes" : "/mes"}`;
   // op = quién mostró el QR, para atribuirle la venta (ver operadorQr en
   // /api/pagos/oneclick/inscribir, que lo valida contra los perfiles).
+  // Dominio público, no window.location.origin: el operador corre en
+  // admin.zplash.cl y esta página la abre el cliente.
   const url =
-    `${window.location.origin}/pagar?item=plan&patente=${encodeURIComponent(patente)}` +
+    `https://zplash.cl/pagar?item=plan&patente=${encodeURIComponent(patente)}` +
     (perfilId ? `&op=${encodeURIComponent(perfilId)}` : "");
   return (
     <div className="offer-card">
