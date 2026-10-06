@@ -84,7 +84,8 @@ type Props = Pick<
   | "registrarPagado"
   | "cobrarLavadoUnico"
   | "precioPromo2"
-  | "cobrarPromo2Lavados"
+  | "precioPromo5"
+  | "cobrarPromoLavados"
   | "precioQrTarjeta"
   | "perfilId"
 >;
@@ -421,8 +422,22 @@ export default function OperadorFoundOfertas(props: Props) {
             <div className="price-row">
               <span className="new">{fmtCLP(props.precioPromo2)}</span>
             </div>
-            <button className="btn secondary" onClick={props.cobrarPromo2Lavados} disabled={guardando}>
+            <button className="btn secondary" onClick={() => props.cobrarPromoLavados("promo_2_lavados")} disabled={guardando}>
               Cobrar Promo 2 lavados ({fmtCLP(props.precioPromo2)})
+            </button>
+          </div>
+        )],
+        [props.precioPromo5, sinPlan && props.precioPromo5 > 0 && (
+          <div key="promo5" className="offer-card">
+            <div className="offer-head">
+              <h4>Promo 5 lavados</h4>
+            </div>
+            <div className="msg">Pasa ahora y le quedan 4 lavados para los próximos 30 días. Sin plan ni renovación.</div>
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioPromo5)}</span>
+            </div>
+            <button className="btn secondary" onClick={() => props.cobrarPromoLavados("promo_5_lavados")} disabled={guardando}>
+              Cobrar Promo 5 lavados ({fmtCLP(props.precioPromo5)})
             </button>
           </div>
         )],

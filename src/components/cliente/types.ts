@@ -28,6 +28,8 @@ export interface PreciosPublicos {
   // Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY): precio 0 = apagada, no se
   // muestra en ninguna superficie pública.
   promo2Lavados: { precio: number; lavados: number; vigenciaDias: number };
+  // Promo 5 Lavados (ver PROMO_5_LAVADOS_KEY): mismo criterio que la de 2.
+  promo5Lavados: { precio: number; lavados: number; vigenciaDias: number };
   // Descuento de primera vez que ofrece el pop-up de bienvenida de la landing
   // (ver DescuentoBienvenidaModal). Viaja acá y no por un getConfig() aparte
   // porque getPreciosPublicos() ya lee la fila `config` para vigenciaDias:

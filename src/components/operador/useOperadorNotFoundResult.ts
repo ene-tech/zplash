@@ -11,7 +11,7 @@ import {
   montoDescuento,
   normPlate,
   precioLavadoUnico,
-  precioPromo2Lavados,
+  precioPromoLavados,
   resolverDescuento,
 } from "@/lib/helpers";
 import type { PagoInfo } from "@/types";
@@ -46,7 +46,7 @@ export function useOperadorNotFoundResult(
   // Salida honesta cuando el cliente no quiere dar el correo: sin esto el
   // operador inventa uno para poder guardar (ver esCorreoDeRelleno).
   const [sinCorreo, setSinCorreo] = useState(false);
-  const [tipoLavado, setTipoLavado] = useState<"plan" | "unico" | "promo2">("plan");
+  const [tipoLavado, setTipoLavado] = useState<"plan" | "unico" | "promo2" | "promo5">("plan");
   const [err, setErr] = useState("");
   const [codigoInput, setCodigoInput] = useState(codigoDescuento || "");
 
@@ -165,8 +165,9 @@ export function useOperadorNotFoundResult(
     err,
     setCodigoInput,
     precioBaseLavado,
-    // $0 = promo apagada, el botón no se muestra (ver precioPromo2Lavados).
-    precioPromo2: precioPromo2Lavados(data.precios),
+    // $0 = pack apagado, su botón no se muestra (ver precioPromoLavados).
+    precioPromo2: precioPromoLavados(data.precios, "promo_2_lavados"),
+    precioPromo5: precioPromoLavados(data.precios, "promo_5_lavados"),
     cuponPrevio,
     precioConDescuento,
     quickAdd,

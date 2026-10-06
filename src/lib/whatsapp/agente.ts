@@ -1,12 +1,12 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
-import { and, asc, desc, eq, gt, gte, lt, lte, notLike, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, lt, lte, notLike, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones, ingresos, mensajesWhatsapp, plantillasWhatsapp, suscripcionesOneclick } from "@/db/schema";
 import { getConfig } from "@/lib/dataAccess/config";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
-import { PROMO_2_LAVADOS_KEY, fmtCLP, fmtFecha, isValidPatente, normPlate, pasesIncluidos, periodoPlan, planStatus, planVigente } from "@/lib/helpers";
+import { KEYS_PROMOS_LAVADOS, fmtCLP, fmtFecha, isValidPatente, normPlate, pasesIncluidos, periodoPlan, planStatus, planVigente } from "@/lib/helpers";
 import { cotizarPlanWeb } from "@/lib/pagos";
 import { POLITICAS } from "@/lib/politicas";
 // Sin la caché de Next (getPreciosPublicos): el agente también corre en el
@@ -149,7 +149,7 @@ async function fichaVehiculo(c: Cliente) {
           gt(cupones.fechaCaducidad, new Date().toISOString()),
           or(
             eq(cupones.patenteAsignada, c.patente),
-            and(eq(cupones.nombreLote, PROMO_2_LAVADOS_KEY), sql`${cupones.patentesAutorizadas} ? ${c.patente}`)
+            and(inArray(cupones.nombreLote, KEYS_PROMOS_LAVADOS), sql`${cupones.patentesAutorizadas} ? ${c.patente}`)
           )
         )
       ),

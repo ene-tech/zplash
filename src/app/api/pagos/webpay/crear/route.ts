@@ -4,18 +4,21 @@ import { getDb } from "@/db";
 import { pagosWebpay, pagosWebpayItems, precios, servicios } from "@/db/schema";
 import {
   PLANES,
-  PROMO_2_LAVADOS_KEY,
+  IDS_PROMOS_LAVADOS,
+  PROMOS_LAVADOS,
+  esIdPromoLavados,
   formatRut,
   isValidEmail,
   isValidPatente,
   isValidRut,
   normPlate,
   precioLavadoUnicoWeb,
-  precioPromo2Lavados,
+  precioPromoLavados,
   precioRenovacionCliente,
   precioConCupon,
   precioServicio,
   precioZonaAspirado,
+  type IdPromoLavados,
 } from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
@@ -37,8 +40,8 @@ const MAX_ITEMS = 20;
 // acá. La ÚNICA excepción es "renovacion": la tarjeta de plan vencido de Mi
 // Cuenta (ver OfertaPlan.pagoVencido), que es el plan de siempre esperando
 // que lo paguen, sin promoción ni tarjeta inscrita de por medio.
-type TipoPago = "renovacion" | "servicio" | "lavado_unico" | "aspirado" | "promo_2_lavados";
-const TIPOS_VALIDOS = new Set<TipoPago>(["renovacion", "servicio", "lavado_unico", "aspirado", "promo_2_lavados"]);
+type TipoPago = "renovacion" | "servicio" | "lavado_unico" | "aspirado" | IdPromoLavados;
+const TIPOS_VALIDOS = new Set<TipoPago>(["renovacion", "servicio", "lavado_unico", "aspirado", ...IDS_PROMOS_LAVADOS]);
 const TIPOS_PLAN = new Set<TipoPago>(["renovacion"]);
 
 function generarBuyOrder(): string {
@@ -175,16 +178,16 @@ export async function POST(request: NextRequest) {
         items.push({ tipo, servicioId: servicio.id, nombre: servicio.nombre, monto: precioServicio(preciosMap, servicio.id), ...doc });
       } else if (tipo === "lavado_unico") {
         items.push({ tipo, servicioId: null, nombre: "Lavado único", monto: precioLavadoUnicoWeb(preciosMap), ...doc });
-      } else if (tipo === "promo_2_lavados") {
-        // Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY): 2 tickets para esta
-        // patente, emitidos en /retorno. $0 = apagada, y no se vende aunque
-        // alguien arme el request a mano. El cupón de descuento de la patente
-        // no se le resta (ver indiceCupon más abajo): ya es una promoción.
-        const monto = precioPromo2Lavados(preciosMap);
+      } else if (esIdPromoLavados(tipo)) {
+        // Pack de lavados (Promo 2 o 5 Lavados, ver PROMOS_LAVADOS): tickets
+        // para esta patente, emitidos en /retorno. $0 = apagado, y no se vende
+        // aunque alguien arme el request a mano. El cupón de descuento de la
+        // patente no se le resta (ver indiceCupon más abajo): ya es una promoción.
+        const monto = precioPromoLavados(preciosMap, tipo);
         if (monto <= 0) {
           return NextResponse.json({ error: "Esta promoción no está disponible" }, { status: 400 });
         }
-        items.push({ tipo, servicioId: null, nombre: PROMO_2_LAVADOS_KEY, monto, ...doc });
+        items.push({ tipo, servicioId: null, nombre: PROMOS_LAVADOS[tipo].key, monto, ...doc });
       } else if (tipo === "aspirado") {
         items.push({
           tipo,

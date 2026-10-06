@@ -27,7 +27,7 @@ import {
   precioContratacion,
   precioLavadoAdicional,
   precioLavadoUnico,
-  precioPromo2Lavados,
+  precioPromoLavados,
   precioRenovacionATiempo,
   precioPagoAtrasado,
   precioReactivacionVencido,
@@ -310,8 +310,9 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // Lavados y los de un Pack de Tickets con flota (ver
   // ticketsVigentesDePatente). Se ofrecen arriba, antes de cobrarle nada.
   const ticketsPatente = ticketsVigentesDePatente(data.cupones, c.patente);
-  // $0 = promo apagada: el botón no se muestra (ver precioPromo2Lavados).
-  const precioPromo2 = precioPromo2Lavados(data.precios);
+  // $0 = pack apagado: su botón no se muestra (ver precioPromoLavados).
+  const precioPromo2 = precioPromoLavados(data.precios, "promo_2_lavados");
+  const precioPromo5 = precioPromoLavados(data.precios, "promo_5_lavados");
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
@@ -404,13 +405,14 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     lavadoWebPendiente,
     ticketsPatente,
     precioPromo2,
+    precioPromo5,
     ...ingreso,
     ...plan,
     ...ficha,
     registrar: conFichaCompleta(ingreso.registrar),
     registrarPagado: conFichaCompleta(ingreso.registrarPagado),
     cobrarLavadoUnico: conFichaCompleta(ingreso.cobrarLavadoUnico),
-    cobrarPromo2Lavados: conFichaCompleta(ingreso.cobrarPromo2Lavados),
+    cobrarPromoLavados: conFichaCompleta(ingreso.cobrarPromoLavados),
     usarTicket: conFichaCompleta(ingreso.usarTicket),
     registrarDetailing: conFichaCompleta(ingreso.registrarDetailing),
     registrarLavadoWeb: conFichaCompleta(ingreso.registrarLavadoWeb),

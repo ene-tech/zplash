@@ -5,7 +5,7 @@ import { auditEntries, diffPorId } from "./shared";
 // Async y con `ok` ya resuelto (como commitCitas, ver ./agenda) en vez del
 // CommitResult de las demás tablas: ingresos.cuponCodigo tiene FK a
 // cupones.codigo y la Promo 2 Lavados emite los tickets y canjea el primero
-// en el MISMO commit (ver entregarPromo2Lavados en @/lib/logic), así que
+// en el MISMO commit (ver entregarPromoLavados en @/lib/logic), así que
 // commit() tiene que esperar esta escritura antes de disparar la de ingresos.
 export async function commitCupones(
   previous: Cupon[],

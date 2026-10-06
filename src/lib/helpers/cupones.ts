@@ -1,6 +1,6 @@
 import type { Cliente, Cupon } from "@/types";
 import { findClient } from "./clientes";
-import { DIAS_PROMO_2_LAVADOS, LAVADOS_PROMO_2_LAVADOS, PROMO_2_LAVADOS_KEY, fmtCLP } from "./precios";
+import { PROMOS_LAVADOS, fmtCLP, type IdPromoLavados } from "./precios";
 import { limpiarRut, normPlate } from "./validadores";
 
 /** Alfabeto sin 0/O ni 1/I para evitar confusiones al leer o tipear el código. */
@@ -217,7 +217,14 @@ export function patenteAutorizadaParaCupon(cupon: Pick<Cupon, "patentesAutorizad
  * AppData) y el retorno de Webpay (insert), para que los dos canales emitan
  * exactamente el mismo producto. `patenteAsignada` no restringe un "vale"
  * (eso lo hace patentesAutorizadas): solo dice de qué auto es en las listas. */
-export function cuponesPromo2Lavados(p: {
+export function cuponesPromo2Lavados(p: Omit<Parameters<typeof cuponesPromoLavados>[0], "promo">): Cupon[] {
+  return cuponesPromoLavados({ ...p, promo: "promo_2_lavados" });
+}
+
+/** Lo mismo que cuponesPromo2Lavados para cualquier pack de PROMOS_LAVADOS
+ * (2 o 5 tickets): misma patente autorizada, vigencia y valor por ticket. */
+export function cuponesPromoLavados(p: {
+  promo: IdPromoLavados;
   patente: string;
   email?: string | null;
   precio: number;
@@ -227,20 +234,21 @@ export function cuponesPromo2Lavados(p: {
   idBase: string;
   ahora?: Date;
 }): Cupon[] {
+  const { key, lavados, dias } = PROMOS_LAVADOS[p.promo];
   const ahora = p.ahora ?? new Date();
   const patente = normPlate(p.patente);
-  const fechaCaducidad = new Date(ahora.getTime() + DIAS_PROMO_2_LAVADOS * 86400000).toISOString();
-  const valor = Math.round(p.precio / LAVADOS_PROMO_2_LAVADOS);
-  return Array.from({ length: LAVADOS_PROMO_2_LAVADOS }, (_, i) => {
+  const fechaCaducidad = new Date(ahora.getTime() + dias * 86400000).toISOString();
+  const valor = Math.round(p.precio / lavados);
+  return Array.from({ length: lavados }, (_, i) => {
     const codigo = generarCodigoCupon(p.existentes);
     p.existentes.add(codigo);
     return {
       id: `${p.idBase}-${i + 1}`,
       codigo,
-      nombreLote: PROMO_2_LAVADOS_KEY,
+      nombreLote: key,
       valor,
       numeroLote: i + 1,
-      totalLote: LAVADOS_PROMO_2_LAVADOS,
+      totalLote: lavados,
       fechaCaducidad,
       usado: false,
       creadoEn: ahora.toISOString(),

@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { clientes, cupones, pagosWebpay, pagosWebpayItems, servicios } from "@/db/schema";
 import { getConfig } from "@/lib/dataAccess/config";
 import { cuponToRow } from "@/lib/dataAccess/cupones";
-import { cuponesPromo2Lavados, sigueVigenteHoy } from "@/lib/helpers";
+import { cuponesPromoLavados, esIdPromoLavados, sigueVigenteHoy } from "@/lib/helpers";
 import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
 import { aplicarPagoPackEmpresa } from "./aplicarPagoPackEmpresa";
 import { aplicarUpgradePlan } from "./aplicarUpgradePlan";
@@ -229,10 +229,11 @@ export async function aplicarRetornoWebpay(
         continue;
       }
 
-      // La Promo 2 Lavados entra como servicio adicional a propósito: no
-      // toca plan ni vencimiento (son 2 tickets para la patente, ver abajo).
+      // Los packs de lavados (Promo 2/5 Lavados) entran como servicio
+      // adicional a propósito: no tocan plan ni vencimiento (son tickets para
+      // la patente, ver abajo).
       const esServicioAdicional =
-        item.tipo === "servicio" || item.tipo === "lavado_unico" || item.tipo === "aspirado" || item.tipo === "promo_2_lavados";
+        item.tipo === "servicio" || item.tipo === "lavado_unico" || item.tipo === "aspirado" || esIdPromoLavados(item.tipo);
       const tipoVenta = esServicioAdicional ? `${item.nombre} (Web)` : TIPO_VENTA_PROMO_CUENTA[item.tipo];
       // Pagar el plan vencido por la pasarela (OfertaPlan.pagoVencido, el
       // único ítem de plan que todavía pasa por Webpay) deja el mismo lavado
@@ -284,9 +285,10 @@ export async function aplicarRetornoWebpay(
             },
             tx2
           );
-          if (item.tipo === "promo_2_lavados") {
-            // Los 2 tickets de la promo van en el mismo savepoint que la
-            // venta: o quedan los dos o no queda ninguno. El correo del
+          const promo = item.tipo;
+          if (esIdPromoLavados(promo)) {
+            // Los tickets del pack van en el mismo savepoint que la
+            // venta: o quedan todos o no queda ninguno. El correo del
             // checkout solo viene con Factura; con Boleta se toma el de la
             // ficha (si tiene) para que igual los vea en "Mis tickets" de Mi
             // Cuenta — en el túnel se canjean por patente, sin código (ver
@@ -296,7 +298,8 @@ export async function aplicarRetornoWebpay(
             // y si pasa se generan otros.
             const [ficha] = await tx2.select({ email: clientes.email }).from(clientes).where(eq(clientes.patente, pago.patente)).limit(1);
             const generar = () =>
-              cuponesPromo2Lavados({
+              cuponesPromoLavados({
+                promo,
                 patente: pago.patente,
                 email: item.email || ficha?.email,
                 precio: item.monto,

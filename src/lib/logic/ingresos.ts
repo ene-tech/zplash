@@ -5,7 +5,8 @@ import {
   GLOSA_SERVICIO_DETAILING,
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   PLAN_X5,
-  cuponesPromo2Lavados,
+  type IdPromoLavados,
+  cuponesPromoLavados,
   enPlazoDePagoPlan,
   finCicloPlan,
   ilimitadoHastaAlRenovar,
@@ -16,21 +17,23 @@ import {
   ventaLavadoUnicoDeIngreso,
 } from "@/lib/helpers";
 
-// Venta en el mesón de la Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY): emite los
-// 2 tickets para la patente del cliente y canjea el primero ahora mismo — en
-// el local la promo se vende con el auto entrando al túnel, así que el paso
-// de hoy es el primero de los dos. Deja `cupones` completo (los 2, el primero
+// Venta en el mesón de un pack de lavados (Promo 2 o 5 Lavados, ver
+// PROMOS_LAVADOS): emite los tickets para la patente del cliente y canjea el
+// primero ahora mismo — en el local el pack se vende con el auto entrando al
+// túnel, así que el paso de hoy es el primero. Deja `cupones` completo (los 2, el primero
 // ya usado) más el Ingreso y la visita sumada a la ficha, igual que cualquier
 // canje de ticket (ver registrarIngresoCupon). La Venta la arma quien llama:
 // los datos de boleta/factura cambian entre cliente encontrado y registro
 // rápido.
-export function entregarPromo2Lavados(
+export function entregarPromoLavados(
   data: AppData,
   cliente: Cliente,
   precio: number,
-  operadorActual: string | null | undefined
+  operadorActual: string | null | undefined,
+  promo: IdPromoLavados
 ): Partial<AppData> {
-  const nuevos = cuponesPromo2Lavados({
+  const nuevos = cuponesPromoLavados({
+    promo,
     patente: cliente.patente,
     email: cliente.email,
     precio,

@@ -9,9 +9,12 @@ import {
   LAVADO_UNICO_KEY,
   LAVADOS_PROMO_2_LAVADOS,
   PROMO_2_LAVADOS_KEY,
+  PROMO_5_LAVADOS_KEY,
+  PROMOS_LAVADOS,
   precioLavadoAdicional,
   precioLavadoUnico,
   precioPromo2Lavados,
+  precioPromoLavados,
 } from "@/lib/helpers";
 import { Droplets } from "lucide-react";
 import ConfigSection from "./ConfigSection";
@@ -22,6 +25,7 @@ export default function LavadoSection() {
   const [lavadoUnicoVal, setLavadoUnicoVal] = useState(() => String(precioLavadoUnico(data.precios)));
   const [lavadoAdicionalVal, setLavadoAdicionalVal] = useState(() => String(precioLavadoAdicional(data.precios)));
   const [promo2Val, setPromo2Val] = useState(() => String(precioPromo2Lavados(data.precios)));
+  const [promo5Val, setPromo5Val] = useState(() => String(precioPromoLavados(data.precios, "promo_5_lavados")));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
 
@@ -33,6 +37,7 @@ export default function LavadoSection() {
         [LAVADO_UNICO_KEY]: { normal: Number(lavadoUnicoVal) || 0, promo: 0 },
         [LAVADO_ADICIONAL_KEY]: { normal: Number(lavadoAdicionalVal) || 0, promo: 0 },
         [PROMO_2_LAVADOS_KEY]: { normal: Number(promo2Val) || 0, promo: 0 },
+        [PROMO_5_LAVADOS_KEY]: { normal: Number(promo5Val) || 0, promo: 0 },
       },
     });
     setGuardando(false);
@@ -56,6 +61,14 @@ export default function LavadoSection() {
           Promo {LAVADOS_PROMO_2_LAVADOS} lavados para un auto, {DIAS_PROMO_2_LAVADOS} días (mesón y web) — $0 la apaga
         </label>
         <PriceInput value={promo2Val} onChange={setPromo2Val} />
+      </div>
+      {/* Promo 5 Lavados: en la web se presenta como "5 tickets", la compra
+          única para quien no quiere el Plan X5. */}
+      <div className="field" style={{ margin: 0 }}>
+        <label>
+          Promo {PROMOS_LAVADOS.promo_5_lavados.lavados} lavados para un auto, {PROMOS_LAVADOS.promo_5_lavados.dias} días (mesón y web) — $0 la apaga
+        </label>
+        <PriceInput value={promo5Val} onChange={setPromo5Val} />
       </div>
       <SaveBar saving={guardando} msg={msg} onSave={guardar} />
     </ConfigSection>

@@ -71,11 +71,26 @@ export default function OperadorNotFoundResult({
             Promo 2 lavados ({fmtCLP(r.precioPromo2)})
           </button>
         )}
+        {r.precioPromo5 > 0 && (
+          <button
+            className={r.tipoLavado === "promo5" ? "btn" : "btn secondary"}
+            style={{ marginTop: 0, flex: "1 1 160px" }}
+            onClick={() => r.setTipoLavado("promo5")}
+          >
+            Promo 5 lavados ({fmtCLP(r.precioPromo5)})
+          </button>
+        )}
       </div>
       {r.tipoLavado === "promo2" && (
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
           2 lavados Full Túnel para esta patente, válidos 30 días: pasa ahora con el primero y el segundo queda como
           ticket en su ficha — la próxima vez basta con leer la patente.
+        </div>
+      )}
+      {r.tipoLavado === "promo5" && (
+        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+          5 lavados Full Túnel para esta patente, válidos 30 días y sin plan: pasa ahora con el primero y los otros 4
+          quedan como tickets en su ficha — la próxima vez basta con leer la patente.
         </div>
       )}
       <div className="quick-form" style={{ marginBottom: r.cuponPrevio ? 4 : 14, marginTop: 0 }}>

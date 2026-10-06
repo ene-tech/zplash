@@ -737,13 +737,37 @@ export function precioLavadoUnicoWeb(precios: Precios): number {
 export const PROMO_2_LAVADOS_KEY = "Promo 2 Lavados";
 export const LAVADOS_PROMO_2_LAVADOS = 2;
 export const DIAS_PROMO_2_LAVADOS = 30;
+/** Hermana de la Promo 2 Lavados (oct-2026): 5 tickets para un auto en 30
+ * días. Es el "5 lavados al mes" del Plan X5 vendido como compra única para
+ * quien no quiere un plan — por eso NO toca plan ni vencimiento ni entra en
+ * los avisos de vencido: son tickets, igual que la de 2. */
+export const PROMO_5_LAVADOS_KEY = "Promo 5 Lavados";
 
-/** Precio de la promo, editable en Configuración → "Lavado túnel" (junto al
+/** Los packs de lavados prepagados para un auto, por el id que usan /pagar
+ * (`?item=`), webpay/crear y el mesón. `key` es a la vez la fila de `precios`,
+ * el `Venta.tipo` del mesón (la web le suma " (Web)") y el `nombreLote` de sus
+ * tickets. */
+export const PROMOS_LAVADOS = {
+  promo_2_lavados: { key: PROMO_2_LAVADOS_KEY, lavados: LAVADOS_PROMO_2_LAVADOS, dias: DIAS_PROMO_2_LAVADOS },
+  promo_5_lavados: { key: PROMO_5_LAVADOS_KEY, lavados: 5, dias: 30 },
+} as const;
+export type IdPromoLavados = keyof typeof PROMOS_LAVADOS;
+export type PromoLavados = (typeof PROMOS_LAVADOS)[IdPromoLavados];
+export const IDS_PROMOS_LAVADOS = Object.keys(PROMOS_LAVADOS) as IdPromoLavados[];
+/** Los `nombreLote` de todos los packs: para encontrar sus tickets por patente. */
+export const KEYS_PROMOS_LAVADOS: string[] = IDS_PROMOS_LAVADOS.map((id) => PROMOS_LAVADOS[id].key);
+export const esIdPromoLavados = (v: unknown): v is IdPromoLavados => typeof v === "string" && Object.hasOwn(PROMOS_LAVADOS, v);
+
+/** Precio de un pack, editable en Configuración → "Lavado túnel" (junto al
  * lavado único y el adicional, que también rigen en los dos canales). $0 o sin
- * fila = promo apagada: no se ofrece en ningún canal (mismo criterio que un
+ * fila = pack apagado: no se ofrece en ningún canal (mismo criterio que un
  * servicio sin precio, ver preciosPublicos). */
+export function precioPromoLavados(precios: Precios, id: IdPromoLavados): number {
+  return precios[PROMOS_LAVADOS[id].key]?.normal || 0;
+}
+
 export function precioPromo2Lavados(precios: Precios): number {
-  return precios[PROMO_2_LAVADOS_KEY]?.normal || 0;
+  return precioPromoLavados(precios, "promo_2_lavados");
 }
 
 /** Precio vigente de un servicio del catálogo, editable por el administrador desde Configuración; si no se ha guardado uno, es 0. */

@@ -90,10 +90,12 @@ export default async function FullTunnelPage() {
           {precios.promo2Lavados.precio > 0 && (
             <div className="hint" style={{ textAlign: "left", marginTop: 14 }}>
               <b>Promo:</b> {precios.promo2Lavados.lavados} lavados Full Tunnel para tu auto por{" "}
-              <b>{fmtCLP(precios.promo2Lavados.precio)}</b>, a usar dentro de {precios.promo2Lavados.vigenciaDias} días.{" "}
-              <Link href="/pagar?item=promo_2_lavados" className="btn secondary" style={{ marginTop: 8, textDecoration: "none" }}>
-                Comprar la promo
-              </Link>
+              <b>{fmtCLP(precios.promo2Lavados.precio)}</b>, a usar dentro de {precios.promo2Lavados.vigenciaDias} días.
+              <div style={{ marginTop: 10 }}>
+                <Link href="/pagar?item=promo_2_lavados" className="btn secondary" style={{ marginTop: 0, textDecoration: "none" }}>
+                  Comprar la promo
+                </Link>
+              </div>
             </div>
           )}
         </ProductoHero>

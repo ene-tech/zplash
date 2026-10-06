@@ -93,6 +93,10 @@ import {
   beneficioCupon,
   cuponDescuentoDePatente,
   cuponesPromo2Lavados,
+  cuponesPromoLavados,
+  KEYS_PROMOS_LAVADOS,
+  PROMO_5_LAVADOS_KEY,
+  precioPromoLavados,
   cuponesVigentesDeCliente,
   PROMO_2_LAVADOS_KEY,
   precioPromo2Lavados,
@@ -2633,6 +2637,24 @@ describe("Promo 2 Lavados — tickets por patente", () => {
     expect(precioPromo2Lavados({})).toBe(0);
     expect(precioPromo2Lavados({ [PROMO_2_LAVADOS_KEY]: { normal: 0, promo: 0 } })).toBe(0);
     expect(precioPromo2Lavados({ [PROMO_2_LAVADOS_KEY]: { normal: 14990, promo: 0 } })).toBe(14990);
+  });
+
+  it("Promo 5 Lavados: 5 vales de su propio lote, 30 días, y su precio no se mezcla con la de 2", () => {
+    const cinco = cuponesPromoLavados({ promo: "promo_5_lavados", patente: "ab1234", precio: 19990, existentes: new Set(), creadoPor: "x", idBase: "c5", ahora });
+    expect(cinco).toHaveLength(5);
+    expect(new Set(cinco.map((t) => t.codigo)).size).toBe(5);
+    for (const t of cinco) {
+      expect(t.nombreLote).toBe(PROMO_5_LAVADOS_KEY);
+      expect(t.totalLote).toBe(5);
+      expect(t.valor).toBe(3998);
+      expect(t.patentesAutorizadas).toEqual(["AB1234"]);
+      expect(t.fechaCaducidad).toBe("2026-10-07T15:00:00.000Z");
+    }
+    expect(ticketsVigentesDePatente(cinco, "AB1234", ahora)).toHaveLength(5);
+    const precios = { [PROMO_2_LAVADOS_KEY]: { normal: 15990, promo: 0 }, [PROMO_5_LAVADOS_KEY]: { normal: 19990, promo: 0 } };
+    expect(precioPromoLavados(precios, "promo_5_lavados")).toBe(19990);
+    expect(precioPromoLavados({}, "promo_5_lavados")).toBe(0);
+    expect(KEYS_PROMOS_LAVADOS).toEqual([PROMO_2_LAVADOS_KEY, PROMO_5_LAVADOS_KEY]);
   });
 });
 

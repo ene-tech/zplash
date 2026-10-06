@@ -18,15 +18,19 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
   // Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY): precio 0 = apagada, y un link
   // viejo con ?item=promo_2_lavados cae al panel genérico de abajo.
   const hayPromo = promo.precio > 0;
-  // lavado_unico/aspirado/promo ya piden su propia patente arriba en
+  // Pack que pide el link (?item=promo_2_lavados / promo_5_lavados), si está
+  // a la venta: mismo criterio de apagado que la de 2.
+  const packPedido =
+    r.item === "promo_2_lavados" ? precios.promo2Lavados : r.item === "promo_5_lavados" ? precios.promo5Lavados : null;
+  const pack = packPedido && packPedido.precio > 0 ? packPedido : null;
+  // lavado_unico/aspirado/pack ya piden su propia patente arriba en
   // PagoUnicoCard (que además cobra directo, sin pasar por "Buscar"): el panel
   // genérico de abajo sería un segundo campo de patente redundante para ese flujo.
-  const esPagoUnico = r.item === "lavado_unico" || r.item === "aspirado" || (r.item === "promo_2_lavados" && hayPromo);
+  const esPagoUnico = r.item === "lavado_unico" || r.item === "aspirado" || !!pack;
   // La promo se ofrece a quien no tiene plan al día (vencido o sin plan, los
   // dos son "bad" en planStatus) o a la patente que no está registrada: al
   // cliente con plan vigente no le sirve.
   const ofrecerPromo = hayPromo && !!r.resultado && (!r.resultado.encontrado || r.resultado.estado?.cls === "bad");
-  const nombrePromo = `Promo ${promo.lavados} Lavados Full Tunnel`;
 
   return (
     <div className="content" style={{ maxWidth: 640 }}>
@@ -70,12 +74,12 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
         />
       )}
 
-      {r.item === "promo_2_lavados" && hayPromo && (
+      {pack && (
         <PagoUnicoCard
           icono="🎟️"
-          titulo={`${nombrePromo} · para un auto, ${promo.vigenciaDias} días`}
-          precio={promo.precio}
-          tipo="promo_2_lavados"
+          titulo={`${pack.lavados} Tickets de Lavado Full Tunnel · para un auto, ${pack.vigenciaDias} días`}
+          precio={pack.precio}
+          tipo={r.item as "promo_2_lavados" | "promo_5_lavados"}
           patente={r.patente}
           setPatente={r.setPatente}
           err={r.err}
