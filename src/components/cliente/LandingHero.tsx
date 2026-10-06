@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { MapPin, Clock, MessageCircle } from "lucide-react";
-import { fmtCLP } from "@/lib/helpers";
 import type { PreciosPublicos } from "./types";
 import { WhatsAppIcon } from "./AnnounceBar";
 
@@ -36,7 +35,6 @@ const PASOS = [
 ];
 
 export default function LandingHero({
-  precios,
   video,
 }: {
   precios: PreciosPublicos;
@@ -77,7 +75,7 @@ export default function LandingHero({
         </p>
         <div className="landing-hero-ctas">
           <a href="#lavados" className="btn landing-hero-cta">
-            Plan X5 desde {fmtCLP(precios.planPrimera.precio)}
+            Ver precios
           </a>
           <a href="#como-funciona" className="btn ghost">
             Cómo funciona
