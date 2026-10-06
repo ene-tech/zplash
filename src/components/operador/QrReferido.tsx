@@ -14,7 +14,9 @@ export default function QrReferido({ patente, valor }: { patente: string; valor:
   const [abierto, setAbierto] = useState(false);
   if (!patente || !valor) return null;
   const monto = fmtCLP(valor);
-  const mensaje = mensajeInvitacionReferido(linkReferido(window.location.origin, patente), monto);
+  // El dominio público, no window.location.origin: el operador corre en
+  // admin.zplash.cl y el link lo abren los amigos del cliente.
+  const mensaje = mensajeInvitacionReferido(linkReferido("https://zplash.cl", patente), monto);
   const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
   return (
     <div className="offer-card" style={{ marginTop: 16 }}>
