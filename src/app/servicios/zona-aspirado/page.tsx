@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Wind, Clock, Ticket } from "lucide-react";
 import { fmtCLP } from "@/lib/helpers";
@@ -6,7 +7,13 @@ import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoHero from "@/components/cliente/ProductoHero";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
 import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
-import VolverBoton from "@/components/cliente/VolverBoton";
+
+export const metadata: Metadata = {
+  title: "Aspirado de autos autoservicio en Temuco | ZPlash",
+  description:
+    "Estación de aspirado autoservicio en Temuco, sin límite de tiempo y sin reserva. Con o sin plan de lavado.",
+  alternates: { canonical: "/servicios/zona-aspirado" },
+};
 
 const PREGUNTAS_ZONA_ASPIRADO = [
   {
@@ -38,11 +45,9 @@ export default async function ZonaAspiradoPage() {
 
   return (
     <div id="app">
-      <ClienteHeader titulo="Uso Zona Aspirado Autoservicio" />
+      <ClienteHeader titulo="Uso Zona Aspirado Autoservicio" volverHref="/#lavados" />
 
       <div className="content">
-        <VolverBoton href="/#lavados" label="Volver a Tipos de Lavados" />
-
         <ProductoHero
           eyebrow="Autoservicio"
           titulo="Uso Zona Aspirado Autoservicio"

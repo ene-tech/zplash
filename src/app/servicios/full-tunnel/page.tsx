@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Droplets, Clock, ListPlus } from "lucide-react";
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
@@ -6,7 +7,13 @@ import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoHero from "@/components/cliente/ProductoHero";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
 import AgregarCarritoButton from "@/components/cliente/AgregarCarritoButton";
-import VolverBoton from "@/components/cliente/VolverBoton";
+
+export const metadata: Metadata = {
+  title: "Lavado de autos por túnel en Temuco · Full Tunnel | ZPlash",
+  description:
+    "Lavado exterior completo en túnel en Temuco: prelavado, jabón, cepillado, enjuague y secado en minutos, más aspirado sin límite de tiempo. Sin reserva.",
+  alternates: { canonical: "/servicios/full-tunnel" },
+};
 
 const PREGUNTAS_FULL_TUNNEL = [
   {
@@ -59,11 +66,9 @@ export default async function FullTunnelPage() {
 
   return (
     <div id="app">
-      <ClienteHeader titulo="Lavado Full Tunnel" />
+      <ClienteHeader titulo="Lavado Full Tunnel" volverHref="/#lavados" />
 
       <div className="content">
-        <VolverBoton href="/#lavados" label="Volver a Tipos de Lavados" />
-
         <ProductoHero
           eyebrow="Lavado por túnel"
           titulo="Lavado Full Tunnel"

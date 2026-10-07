@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Car, CreditCard, Bell, Repeat, Check } from "lucide-react";
 import { fmtCLP } from "@/lib/helpers";
@@ -5,7 +6,13 @@ import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import FaqAccordion from "@/components/cliente/FaqAccordion";
 import ProductoHero from "@/components/cliente/ProductoHero";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
-import VolverBoton from "@/components/cliente/VolverBoton";
+
+export const metadata: Metadata = {
+  title: "Plan mensual de lavado de autos en Temuco · Plan X5 | ZPlash",
+  description:
+    "5 lavados por túnel al mes en Temuco con aspirado sin límite de tiempo. Renovación automática con tarjeta, cancelas cuando quieras.",
+  alternates: { canonical: "/servicios/plan-mensual" },
+};
 
 const PREGUNTAS_PLAN_MENSUAL = [
   {
@@ -52,11 +59,9 @@ export default async function PlanMensualPage() {
 
   return (
     <div id="app">
-      <ClienteHeader titulo="Plan X5" />
+      <ClienteHeader titulo="Plan X5" volverHref="/#lavados" />
 
       <div className="content">
-        <VolverBoton href="/#lavados" label="Volver a Tipos de Lavados" />
-
         <ProductoHero
           eyebrow="Plan mensual"
           titulo="Plan X5 Full Túnel"

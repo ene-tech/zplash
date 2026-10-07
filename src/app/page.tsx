@@ -22,11 +22,36 @@ export const dynamic = "force-dynamic";
 // Subir un video a public/tunel/hero.mp4 lo pone de fondo en la portada.
 const HAY_VIDEO_HERO = existsSync(path.join(process.cwd(), "public/tunel/hero.mp4"));
 
+// Ficha del negocio para Google (datos estructurados schema.org). Tiene que
+// coincidir con la ficha de Google Maps y con UbicacionTab: misma dirección,
+// teléfono y horario, o Google no los asocia como el mismo negocio.
+const NEGOCIO_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "AutoWash",
+  name: "ZPlash",
+  url: "https://zplash.cl",
+  image: "https://zplash.cl/tunel/prelavado-portada3.jpg",
+  telephone: "+56957969446",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "Prieto Norte 71",
+    addressLocality: "Temuco",
+    addressRegion: "La Araucanía",
+    addressCountry: "CL",
+  },
+  areaServed: "Temuco",
+  openingHoursSpecification: [
+    { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], opens: "08:30", closes: "20:00" },
+    { "@type": "OpeningHoursSpecification", dayOfWeek: ["Saturday", "Sunday"], opens: "10:00", closes: "19:00" },
+  ],
+};
+
 export default async function LandingPage() {
   const precios = await getPreciosPublicos();
 
   return (
     <div id="app">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(NEGOCIO_JSON_LD) }} />
       <DescuentoBienvenidaModal valor={precios.descuentoBienvenida.valor} dias={precios.descuentoBienvenida.diasValidez} />
       <AnnounceBar />
       <SiteNav detailing={precios.servicios.length > 0} />

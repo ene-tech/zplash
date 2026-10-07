@@ -63,13 +63,15 @@ type Opcion = {
 // mismos que cobra webpay/crear; un pack en $0 está apagado y no se muestra.
 // La usan la landing (/) y la landing para compartir (/tickets). Va en tres
 // bloques: el lavado suelto solo, "Promociones" con los packs de 2 y 5, y
-// `children` bajo "Venta empresa, convenios, familias" (la landing pone ahí el
-// pack de 10/+ tickets; /tickets no pasa nada y ese bloque no aparece).
+// `children` bajo `tituloExtra` (la landing pone ahí el Plan X5; /tickets no
+// pasa nada y ese bloque no aparece).
 export default function EscaleraTickets({
   precios,
+  tituloExtra = null,
   children,
 }: {
   precios: PreciosPublicos;
+  tituloExtra?: string | null;
   children?: React.ReactNode;
 }) {
   const unitario = precios.lavadoUnico.precio;
@@ -125,7 +127,7 @@ export default function EscaleraTickets({
         </Bloque>
       )}
       {children && (
-        <Bloque titulo="Venta empresa, convenios, familias" tarjetas={1}>
+        <Bloque titulo={tituloExtra} tarjetas={1}>
           {children}
         </Bloque>
       )}
@@ -190,7 +192,7 @@ export default function EscaleraTickets({
 }
 
 // Columnas más angostas que el card-grid común (260px) para que las 4 tarjetas
-// (suelto, 2, 5 y el pack 10/+) quepan en una fila. Cada bloque crece en
+// (suelto, 2, 5 y el Plan X5) quepan en una fila. Cada bloque crece en
 // proporción a sus tarjetas, así todas quedan del mismo ancho, y lleva su
 // título encima; el del suelto va vacío (pero ocupa el alto) para que las
 // tarjetas partan alineadas. En pantallas angostas los bloques bajan de línea.
@@ -218,8 +220,8 @@ function Bloque({
         flexDirection: "column",
       }}
     >
-      {/* Alto fijo de dos líneas, texto pegado abajo: "Venta empresa,
-          convenios, familias" ocupa dos y así las tarjetas parten parejas. */}
+      {/* Alto fijo de dos líneas, texto pegado abajo: si un título ocupa
+          dos líneas las tarjetas igual parten parejas. */}
       <h3
         style={{
           margin: "8px 0 12px",

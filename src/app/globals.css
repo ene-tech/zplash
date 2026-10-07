@@ -1271,6 +1271,9 @@ tr:hover td {
 
 /* ---------- PORTAL CLIENTE (público) ---------- */
 .cliente-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1301,6 +1304,20 @@ tr:hover td {
      (ahí el "mode" sí es información necesaria para el staff). */
   .cliente-header .title .mode {
     display: none;
+  }
+  /* Header fijo: en una sola fila y bajo, para que no se coma la pantalla
+     al hacer scroll (con la flecha de volver ya no cabía y se partía en dos). */
+  .cliente-header {
+    padding: 8px 16px;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  .cliente-header .logo-principal {
+    height: 48px;
+  }
+  .cliente-header-back {
+    width: 36px;
+    height: 36px;
   }
 }
 
@@ -1993,6 +2010,16 @@ tr:hover td {
   color: #1a1815;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 60%), rgba(255, 255, 255, 0.06);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), inset 0 -3px 5px rgba(90, 50, 5, 0.35);
+}
+/* Flecha de volver dentro del header fijo (ClienteHeader volverHref): mismo
+   relieve que el ícono de .landing-back, pero sobre el panel oscuro necesita
+   el fondo dorado propio y un poco más de área táctil. */
+.cliente-header-back {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(180deg, #ffe28a 0%, var(--gold) 45%, #c98f12 100%);
+  border: 1px solid rgba(45, 30, 5, 0.55);
+  text-decoration: none;
 }
 .landing-back-icon svg {
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3));

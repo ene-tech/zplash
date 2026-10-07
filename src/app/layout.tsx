@@ -12,8 +12,9 @@ const outfit = Outfit({ weight: "500", subsets: ["latin"], variable: "--font-out
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://zplash.cl"),
-  title: "ZPlash · Lavado de autos",
-  description: "Lavado de autos sin rayas y el Plan X5 (5 lavados al mes) en ZPlash.",
+  title: "Lavado de autos en Temuco · Túnel y aspirado | ZPlash",
+  description:
+    "Lavado de autos por túnel en Temuco, sin reserva y abierto todos los días. Aspirado sin límite de tiempo y Plan X5 (5 lavados al mes). Prieto Norte 71.",
   openGraph: { images: ["/tunel/prelavado-portada3.jpg"] },
   appleWebApp: {
     title: "ZPlash",

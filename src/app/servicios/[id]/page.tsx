@@ -1,14 +1,25 @@
+import type { Metadata } from "next";
 import { Calendar, MessageCircle } from "lucide-react";
 import { fmtCLP } from "@/lib/helpers";
 import { obtenerContenidoServicio } from "@/lib/servicioContenido";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 import ProductoHero from "@/components/cliente/ProductoHero";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
-import VolverBoton from "@/components/cliente/VolverBoton";
 import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION } from "@/types";
 
 const WHATSAPP_URL = (nombre: string) =>
   "https://wa.me/56957969446?text=" + encodeURIComponent(`Hola, quiero agendar el servicio "${nombre}" para mi auto`);
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const servicio = (await getPreciosPublicos()).servicios.find((s) => s.id === id);
+  if (!servicio) return { robots: { index: false } };
+  return {
+    title: `${servicio.nombre} en Temuco | ZPlash`,
+    description: obtenerContenidoServicio(id).descripcion,
+    alternates: { canonical: `/servicios/${id}` },
+  };
+}
 
 export default async function ServicioLandingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,11 +29,9 @@ export default async function ServicioLandingPage({ params }: { params: Promise<
 
   return (
     <div id="app">
-      <ClienteHeader titulo={servicio?.nombre ?? "Servicio"} />
+      <ClienteHeader titulo={servicio?.nombre ?? "Servicio"} volverHref="/#lavados" />
 
       <div className="content">
-        <VolverBoton href="/#lavados" label="Volver a Tipos de Lavados" />
-
         {!servicio ? (
           <div className="card">
             <p style={{ color: "var(--gray)", fontSize: 14 }}>No encontramos este servicio.</p>

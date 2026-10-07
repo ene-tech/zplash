@@ -6,9 +6,9 @@ import TicketsCard from "./tiposLavado/TicketsCard";
 import EscaleraTickets from "./tiposLavado/EscaleraTickets";
 
 // Dos formas de comprar el mismo lavado: tickets de pago único por Webpay
-// (EscaleraTickets: 1, 2 o 5, para quien no quiere un plan) y el Plan X5 con
-// cobro automático Oneclick, que va aparte para que no se confunda con la
-// compra única.
+// (EscaleraTickets: 1, 2 o 4, para quien no quiere un plan) y el Plan X5 con
+// cobro automático Oneclick, que va en la misma fila bajo su propio título.
+// El Pack de Tickets 10/+ va debajo, a lo ancho, como venta empresa.
 export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos | null }) {
 
   return (
@@ -35,38 +35,14 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
         Compra tus tickets de una vez, sin plan: mientras más llevas, menos pagas por cada lavado.
       </p>
       {precios && (
-        <EscaleraTickets precios={precios}>
-          <TicketsCard precios={precios} />
+        <EscaleraTickets precios={precios} tituloExtra="Plan mensual">
+          <PlanX5Card precios={precios} />
         </EscaleraTickets>
       )}
 
-      <div className="card pricing-card pricing-card--featured" style={{ marginBottom: 22, height: "auto" }}>
-        <span className="pricing-card-badge">¿Lavas todos los meses?</span>
-        <div className="card-icon-title">
-          <span className="icon-chip">
-            <Car />
-          </span>
-          <h3>Plan X5 · cobro automático</h3>
-        </div>
-        <p className="desc">
-          5 lavados por el túnel cada mes, sin preocuparte de volver a comprar: se cobra solo a tu tarjeta con
-          Oneclick.
-        </p>
-        <div className="price-row" style={{ marginTop: 14, marginBottom: 4 }}>
-          <span className="new">{precios ? fmtCLP(precios.planOneclick.precio) : "..."}</span>
-          <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
-        </div>
-        <ul className="pricing-card-features" style={{ marginTop: 10 }}>
-          <li>
-            <Check /> Renovación automática con tu tarjeta
-          </li>
-          <li>
-            <Check /> Te avisamos antes de que venza
-          </li>
-        </ul>
-        <Link href="/servicios/plan-mensual" className="btn" style={{ textDecoration: "none" }}>
-          Activar plan
-        </Link>
+      <h3 style={{ margin: "8px 0 12px" }}>Venta empresa, convenios, familias</h3>
+      <div style={{ marginBottom: 22 }}>
+        <TicketsCard precios={precios} />
       </div>
 
       <h3 style={{ margin: "8px 0 12px" }}>Otras opciones</h3>
@@ -95,6 +71,40 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
           </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Va como 4ta tarjeta de la escalera, al lado de los packs de pago único.
+function PlanX5Card({ precios }: { precios: PreciosPublicos }) {
+  return (
+    <div className="card pricing-card pricing-card--featured">
+      <span className="pricing-card-badge">¿Lavas todos los meses?</span>
+      <div className="card-icon-title">
+        <span className="icon-chip">
+          <Car />
+        </span>
+        <h3>Plan X5 · cobro automático</h3>
+      </div>
+      <p className="desc">
+        5 lavados por el túnel cada mes, sin preocuparte de volver a comprar: se cobra solo a tu tarjeta con
+        Oneclick.
+      </p>
+      <div className="price-row" style={{ marginTop: 14, marginBottom: 4 }}>
+        <span className="new">{fmtCLP(precios.planOneclick.precio)}</span>
+        <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
+      </div>
+      <ul className="pricing-card-features" style={{ marginTop: 10 }}>
+        <li>
+          <Check /> Renovación automática con tu tarjeta
+        </li>
+        <li>
+          <Check /> Te avisamos antes de que venza
+        </li>
+      </ul>
+      <Link href="/servicios/plan-mensual" className="btn" style={{ textDecoration: "none" }}>
+        Activar plan
+      </Link>
     </div>
   );
 }
