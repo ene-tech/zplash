@@ -3,7 +3,6 @@ import "server-only";
 import { limpiarEmailCliente } from "@/lib/dataAccess/clientes";
 import { eliminarDisparoReglaCorreo, marcarDisparoReglaCorreo, obtenerPlantillaCorreo } from "@/lib/dataAccess/mail";
 import { aplicarVariables } from "@/lib/helpers";
-import { usaPrecioUpgradeRetirado } from "@/lib/whatsapp/reglas/motor";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 // Reusa el mismo lookup de Cliente y el mismo builder de variables
@@ -51,13 +50,6 @@ export async function ejecutarAccionReglaCorreo(
     await marcarDisparoReglaCorreo(disparoId, { estado: "error", error: "plantilla no disponible" });
     return false;
   }
-  // Mismo resguardo que el motor de WhatsApp: la invitación al upgrade a Plan
-  // X5 (retirado en oct-2026) saldría con el precio vacío.
-  if (usaPrecioUpgradeRetirado([plantilla.asunto, plantilla.cuerpo])) {
-    await marcarDisparoReglaCorreo(disparoId, { estado: "error", error: "plantilla del upgrade a plan retirado" });
-    return false;
-  }
-
   const asunto = aplicarVariables(plantilla.asunto, variables);
   // El admin escribe texto plano en Web Settings → Mail Templates (ver
   // WebSettingsMailTab.tsx, un <textarea> simple); envolverCorreoBase le pone

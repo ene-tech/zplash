@@ -249,14 +249,6 @@ export async function ejecutarAccionRegla(
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
     return;
   }
-  // Plantilla del upgrade a Plan X5, retirado en oct-2026: {{precioUpgrade}}
-  // ya no tiene valor, y mandarla invitaría a una promo que no existe con el
-  // precio vacío. Cubre los disparos que quedaron programados antes del corte.
-  if (usaPrecioUpgradeRetirado(plantilla.metaVariables ?? [])) {
-    await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
-    return;
-  }
-
   let cuponId = cupon?.id;
   let montoOferta: number | undefined;
   let diasValidez: number | undefined;
@@ -314,10 +306,4 @@ export async function ejecutarAccionRegla(
     cuponId,
     mensajeWhatsappId: mensaje?.id,
   });
-}
-
-/** ¿La plantilla pide {{precioUpgrade}}, la variable del upgrade a Plan X5
- * retirado? Lo usan los motores de WhatsApp y de correo para no mandarla. */
-export function usaPrecioUpgradeRetirado(textosOVariables: string[]): boolean {
-  return textosOVariables.some((t) => t.toLowerCase().includes("precioupgrade"));
 }

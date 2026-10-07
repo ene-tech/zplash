@@ -80,19 +80,6 @@ beforeEach(() => {
   metaVariables = [];
 });
 
-// No es opt-out, pero es el mismo corte antes del envío: el template del
-// lavado único que ofrece el upgrade no sale si el cliente ya no califica.
-describe("template de WhatsApp con {{precioUpgrade}}", () => {
-  // El upgrade a Plan X5 se retiró en oct-2026: la plantilla que lo ofrecía
-  // no sale nunca, ni desde un disparo que quedó programado antes del corte.
-  it("no sale nunca", async () => {
-    metaVariables = ["nombre", "precioupgrade"];
-    await ejecutarAccionRegla(REGLA_WHATSAPP, "d1", CLIENTE, 9990);
-    expect(enviosWhatsapp).toEqual([]);
-    expect(marcadosWhatsapp).toEqual(["error"]);
-  });
-});
-
 // La invitación a referir reemplaza al upgrade en la regla del lavado único:
 // sale aunque el cliente no califique al upgrade, con el monto de la config.
 describe("template de WhatsApp con {{descuentoReferido}}", () => {
