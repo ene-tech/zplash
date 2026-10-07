@@ -222,7 +222,7 @@ export function cuponesPromo2Lavados(p: Omit<Parameters<typeof cuponesPromoLavad
 }
 
 /** Lo mismo que cuponesPromo2Lavados para cualquier pack de PROMOS_LAVADOS
- * (2 o 5 tickets): misma patente autorizada, vigencia y valor por ticket. */
+ * (2 o 4 tickets): misma patente autorizada, vigencia y valor por ticket. */
 export function cuponesPromoLavados(p: {
   promo: IdPromoLavados;
   patente: string;

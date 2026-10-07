@@ -10,16 +10,16 @@ import EscaleraTickets from "@/components/cliente/tiposLavado/EscaleraTickets";
 import { WhatsAppFlotante } from "@/components/cliente/LandingHero";
 
 // Landing para compartir (WhatsApp, redes) la compra de tickets de lavado:
-// 1, 2 o 5, pago único por Webpay y sin plan — pensada para quien le tiene
+// 1, 2 o 4, pago único por Webpay y sin plan — pensada para quien le tiene
 // miedo a suscribirse. El Plan X5 con cobro automático no se ofrece acá a
 // propósito; vive en la landing (/) y en /servicios/plan-mensual.
 export const metadata: Metadata = {
-  title: "Tickets de lavado de autos en Temuco · 1, 2 o 5 lavados | ZPlash",
+  title: "Tickets de lavado de autos en Temuco · 1, 2 o 4 lavados | ZPlash",
   description:
-    "Compra tus lavados Full Tunnel por adelantado, sin plan: 1, 2 o 5 tickets para tu auto. Mientras más llevas, menos pagas por cada lavado.",
+    "Compra tus lavados Full Tunnel por adelantado, sin plan: 1, 2 o 4 tickets para tu auto. Mientras más llevas, menos pagas por cada lavado.",
   alternates: { canonical: "/tickets" },
   openGraph: {
-    title: "Tickets de lavado ZPlash · 1, 2 o 5 lavados, sin plan",
+    title: "Tickets de lavado ZPlash · 1, 2 o 4 lavados, sin plan",
     description: "Lavado exterior en túnel + aspirado sin límite de tiempo. Compra tus tickets y úsalos cuando quieras.",
     images: ["/tunel/prelavado-portada3.jpg"],
   },

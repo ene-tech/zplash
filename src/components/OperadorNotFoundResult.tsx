@@ -77,7 +77,7 @@ export default function OperadorNotFoundResult({
             style={{ marginTop: 0, flex: "1 1 160px" }}
             onClick={() => r.setTipoLavado("promo5")}
           >
-            Promo 5 lavados ({fmtCLP(r.precioPromo5)})
+            Promo 4 lavados ({fmtCLP(r.precioPromo5)})
           </button>
         )}
       </div>
@@ -89,7 +89,7 @@ export default function OperadorNotFoundResult({
       )}
       {r.tipoLavado === "promo5" && (
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-          5 lavados Full Túnel para esta patente, válidos 30 días y sin plan: pasa ahora con el primero y los otros 4
+          4 lavados Full Túnel para esta patente, válidos 30 días y sin plan: pasa ahora con el primero y los otros 3
           quedan como tickets en su ficha — la próxima vez basta con leer la patente.
         </div>
       )}

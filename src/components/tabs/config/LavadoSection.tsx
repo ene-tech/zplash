@@ -62,7 +62,7 @@ export default function LavadoSection() {
         </label>
         <PriceInput value={promo2Val} onChange={setPromo2Val} />
       </div>
-      {/* Promo 5 Lavados: en la web se presenta como "5 tickets", la compra
+      {/* Promo 5 Lavados (hoy 4 tickets): en la web se presenta como "4 tickets", la compra
           única para quien no quiere el Plan X5. */}
       <div className="field" style={{ margin: 0 }}>
         <label>

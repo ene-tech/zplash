@@ -737,8 +737,9 @@ export function precioLavadoUnicoWeb(precios: Precios): number {
 export const PROMO_2_LAVADOS_KEY = "Promo 2 Lavados";
 export const LAVADOS_PROMO_2_LAVADOS = 2;
 export const DIAS_PROMO_2_LAVADOS = 30;
-/** Hermana de la Promo 2 Lavados (oct-2026): 5 tickets para un auto en 30
- * días. Es el "5 lavados al mes" del Plan X5 vendido como compra única para
+/** Hermana de la Promo 2 Lavados (oct-2026): 4 tickets para un auto en 30
+ * días (eran 5 hasta el 7-oct-2026; la clave sigue diciendo 5 porque es el
+ * `Venta.tipo` histórico y la fila de `precios`). Compra única para
  * quien no quiere un plan — por eso NO toca plan ni vencimiento ni entra en
  * los avisos de vencido: son tickets, igual que la de 2. */
 export const PROMO_5_LAVADOS_KEY = "Promo 5 Lavados";
@@ -749,7 +750,7 @@ export const PROMO_5_LAVADOS_KEY = "Promo 5 Lavados";
  * tickets. */
 export const PROMOS_LAVADOS = {
   promo_2_lavados: { key: PROMO_2_LAVADOS_KEY, lavados: LAVADOS_PROMO_2_LAVADOS, dias: DIAS_PROMO_2_LAVADOS },
-  promo_5_lavados: { key: PROMO_5_LAVADOS_KEY, lavados: 5, dias: 30 },
+  promo_5_lavados: { key: PROMO_5_LAVADOS_KEY, lavados: 4, dias: 30 },
 } as const;
 export type IdPromoLavados = keyof typeof PROMOS_LAVADOS;
 export type PromoLavados = (typeof PROMOS_LAVADOS)[IdPromoLavados];
