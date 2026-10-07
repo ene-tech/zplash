@@ -28,15 +28,14 @@ describe("premiosPendientes", () => {
 });
 
 describe("acumularPremio", () => {
-  it("suma los premios previos hasta el tope y deja afuera el que no entra", () => {
+  it("suma todos los premios previos, sin tope", () => {
     const previos = [
       { codigo: "A", valor: 2000 },
       { codigo: "B", valor: 4000 },
       { codigo: "C", valor: 2000 },
     ];
-    expect(acumularPremio(2000, previos, 8000)).toEqual({ valor: 8000, absorbidos: ["A", "B"] });
-    expect(acumularPremio(2000, [], 8000)).toEqual({ valor: 2000, absorbidos: [] });
-    expect(acumularPremio(2000, [{ codigo: "X", valor: 8000 }], 8000)).toEqual({ valor: 2000, absorbidos: [] });
+    expect(acumularPremio(2000, previos)).toEqual({ valor: 10000, absorbidos: ["A", "B", "C"] });
+    expect(acumularPremio(2000, [])).toEqual({ valor: 2000, absorbidos: [] });
   });
 });
 

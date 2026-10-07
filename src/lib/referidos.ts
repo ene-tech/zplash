@@ -73,8 +73,8 @@ export function referidosDePatente(
 }
 
 /** Premio de referido acumulado en una patente: la suma de sus premios vigentes
- * sin usar (normalmente uno solo, ver acumularPremio; más de uno solo si se
- * pasó el tope). Los absorbidos ya quedaron usados, así que no se cuentan dos veces. */
+ * sin usar (normalmente uno solo, ver acumularPremio; más de uno solo si
+ * vienen de antes de que se sacara el tope). Los absorbidos ya quedaron usados, así que no se cuentan dos veces. */
 export function premioAcumulado(
   cupones: { nombreLote: string; valor: number; usado: boolean; fechaCaducidad: string; patenteAsignada?: string | null }[],
   patente: string,
@@ -91,27 +91,20 @@ export function premioAcumulado(
     .reduce((suma, c) => suma + c.valor, 0);
 }
 
-/** Hasta dónde se juntan premios en un solo cupón. Un cobro aplica UN cupón
- * (ver cuponDescuentoDePatente), así que el cron suma los premios sin usar en
- * el nuevo. Tope por debajo del lavado único ($9.990): Webpay no cobra $0 (ver
- * ponytail en precioConCupon). Lo que no entra queda como cupón aparte. */
-export const TOPE_PREMIO_ACUMULADO = 8000;
-
 /** Valor del premio nuevo y códigos de los premios previos (vigentes, sin usar,
- * de la misma patente, ordenados por vencimiento) que absorbe sin pasar el tope. */
+ * de la misma patente) que absorbe. Un cobro aplica UN cupón (ver
+ * cuponDescuentoDePatente), así que el cron junta todos en el nuevo, sin tope
+ * (oct-2026, decisión del usuario): se gasta entero en una pasada y lo que
+ * supera el precio se pierde — en el mesón el lavado queda en $0; en la web,
+ * que no cobra $0, se le pide usarlo en el local (ver /api/pagos/webpay/crear). */
 export function acumularPremio(
   valorNuevo: number,
-  previos: { codigo: string; valor: number }[],
-  tope: number = TOPE_PREMIO_ACUMULADO
+  previos: { codigo: string; valor: number }[]
 ): { valor: number; absorbidos: string[] } {
-  let valor = valorNuevo;
-  const absorbidos: string[] = [];
-  for (const p of previos) {
-    if (valor + p.valor > tope) continue;
-    valor += p.valor;
-    absorbidos.push(p.codigo);
-  }
-  return { valor, absorbidos };
+  return {
+    valor: previos.reduce((suma, p) => suma + p.valor, valorNuevo),
+    absorbidos: previos.map((p) => p.codigo),
+  };
 }
 
 /** Premios por emitir: un cupón de amigo usado cuyo premio todavía no existe.

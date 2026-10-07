@@ -250,7 +250,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No se pudo calcular el monto a cobrar" }, { status: 500 });
     }
     if (montoTotal <= 0) {
-      return NextResponse.json({ error: "El monto a cobrar debe ser mayor a $0" }, { status: 400 });
+      // Típico de un premio de referidos acumulado (ver acumularPremio): el
+      // mesón sí lo canjea dejando el lavado en $0, Webpay no.
+      const cubiertoPorCupon = items.some((i) => i.cuponCodigo);
+      return NextResponse.json(
+        {
+          error: cubiertoPorCupon
+            ? "Tu descuento cubre el total: úsalo en el local, se aplica solo al pasar por el túnel"
+            : "El monto a cobrar debe ser mayor a $0",
+        },
+        { status: 400 }
+      );
     }
 
     const buyOrder = generarBuyOrder();
