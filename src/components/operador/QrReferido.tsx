@@ -27,7 +27,7 @@ export default function QrReferido({ patente, valor }: { patente: string; valor:
       </div>
       <div className="msg">
         Cuéntale: si comparte su código <span className="plate-tag">{patente}</span> por WhatsApp, cada amigo recibe{" "}
-        {monto} de descuento en su primer lavado y, cuando lo usa, a esta patente le queda {monto} para su próximo pago
+        {monto} de descuento en su próximo lavado (aunque ya sea cliente) y, cuando lo usa, a esta patente le queda {monto} para su próximo pago
         — sin límite de amigos. Que escanee el QR con la cámara: se le abre WhatsApp con la invitación lista para enviar.
       </div>
       {abierto && (

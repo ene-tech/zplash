@@ -50,7 +50,7 @@ export function linkReferido(origin: string, patente: string): string {
  * El link va marcado para PostHog; el que Mi Cuenta muestra y copia, no. */
 export function mensajeInvitacionReferido(link: string, valorFormateado: string): string {
   const marcado = conOrigen(link, { source: "whatsapp", medium: "referido", campaign: "referidos" });
-  return `Te regalo ${valorFormateado} de descuento en tu primer lavado en ZPlash: ${marcado}`;
+  return `Te regalo ${valorFormateado} de descuento en tu próximo lavado en ZPlash: ${marcado}`;
 }
 
 export function loteReferido(patenteReferidor: string): string {

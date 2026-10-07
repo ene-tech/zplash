@@ -106,11 +106,13 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
                 <DialogTitle>
                   <span className="promo-popup-monto">{fmtCLP(valor)}</span>
                   <span className="promo-popup-subtitulo">
-                    {ref ? "de regalo de un amigo para tu primer lavado" : "de descuento en tu primer lavado"}
+                    {ref ? "de regalo de un amigo para tu próximo lavado" : "de descuento en tu primer lavado"}
                   </span>
                 </DialogTitle>
                 <DialogDescription>
-                  ¿Primera vez en ZPlash? Deja tu patente y tu correo y te mandamos el descuento — válido por {dias} días.
+                  {/* Con ref vale también para clientes actuales (ver /api/cliente/descuento-bienvenida). */}
+                  {ref ? "Deja tu patente y tu correo" : "¿Primera vez en ZPlash? Deja tu patente y tu correo"} y te mandamos el
+                  descuento — válido por {dias} días.
                 </DialogDescription>
               </DialogHeader>
 

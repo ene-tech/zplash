@@ -10,8 +10,10 @@ vi.mock("@/lib/dataAccess/clientes", () => ({
 }));
 
 const mockEmitirCupon = vi.fn();
+const mockYaReferida = vi.fn();
 vi.mock("@/lib/dataAccess", () => ({
   emitirCuponDescuentoPrimeraVez: (opts: unknown) => mockEmitirCupon(opts),
+  patenteYaFueReferida: (p: string) => mockYaReferida(p),
   getConfig: () =>
     Promise.resolve({ descuentoPrimeraVezValor: 3000, descuentoPrimeraVezDiasValidez: 7, descuentoReferidoValor: 5000, descuentoReferidoDiasValidez: 30 }),
 }));
@@ -40,6 +42,7 @@ describe("POST /api/cliente/descuento-bienvenida", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockBuscarClientePorPatente.mockResolvedValue(null);
+    mockYaReferida.mockResolvedValue(false);
     mockEnviar.mockResolvedValue({ ok: true });
     mockEmitirCupon.mockResolvedValue({
       codigo: "ABC234",
@@ -60,7 +63,7 @@ describe("POST /api/cliente/descuento-bienvenida", () => {
     expect(mockEnviar).toHaveBeenCalledWith(expect.objectContaining({ to: "nuevo@ejemplo.cl" }));
   });
 
-  it("no emite nada si la patente ya es de un cliente", async () => {
+  it("no emite nada si la patente ya es de un cliente y no viene invitada", async () => {
     mockBuscarClientePorPatente.mockResolvedValue({ id: "c1", patente: "AB1234" });
 
     const res = await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl" });
@@ -68,6 +71,27 @@ describe("POST /api/cliente/descuento-bienvenida", () => {
     expect(res.status).toBe(409);
     expect(mockEmitirCupon).not.toHaveBeenCalled();
     expect(mockEnviar).not.toHaveBeenCalled();
+  });
+
+  it("un cliente actual sí recibe el regalo si llega con el link de un amigo, una sola vez", async () => {
+    mockBuscarClientePorPatente.mockImplementation((p: string) => Promise.resolve({ id: p, patente: p }));
+
+    const res = await pedir({ patente: "AB1234", email: "cliente@ejemplo.cl", ref: "CD5678" });
+    expect(res.status).toBe(200);
+    expect(mockEmitirCupon).toHaveBeenLastCalledWith(expect.objectContaining({ patente: "AB1234", nombreLote: "Referido - CD5678" }));
+
+    mockYaReferida.mockResolvedValue(true);
+    mockEmitirCupon.mockClear();
+    expect((await pedir({ patente: "AB1234", email: "cliente@ejemplo.cl", ref: "EF9012" })).status).toBe(409);
+    expect(mockEmitirCupon).not.toHaveBeenCalled();
+  });
+
+  it("una patente nueva invitada por dos amigos: solo el primero queda como referidor", async () => {
+    mockBuscarClientePorPatente.mockImplementation((p: string) => Promise.resolve(p === "AB1234" ? null : { id: p, patente: p }));
+    mockYaReferida.mockResolvedValue(true);
+
+    expect((await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", ref: "EF9012" })).status).toBe(409);
+    expect(mockEmitirCupon).not.toHaveBeenCalled();
   });
 
   it("rechaza patente o correo inválidos sin tocar la base", async () => {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { origenValido } from "@/lib/csrf";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
-import { emitirCuponDescuentoPrimeraVez, getConfig } from "@/lib/dataAccess";
+import { emitirCuponDescuentoPrimeraVez, getConfig, patenteYaFueReferida } from "@/lib/dataAccess";
 import { fmtCLP, isValidEmail, isValidPatente, normPlate } from "@/lib/helpers";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
@@ -51,19 +51,29 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    if (await buscarClientePorPatente(patente)) {
-      return NextResponse.json(
-        { ok: false, error: "Esa patente ya está registrada en ZPlash — el descuento es solo para la primera vez." },
-        { status: 409 }
-      );
-    }
-
     // Llegó por el link de un cliente (zplash.cl/?ref=PATENTE, ver
     // @/lib/referidos): el cupón queda marcado con quien lo invitó, para
     // premiarlo cuando el amigo lo use. Un ref que no es cliente se ignora en
     // silencio — el amigo igual recibe su descuento normal.
     const ref = normPlate(typeof body.ref === "string" ? body.ref : "");
     const referidor = ref && ref !== patente && isValidPatente(ref) ? await buscarClientePorPatente(ref) : null;
+
+    // El descuento de primera vez es solo para patentes nuevas, pero el de
+    // referido no (oct-2026): un cliente actual que pasa por el túnel también
+    // cuenta. Eso sí, cada patente recibe un solo regalo de amigo, nueva o no:
+    // si la invitan varios, solo el primero gana el premio.
+    if (!referidor && (await buscarClientePorPatente(patente))) {
+      return NextResponse.json(
+        { ok: false, error: "Esa patente ya está registrada en ZPlash — el descuento es solo para la primera vez." },
+        { status: 409 }
+      );
+    }
+    if (referidor && (await patenteYaFueReferida(patente))) {
+      return NextResponse.json(
+        { ok: false, error: "Esa patente ya recibió su regalo de un amigo — es uno por patente." },
+        { status: 409 }
+      );
+    }
 
     const config = await getConfig();
     const cupon = await emitirCuponDescuentoPrimeraVez({
@@ -80,7 +90,7 @@ export async function POST(request: NextRequest) {
     // la UI solo cambia la frase de "te lo enviamos" a "anótalo".
     const envio = await enviarCorreoTransaccional({
       to: email,
-      subject: `Tu descuento de ${fmtCLP(cupon.valor)} en tu primer lavado`,
+      subject: `Tu descuento de ${fmtCLP(cupon.valor)} en tu ${referidor ? "próximo" : "primer"} lavado`,
       html: envolverCorreoBase(
         "¡Bienvenido a ZPlash!\n\n" +
           "Tu descuento de **{{monto}}** ya quedó guardado en la patente {{patente}}.\n\n" +

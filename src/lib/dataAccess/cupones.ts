@@ -144,6 +144,18 @@ export async function emitirCuponDescuentoPrimeraVez(opts: {
   return nuevo;
 }
 
+/** Si la patente ya recibió alguna vez un cupón de amigo (usado o no). Un
+ * cliente actual puede entrar por un link de referido, pero una sola vez: si
+ * no, dos clientes se invitan uno al otro en cada lavado y los dos cobran premio. */
+export async function patenteYaFueReferida(patente: string): Promise<boolean> {
+  const [fila] = await getDb()
+    .select({ id: cupones.id })
+    .from(cupones)
+    .where(and(eq(cupones.patenteAsignada, patente), sql`${cupones.nombreLote} LIKE 'Referido - %'`))
+    .limit(1);
+  return !!fila;
+}
+
 export async function deleteCupones(ids: string[]): Promise<boolean> {
   if (!ids.length) return true;
   try {

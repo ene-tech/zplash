@@ -33,7 +33,7 @@ export default function ReferidosSection() {
     <ConfigSection
       title="Programa de referidos"
       icon={Users}
-      description="Regala y gana: el cliente comparte su link (Mi Cuenta o el WhatsApp del lavado único), el amigo nuevo recibe este descuento para su primer lavado y, cuando lo usa, quien lo invitó gana un descuento igual. Los premios se guardan en la cuenta pero no se acumulan: se aplica uno por pago."
+      description="Regala y gana: el cliente comparte su link (Mi Cuenta o el WhatsApp del lavado único), el amigo (nuevo o cliente actual, una vez por patente) recibe este descuento para su próximo lavado y, cuando lo usa, quien lo invitó gana un descuento igual. Los premios se guardan en la cuenta pero no se acumulan: se aplica uno por pago."
     >
       <div className="field" style={{ margin: 0 }}>
         <label>Monto del descuento (CLP)</label>

@@ -53,7 +53,7 @@ export function InvitarAmigo({
             <strong>Comparte tu link</strong> por WhatsApp o donde quieras.
           </>,
           <>
-            <strong>Tu amigo recibe {fmtCLP(valor)}</strong> de descuento en su primer lavado.
+            <strong>Tu amigo recibe {fmtCLP(valor)}</strong> de descuento en su próximo lavado (aunque ya sea cliente).
           </>,
           <>
             <strong>Cuando lo use, tú ganas {fmtCLP(valor)}</strong> de descuento para tu próximo pago.
