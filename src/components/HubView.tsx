@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP, inRange, MODULOS_ADMIN, todayYMD } from "@/lib/helpers";
@@ -16,14 +15,9 @@ export default function HubView() {
   // muestra en detalle.
   const esGerencia = ui.perfilActual?.nombre === "Gerencia";
   const hoy = todayYMD();
-  // El corte de las 24 h se fija una sola vez, al montar, con el
-  // inicializador perezoso de useState: llamar Date.now() en el cuerpo del
-  // componente lo recalculaba en cada re-render, así que el conteo podía
-  // cambiar solo porque se abrió un modal.
-  const [corte24h] = useState(() => Date.now() - 24 * 3600_000);
-  const nuevos24h = esGerencia
-    ? data.clientes.filter((c) => new Date(c.creadoEn).getTime() >= corte24h).length
-    : 0;
+  // Clientes creados hoy (desde las 00:00 hora local), mismo corte de día
+  // que "Vendido hoy".
+  const nuevosHoy = esGerencia ? data.clientes.filter((c) => inRange(c.creadoEn, hoy, hoy)).length : 0;
   // Mismo criterio de "plata real" que el Total de "Detalle de venta" en
   // Cierre de Caja (ver useCierreData): las modificaciones de plan hechas
   // desde un perfil de administrador no mueven caja y no suman acá.
@@ -44,8 +38,8 @@ export default function HubView() {
       {esGerencia && (
         <div className="hub-stats">
           <div className="stat-card">
-            <div className="num">{nuevos24h}</div>
-            <div className="lbl">Clientes nuevos · 24 h</div>
+            <div className="num">{nuevosHoy}</div>
+            <div className="lbl">Clientes nuevos hoy</div>
           </div>
           <div className="stat-card">
             <div className="num">{loadingHistorial ? "…" : fmtCLP(vendidoHoy)}</div>
