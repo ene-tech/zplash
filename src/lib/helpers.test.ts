@@ -288,6 +288,20 @@ describe("planStatus", () => {
     enUnMes.setDate(enUnMes.getDate() + 40);
     expect(planStatus({ vencimiento: enUnMes.toISOString() }).label).toBe("Vigente");
   });
+
+  it("con renovación automática de Woo sigue Vigente mientras espera el cobro", () => {
+    const anteayer = new Date();
+    anteayer.setDate(anteayer.getDate() - 2);
+    const woo = { vencimiento: anteayer.toISOString(), renovacionAutoWooDesde: "2026-09-10T14:10:00Z" };
+    expect(planStatus(woo).label).toBe("Vigente");
+    expect(planStatus({ vencimiento: anteayer.toISOString() }).label).toBe("Vencido");
+  });
+
+  it("con renovación automática de Woo se ve Vencido si el cobro no llega", () => {
+    const haceDiez = new Date();
+    haceDiez.setDate(haceDiez.getDate() - 10);
+    expect(planStatus({ vencimiento: haceDiez.toISOString(), renovacionAutoWooDesde: "2026-09-10T14:10:00Z" }).label).toBe("Vencido");
+  });
 });
 
 describe("sumarMeses", () => {

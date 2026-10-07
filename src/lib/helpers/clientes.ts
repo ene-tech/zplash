@@ -4,6 +4,18 @@ import { formatTelefono, isValidTelefono, normPlate } from "./validadores";
 
 export const DIAS_AVISO_VENCIMIENTO = 7;
 
+/**
+ * Días tras el vencimiento en que un cliente con renovación automática de
+ * WooCommerce (renovacionAutoWooDesde) se sigue mostrando vigente. Woo cobra el
+ * día del aniversario o unos días después, nunca el día que vence (que es el
+ * anterior al aniversario, ver finCicloPlan): medido oct-2026, 90 de 93 cobran
+ * a 0–4 días del aniversario. Sin este margen el cliente se veía "Vencido" en
+ * el mesón justo antes de su cobro (caso SZGW53), y el mesón le ofrecía
+ * renovar, o sea un doble cobro. Si Woo no logra cobrar, pasado este margen
+ * se ve vencido como cualquiera.
+ */
+export const DIAS_ESPERA_COBRO_WOO = 6;
+
 export function findClient(clientes: Cliente[], plate: string): Cliente | undefined {
   return clientes.find((c) => normPlate(c.patente) === normPlate(plate));
 }
@@ -47,7 +59,7 @@ export function plateEstadoCls(c: Pick<Cliente, "vencimiento">): PlateEstadoCls 
   return planStatus(c).cls;
 }
 
-export function planStatus(c: Pick<Cliente, "vencimiento">): PlanStatus {
+export function planStatus(c: Pick<Cliente, "vencimiento"> & Partial<Pick<Cliente, "renovacionAutoWooDesde">>): PlanStatus {
   if (!c.vencimiento) return { label: "Sin plan", cls: "bad" };
   // ahoraEnSantiago() en vez de `new Date()`: esta función se llama tanto
   // desde el navegador (hora de Chile) como desde rutas de servidor
@@ -59,7 +71,11 @@ export function planStatus(c: Pick<Cliente, "vencimiento">): PlanStatus {
   const hoy = ahoraEnSantiago();
   hoy.setHours(0, 0, 0, 0);
   const venc = new Date(c.vencimiento);
-  if (venc < hoy) return { label: "Vencido", cls: "bad" };
+  if (venc < hoy) {
+    const diasVencido = Math.ceil((hoy.getTime() - venc.getTime()) / 86400000);
+    if (c.renovacionAutoWooDesde && diasVencido <= DIAS_ESPERA_COBRO_WOO) return { label: "Vigente", cls: "ok" };
+    return { label: "Vencido", cls: "bad" };
+  }
   const diff = Math.ceil((venc.getTime() - hoy.getTime()) / 86400000);
   if (diff <= DIAS_AVISO_VENCIMIENTO) return { label: "Por vencer", cls: "warn", diasRestantes: diff };
   return { label: "Vigente", cls: "ok" };
