@@ -26,7 +26,8 @@ async function token(): Promise<string> {
   const res = await fetch(`${API}/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: process.env.SIMPLEFACTURA_EMAIL, password: process.env.SIMPLEFACTURA_PASSWORD }),
+    // trim: un espacio o salto de línea pegado en Vercel da 401 sin más pista.
+    body: JSON.stringify({ email: process.env.SIMPLEFACTURA_EMAIL?.trim(), password: process.env.SIMPLEFACTURA_PASSWORD?.trim() }),
   });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json?.accessToken) throw new Error(`SimpleFactura no entregó token (${res.status}): ${json?.message ?? ""}`);

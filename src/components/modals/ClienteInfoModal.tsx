@@ -31,6 +31,7 @@ import {
   TIPOS_VENTA_PLAN,
   visitasUltimos30Dias,
 } from "@/lib/helpers";
+import { referidosDePatente } from "@/lib/referidos";
 import { TIPO_LIBRO_LABELS, type Cliente, type Cupon, type LibroComentario, type Venta } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,9 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
       cuponDescuentoDePatente(appData.cupones, c.patente, "web"),
     [appData.cupones, c.patente]
   );
+
+  // Programa de referidos: su código es la patente (zplash.cl/?ref=PATENTE).
+  const referidos = useMemo(() => referidosDePatente(appData.cupones, c.patente), [appData.cupones, c.patente]);
 
   // Los códigos que este cliente tiene vivos ahora mismo. Sale de
   // appData.cupones, que `commit` actualiza en el acto: el código aparece acá
@@ -491,6 +495,19 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
               {descuento
                 ? `${beneficioCupon(descuento)}${descuento.canal === "web" ? " (solo por la web)" : ""} — código ${descuento.codigo}, vence ${fmtDate(descuento.fechaCaducidad)}`
                 : "No tiene"}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Código de referido</div>
+            <div className="font-medium">{c.patente}</div>
+            <div className="text-xs text-muted-foreground">zplash.cl/?ref={c.patente}</div>
+          </div>
+          <div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Clientes referidos</div>
+            <div className="font-medium">
+              {referidos.llegaron === 0
+                ? "Ninguno todavía"
+                : `${referidos.llegaron} llegaron · ${referidos.usaron} ya usaron su descuento`}
             </div>
           </div>
         </div>

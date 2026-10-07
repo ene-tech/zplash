@@ -8,12 +8,7 @@ import { useDescartable } from "@/hooks/useDescartable";
 // ya cerró el aviso anterior igual ve el nuevo. AVISO = null lo apaga sin
 // tocar MiCuentaTab. Se descarta por sesión de navegador (no para siempre):
 // es publicidad recurrente, tiene que volver en el próximo ingreso.
-const AVISO: { clave: string; titulo: string; detalle: string; cta: string } | null = {
-  clave: "zplash_promo_precio_plan_2026_08",
-  titulo: "No pierdas tu precio de Plan",
-  detalle: "Paga tu plan antes del vencimiento y te respetamos el valor.",
-  cta: "Entendido",
-};
+const AVISO: { clave: string; titulo: string; detalle: string; cta: string } | null = null;
 
 export function PromoModal() {
   const [descartado, descartar] = useDescartable(AVISO?.clave ?? "", true);
