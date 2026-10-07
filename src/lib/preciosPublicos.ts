@@ -6,6 +6,7 @@ import {
   CANTIDAD_MAXIMA_TICKETS,
   CANTIDAD_MINIMA_TICKETS,
   PLANES,
+  IDS_PROMOS_LAVADOS,
   PROMOS_LAVADOS,
   precioContratacion,
   precioLavadoUnicoWeb,
@@ -122,8 +123,16 @@ export async function leerPreciosPublicos(): Promise<PreciosPublicos> {
  * mantiene por invalidación explícita (TAG_CONTENIDO_PUBLICO), no por TTL: el
  * `revalidate` de 1 hora es solo la red de seguridad por si una escritura
  * futura se olvida de invalidar.
+ *
+ * La cantidad de lavados de cada pack es una constante del código, no una
+ * fila de la base: va en la clave para que un deploy que la cambie no siga
+ * sirviendo la entrada vieja (pasó al bajar el pack de 5 a 4, oct-2026).
  */
-export const getPreciosPublicos = unstable_cache(leerPreciosPublicos, ["precios-publicos"], {
-  tags: [TAG_CONTENIDO_PUBLICO],
-  revalidate: 3600,
-});
+export const getPreciosPublicos = unstable_cache(
+  leerPreciosPublicos,
+  ["precios-publicos", ...IDS_PROMOS_LAVADOS.map((id) => `${id}:${PROMOS_LAVADOS[id].lavados}`)],
+  {
+    tags: [TAG_CONTENIDO_PUBLICO],
+    revalidate: 3600,
+  }
+);
