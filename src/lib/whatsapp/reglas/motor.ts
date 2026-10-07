@@ -12,6 +12,7 @@ import { getConfig } from "@/lib/dataAccess/config";
 import { upsertCupones } from "@/lib/dataAccess/cupones";
 import { marcarDisparoReglaWhatsapp, obtenerPlantillaWhatsapp } from "@/lib/dataAccess/whatsapp";
 import { aplicarVariables, fmtCLP, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
+import { posicionesVariableEnLink, sufijoOrigen } from "@/lib/helpers/utm";
 import { enviarPush } from "@/lib/push/enviar";
 import { enviarMensajePlantilla } from "../enviar";
 import type { Cliente, Cupon, PlantillaWhatsapp, ReglaWhatsapp } from "@/types";
@@ -146,6 +147,13 @@ export async function enviarSegunPlantilla(
   // el admin no tenga que escribir el camelCase exacto a mano.
   const porClaveMinuscula = Object.fromEntries(Object.entries(variables).map(([k, v]) => [k.toLowerCase(), v]));
   const parametros = (plantilla.metaVariables || []).map((v) => porClaveMinuscula[v.toLowerCase()] ?? "");
+  // El link del template (ej. https://zplash.cl/?ref={{patente}}) ya está
+  // aprobado por Meta: la marca de origen para PostHog se cuelga del valor de
+  // la variable que lo cierra (ver @/lib/helpers/utm).
+  const sufijo = sufijoOrigen({ source: "whatsapp", medium: "plantilla", campaign: plantilla.metaNombre });
+  for (const i of posicionesVariableEnLink(plantilla.mensaje, parametros.length)) {
+    if (parametros[i]) parametros[i] += sufijo;
+  }
   return enviarMensajePlantilla(telefono, plantilla.metaNombre, plantilla.metaIdioma || "es", parametros, enviadoPor);
 }
 

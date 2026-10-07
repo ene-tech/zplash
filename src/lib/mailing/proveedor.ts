@@ -4,6 +4,7 @@ import { Resend } from "resend";
 
 import { registrarCorreoAutomatico } from "@/lib/dataAccess/mail";
 import { esEmailEnviable, uid } from "@/lib/helpers";
+import { linksConOrigen } from "@/lib/helpers/utm";
 
 // Capa de envío de correo TRANSACCIONAL (confirmaciones de compra, avisos de
 // cobro fallido, vencimiento, campaña de migración WooCommerce) — a
@@ -123,7 +124,10 @@ export async function enviarCorreoTransaccional(envio: EnvioCorreoTransaccional)
     return { ok: false, error: "dirección no enviable", permanente: true };
   }
 
-  const { data, error } = await resend.emails.send({ from, to: envio.to, subject: envio.subject, html: envio.html });
+  // Links a zplash.cl marcados como venidos del correo, para PostHog (ver
+  // @/lib/helpers/utm); la copia en la bandeja de salida queda sin marcar.
+  const html = linksConOrigen(envio.html, { source: "correo", medium: "email" });
+  const { data, error } = await resend.emails.send({ from, to: envio.to, subject: envio.subject, html });
   const resultado: ResultadoEnvioTransaccional = error
     ? {
         ok: false,

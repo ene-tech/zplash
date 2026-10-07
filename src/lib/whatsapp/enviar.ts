@@ -1,7 +1,8 @@
 import "server-only";
 
 import { buscarOCrearConversacion, insertarMensaje } from "@/lib/dataAccess";
-import { uid } from "@/lib/helpers";
+import { ENVIADO_POR_AGENTE, uid } from "@/lib/helpers";
+import { linksConOrigen } from "@/lib/helpers/utm";
 import type { EstadoMensajeWhatsapp, MensajeWhatsapp, TipoMensajeWhatsapp } from "@/types";
 
 const GRAPH_API_VERSION = "v25.0";
@@ -64,7 +65,12 @@ async function registrarSalida(
 // la Graph API rechaza el envío y hay que usar una plantilla en su lugar
 // (ver enviarMensajePlantilla).
 export async function enviarMensajeTexto(telefono: string, texto: string, enviadoPor?: string): Promise<MensajeWhatsapp> {
-  const resultado = await llamarGraphApi({ to: telefono, type: "text", text: { body: texto } });
+  // Los links a zplash.cl salen marcados con quién los mandó (bot, agente IA u
+  // operador) para que PostHog atribuya la visita; el hilo guarda el texto
+  // limpio, que es el que lee el agente como historial.
+  const medium = !enviadoPor ? "bot" : enviadoPor === ENVIADO_POR_AGENTE ? "agente" : "operador";
+  const cuerpo = linksConOrigen(texto, { source: "whatsapp", medium });
+  const resultado = await llamarGraphApi({ to: telefono, type: "text", text: { body: cuerpo } });
   return registrarSalida(telefono, texto, "texto", resultado, enviadoPor);
 }
 

@@ -10,6 +10,8 @@
 // vigencia (del cupón del amigo y del premio): Configuración → Programa de
 // referidos.
 
+import { conOrigen } from "@/lib/helpers/utm";
+
 const PREFIJO_REFERIDO = "Referido - ";
 const PREFIJO_PREMIO = "Premio referido - ";
 
@@ -44,9 +46,11 @@ export function linkReferido(origin: string, patente: string): string {
   return `${origin}/?ref=${encodeURIComponent(patente)}`;
 }
 
-/** Texto que el cliente reenvía por WhatsApp (Mi Cuenta y el QR del operador). */
+/** Texto que el cliente reenvía por WhatsApp (Mi Cuenta y el QR del operador).
+ * El link va marcado para PostHog; el que Mi Cuenta muestra y copia, no. */
 export function mensajeInvitacionReferido(link: string, valorFormateado: string): string {
-  return `Te regalo ${valorFormateado} de descuento en tu primer lavado en ZPlash: ${link}`;
+  const marcado = conOrigen(link, { source: "whatsapp", medium: "referido", campaign: "referidos" });
+  return `Te regalo ${valorFormateado} de descuento en tu primer lavado en ZPlash: ${marcado}`;
 }
 
 export function loteReferido(patenteReferidor: string): string {

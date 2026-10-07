@@ -499,7 +499,9 @@ function QrPlanConTarjeta({
   // admin.zplash.cl y esta página la abre el cliente.
   const url =
     `https://zplash.cl/pagar?item=plan&patente=${encodeURIComponent(patente)}` +
-    (perfilId ? `&op=${encodeURIComponent(perfilId)}` : "");
+    (perfilId ? `&op=${encodeURIComponent(perfilId)}` : "") +
+    // Origen para PostHog: escaneado en el mesón, no un link de WhatsApp.
+    "&utm_source=local&utm_medium=qr&utm_campaign=pago_tarjeta";
   return (
     <div className="offer-card">
       <div className="offer-head">
