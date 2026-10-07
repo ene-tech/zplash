@@ -1,6 +1,6 @@
 import type { CanalPromo, Cliente, ConfigGlobal, Cupon, Ingreso, Precios, Venta } from "@/types";
 import { precioConCupon } from "./cupones";
-import { PLANES, PROMOS_LAVADOS } from "./precios";
+import { IDS_PROMOS_LAVADOS, PLANES, PROMOS_LAVADOS, precioPromoLavados, type IdPromoLavados } from "./precios";
 import { diasVencido, planStatus } from "./clientes";
 import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
 import {
@@ -63,8 +63,15 @@ export interface OfertaPlan {
   // desde el mes siguiente, cuando el cupón ya se quemó. `lavadoUnico` es la
   // alternativa sin compromiso de la misma tarjeta — va acá, y no por una vía
   // de datos aparte, porque es la otra mitad de esa única decisión que se le
-  // ofrece a quien todavía no es cliente de plan.
-  contratacion?: { primerCobro: number; mensual: number; lavadoUnico: number };
+  // ofrece a quien todavía no es cliente de plan. `packs` son los tickets
+  // de 2 y 4 lavados de la escalera de /tickets, por la misma razón: un pack
+  // en $0 está apagado y no viene. Sin cupón (ver ofertaConCupon).
+  contratacion?: {
+    primerCobro: number;
+    mensual: number;
+    lavadoUnico: number;
+    packs: { id: IdPromoLavados; lavados: number; precio: number }[];
+  };
 }
 
 /**
@@ -236,7 +243,10 @@ export function calcularOfertasPlan(
     // el plan por web (ver ResultadoBusqueda en /pagar): el cupón de la patente
     // lo resta después ofertaConCupon, igual que en el resto de las ofertas.
     const mensual = precioConHeredado(precioPlanOneclick(precios), cliente);
-    if (mensual > 0) oferta.contratacion = { primerCobro: mensual, mensual, lavadoUnico: precioLavadoUnicoWeb(precios) };
+    const packs = IDS_PROMOS_LAVADOS.map((id) => ({ id, lavados: PROMOS_LAVADOS[id].lavados, precio: precioPromoLavados(precios, id) })).filter(
+      (p) => p.precio > 0
+    );
+    if (mensual > 0) oferta.contratacion = { primerCobro: mensual, mensual, lavadoUnico: precioLavadoUnicoWeb(precios), packs };
   }
 
   return oferta;

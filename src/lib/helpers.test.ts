@@ -1360,8 +1360,10 @@ describe("ofertaConCupon", () => {
     // lo quema el que se pague primero (ver /api/pagos/webpay/crear y
     // cobrarSuscripcion). El mensual queda a precio de lista: cuando el cron
     // cobre el mes 2, el cupón ya se quemó.
-    const o = ofertaConCupon({ contratacion: { primerCobro: 20990, mensual: 20990, lavadoUnico: 9990 } }, { valor: 4000, esPorcentaje: false });
-    expect(o.contratacion).toEqual({ primerCobro: 16990, mensual: 20990, lavadoUnico: 5990 });
+    // Los packs tampoco: ya son una promoción (ver /api/pagos/webpay/crear).
+    const packs = [{ id: "promo_2_lavados" as const, lavados: 2, precio: 17990 }];
+    const o = ofertaConCupon({ contratacion: { primerCobro: 20990, mensual: 20990, lavadoUnico: 9990, packs } }, { valor: 4000, esPorcentaje: false });
+    expect(o.contratacion).toEqual({ primerCobro: 16990, mensual: 20990, lavadoUnico: 5990, packs });
   });
 
   it("sin cupón devuelve la misma oferta", () => {
@@ -2063,12 +2065,20 @@ describe("calcularOfertasPlan", () => {
       ...precios,
       [PLAN_ONECLICK_KEY]: { normal: 20990, promo: 0 },
       [LAVADO_UNICO_WEB_KEY]: { normal: 9990, promo: 0 },
+      [PROMO_2_LAVADOS_KEY]: { normal: 17990, promo: 0 },
+      // Pack en $0 = apagado: no se ofrece.
+      [PROMO_5_LAVADOS_KEY]: { normal: 0, promo: 0 },
     };
     // Sin vencimiento no hay renovación, reactivación ni pagoVencido que
     // ofrecerle: sin `contratacion` su tarjeta en Mi Cuenta queda sin un solo
     // botón de compra.
     const oferta = calcularOfertasPlan({ id: "c1", plan: "", vencimiento: null }, [], [], config, preciosWeb);
-    expect(oferta.contratacion).toEqual({ primerCobro: 20990, mensual: 20990, lavadoUnico: 9990 });
+    expect(oferta.contratacion).toEqual({
+      primerCobro: 20990,
+      mensual: 20990,
+      lavadoUnico: 9990,
+      packs: [{ id: "promo_2_lavados", lavados: 2, precio: 17990 }],
+    });
     expect(oferta.renovacionAnticipada).toBeUndefined();
     expect(oferta.reactivacion).toBeUndefined();
     expect(oferta.pagoVencido).toBeUndefined();

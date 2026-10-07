@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { redirigirAWebpay } from "@/lib/webpayClient";
+import type { IdPromoLavados } from "@/lib/helpers";
 
 export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "contratacion";
 
@@ -14,8 +15,9 @@ export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "contratac
 // (ver OfertaPlan.contratacion): un lavado suelto se paga por Webpay como
 // cualquier ítem de /pagar. El cupón de descuento de la patente también se le
 // resta ahí cuando no hay ítem de plan en la compra (ver /api/pagos/webpay/crear).
-// "upgrade_pack" (OfertaPlan.upgradePack) son tickets, no plan: Webpay también.
-type TipoWebpay = "renovacion" | "lavado_unico" | "upgrade_pack";
+// "upgrade_pack" (OfertaPlan.upgradePack) y los packs de 2 y 4 lavados
+// (OfertaPlan.contratacion.packs) son tickets, no plan: Webpay también.
+type TipoWebpay = "renovacion" | "lavado_unico" | "upgrade_pack" | IdPromoLavados;
 type TipoCobro = TipoOfertaPlan | TipoWebpay;
 
 export interface TarjetaGuardada {
@@ -129,5 +131,6 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
     pagarPlanVencido: () => pagarWebpay("renovacion"),
     comprarLavadoUnico: () => pagarWebpay("lavado_unico"),
     comprarUpgradePack: () => pagarWebpay("upgrade_pack"),
+    comprarPackLavados: (id: IdPromoLavados) => pagarWebpay(id),
   };
 }

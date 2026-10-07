@@ -85,6 +85,7 @@ export function VehiculoCard({
     pagarPlanVencido,
     comprarLavadoUnico,
     comprarUpgradePack,
+    comprarPackLavados,
     // Sin tarjeta inscrita el plan no se puede cobrar: se manda a inscribir
     // una y ese retorno hace el primer cobro con el precio de la promoción
     // (ver promoPrimerCobroOneclick).
@@ -372,6 +373,7 @@ export function VehiculoCard({
               otras ofertas de esta tarjeta. Llamar a registrarTarjeta siempre
               le dejaba la tarjeta activa en "pendiente" al cliente que
               abandonaba Transbank. */}
+          <div className="offer-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="btn secondary" onClick={() => pedir("contratacion")} disabled={ocupado}>
             {inscribiendo ? "Redirigiendo..." : `Contratar plan (${fmtCLP(oferta.contratacion.primerCobro)})`}
           </button>
@@ -384,6 +386,14 @@ export function VehiculoCard({
               ? "Redirigiendo..."
               : `Solo un lavado full túnel (${fmtCLP(oferta.contratacion.lavadoUnico)})`}
           </button>
+          {/* Los packs de tickets de /tickets, también por Webpay y sin
+              cupón (el precio que se ve es el que cobra webpay/crear). */}
+          {oferta.contratacion.packs.map((p) => (
+            <button key={p.id} className="btn ghost" onClick={() => comprarPackLavados(p.id)} disabled={ocupado}>
+              {pagando === p.id ? "Redirigiendo..." : `${p.lavados} lavados full túnel (${fmtCLP(p.precio)})`}
+            </button>
+          ))}
+          </div>
         </div>
       )}
       {!confirmando && errOferta && <div className="err">{errOferta}</div>}
