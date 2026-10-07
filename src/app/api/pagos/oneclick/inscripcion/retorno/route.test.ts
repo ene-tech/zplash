@@ -51,14 +51,16 @@ describe("GET /api/pagos/oneclick/inscripcion/retorno", () => {
     mockOferta.mockResolvedValue({});
   });
 
-  it("cliente sin plan con upgrade vigente -> el primer cobro es la diferencia, no el plan completo", async () => {
+  it("cliente sin plan con upgrade a Promo 4 Lavados -> la inscripción cobra el plan, no los tickets", async () => {
+    // El upgrade son tickets y se paga por Webpay desde Mi Cuenta: no es una
+    // promoción de primer cobro de la tarjeta.
     mockCliente.mockResolvedValue({ id: "c1", patente: "AB1234", plan: "", vencimiento: null });
-    mockOferta.mockResolvedValue({ upgrade: { precio: 12000 } });
+    mockOferta.mockResolvedValue({ upgradePack: { precio: 9990, tickets: 3, vence: "2026-02-04T10:00:00.000Z" } });
 
     await retorno();
 
-    expect(cobrarOferta).toHaveBeenCalledWith("AB1234", "upgrade_plan", 12000);
-    expect(cobrarSuscripcion).not.toHaveBeenCalled();
+    expect(cobrarOferta).not.toHaveBeenCalled();
+    expect(cobrarSuscripcion).toHaveBeenCalled();
   });
 
   it("cliente vencido con promo de reactivación -> cobra la promo", async () => {

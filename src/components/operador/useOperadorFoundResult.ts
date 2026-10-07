@@ -25,10 +25,12 @@ import {
   precioLavadoAdicional,
   precioLavadoUnico,
   precioPromoLavados,
+  precioUpgradePack,
   precioRenovacionATiempo,
   precioRenovacionLocal,
   ticketsVigentesDePatente,
   ventaLavadoWebPendiente,
+  ventaUpgradeElegible,
   visitasPeriodoPlan,
 } from "@/lib/helpers";
 import type { Cliente } from "@/types";
@@ -124,7 +126,6 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
       ? precioConCupon(
           ofertaWeb.reactivacion?.precio ??
             ofertaWeb.pagoVencido?.precio ??
-            ofertaWeb.upgrade?.precio ??
             ofertaWeb.renovacionAnticipada?.pPromo ??
             precioRenovacionCliente(data.precios, c.plan || PLANES[0], c, data.config.diasGraciaPagoAtrasado),
           cuponDescuentoSoloWeb
@@ -185,6 +186,11 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // $0 = pack apagado: su botón no se muestra (ver precioPromoLavados).
   const precioPromo2 = precioPromoLavados(data.precios, "promo_2_lavados");
   const precioPromo5 = precioPromoLavados(data.precios, "promo_5_lavados");
+  // Upgrade a Promo 4 Lavados: pagó un lavado único dentro de la ventana y
+  // sigue sin plan — mismo criterio que Mi Cuenta (ver calcularOfertasPlan).
+  const lavadoUpgrade = !planVigente ? ventaUpgradeElegible(data.ventas, c.id, data.config.horasVentanaUpgradePlan) : undefined;
+  const precioUpgrade = precioUpgradePack(data.precios);
+  const upgradePack = lavadoUpgrade && precioUpgrade > 0 ? { precio: precioUpgrade, lavado: lavadoUpgrade } : undefined;
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
@@ -250,12 +256,14 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     ticketsPatente,
     precioPromo2,
     precioPromo5,
+    upgradePack,
     ...ingreso,
     ...ficha,
     registrar: conFichaCompleta(ingreso.registrar),
     registrarPagado: conFichaCompleta(ingreso.registrarPagado),
     cobrarLavadoUnico: conFichaCompleta(ingreso.cobrarLavadoUnico),
     cobrarPromoLavados: conFichaCompleta(ingreso.cobrarPromoLavados),
+    cobrarUpgradePack: conFichaCompleta(ingreso.cobrarUpgradePack),
     usarTicket: conFichaCompleta(ingreso.usarTicket),
     registrarDetailing: conFichaCompleta(ingreso.registrarDetailing),
     registrarLavadoWeb: conFichaCompleta(ingreso.registrarLavadoWeb),

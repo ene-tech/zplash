@@ -244,8 +244,8 @@ export async function GET() {
     renovacionesLegacy: clientesEncontrados
       .filter((c) => c.renovacionAutoWooDesde && !tarjetasRows.some((t) => t.patente === c.patente && t.estado === "activa"))
       .map((c) => ({ patente: c.patente, desde: c.renovacionAutoWooDesde as string })),
-    // Promociones de plan por patente (renovación anticipada, reactivación,
-    // upgrade) — mismas que ve el Operador, ver @/lib/helpers/ofertasPlan.
+    // Promociones por patente (renovación anticipada, reactivación, upgrade
+    // a Promo 4 Lavados) — ver @/lib/helpers/ofertasPlan.
     ofertas,
     ticketsReactivacion,
     lavados,

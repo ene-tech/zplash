@@ -45,7 +45,7 @@ const SECCIONES: { id: string; label: string; icon: LucideIcon; Componente: Reac
   { id: "lavado", label: "Lavado túnel", icon: Droplets, Componente: LavadoSection },
   { id: "bloqueo", label: "Bloqueo de reingreso", icon: Lock, Componente: BloqueoSection },
   { id: "aspirado", label: "Zona aspirado", icon: Wind, Componente: AspiradoSection },
-  { id: "upgrade", label: "Upgrade a plan", icon: ArrowUpCircle, Componente: UpgradeSection },
+  { id: "upgrade", label: "Upgrade a Promo 4", icon: ArrowUpCircle, Componente: UpgradeSection },
   { id: "primera-vez", label: "Descuento de primera vez", icon: Gift, Componente: PrimeraVezSection },
   { id: "referidos", label: "Programa de referidos", icon: Users, Componente: ReferidosSection },
   { id: "web", label: "Precios de Lavados en Pagina Web", icon: Globe, Componente: PagosWebSection },

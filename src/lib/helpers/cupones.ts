@@ -1,4 +1,4 @@
-import type { Cliente, Cupon } from "@/types";
+import type { Cliente, Cupon, Venta } from "@/types";
 import { findClient } from "./clientes";
 import { PROMOS_LAVADOS, fmtCLP, type IdPromoLavados } from "./precios";
 import { limpiarRut, normPlate } from "./validadores";
@@ -222,7 +222,14 @@ export function cuponesPromo2Lavados(p: Omit<Parameters<typeof cuponesPromoLavad
 }
 
 /** Lo mismo que cuponesPromo2Lavados para cualquier pack de PROMOS_LAVADOS
- * (2 o 4 tickets): misma patente autorizada, vigencia y valor por ticket. */
+ * (2 o 4 tickets): misma patente autorizada, vigencia y valor por ticket.
+ *
+ * `yaCanjeados` y `vigenciaDesde` son del upgrade a Promo 4 Lavados (ver
+ * UPGRADE_PACK_KEY): el lavado único ya pagado cuenta como el ticket 1, así
+ * que se emiten solo los que faltan (2/4 a 4/4) y la vigencia corre desde ese
+ * lavado, como si el pack se hubiera comprado ahí. `precio` es entonces el
+ * del pack completo (lavado + adicional), para que cada ticket valga lo mismo
+ * que en un pack comprado de una. */
 export function cuponesPromoLavados(p: {
   promo: IdPromoLavados;
   patente: string;
@@ -233,13 +240,16 @@ export function cuponesPromoLavados(p: {
   /** Prefijo de los ids (uno por ticket: `${idBase}-1`, `${idBase}-2`). */
   idBase: string;
   ahora?: Date;
+  yaCanjeados?: number;
+  vigenciaDesde?: Date;
 }): Cupon[] {
   const { key, lavados, dias } = PROMOS_LAVADOS[p.promo];
   const ahora = p.ahora ?? new Date();
+  const yaCanjeados = p.yaCanjeados ?? 0;
   const patente = normPlate(p.patente);
-  const fechaCaducidad = new Date(ahora.getTime() + dias * 86400000).toISOString();
+  const fechaCaducidad = new Date((p.vigenciaDesde ?? ahora).getTime() + dias * 86400000).toISOString();
   const valor = Math.round(p.precio / lavados);
-  return Array.from({ length: lavados }, (_, i) => {
+  return Array.from({ length: lavados - yaCanjeados }, (_, i) => {
     const codigo = generarCodigoCupon(p.existentes);
     p.existentes.add(codigo);
     return {
@@ -247,7 +257,7 @@ export function cuponesPromoLavados(p: {
       codigo,
       nombreLote: key,
       valor,
-      numeroLote: i + 1,
+      numeroLote: yaCanjeados + i + 1,
       totalLote: lavados,
       fechaCaducidad,
       usado: false,
@@ -258,6 +268,26 @@ export function cuponesPromoLavados(p: {
       patentesAutorizadas: [patente],
       email: p.email?.trim().toLowerCase() || undefined,
     };
+  });
+}
+
+/** Los tickets del upgrade a Promo 4 Lavados (ver UPGRADE_PACK_KEY): los 3
+ * que le faltan al lavado único ya pagado (`lavado`, ver ventaUpgradeElegible)
+ * para ser el pack, con la vigencia contada desde ese lavado. Compartido entre
+ * el mesón y el retorno de Webpay, igual que cuponesPromoLavados. */
+export function cuponesUpgradePack(
+  p: Omit<Parameters<typeof cuponesPromoLavados>[0], "promo" | "yaCanjeados" | "vigenciaDesde" | "precio"> & {
+    lavado: Pick<Venta, "precio" | "fecha">;
+    precio: number;
+  }
+): Cupon[] {
+  const { lavado, precio, ...resto } = p;
+  return cuponesPromoLavados({
+    ...resto,
+    promo: "promo_5_lavados",
+    precio: lavado.precio + precio,
+    yaCanjeados: 1,
+    vigenciaDesde: new Date(lavado.fecha),
   });
 }
 

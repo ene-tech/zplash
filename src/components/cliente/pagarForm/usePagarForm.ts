@@ -19,7 +19,7 @@ export interface EstadoPlan {
   // el heredado sin depender del plazo de atraso.
   precioPlanHeredado?: number | null;
   // Precio del PRIMER cobro de la renovación automática cuando sale más
-  // barato que el mensual: promoción de reactivación/upgrade (ver
+  // barato que el mensual: promoción de reactivación (ver
   // promoPrimerCobroOneclick) y/o cupón de descuento de la patente. Es lo que
   // va a cobrar la inscripción de tarjeta, resuelto por /api/pagos/estado con
   // los mismos helpers que cobran /api/pagos/oneclick/inscripcion/retorno.

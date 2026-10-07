@@ -14,7 +14,6 @@ import {
 import { periodoPlan, planVigente, uid } from "@/lib/helpers";
 import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
 import { LOTE_TICKET_REACTIVACION } from "@/lib/pagos/ticketReactivacion";
-import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 
@@ -45,12 +44,7 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
         errores++;
         continue;
       }
-      // Una venta con delay (ej. el upgrade 2 días después del lavado único)
-      // recalcula el precio de upgrade HOY: si ya contrató o se le cerró la
-      // ventana (horasVentanaUpgradePlan), sale undefined y la plantilla que lo
-      // pide no se manda (ver ejecutarAccionRegla).
-      const precioUpgrade = disparo.origenTipo === "venta" ? (await calcularOfertasPlanDeCliente(cliente)).upgrade?.precio : undefined;
-      await ejecutarAccionRegla(regla, disparo.id, cliente, undefined, undefined, precioUpgrade);
+      await ejecutarAccionRegla(regla, disparo.id, cliente);
       procesados++;
     } catch (error) {
       console.error("Error procesando disparo programado de WhatsApp", disparo.id, error);
@@ -164,7 +158,7 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
       if (!disparo) continue; // ya se avisó este vencimiento
 
       try {
-        await ejecutarAccionRegla(regla, disparo.id, clienteFromRow(cliente), undefined, undefined, undefined, {
+        await ejecutarAccionRegla(regla, disparo.id, clienteFromRow(cliente), undefined, undefined, {
           id: cupon.id,
           codigo: cupon.codigo,
           fechaCaducidad: cupon.fechaCaducidad,

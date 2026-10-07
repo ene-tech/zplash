@@ -3,33 +3,30 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, suscripcionesOneclick } from "@/db/schema";
 import { mesActualKey, precioConCupon, requiereValidacionX5 } from "@/lib/helpers";
-import { getConfig } from "@/lib/dataAccess/config";
 import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
-import { aplicarUpgradePlan } from "./aplicarUpgradePlan";
 import { buscarCuponDescuentoPlan } from "./cuponPlan";
 import { aplicarCobroRecuperado, inicioCicloCobrado, proximoCicloISO } from "./cobrarSuscripcion";
 import { autorizarCobro, reconciliarCobrosEnCurso, reservarCobro } from "./oneclickCobro";
 
-export type TipoOfertaCuenta = "renovacion_temprana" | "reactivacion" | "upgrade_plan";
+export type TipoOfertaCuenta = "renovacion_temprana" | "reactivacion";
 
 // Mismo criterio de nombres que TIPO_VENTA_PROMO_CUENTA en
 // /api/pagos/webpay/retorno, pero marcado "(Oneclick)" en vez de "(Web)"
 // para distinguir en el historial que este cobro no pasó por Webpay Plus.
-// "upgrade_plan" no entra acá: tiene su propio label vía aplicarUpgradePlan.
-const TIPO_VENTA_ONECLICK: Record<"renovacion_temprana" | "reactivacion", string> = {
+const TIPO_VENTA_ONECLICK: Record<TipoOfertaCuenta, string> = {
   renovacion_temprana: "Renovación anticipada (Oneclick)",
   reactivacion: "Reactivación promocional (Oneclick)",
 };
 
 /**
- * Cobra una de las 3 promociones de plan de Mi Cuenta (ver
+ * Cobra una de las promociones de plan de Mi Cuenta (ver
  * @/lib/helpers/ofertasPlan) directo contra la tarjeta que esa patente ya
  * tiene inscrita en Oneclick, sin redirigir a Webpay Plus — mismo mecanismo
  * de cobro que cobrarSuscripcion() (el cron mensual: oneclickTransaction().
  * authorize() contra tbkUser/username), pero con el monto de la promo en vez
  * del precio fijo del plan, y sin acoplarse al concepto de "ciclo" mensual:
  * agenda `proximoCobro` justo en el vencimiento real que dejó la promo
- * (aplicarPagoAprobado/aplicarUpgradePlan), no en "hoy + un mes", para que
+ * (aplicarPagoAprobado), no en "hoy + un mes", para que
  * el cron de mañana no vuelva a cobrar la tarjeta mientras el cliente
  * todavía tenga días ya pagados por este cobro manual.
  *
@@ -47,7 +44,7 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
   const tbkUser = suscripcion.tbkUser;
 
   // Mismo candado que cobrarSuscripcion, y por la misma razón: estas ofertas
-  // (renovación anticipada, reactivación, upgrade) también renuevan el plan, y
+  // (renovación anticipada, reactivación) también renuevan el plan, y
   // renovar migra al X5. Al que sigue en el ilimitado viejo sin haber aceptado
   // el cambio no se le cobra. Va ANTES de la transacción y de autorizar en
   // Transbank a propósito: rechazar después del cargo dejaría al cliente
@@ -80,7 +77,7 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
     // No hay un "ciclo" real acá (es un cobro puntual, no la mensualidad fija),
     // pero igual sirve de resguardo contra el doble clic: mismo criterio que
     // cobrarSuscripcion (ver inicioCicloCobrado) y no el mes calendario, que
-    // frenaba un upgrade o una renovación anticipada solo porque la tarjeta ya
+    // frenaba una renovación anticipada solo porque la tarjeta ya
     // había pagado la renovación de comienzos de mes.
     const [yaAprobado] = await tx
       .select({ id: cobrosOneclick.id })
@@ -117,7 +114,7 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
     let responseCode: number | null = null;
     let authorizationCode: string | null = null;
     let ventaId: string | null = null;
-    // Vencimiento real que dejó aplicarUpgradePlan/aplicarPagoAprobado — se
+    // Vencimiento real que dejó aplicarPagoAprobado — se
     // usa para agendar `proximoCobro` (ver más abajo) en vez de un "hoy + un
     // mes" a ciegas, que desincroniza el cron de cobros automáticos cuando
     // el vencimiento nuevo queda más lejos que eso (ej. renovación anticipada
@@ -138,43 +135,25 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
         // — solo se revierte la extensión de vencimiento/venta a medio
         // aplicar, y ventaId queda en null para revisión manual.
         await tx.transaction(async (tx2) => {
-          if (tipo === "upgrade_plan") {
-            const config = await getConfig();
-            const r = await aplicarUpgradePlan(
-              {
-                patente,
-                monto: montoFinal,
-                ventaId: ventaId as string,
-                metodoPago: "tarjeta",
-                creadoPor: "Cliente (Oneclick)",
-                horasVentanaUpgrade: config.horasVentanaUpgradePlan,
-                tipoVenta: "Upgrade a Plan X5 (Oneclick)",
-                cuponCodigo: cupon?.codigo,
-              },
-              tx2
-            );
-            vencimientoResultante = r.vencimiento;
-          } else {
-            const r = await aplicarPagoAprobado(
-              {
-                patente,
-                monto: montoFinal,
-                ventaId: ventaId as string,
-                metodoPago: "tarjeta",
-                creadoPor: "Cliente (Oneclick)",
-                esServicioAdicional: false,
-                tipoVentaNuevo: TIPO_VENTA_ONECLICK[tipo],
-                tipoVentaExistente: TIPO_VENTA_ONECLICK[tipo],
-                // Mismo criterio que cobrarSuscripcion: si el cobro crea la
-                // ficha, hereda el correo de la suscripción.
-                email: suscripcion.email,
-                reiniciarCiclo: tipo === "reactivacion",
-                cuponCodigo: cupon?.codigo,
-              },
-              tx2
-            );
-            vencimientoResultante = r.vencimiento;
-          }
+          const r = await aplicarPagoAprobado(
+            {
+              patente,
+              monto: montoFinal,
+              ventaId: ventaId as string,
+              metodoPago: "tarjeta",
+              creadoPor: "Cliente (Oneclick)",
+              esServicioAdicional: false,
+              tipoVentaNuevo: TIPO_VENTA_ONECLICK[tipo],
+              tipoVentaExistente: TIPO_VENTA_ONECLICK[tipo],
+              // Mismo criterio que cobrarSuscripcion: si el cobro crea la
+              // ficha, hereda el correo de la suscripción.
+              email: suscripcion.email,
+              reiniciarCiclo: tipo === "reactivacion",
+              cuponCodigo: cupon?.codigo,
+            },
+            tx2
+          );
+          vencimientoResultante = r.vencimiento;
         });
       } catch (errorAplicar) {
         console.error(
@@ -203,7 +182,7 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
       // próximo cobro a un mes fijo lo dejaba ANTES de esa fecha — el cron
       // diario volvía a cobrar la tarjeta mientras el cliente todavía tenía
       // días ya pagados, un doble cobro real. vencimientoResultante siempre
-      // queda seteado acá (las 3 promociones de esta función extienden
+      // queda seteado acá (las 2 promociones de esta función extienden
       // plan/vencimiento) — proximoCicloISO(null) queda solo de resguardo
       // defensivo por si algún día eso deja de ser cierto.
       await tx

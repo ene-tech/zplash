@@ -65,12 +65,6 @@ export function construirVariables(opts: {
   // renovaría al precio normal — para no invitarlo a un "precio preferencial"
   // que no existe está condicionSoloConPromoRenovacion en la regla.
   precioRenovacion?: number;
-  // Precio de upgrade a Plan X5 (ver precioUpgradePlan en
-  // @/lib/helpers/precios) — hoy solo lo pasa evaluarReglasCorreoPorVenta
-  // (@/lib/mailing/reglas/disparadores) cuando la venta es "Lavado único",
-  // mismo cálculo (calcularOfertasPlanDeCliente) que usa el Operador para
-  // ofrecer el upgrade en el momento.
-  precioUpgrade?: number;
   // Veces que el cliente pasó por el túnel. Lo pasa procesarVencimientosCorreo
   // (ver @/lib/mailing/reglas/cron): en "plan_vencido" son las del período que
   // se le venció (visitasUltimoPeriodoVencido); en "plan_proximo_vencer" las
@@ -104,7 +98,6 @@ export function construirVariables(opts: {
     patenteAnterior: opts.patenteAnterior || "",
     precioReactivacion: opts.precioReactivacion !== undefined ? fmtCLP(opts.precioReactivacion) : "",
     precioRenovacion: opts.precioRenovacion !== undefined ? fmtCLP(opts.precioRenovacion) : "",
-    precioUpgrade: opts.precioUpgrade !== undefined ? fmtCLP(opts.precioUpgrade) : "",
     pasadas: opts.pasadas !== undefined ? String(opts.pasadas) : "",
     precioX5: opts.precioX5 !== undefined ? fmtCLP(opts.precioX5) : "",
     descuentoReferido: opts.descuentoReferido !== undefined ? fmtCLP(opts.descuentoReferido) : "",
@@ -225,16 +218,14 @@ export function crearCuponDescuento(opts: {
 // "venta_creada" (ej. "confirmamos tu compra de {{monto}}"); en
 // "plan_proximo_vencer" no aplica. `patenteAnterior` solo se usa en
 // "cambio_patente" (ver evaluarReglasPorCambioPatente en ./disparadores),
-// para el placeholder {{patenteAnterior}}. `precioUpgrade` solo lo pasa
-// dispararPorVenta para ventas "Lavado único" (ver ./disparadores). `cupon`
-// solo lo pasa el aviso "ticket_por_vencer" (ver ./cron).
+// para el placeholder {{patenteAnterior}}. `cupon` solo lo pasa el aviso
+// "ticket_por_vencer" (ver ./cron).
 export async function ejecutarAccionRegla(
   regla: ReglaWhatsapp,
   disparoId: string,
   cliente: Cliente,
   ventaMonto?: number,
   patenteAnterior?: string,
-  precioUpgrade?: number,
   cupon?: { id: string; codigo: string; fechaCaducidad: string }
 ): Promise<void> {
   // Cliente marcado "no recibe mensajes automáticos" en su ficha (ver
@@ -258,10 +249,10 @@ export async function ejecutarAccionRegla(
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
     return;
   }
-  // Template que ofrece el upgrade a un cliente que ya no puede hacerlo (tiene
-  // plan vigente, venció la ventana, etc.): mismo criterio que la regla de
-  // correo — no se invita a una promo que no aplica, ni con el precio vacío.
-  if (precioUpgrade === undefined && plantilla.metaVariables?.some((v) => v.toLowerCase() === "precioupgrade")) {
+  // Plantilla del upgrade a Plan X5, retirado en oct-2026: {{precioUpgrade}}
+  // ya no tiene valor, y mandarla invitaría a una promo que no existe con el
+  // precio vacío. Cubre los disparos que quedaron programados antes del corte.
+  if (usaPrecioUpgradeRetirado(plantilla.metaVariables ?? [])) {
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
     return;
   }
@@ -289,7 +280,7 @@ export async function ejecutarAccionRegla(
   }
 
   const descuentoReferido = await descuentoReferidoSiLoPide(plantilla);
-  const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior, precioUpgrade, descuentoReferido, cupon });
+  const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior, descuentoReferido, cupon });
 
   // Con PUSH_FALLBACK_A_WHATSAPP="true" (opt-in, ver plan de la PWA), si el
   // cliente tiene una suscripción push activa y el envío llega, nos ahorramos
@@ -323,4 +314,10 @@ export async function ejecutarAccionRegla(
     cuponId,
     mensajeWhatsappId: mensaje?.id,
   });
+}
+
+/** ¿La plantilla pide {{precioUpgrade}}, la variable del upgrade a Plan X5
+ * retirado? Lo usan los motores de WhatsApp y de correo para no mandarla. */
+export function usaPrecioUpgradeRetirado(textosOVariables: string[]): boolean {
+  return textosOVariables.some((t) => t.toLowerCase().includes("precioupgrade"));
 }

@@ -86,9 +86,10 @@ export interface ConfigGlobal {
   // como respaldo solo cuando ese canal no tiene ningún tramo configurado —
   // ver precioRenovacionLocal.
   tramosRenovacionLocal: Record<string, TramoRenovacionLocal[]>;
-  // Horas desde el pago de un "Lavado único" dentro de las cuales el módulo
-  // Operador puede ofrecer la promoción de upgrade a plan (ver
-  // ventaUpgradeElegible en helpers/precios.ts). Editable en Configuración;
+  // Horas desde el pago de un "Lavado único" dentro de las cuales se ofrece
+  // el upgrade a Promo 4 Lavados (ver ventaUpgradeElegible en
+  // helpers/precios.ts). El nombre viene del upgrade a plan que reemplazó.
+  // Editable en Configuración;
   // acepta múltiplos de 24 para expresar días (ej: 48 = 2 días).
   horasVentanaUpgradePlan: number;
   // Escala de precio de reactivación preferencial para clientes (Local o

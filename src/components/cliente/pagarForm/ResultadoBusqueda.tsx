@@ -25,7 +25,7 @@ export function ResultadoBusqueda(p: Props) {
   // valor. Sin heredado es el precio público de la renovación automática.
   const precioAutoMensual = precioConHeredado(p.precios.planOneclick.precio, r);
   // Cuando el primer cobro sale más barato que el mensual —promoción de
-  // reactivación/upgrade, cupón de descuento de la patente, o las dos— la
+  // reactivación, cupón de descuento de la patente, o las dos— la
   // inscripción de tarjeta cobra ese precio y no el mensual (ver
   // precioPrimerCobroAuto): se anuncian los dos, el de ahora y el de después.
   const precioAuto = r.precioPrimerCobroAuto ?? precioAutoMensual;

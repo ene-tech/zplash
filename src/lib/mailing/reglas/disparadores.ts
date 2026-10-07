@@ -7,7 +7,6 @@ import { listarReglasCorreoActivas, registrarDisparoReglaCorreo } from "@/lib/da
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import {
   esTarjetaWeb,
-  LAVADO_UNICO_KEY,
   PLAN_ILIMITADO_LEGACY,
   periodoPlan,
   planVigente,
@@ -39,20 +38,6 @@ async function dispararPorVenta(regla: ReglaCorreo, venta: Venta): Promise<void>
   const cliente = await buscarCliente(venta.clienteId!);
   if (!cliente) return;
 
-  // Precio de upgrade a plan (ver calcularOfertasPlanDeCliente/oferta.upgrade)
-  // — solo se calcula para "Lavado único", mismo criterio que usa el Operador
-  // para ofrecerlo en el momento (ventana ConfigGlobal.horasVentanaUpgradePlan,
-  // cliente sin plan vigente). Si la regla apunta específicamente a "Lavado
-  // único" (o sea, es justamente la de invitar al upgrade) y ahora mismo no
-  // hay upgrade elegible, se salta: no tiene sentido invitar a una promo que
-  // no aplica, y acá no hay reintento futuro como en plan_vencido — una venta
-  // solo dispara una vez.
-  let precioUpgrade: number | undefined;
-  if (venta.tipo === LAVADO_UNICO_KEY) {
-    precioUpgrade = (await calcularOfertasPlanDeCliente(cliente)).upgrade?.precio;
-    if (regla.condicionTipoVenta === LAVADO_UNICO_KEY && precioUpgrade === undefined) return;
-  }
-
   // El insert falla en silencio (retorna null) si esta venta ya disparó esta
   // regla antes (constraint único regla+origen) — mismo motivo que
   // dispararPorVenta de WhatsApp: insertVentas puede en teoría llamar esto
@@ -70,7 +55,7 @@ async function dispararPorVenta(regla: ReglaCorreo, venta: Venta): Promise<void>
   });
   if (!disparo) return;
 
-  const variables = construirVariables({ cliente, monto: venta.precio, precioUpgrade });
+  const variables = construirVariables({ cliente, monto: venta.precio });
   await ejecutarAccionReglaCorreo(regla, disparo.id, cliente, variables);
 }
 

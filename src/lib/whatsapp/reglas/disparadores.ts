@@ -1,8 +1,7 @@
 import "server-only";
 
 import { listarReglasWhatsappActivas, marcarDisparoReglaWhatsapp, registrarDisparoReglaWhatsapp } from "@/lib/dataAccess/whatsapp";
-import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
-import { LAVADO_UNICO_KEY, mesKey, uid } from "@/lib/helpers";
+import { mesKey, uid } from "@/lib/helpers";
 import { saltarInvitacionReferidos } from "@/lib/referidos";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
@@ -18,15 +17,7 @@ function coincideVenta(regla: ReglaWhatsapp, venta: Venta): boolean {
 }
 
 async function dispararPorVenta(regla: ReglaWhatsapp, venta: Venta): Promise<void> {
-  // Precio de upgrade a plan, mismo cálculo que la regla de correo (ver
-  // dispararPorVenta en @/lib/mailing/reglas/disparadores). El corte cuando el
-  // cliente no califica NO va acá sino en ejecutarAccionRegla, mirando si la
-  // plantilla pide {{precioUpgrade}}: la regla del "Lavado único" puede mandar
-  // el upgrade o la invitación a referir (que sale a todos), y eso lo decide
-  // la plantilla elegida, no el tipo de venta.
   const cliente = await buscarCliente(venta.clienteId);
-  const precioUpgrade =
-    cliente && venta.tipo === LAVADO_UNICO_KEY ? (await calcularOfertasPlanDeCliente(cliente)).upgrade?.precio : undefined;
   // Antes de registrar el disparo: así no queda marcado y la regla sigue
   // normal para esta persona cuando termina la pausa.
   if (cliente && saltarInvitacionReferidos(regla.plantillaWhatsappId, cliente.creadoEn)) return;
@@ -54,7 +45,7 @@ async function dispararPorVenta(regla: ReglaWhatsapp, venta: Venta): Promise<voi
     await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" });
     return;
   }
-  await ejecutarAccionRegla(regla, disparo.id, cliente, venta.precio, undefined, precioUpgrade);
+  await ejecutarAccionRegla(regla, disparo.id, cliente, venta.precio);
 }
 
 // Se llama desde dataAccess/ventas.ts::insertVentas justo después del INSERT,

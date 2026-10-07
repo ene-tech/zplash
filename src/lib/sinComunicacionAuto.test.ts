@@ -83,17 +83,13 @@ beforeEach(() => {
 // No es opt-out, pero es el mismo corte antes del envío: el template del
 // lavado único que ofrece el upgrade no sale si el cliente ya no califica.
 describe("template de WhatsApp con {{precioUpgrade}}", () => {
-  it("no sale sin precio de upgrade", async () => {
+  // El upgrade a Plan X5 se retiró en oct-2026: la plantilla que lo ofrecía
+  // no sale nunca, ni desde un disparo que quedó programado antes del corte.
+  it("no sale nunca", async () => {
     metaVariables = ["nombre", "precioupgrade"];
     await ejecutarAccionRegla(REGLA_WHATSAPP, "d1", CLIENTE, 9990);
     expect(enviosWhatsapp).toEqual([]);
     expect(marcadosWhatsapp).toEqual(["error"]);
-  });
-
-  it("sale con precio de upgrade", async () => {
-    metaVariables = ["nombre", "precioupgrade"];
-    await ejecutarAccionRegla(REGLA_WHATSAPP, "d1", CLIENTE, 9990, undefined, 5000);
-    expect(enviosWhatsapp).toEqual([CLIENTE.telefono]);
   });
 });
 

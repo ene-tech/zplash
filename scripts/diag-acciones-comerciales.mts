@@ -73,7 +73,7 @@ try {
     if (o.renovacionAnticipada) acciones.push("renovar");
     if (o.reactivacion) acciones.push("reactivar");
     if (o.pagoVencido) acciones.push("pagar atrasado");
-    if (o.upgrade) acciones.push("upgrade");
+    if (o.upgradePack) acciones.push("upgrade-pack");
     if (o.contratacion) acciones.push("contratar");
     if (conCupon.has(String(cliente.patente).toUpperCase())) acciones.push("cupon");
 

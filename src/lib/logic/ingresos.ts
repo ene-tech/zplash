@@ -7,6 +7,7 @@ import {
   PLAN_X5,
   type IdPromoLavados,
   cuponesPromoLavados,
+  cuponesUpgradePack,
   enPlazoDePagoPlan,
   finCicloPlan,
   ilimitadoHastaAlRenovar,
@@ -42,6 +43,29 @@ export function entregarPromoLavados(
     idBase: "cup" + Date.now(),
   });
   return registrarIngresoCupon({ ...data, cupones: [...nuevos, ...data.cupones] }, cliente, nuevos[0], operadorActual);
+}
+
+// Upgrade a Promo 4 Lavados en el mesón (ver UPGRADE_PACK_KEY): los 3 tickets
+// que le faltan al lavado único que el cliente ya pagó (`lavado`, ver
+// ventaUpgradeElegible). No registra Ingreso: el auto ya pasó con ese lavado.
+// La Venta la arma quien llama, como en entregarPromoLavados.
+export function entregarUpgradePack(
+  data: AppData,
+  cliente: Cliente,
+  lavado: Venta,
+  precio: number,
+  operadorActual: string | null | undefined
+): Partial<AppData> {
+  const nuevos = cuponesUpgradePack({
+    lavado,
+    precio,
+    patente: cliente.patente,
+    email: cliente.email,
+    existentes: new Set(data.cupones.map((c) => c.codigo)),
+    creadoPor: operadorActual || "",
+    idBase: "cup" + Date.now(),
+  });
+  return { cupones: [...nuevos, ...data.cupones] };
 }
 
 export function registrarIngreso(
@@ -211,7 +235,7 @@ export function registrarIngresoLavadoWeb(
 // reciente. Si el ingreso es de un "lavado único" cobrado (ver
 // cobrarLavadoUnico en useIngresoActions), también borra la Venta pareja
 // (ver ventaLavadoUnicoDeIngreso): si no, el cliente sigue apareciendo
-// elegible para la promoción de upgrade a plan (ventaUpgradeElegible) por un
+// elegible para el upgrade a Promo 4 Lavados (ventaUpgradeElegible) por un
 // lavado que, en teoría, nunca ocurrió. No toca el cupón usado en esa venta
 // ni el estado de la Cita de un check-in de Detailing — esas reversiones, si
 // hacen falta, se hacen aparte.

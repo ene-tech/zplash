@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { redirigirAWebpay } from "@/lib/webpayClient";
 
-export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "upgrade_plan" | "contratacion";
+export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "contratacion";
 
 // "renovacion" no es una promoción de cuenta: es el único plan que todavía se
 // paga por Webpay (ver TIPOS_VALIDOS en /api/pagos/webpay/crear) — el plan
@@ -14,7 +14,9 @@ export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "upgrade_p
 // (ver OfertaPlan.contratacion): un lavado suelto se paga por Webpay como
 // cualquier ítem de /pagar. El cupón de descuento de la patente también se le
 // resta ahí cuando no hay ítem de plan en la compra (ver /api/pagos/webpay/crear).
-type TipoCobro = TipoOfertaPlan | "renovacion" | "lavado_unico";
+// "upgrade_pack" (OfertaPlan.upgradePack) son tickets, no plan: Webpay también.
+type TipoWebpay = "renovacion" | "lavado_unico" | "upgrade_pack";
+type TipoCobro = TipoOfertaPlan | TipoWebpay;
 
 export interface TarjetaGuardada {
   cardTipo: string | null;
@@ -22,7 +24,7 @@ export interface TarjetaGuardada {
 }
 
 /**
- * Cobra una de las 3 promociones de plan que ofrece VehiculoCard (ver
+ * Cobra una de las promociones de plan que ofrece VehiculoCard (ver
  * @/lib/helpers/ofertasPlan). El plan solo se paga con tarjeta inscrita
  * (Oneclick), nunca por Webpay: si la patente ya tiene una activa (`tarjeta`)
  * se pide confirmación y se cobra directo contra ella vía
@@ -40,9 +42,9 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
   // tarjeta, que es la única salida cuando la guardada no pasa.
   const [rechazada, setRechazada] = useState(false);
 
-  // Solo para el plan vencido sin promoción (ver TipoCobro): las 3
-  // promociones no pasan por Webpay.
-  async function pagarWebpay(tipo: "renovacion" | "lavado_unico") {
+  // Lo que no es una promoción de plan (ver TipoCobro): las promociones de
+  // plan no pasan por Webpay.
+  async function pagarWebpay(tipo: TipoWebpay) {
     setErr("");
     setPagando(tipo);
     try {
@@ -126,5 +128,6 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
     confirmarConTarjeta,
     pagarPlanVencido: () => pagarWebpay("renovacion"),
     comprarLavadoUnico: () => pagarWebpay("lavado_unico"),
+    comprarUpgradePack: () => pagarWebpay("upgrade_pack"),
   };
 }

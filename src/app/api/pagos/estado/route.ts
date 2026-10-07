@@ -55,8 +55,7 @@ export async function GET(request: NextRequest) {
       // renovación automática (Oneclick), que no pasa por el plazo de atraso.
       precioPlanHeredado: cliente.precioPlanHeredado,
       // Lo que cobra el PRIMER cobro de la renovación automática cuando sale
-      // más barato que el mensual: por una promoción (reactivación o upgrade
-      // desde su lavado único, la que le haya quedado más barata) y/o por el
+      // más barato que el mensual: por la promoción de reactivación y/o por el
       // cupón de descuento de la patente. undefined = paga el precio de
       // siempre. Los meses siguientes los cobra el cron a ese precio normal
       // (el cupón es de un uso y se quema en este cobro). Con el cupón ya

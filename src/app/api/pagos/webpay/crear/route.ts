@@ -6,6 +6,7 @@ import {
   PLANES,
   IDS_PROMOS_LAVADOS,
   PROMOS_LAVADOS,
+  UPGRADE_PACK_KEY,
   esIdPromoLavados,
   formatRut,
   isValidEmail,
@@ -21,6 +22,7 @@ import {
   type IdPromoLavados,
 } from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
+import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getConfig } from "@/lib/dataAccess/config";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos";
@@ -40,8 +42,10 @@ const MAX_ITEMS = 20;
 // acá. La ÚNICA excepción es "renovacion": la tarjeta de plan vencido de Mi
 // Cuenta (ver OfertaPlan.pagoVencido), que es el plan de siempre esperando
 // que lo paguen, sin promoción ni tarjeta inscrita de por medio.
-type TipoPago = "renovacion" | "servicio" | "lavado_unico" | "aspirado" | IdPromoLavados;
-const TIPOS_VALIDOS = new Set<TipoPago>(["renovacion", "servicio", "lavado_unico", "aspirado", ...IDS_PROMOS_LAVADOS]);
+// "upgrade_pack" es el upgrade a Promo 4 Lavados de Mi Cuenta (ver
+// OfertaPlan.upgradePack): tickets, no plan, así que va por acá como los packs.
+type TipoPago = "renovacion" | "servicio" | "lavado_unico" | "aspirado" | "upgrade_pack" | IdPromoLavados;
+const TIPOS_VALIDOS = new Set<TipoPago>(["renovacion", "servicio", "lavado_unico", "aspirado", "upgrade_pack", ...IDS_PROMOS_LAVADOS]);
 const TIPOS_PLAN = new Set<TipoPago>(["renovacion"]);
 
 function generarBuyOrder(): string {
@@ -188,6 +192,16 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Esta promoción no está disponible" }, { status: 400 });
         }
         items.push({ tipo, servicioId: null, nombre: PROMOS_LAVADOS[tipo].key, monto, ...doc });
+      } else if (tipo === "upgrade_pack") {
+        // Solo si la patente todavía califica (lavado único reciente, sin plan
+        // vigente, sin haberlo completado ya): recalculado acá, nunca se confía
+        // en la tarjeta que vio el cliente. Sin cupón, como los packs.
+        const cliente = await buscarClientePorPatente(patente);
+        const upgrade = cliente ? (await calcularOfertasPlanDeCliente(cliente)).upgradePack : undefined;
+        if (!upgrade) {
+          return NextResponse.json({ error: "Esta promoción ya no está disponible, actualiza la página." }, { status: 400 });
+        }
+        items.push({ tipo, servicioId: null, nombre: UPGRADE_PACK_KEY, monto: upgrade.precio, ...doc });
       } else if (tipo === "aspirado") {
         items.push({
           tipo,

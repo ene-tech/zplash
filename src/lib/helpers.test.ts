@@ -94,6 +94,9 @@ import {
   cuponDescuentoDePatente,
   cuponesPromo2Lavados,
   cuponesPromoLavados,
+  cuponesUpgradePack,
+  PRECIO_UPGRADE_PACK,
+  UPGRADE_PACK_KEY,
   KEYS_PROMOS_LAVADOS,
   PROMO_5_LAVADOS_KEY,
   precioPromoLavados,
@@ -1340,14 +1343,15 @@ describe("ofertaConCupon", () => {
       {
         renovacionAnticipada: { pNormal: 25000, pPromo: 21990, ahorro: 3010, tramoVigente: true },
         reactivacion: { precio: 18000, diasVencido: 5, pNormal: 25000, visitas: 2 },
-        upgrade: { precio: 12000 },
+        upgradePack: { precio: 9990, tickets: 3, vence: "2026-02-04T10:00:00.000Z" },
         pagoVencido: { precio: 21990, diasVencido: 40, visitas: 1 },
       },
       cupon
     );
     expect(o.renovacionAnticipada).toMatchObject({ pNormal: 25000, pPromo: 19990, ahorro: 5010 });
     expect(o.reactivacion?.precio).toBe(16000);
-    expect(o.upgrade?.precio).toBe(10000);
+    // El upgrade a Promo 4 Lavados es una promoción de tickets: el cupón no lo toca.
+    expect(o.upgradePack?.precio).toBe(9990);
     expect(o.pagoVencido?.precio).toBe(19990);
   });
 
@@ -1361,7 +1365,7 @@ describe("ofertaConCupon", () => {
   });
 
   it("sin cupón devuelve la misma oferta", () => {
-    const original = { upgrade: { precio: 12000 } };
+    const original = { pagoVencido: { precio: 21990, diasVencido: 40, visitas: 1 } };
     expect(ofertaConCupon(original, undefined)).toBe(original);
   });
 });
@@ -1743,6 +1747,46 @@ describe("ventaUpgradeElegible", () => {
     expect(ventaUpgradeElegible([presencial], "c1", 24, ahora)).toBeUndefined();
     expect(ventaUpgradeElegible([web], "c1", 24, ahora)).toBeUndefined();
   });
+
+  it("un lavado que ya se completó a Promo 4 Lavados no vuelve a calificar, en ningún canal", () => {
+    const lavado = ventaLavadoUnicoBase({ fecha: "2026-01-05T10:00:00.000Z" });
+    const mesón = ventaLavadoUnicoBase({ id: "v2", tipo: UPGRADE_PACK_KEY, fecha: "2026-01-05T11:00:00.000Z" });
+    const web = ventaLavadoUnicoBase({ id: "v3", tipo: `${UPGRADE_PACK_KEY} (Web)`, fecha: "2026-01-05T11:00:00.000Z" });
+    expect(ventaUpgradeElegible([lavado, mesón], "c1", 24, ahora)).toBeUndefined();
+    expect(ventaUpgradeElegible([lavado, web], "c1", 24, ahora)).toBeUndefined();
+    // Un upgrade de un lavado ANTERIOR no frena el lavado nuevo.
+    const nuevo = ventaLavadoUnicoBase({ id: "v4", fecha: "2026-01-05T11:30:00.000Z" });
+    expect(ventaUpgradeElegible([lavado, mesón, nuevo], "c1", 24, ahora)).toBe(nuevo);
+  });
+});
+
+describe("cuponesUpgradePack", () => {
+  it("emite los tickets 2 a 4 de la Promo 4 Lavados, con la vigencia contada desde el lavado", () => {
+    const lavado = { precio: 9990, fecha: "2026-01-05T10:00:00.000Z" };
+    const tickets = cuponesUpgradePack({
+      lavado,
+      precio: 9990,
+      patente: "ab1234",
+      email: "A@B.CL",
+      existentes: new Set(),
+      creadoPor: "Op",
+      idBase: "cup1",
+      ahora: new Date("2026-01-06T10:00:00.000Z"),
+    });
+    expect(tickets.map((t) => [t.numeroLote, t.totalLote])).toEqual([
+      [2, 4],
+      [3, 4],
+      [4, 4],
+    ]);
+    expect(new Set(tickets.map((t) => t.codigo)).size).toBe(3);
+    for (const t of tickets) {
+      expect(t.nombreLote).toBe(PROMO_5_LAVADOS_KEY);
+      expect(t.patentesAutorizadas).toEqual(["AB1234"]);
+      expect(t.fechaCaducidad).toBe("2026-02-04T10:00:00.000Z");
+      expect(t.valor).toBe(4995);
+      expect(t.email).toBe("a@b.cl");
+    }
+  });
 });
 
 describe("calcularOfertasPlan", () => {
@@ -1778,14 +1822,13 @@ describe("calcularOfertasPlan", () => {
     planEstadoAlIngreso: "ok",
   });
 
-  it("plan vigente -> ofrece renovación anticipada al precio del tramo, sin reactivación ni upgrade", () => {
+  it("plan vigente -> ofrece renovación anticipada al precio del tramo, sin reactivación", () => {
     const cliente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
     const oferta = calcularOfertasPlan(cliente, [], [], config, precios);
     // pNormal = lo que paga renovando a tiempo sin tramo (el preferencial,
     // ver precioRenovacionATiempo), no el precio de lista.
     expect(oferta.renovacionAnticipada).toEqual({ pNormal: 19990, pPromo: 15990, ahorro: 4000, diasRestantes: undefined, tramoVigente: true });
     expect(oferta.reactivacion).toBeUndefined();
-    expect(oferta.upgrade).toBeUndefined();
   });
 
   it("precio heredado -> renueva a lo que venía pagando, sin ahorro inventado, y nunca por sobre ese valor", () => {
@@ -1957,8 +2000,7 @@ describe("calcularOfertasPlan", () => {
     expect(calcularOfertasPlan(cliente, [], [], soloLocal, precios, "LOCAL").reactivacion?.precio).toBe(17990);
   });
 
-  it("plan vencido + Lavado único reciente dentro de la ventana -> ofrece upgrade", () => {
-    const cliente = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
+  it("sin plan + Lavado único reciente -> ofrece completar la Promo 4 Lavados, y contratar sigue a la vista", () => {
     const venta: Venta = {
       id: "v1",
       clienteId: "c1",
@@ -1969,8 +2011,51 @@ describe("calcularOfertasPlan", () => {
       tipo: "Lavado único",
       fecha: horasDesdeAhora(2),
     };
-    const oferta = calcularOfertasPlan(cliente, [venta], [], config, precios);
-    expect(oferta.upgrade).toEqual({ precio: 12000 });
+    const oferta = calcularOfertasPlan({ id: "c1", plan: "", vencimiento: null }, [venta], [], config, precios);
+    const vence = new Date(new Date(venta.fecha).getTime() + 30 * 86400000).toISOString();
+    expect(oferta.upgradePack).toEqual({ precio: PRECIO_UPGRADE_PACK, tickets: 3, vence });
+    expect(oferta.contratacion).toBeDefined();
+    // No es una promoción de primer cobro de la tarjeta: son tickets, no plan.
+    expect(promoPrimerCobroOneclick(oferta)).toBeUndefined();
+  });
+
+  it("plan vencido + Lavado único -> el upgrade convive con la reactivación (son productos distintos)", () => {
+    const vencido = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-10), visitas: 0 };
+    const oferta = calcularOfertasPlan(vencido, [{
+        id: "v1",
+        clienteId: "c1",
+        patente: "AB1234",
+        nombre: "Juan",
+        plan: "",
+        precio: 9990,
+        tipo: "Lavado único",
+        fecha: horasDesdeAhora(2),
+      }], [], config, precios);
+    expect(oferta.upgradePack?.precio).toBe(PRECIO_UPGRADE_PACK);
+    expect(oferta.reactivacion?.precio).toBe(17990);
+  });
+
+  it("plan vigente, fuera de ventana, Web sin canjear o precio en $0 -> no hay upgrade", () => {
+    const venta: Venta = {
+      id: "v1",
+      clienteId: "c1",
+      patente: "AB1234",
+      nombre: "Juan",
+      plan: "",
+      precio: 9990,
+      tipo: "Lavado único",
+      fecha: horasDesdeAhora(2),
+    };
+    const vigente = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(20), fechaContratacion: diasDesdeHoy(-10) };
+    const sinPlan = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
+    expect(calcularOfertasPlan(vigente, [venta], [], config, precios).upgradePack).toBeUndefined();
+    expect(calcularOfertasPlan(sinPlan, [{ ...venta, fecha: horasDesdeAhora(48) }], [], config, precios).upgradePack).toBeUndefined();
+    expect(calcularOfertasPlan(sinPlan, [{ ...venta, tipo: "Lavado único (Web)" }], [], config, precios).upgradePack).toBeUndefined();
+    const apagado: Precios = { ...precios, [UPGRADE_PACK_KEY]: { normal: 0, promo: 0 } };
+    expect(calcularOfertasPlan(sinPlan, [venta], [], config, apagado).upgradePack).toBeUndefined();
+    // El precio sale de Configuración, no de lo que costó el lavado.
+    const otroPrecio: Precios = { ...precios, [UPGRADE_PACK_KEY]: { normal: 7990, promo: 0 } };
+    expect(calcularOfertasPlan(sinPlan, [{ ...venta, precio: 5990 }], [], config, otroPrecio).upgradePack?.precio).toBe(7990);
   });
 
   it('cliente "Sin plan" -> ofrece contratar al precio de la renovación automática, más el lavado suelto', () => {
@@ -1992,204 +2077,6 @@ describe("calcularOfertasPlan", () => {
     expect(calcularOfertasPlan(vigente, [], [], config, preciosWeb).contratacion).toBeUndefined();
     const vencido = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-60), visitas: 0 };
     expect(calcularOfertasPlan(vencido, [], [], config, preciosWeb).contratacion).toBeUndefined();
-  });
-
-  it("sin plan pero con upgrade vigente -> no se le anuncian dos puertas al mismo plan", () => {
-    const venta: Venta = {
-      id: "v1",
-      clienteId: "c1",
-      patente: "AB1234",
-      nombre: "Juan",
-      plan: "",
-      precio: 9990,
-      tipo: "Lavado único",
-      fecha: horasDesdeAhora(2),
-    };
-    const oferta = calcularOfertasPlan({ id: "c1", plan: "", vencimiento: null }, [venta], [], config, precios);
-    expect(oferta.upgrade).toBeDefined();
-    expect(oferta.contratacion).toBeUndefined();
-  });
-
-  it("el Lavado único se pagó con descuento -> el upgrade cobra la diferencia real, no un monto fijo", () => {
-    // El cupón de primera vez ($1.000) dejó el lavado en $8.990: el adicional
-    // sube a $13.000 para que igual entre al plan por los $21.990 de siempre —
-    // si no, el descuento se le aplicaba dos veces.
-    const cliente = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
-    const venta: Venta = {
-      id: "v1",
-      clienteId: "c1",
-      patente: "AB1234",
-      nombre: "Juan",
-      plan: "",
-      precio: 8990,
-      tipo: "Lavado único",
-      fecha: horasDesdeAhora(2),
-      viaCupon: true,
-    };
-    const oferta = calcularOfertasPlan(cliente, [venta], [], config, precios);
-    expect(oferta.upgrade).toEqual({ precio: 13000 });
-  });
-
-  it("nunca tuvo plan -> el upgrade completa el precio de 1ra contratación, no el normal", () => {
-    // $14.990 de 1ra contratación - $9.990 ya pagados por el lavado. El que
-    // dejó vencer su plan no es cliente nuevo: completa los $21.990 normales.
-    const preciosConPrimera: Precios = { ...precios, [keyPrimeraContratacion(PLAN)]: { normal: 14990, promo: 0 } };
-    const venta: Venta = {
-      id: "v1",
-      clienteId: "c1",
-      patente: "AB1234",
-      nombre: "Juan",
-      plan: "",
-      precio: 9990,
-      tipo: "Lavado único",
-      fecha: horasDesdeAhora(2),
-    };
-    const nuevo = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
-    const vencido = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-60), visitas: 0 };
-    expect(calcularOfertasPlan(nuevo, [venta], [], config, preciosConPrimera).upgrade).toEqual({ precio: 5000 });
-    expect(calcularOfertasPlan(vencido, [venta], [], config, preciosConPrimera).upgrade).toEqual({ precio: 12000 });
-
-    // 1ra contratación al precio del lavado: no queda adicional que cobrar y
-    // la oferta no se muestra (un upgrade de $0 regalaría el plan).
-    const primeraIgualAlLavado: Precios = { ...precios, [keyPrimeraContratacion(PLAN)]: { normal: 9990, promo: 0 } };
-    expect(calcularOfertasPlan(nuevo, [venta], [], config, primeraIgualAlLavado).upgrade).toBeUndefined();
-    expect(calcularOfertasPlan(vencido, [venta], [], config, primeraIgualAlLavado).upgrade).toEqual({ precio: 12000 });
-  });
-
-  it("el Lavado único ya pasó la ventana de la promoción -> no ofrece upgrade", () => {
-    const cliente = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
-    const venta: Venta = {
-      id: "v1",
-      clienteId: "c1",
-      patente: "AB1234",
-      nombre: "Juan",
-      plan: "",
-      precio: 9990,
-      tipo: "Lavado único",
-      fecha: horasDesdeAhora(48),
-    };
-    const oferta = calcularOfertasPlan(cliente, [venta], [], config, precios);
-    expect(oferta.upgrade).toBeUndefined();
-  });
-
-  it("califica para reactivación y upgrade a la vez -> solo se le ofrece la más barata", () => {
-    const vencido = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-10), visitas: 0 };
-    const lavado = (precio: number): Venta => ({
-      id: "v1",
-      clienteId: "c1",
-      patente: "AB1234",
-      nombre: "Juan",
-      plan: "",
-      precio,
-      tipo: "Lavado único",
-      fecha: horasDesdeAhora(2),
-    });
-    // Reactivación $17.990 (tramo [0,20]) vs upgrade $21.990 - $2.990 = $19.000.
-    const ganaReactivacion = calcularOfertasPlan(vencido, [lavado(2990)], [], config, precios);
-    expect(ganaReactivacion.reactivacion?.precio).toBe(17990);
-    expect(ganaReactivacion.upgrade).toBeUndefined();
-    // Mismo cliente con un lavado más caro: el adicional baja a $12.000 y gana el upgrade.
-    const ganaUpgrade = calcularOfertasPlan(vencido, [lavado(9990)], [], config, precios);
-    expect(ganaUpgrade.upgrade).toEqual({ precio: 12000 });
-    expect(ganaUpgrade.reactivacion).toBeUndefined();
-    // Igual con el plan vencido fuera de todo tramo (pagoVencido $21.990).
-    const viejo = { id: "c1", plan: PLAN, vencimiento: diasDesdeHoy(-60), visitas: 0 };
-    const oferta = calcularOfertasPlan(viejo, [lavado(9990)], [], config, precios);
-    expect(oferta.upgrade).toEqual({ precio: 12000 });
-    expect(oferta.pagoVencido).toBeUndefined();
-  });
-
-  it("cliente de lavado único que NUNCA tuvo plan -> promoPrimerCobroOneclick le da el upgrade", () => {
-    // El invariante del que dependen /api/pagos/estado y
-    // /api/pagos/oneclick/inscripcion/retorno para abrirse por
-    // `planStatus(...).cls === "bad"` y no por `diasVencido(...) !== null`:
-    // sin plan `vencimiento` es null, así que diasVencido devuelve null y ese
-    // cliente quedaba fuera del primer cobro promocional — inscribía la
-    // tarjeta desde "Upgrade a plan" en Mi Cuenta y Transbank le cobraba el
-    // plan completo en vez del adicional.
-    const sinPlan = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
-    const venta: Venta = {
-      id: "v1",
-      clienteId: "c1",
-      patente: "AB1234",
-      nombre: "Juan",
-      plan: "",
-      precio: 9990,
-      tipo: "Lavado único",
-      fecha: horasDesdeAhora(2),
-    };
-    expect(diasVencido(sinPlan)).toBeNull();
-    expect(planStatus(sinPlan).cls).toBe("bad");
-    expect(promoPrimerCobroOneclick(calcularOfertasPlan(sinPlan, [venta], [], config, precios))).toEqual({
-      tipo: "upgrade_plan",
-      monto: 12000,
-    });
-  });
-
-  it("un 'Lavado único (Web)' canjeado también habilita el primer cobro promocional", () => {
-    const sinPlan = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
-    const venta: Venta = {
-      id: "v1",
-      clienteId: "c1",
-      patente: "AB1234",
-      nombre: "Juan",
-      plan: "",
-      precio: 9990,
-      tipo: "Lavado único (Web)",
-      fecha: horasDesdeAhora(2),
-      canjeadaEn: horasDesdeAhora(1),
-    };
-    expect(promoPrimerCobroOneclick(calcularOfertasPlan(sinPlan, [venta], [], config, precios))).toEqual({
-      tipo: "upgrade_plan",
-      monto: 12000,
-    });
-    // Sin canjear sigue siendo un vale pendiente: no hay upgrade que cobrar.
-    expect(promoPrimerCobroOneclick(calcularOfertasPlan(sinPlan, [{ ...venta, canjeadaEn: undefined }], [], config, precios))).toBeUndefined();
-  });
-
-  it("el adicional del upgrade supera lo que cuesta contratar por web -> no se ofrece por WEB, sí por LOCAL", () => {
-    // Lavado único muy barato (promoción/cupón): faltan $20.000 para completar
-    // los $21.990 del plan, más que los $19.990 de contratarlo derecho con
-    // renovación automática (precioPlanOneclick, no configurado acá = default).
-    // Anunciarlo como "Promoción" en Mi Cuenta o en /pagar sería cobrarle de
-    // más al cliente por el camino que le vendemos como el barato.
-    const sinPlan = { id: "c1", plan: "", vencimiento: null, visitas: 0 };
-    const venta: Venta = {
-      id: "v1",
-      clienteId: "c1",
-      patente: "AB1234",
-      nombre: "Juan",
-      plan: "",
-      precio: 1990,
-      tipo: "Lavado único",
-      fecha: horasDesdeAhora(2),
-    };
-    expect(calcularOfertasPlan(sinPlan, [venta], [], config, precios).upgrade).toBeUndefined();
-    // En el local la alternativa es contratar a $21.990, así que los $20.000
-    // sí son la opción barata y el Operador la sigue viendo.
-    expect(calcularOfertasPlan(sinPlan, [venta], [], config, precios, "LOCAL").upgrade).toEqual({ precio: 20000 });
-  });
-
-  it("al vencido el upgrade caro NO se le borra: contratar derecho no es una puerta que tenga", () => {
-    // Mismo lavado barato, pero con plan vencido. Acá no existe la alternativa
-    // de contratar por /pagar (oferta.contratacion pide `vencimiento` nulo), así
-    // que descartar el upgrade contra ese precio lo dejaba con reactivación o
-    // pagoVencido, que pueden salirle MÁS caros. Elegir el más barato entre las
-    // que sí tiene es trabajo de la dedupe de abajo, no de este filtro.
-    const vencidoHaceMucho = { id: "c1", plan: PLAN_X5, vencimiento: diasDesdeHoy(-200), visitas: 0 };
-    const venta: Venta = {
-      id: "v1",
-      clienteId: "c1",
-      patente: "AB1234",
-      nombre: "Juan",
-      plan: "",
-      precio: 1990,
-      tipo: "Lavado único",
-      fecha: horasDesdeAhora(2),
-    };
-    const oferta = calcularOfertasPlan(vencidoHaceMucho, [venta], [], config, precios);
-    expect(oferta.upgrade).toEqual({ precio: 20000 });
-    expect(oferta.pagoVencido).toBeUndefined();
   });
 
   it("plan vigente sin precio configurado -> no ofrece renovación anticipada (pNormal = 0)", () => {

@@ -1,27 +1,42 @@
 import "server-only";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, cupones, pagosWebpay, pagosWebpayItems, servicios } from "@/db/schema";
+import { clientes, cupones, pagosWebpay, pagosWebpayItems, servicios, ventas } from "@/db/schema";
 import { getConfig } from "@/lib/dataAccess/config";
 import { cuponToRow } from "@/lib/dataAccess/cupones";
-import { cuponesPromoLavados, esIdPromoLavados, sigueVigenteHoy } from "@/lib/helpers";
+import { ventaFromRow } from "@/lib/dataAccess/ventas";
+import { cuponesPromoLavados, cuponesUpgradePack, esIdPromoLavados, esVentaLavadoUnicoUpgradable, sigueVigenteHoy, ventaUpgradeElegible } from "@/lib/helpers";
+import type { Cupon } from "@/types";
+import type { DbOrTx } from "@/db";
 import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
 import { aplicarPagoPackEmpresa } from "./aplicarPagoPackEmpresa";
-import { aplicarUpgradePlan } from "./aplicarUpgradePlan";
 import { otorgarTicketReactivacion } from "./ticketReactivacion";
 
 // Label de `ventas.tipo` para las 2 promociones de Mi Cuenta que se aplican
-// como una renovación normal (ver aplicarPagoAprobado más abajo) — "upgrade_plan"
-// no entra acá porque tiene su propio efecto (aplicarUpgradePlan).
+// como una renovación normal (ver aplicarPagoAprobado más abajo).
 const TIPO_VENTA_PROMO_CUENTA: Record<string, string> = {
   renovacion_temprana: "Renovación anticipada (Web)",
   reactivacion: "Reactivación promocional (Web)",
 };
-// Las 3 promociones de Mi Cuenta se pagan siempre solas (TIPOS_PLAN en
-// webpay/crear no deja combinar dos ítems de plan), así que `pagosWebpay.tipo`
-// queda directamente en uno de estos valores — se usa para mandar de vuelta
-// a Mi Cuenta en vez de a /pagar al terminar (ver redirectResultado).
-export const TIPOS_PROMO_CUENTA = new Set(["renovacion_temprana", "reactivacion", "upgrade_plan"]);
+// Tipos que se pagan desde Mi Cuenta: al terminar se vuelve ahí en vez de a
+// /pagar (ver redirectResultado). "upgrade_pack" es el upgrade a Promo 4
+// Lavados (OfertaPlan.upgradePack), que solo se ofrece ahí.
+export const TIPOS_PROMO_CUENTA = new Set(["renovacion_temprana", "reactivacion", "upgrade_pack"]);
+
+// Los tickets del upgrade a Promo 4 Lavados. El lavado que completa se busca
+// ANTES de aplicar la venta del upgrade (que si no lo dejaría fuera, ver
+// ventaUpgradeElegible); si la ventana se cerró entre crear el pago y el
+// retorno, se usa el último lavado igual: el cargo ya está hecho.
+async function lavadoDelUpgrade(db: DbOrTx, patente: string) {
+  const [ficha] = await db.select({ id: clientes.id, email: clientes.email }).from(clientes).where(eq(clientes.patente, patente)).limit(1);
+  if (!ficha) return undefined;
+  const ventasCliente = (await db.select().from(ventas).where(eq(ventas.clienteId, ficha.id))).map(ventaFromRow);
+  const config = await getConfig();
+  const lavado =
+    ventaUpgradeElegible(ventasCliente, ficha.id, config.horasVentanaUpgradePlan) ??
+    ventasCliente.filter(esVentaLavadoUnicoUpgradable).sort((a, b) => (a.fecha < b.fecha ? 1 : -1))[0];
+  return { lavado: lavado ?? { precio: 0, fecha: new Date().toISOString() }, email: ficha.email };
+}
 
 export type ResultadoRetornoWebpay = {
   tipo: "ok" | "rechazado" | "ya-procesado" | "no-encontrado" | "monto-no-coincide";
@@ -193,47 +208,15 @@ export async function aplicarRetornoWebpay(
         continue;
       }
 
-      if (item.tipo === "upgrade_plan") {
-        // Upgrade a Plan X5 (ver calcularOfertasPlan/aplicarUpgradePlan):
-        // no es una renovación normal — ancla el vencimiento a la fecha del
-        // "Lavado único" ya pagado, no a hoy, así que tiene su propio efecto
-        // en vez de pasar por aplicarPagoAprobado.
-        try {
-          await tx.transaction(async (tx2) => {
-            const config = await getConfig();
-            await aplicarUpgradePlan(
-              {
-                patente: pago.patente,
-                monto: item.monto,
-                ventaId: ventaId as string,
-                metodoPago: "tarjeta",
-                creadoPor: "Automático (Webpay)",
-                horasVentanaUpgrade: config.horasVentanaUpgradePlan,
-                // Cupón que /crear ya restó del monto cobrado: acá se quema,
-                // en la misma transacción que crea la venta.
-                cuponCodigo: item.cuponCodigo,
-              },
-              tx2
-            );
-          });
-        } catch (errorAplicar) {
-          console.error(
-            "Pago Webpay de upgrade a plan aprobado por Transbank pero no se pudo aplicar en la base (cliente sin plan/venta) — requiere revisión manual",
-            buyOrder,
-            item.id,
-            errorAplicar
-          );
-          ventaId = null;
-        }
-        await tx.update(pagosWebpayItems).set({ ventaId }).where(eq(pagosWebpayItems.id, item.id));
-        continue;
-      }
-
-      // Los packs de lavados (Promo 2/5 Lavados) entran como servicio
-      // adicional a propósito: no tocan plan ni vencimiento (son tickets para
-      // la patente, ver abajo).
+      // Los packs de lavados (Promo 2/5 Lavados) y el upgrade a Promo 4 entran
+      // como servicio adicional a propósito: no tocan plan ni vencimiento (son
+      // tickets para la patente, ver abajo).
       const esServicioAdicional =
-        item.tipo === "servicio" || item.tipo === "lavado_unico" || item.tipo === "aspirado" || esIdPromoLavados(item.tipo);
+        item.tipo === "servicio" ||
+        item.tipo === "lavado_unico" ||
+        item.tipo === "aspirado" ||
+        item.tipo === "upgrade_pack" ||
+        esIdPromoLavados(item.tipo);
       const tipoVenta = esServicioAdicional ? `${item.nombre} (Web)` : TIPO_VENTA_PROMO_CUENTA[item.tipo];
       // Pagar el plan vencido por la pasarela (OfertaPlan.pagoVencido, el
       // único ítem de plan que todavía pasa por Webpay) deja el mismo lavado
@@ -258,6 +241,7 @@ export async function aplicarRetornoWebpay(
       }
       try {
         await tx.transaction(async (tx2) => {
+          const upgrade = item.tipo === "upgrade_pack" ? await lavadoDelUpgrade(tx2, pago.patente) : undefined;
           await aplicarPagoAprobado(
             {
               patente: pago.patente,
@@ -286,16 +270,25 @@ export async function aplicarRetornoWebpay(
             tx2
           );
           const promo = item.tipo;
-          if (esIdPromoLavados(promo)) {
+          if (upgrade) {
+            const generar = () =>
+              cuponesUpgradePack({
+                lavado: upgrade.lavado,
+                precio: item.monto,
+                patente: pago.patente,
+                email: item.email || upgrade.email,
+                existentes: new Set(),
+                creadoPor: "Automático (Webpay)",
+                idBase: item.id,
+              });
+            await insertarTickets(tx2, generar);
+          } else if (esIdPromoLavados(promo)) {
             // Los tickets del pack van en el mismo savepoint que la
             // venta: o quedan todos o no queda ninguno. El correo del
             // checkout solo viene con Factura; con Boleta se toma el de la
             // ficha (si tiene) para que igual los vea en "Mis tickets" de Mi
             // Cuenta — en el túnel se canjean por patente, sin código (ver
-            // ticketsVigentesDePatente). Los códigos se chequean solo contra
-            // los recién generados, no contra la tabla entera (que se leía
-            // completa en cada compra): un choque de 6 caracteres es rarísimo
-            // y si pasa se generan otros.
+            // ticketsVigentesDePatente).
             const [ficha] = await tx2.select({ email: clientes.email }).from(clientes).where(eq(clientes.patente, pago.patente)).limit(1);
             const generar = () =>
               cuponesPromoLavados({
@@ -307,11 +300,7 @@ export async function aplicarRetornoWebpay(
                 creadoPor: "Automático (Webpay)",
                 idBase: item.id,
               });
-            let tickets = generar();
-            while ((await tx2.select({ codigo: cupones.codigo }).from(cupones).where(inArray(cupones.codigo, tickets.map((t) => t.codigo)))).length) {
-              tickets = generar();
-            }
-            await tx2.insert(cupones).values(tickets.map(cuponToRow));
+            await insertarTickets(tx2, generar);
           }
         });
         if (ticketDeEsteItem) ticketPara = ticketDeEsteItem;
@@ -354,4 +343,15 @@ export async function aplicarRetornoWebpay(
   }
 
   return resultado;
+}
+
+// Inserta los tickets de un pack, regenerando los códigos si alguno choca con
+// uno existente. Se chequean solo los recién generados, no la tabla entera
+// (que se leía completa en cada compra): un choque de 6 caracteres es rarísimo.
+async function insertarTickets(db: DbOrTx, generar: () => Cupon[]) {
+  let tickets = generar();
+  while ((await db.select({ codigo: cupones.codigo }).from(cupones).where(inArray(cupones.codigo, tickets.map((t) => t.codigo)))).length) {
+    tickets = generar();
+  }
+  await db.insert(cupones).values(tickets.map(cuponToRow));
 }

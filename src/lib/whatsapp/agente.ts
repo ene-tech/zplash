@@ -193,13 +193,11 @@ async function fichaVehiculo(c: Cliente) {
       : "ninguno",
     pagandoConTarjetaAutomatico: `${fmtCLP(primerCobro)} el primer mes, después ${fmtCLP(cotizacion.precioAutoMensual)} al mes automático`,
     motivoDelPrecio:
-      cotizacion.promoAuto?.tipo === "upgrade_plan"
-        ? "Lavó hace poco: se pasa al plan pagando solo la diferencia sobre ese lavado (promoción por tiempo limitado)."
-        : cotizacion.promoAuto?.tipo === "reactivacion"
-          ? "Promoción de reactivación por tener el plan vencido."
-          : cupon
-            ? "Precio mensual con el cupón restado."
-            : "Precio mensual normal.",
+      cotizacion.promoAuto?.tipo === "reactivacion"
+        ? "Promoción de reactivación por tener el plan vencido."
+        : cupon
+          ? "Precio mensual con el cupón restado."
+          : "Precio mensual normal.",
     renovarUnMesSinAutomatico: fmtCLP(cotizacion.precioFinal),
     linkDePago: linkPago(c.patente),
   };

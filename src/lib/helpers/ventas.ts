@@ -71,7 +71,7 @@ export function esVentaAutomatica(venta: { creadoPor?: string | null; tipo: stri
  *
  * Vive acá y no en la pantalla que la consume porque cada canal nuevo agrega
  * su propio tipo —ver TIPO_VENTA_PROMO_CUENTA en /api/pagos/webpay/retorno,
- * TIPO_VENTA_ONECLICK en @/lib/pagos/cobrarSuscripcion y aplicarUpgradePlan—
+ * TIPO_VENTA_ONECLICK en @/lib/pagos/cobrarSuscripcion y el upgrade a plan retirado en oct-2026—
  * y una copia local se queda atrás en silencio: Estadísticas estuvo sin contar
  * las promos cobradas por Webpay/Oneclick ($1.073.450 en 90 días) sin que nada
  * fallara. Si agregas un tipo de venta de plan, agrégalo acá.

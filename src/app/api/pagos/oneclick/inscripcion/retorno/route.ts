@@ -184,16 +184,6 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   // ¿El plan venía vencido? Se mira ANTES de cobrar, porque el cobro de acá
   // abajo es justamente lo que lo reactiva (ver aplicarPagoAprobado).
   const veniaVencido = !!cliente && diasVencido(cliente) !== null;
-  // Sin plan vigente = vencido O nunca contratado. Es la MISMA condición con
-  // la que calcularOfertasPlan arma el upgrade (`st.cls === "bad"`), y por eso
-  // manda acá en vez de `veniaVencido`: el cliente de lavado único que nunca
-  // tuvo plan tiene `vencimiento` null, así que diasVencido() le devuelve null
-  // y quedaba fuera. Con eso, apretar "Upgrade a plan (+$X)" en Mi Cuenta sin
-  // tarjeta guardada lo mandaba a inscribir una y este retorno le cobraba el
-  // precio completo de la renovación automática vía cobrarSuscripcion, no el
-  // adicional que la pantalla le prometió — y su plan quedaba anclado a hoy en
-  // vez de a la fecha del lavado (ver aplicarUpgradePlan).
-
   // Promoción que le calza a esta patente (ver promoPrimerCobroOneclick): el
   // cliente que llega sin plan vigente e inscribe su tarjeta entra pagando ese
   // precio y no el de lista de la renovación automática — es la misma oferta
@@ -202,13 +192,6 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   // datos frescos, nunca se confía en lo que el cliente vio en pantalla. Es
   // solo por este primer cobro: los meses siguientes los cobra el cron al
   // precio normal de la renovación automática.
-  //
-  // El filtro es planStatus "bad" y no `veniaVencido`: "Sin plan" (nunca
-  // contrató, `vencimiento` nulo, y por eso diasVencido devuelve null) también
-  // tiene promoción — el upgrade desde el lavado único que acaba de pagar (ver
-  // calcularOfertasPlan). Con el filtro por vencido, ese cliente veía el
-  // upgrade en Mi Cuenta, apretaba, iba a inscribir su tarjeta y volvía con el
-  // plan cobrado al precio completo en vez de la diferencia.
   const promo = cliente && planStatus(cliente).cls === "bad" ? promoPrimerCobroOneclick(await calcularOfertasPlanDeCliente(cliente)) : undefined;
 
   // Tarjeta inscrita: cobra ya mismo en vez de esperar al cron del día

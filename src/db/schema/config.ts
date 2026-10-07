@@ -65,7 +65,7 @@ export const config = pgTable("config", {
     .notNull()
     .default({}),
   // Horas desde el pago de un "Lavado único" dentro de las cuales se puede
-  // ofrecer la promoción de upgrade a plan (ver ventaUpgradeElegible).
+  // ofrecer el upgrade a Promo 4 Lavados (ver ventaUpgradeElegible).
   horasVentanaUpgradePlan: integer("horas_ventana_upgrade_plan").notNull().default(1),
   // Escala de precio de reactivación preferencial para clientes (Local o
   // Web) con el plan vencido hace poco, keyed por plan — dos rangos por tramo (días

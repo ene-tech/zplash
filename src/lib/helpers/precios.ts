@@ -284,71 +284,6 @@ export function precioZonaAspirado(precios: Precios): number {
 }
 
 /**
- * Monto adicional (sobre el lavado único ya pagado) para convertir la visita
- * de hoy en la contratación del Plan X5 — promoción ofrecida
- * dentro de la ventana configurada (ver ConfigGlobal.horasVentanaUpgradePlan),
- * tanto en el módulo Operador como en Mi Cuenta.
- *
- * Es lo que falta para completar el precio del plan contra lo que el cliente
- * REALMENTE pagó por ese lavado (`ventaUpgrade.precio`), no contra el precio
- * de lista: el lavado pudo salir más barato por el cupón de descuento de
- * primera vez (ver emitirCuponDescuentoPrimeraVez), por una promo de WhatsApp,
- * o por tener el canal Web su propio precio (ver LAVADO_UNICO_WEB_KEY). Con un
- * monto adicional fijo ese descuento se regalaba dos veces — el cliente con
- * cupón terminaba entrando al plan por menos que el que no lo tenía.
- *
- * El precio a completar es el de contratación (ver precioContratacion): quien
- * nunca tuvo plan entra por el valor de 1ra contratación, igual que si lo
- * contratara derecho, y el que dejó vencer el suyo por el normal. `cliente` es
- * obligatorio a propósito: el upgrade siempre nace de una venta de un cliente
- * que ya existe, y en precioContratacion omitirlo significa "cliente nuevo".
- */
-export function precioUpgradePlan(precios: Precios, ventaUpgrade: Venta, cliente: Pick<Cliente, "vencimiento">): number {
-  return Math.max(0, precioContratacion(precios, PLANES[0], cliente) - ventaUpgrade.precio);
-}
-
-/**
- * ¿Esta venta es el "Lavado único" del que puede nacer un upgrade? Extraído
- * del filtro de ventaUpgradeElegible para que aplicarUpgradePlan use el mismo
- * criterio al reconstruir la venta que ancla el vencimiento — ahí antes se
- * miraba solo `tipo === "Lavado único"` y un lavado comprado por /pagar
- * quedaba fuera del fallback.
- */
-export function esVentaLavadoUnicoUpgradable(venta: Pick<Venta, "tipo" | "canjeadaEn">): boolean {
-  return venta.tipo === LAVADO_UNICO_KEY || (venta.tipo === LAVADO_UNICO_WEB_TIPO && !!venta.canjeadaEn);
-}
-
-/**
- * Venta de "Lavado único" del cliente elegible para convertirse en
- * contratación del Plan X5 vía la promoción de upgrade: la más
- * reciente, y solo si ocurrió hace menos de `horasVentana` (ver
- * ConfigGlobal.horasVentanaUpgradePlan) — pasada esa ventana el lavado ya se
- * disfrutó sin plan y la promoción deja de tener sentido.
- *
- * Cuenta tanto un "Lavado único" presencial como un "Lavado único (Web)"
- * (ver LAVADO_UNICO_WEB_TIPO) YA CANJEADO (`canjeadaEn` presente, ver
- * registrarIngresoLavadoWeb en @/lib/logic/ingresos) — recién ahí el cliente
- * efectivamente pasó por el túnel sin plan, mismo hecho que dispara la
- * promoción para el presencial. Uno sin canjear sigue siendo un vale
- * pendiente de usar (ver ventaLavadoWebPendiente): ofrecerle el upgrade
- * antes de eso dejaría ese vale huérfano, sin nadie que lo canjee.
- */
-export function ventaUpgradeElegible(
-  ventas: Venta[],
-  clienteId: string,
-  horasVentana: number,
-  ahora: Date = new Date()
-): Venta | undefined {
-  const ultima = ventas
-    .filter((v) => v.clienteId === clienteId && esVentaLavadoUnicoUpgradable(v))
-    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
-  if (!ultima) return undefined;
-  const msDesde = ahora.getTime() - new Date(ultima.fecha).getTime();
-  if (msDesde > horasVentana * 3600 * 1000) return undefined;
-  return ultima;
-}
-
-/**
  * Venta de "Lavado único" pareja de un Ingreso (ver cobrarLavadoUnico en
  * useIngresoActions): ambas filas se crean juntas en el mismo commit, pero
  * sin una FK que las ligue explícitamente — se matchean por mismo cliente y
@@ -356,7 +291,7 @@ export function ventaUpgradeElegible(
  * de una candidata). Usada al borrar un Ingreso (ver eliminarIngreso en
  * @/lib/logic) para que borrar el paso por el túnel también borre la venta
  * que lo acompañó: si no, el cliente sigue apareciendo elegible para la
- * promoción de upgrade a plan (ver ventaUpgradeElegible) por un lavado que,
+ * upgrade a Promo 4 Lavados (ver ventaUpgradeElegible) por un lavado que,
  * en teoría, nunca ocurrió.
  */
 export function ventaLavadoUnicoDeIngreso(
@@ -378,7 +313,7 @@ export function ventaLavadoUnicoDeIngreso(
   return mejor;
 }
 
-/** Texto legible de la ventana de la promoción de upgrade a plan (ver ventaUpgradeElegible), en horas o días si es múltiplo exacto de 24. */
+/** Texto legible de la ventana del upgrade a Promo 4 Lavados (ver ventaUpgradeElegible), en horas o días si es múltiplo exacto de 24. */
 export function fmtHorasVentanaUpgradePlan(horas: number): string {
   if (horas % 24 === 0) {
     const dias = horas / 24;
@@ -769,6 +704,60 @@ export function precioPromoLavados(precios: Precios, id: IdPromoLavados): number
 
 export function precioPromo2Lavados(precios: Precios): number {
   return precioPromoLavados(precios, "promo_2_lavados");
+}
+
+/**
+ * Upgrade a Promo 4 Lavados (oct-2026, reemplaza al upgrade a Plan X5): quien
+ * pagó un lavado único y sigue sin plan vigente paga este adicional y se lleva
+ * los 3 tickets que le faltan para completar la Promo 4 Lavados — como si
+ * hubiera comprado el pack en vez del lavado (ver cuponesPromoLavados con
+ * `yaCanjeados`). Esta clave es la fila de `precios` y el `Venta.tipo` del
+ * mesón; la web le suma " (Web)", igual que los packs.
+ */
+export const UPGRADE_PACK_KEY = "Upgrade a Promo 4 Lavados";
+export const PRECIO_UPGRADE_PACK = 9990;
+/** Tickets que entrega el upgrade: los del pack menos el lavado ya pagado. */
+export const TICKETS_UPGRADE_PACK = PROMOS_LAVADOS.promo_5_lavados.lavados - 1;
+
+/** Precio del upgrade, editable en Configuración. Sin fila vale el de siempre;
+ * con la fila en $0 queda apagado en los dos canales. */
+export function precioUpgradePack(precios: Precios): number {
+  return precios[UPGRADE_PACK_KEY] ? precios[UPGRADE_PACK_KEY].normal : PRECIO_UPGRADE_PACK;
+}
+
+/**
+ * ¿Esta venta es el "Lavado único" del que puede nacer el upgrade? El
+ * presencial, o el comprado por /pagar ya canjeado en el túnel (`canjeadaEn`,
+ * ver registrarIngresoLavadoWeb): uno sin canjear sigue siendo un vale
+ * pendiente (ver ventaLavadoWebPendiente), y convertirlo en tickets lo dejaría
+ * huérfano.
+ */
+export function esVentaLavadoUnicoUpgradable(venta: Pick<Venta, "tipo" | "canjeadaEn">): boolean {
+  return venta.tipo === LAVADO_UNICO_KEY || (venta.tipo === LAVADO_UNICO_WEB_TIPO && !!venta.canjeadaEn);
+}
+
+/**
+ * El lavado único del cliente que todavía se puede completar a Promo 4
+ * Lavados: el más reciente, si fue hace menos de `horasVentana` (ver
+ * ConfigGlobal.horasVentanaUpgradePlan) y si no se completó ya — el upgrade
+ * va una vez por lavado, y después de pagarlo la venta del upgrade queda más
+ * nueva que el lavado.
+ */
+export function ventaUpgradeElegible(
+  ventas: Venta[],
+  clienteId: string,
+  horasVentana: number,
+  ahora: Date = new Date()
+): Venta | undefined {
+  const delCliente = ventas.filter((v) => v.clienteId === clienteId);
+  const ultima = delCliente
+    .filter(esVentaLavadoUnicoUpgradable)
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
+  if (!ultima) return undefined;
+  const desde = new Date(ultima.fecha).getTime();
+  if (ahora.getTime() - desde > horasVentana * 3600 * 1000) return undefined;
+  if (delCliente.some((v) => v.tipo.startsWith(UPGRADE_PACK_KEY) && new Date(v.fecha).getTime() >= desde)) return undefined;
+  return ultima;
 }
 
 /** Precio vigente de un servicio del catálogo, editable por el administrador desde Configuración; si no se ha guardado uno, es 0. */

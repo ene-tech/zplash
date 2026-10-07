@@ -47,13 +47,15 @@ export function useCierreData() {
     // "Renovación (Web)" / "Servicios adicionales" / "Otros" (más abajo) solo
     // reflejen WooCommerce y no dupliquen estas ventas en dos filas a la vez.
     // Upgrade de un lavado único ya pagado a Plan X5, cobrado desde Mi
-    // Cuenta (Webpay u Oneclick, ver aplicarUpgradePlan): tiene fila propia más
+    // Cuenta (Webpay u Oneclick): tiene fila propia más
     // abajo. Antes quedaba escondido dentro de "Venta nueva web" y, si el cobro
     // fue Oneclick, caía directo en "Otros" — fila que se dibuja bajo el Total
     // y no suma en él, así que ese dinero aparecía en "Métodos de pago" pero no
     // en "Detalle de venta". El upgrade del módulo Operador también cae acá
-    // ("Upgrade a Plan X5 (Local)", ver usePlanActions.upgradeAPlan); los
-    // anteriores a sep-2026 quedaron como "Plan nuevo" en "Contratación de plan".
+    // ("Upgrade a Plan X5 (Local)"); los anteriores a sep-2026 quedaron como
+    // "Plan nuevo" en "Contratación de plan". Solo ventas históricas: el
+    // upgrade a plan se retiró en oct-2026 (lo reemplazó el upgrade a Promo 4
+    // Lavados, que va como un pack más, ver PRODUCTOS_CIERRE).
     const esUpgradePlan = (v: (typeof ventasPeriodo)[number]) => v.tipo.startsWith("Upgrade a Plan");
     // Los reembolsos tienen creadoPor "Automático (Reembolso)" (caen en
     // esVentaNuevaWeb) pero no son una venta: fila propia más abajo, con

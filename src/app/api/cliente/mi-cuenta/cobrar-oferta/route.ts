@@ -15,9 +15,9 @@ const VENTANA_MS = 5 * 60 * 1000;
 // "contratacion" no va contra cobrarOfertaOneclick sino contra
 // cobrarSuscripcion (ver más abajo), así que no es un TipoOfertaCuenta.
 type TipoCobrable = TipoOfertaCuenta | "contratacion";
-const TIPOS_VALIDOS = new Set<TipoCobrable>(["renovacion_temprana", "reactivacion", "upgrade_plan", "contratacion"]);
+const TIPOS_VALIDOS = new Set<TipoCobrable>(["renovacion_temprana", "reactivacion", "contratacion"]);
 
-// Cobra una de las 3 promociones de Mi Cuenta (ver @/lib/helpers/ofertasPlan)
+// Cobra una de las promociones de plan de Mi Cuenta (ver @/lib/helpers/ofertasPlan)
 // directo contra la tarjeta que esa patente ya tiene inscrita en Oneclick —
 // alternativa a /api/pagos/webpay/crear para cuando el cliente ya tiene
 // tarjeta guardada: sin redirección a Webpay Plus, un solo click cobra. Si no
@@ -110,8 +110,7 @@ export async function POST(request: NextRequest) {
     }
     const tipo = tipoPedido;
 
-    const monto =
-      tipo === "renovacion_temprana" ? oferta.renovacionAnticipada?.pPromo : tipo === "reactivacion" ? oferta.reactivacion?.precio : oferta.upgrade?.precio;
+    const monto = tipo === "renovacion_temprana" ? oferta.renovacionAnticipada?.pPromo : oferta.reactivacion?.precio;
     if (monto === undefined) {
       return NextResponse.json({ error: "Esta promoción ya no está disponible, actualiza la página." }, { status: 400 });
     }

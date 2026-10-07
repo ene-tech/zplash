@@ -3,7 +3,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
-import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtFecha } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, TICKETS_UPGRADE_PACK, fmtCLP, fmtFecha } from "@/lib/helpers";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
 // Lo que el operador tiene que contarle al cliente que todavía anda con el
@@ -53,6 +53,8 @@ type Props = Pick<
   | "precioPromo2"
   | "precioPromo5"
   | "cobrarPromoLavados"
+  | "upgradePack"
+  | "cobrarUpgradePack"
   | "precioQrTarjeta"
   | "perfilId"
 >;
@@ -63,8 +65,7 @@ type Props = Pick<
 // condición calculada en useOperadorFoundResult.
 //
 // El Plan X5 se vende solo por la web (oct-2026): el mesón no cobra planes —
-// ni contratar, ni renovar, ni reactivar, ni pagos atrasados, ni el upgrade
-// desde un lavado único. Lo que hace es mostrar el QR para que el cliente lo
+// ni contratar, ni renovar, ni reactivar, ni pagos atrasados. Lo que hace es mostrar el QR para que el cliente lo
 // pague con su tarjeta en el celular, y contarle las promociones de la web.
 export default function OperadorFoundOfertas(props: Props) {
   const { c } = props;
@@ -126,6 +127,25 @@ export default function OperadorFoundOfertas(props: Props) {
           </div>
           <button className="btn secondary" onClick={props.registrarLavadoWeb}>
             Registrar ingreso — Lavado pagado online
+          </button>
+        </div>
+      )}
+      {/* El lavado único de hoy (o de hace poco) se completa a Promo 4
+          lavados: va antes que la lista porque es la oferta del momento. */}
+      {props.upgradePack && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <h4>Completar Promo 4 lavados</h4>
+          </div>
+          <div className="msg">
+            {c.nombre} pagó un lavado único el {fmtFecha(props.upgradePack.lavado.fecha)}. Con {fmtCLP(props.upgradePack.precio)}{" "}
+            más se lleva {TICKETS_UPGRADE_PACK} lavados para esta patente, a usar en 30 días desde ese lavado.
+          </div>
+          <div className="price-row">
+            <span className="new">+{fmtCLP(props.upgradePack.precio)}</span>
+          </div>
+          <button className="btn secondary" onClick={() => props.cobrarUpgradePack(props.upgradePack!)} disabled={guardando}>
+            Cobrar {TICKETS_UPGRADE_PACK} lavados más (+{fmtCLP(props.upgradePack.precio)})
           </button>
         </div>
       )}

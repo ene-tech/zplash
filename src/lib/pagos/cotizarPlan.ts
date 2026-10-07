@@ -53,14 +53,11 @@ export async function cotizarPlanWeb(cliente: Cliente, db: DbOrTx = getDb()) {
   // oferta cuesta cuatro consultas más y este endpoint es público, un cliente
   // vigente no las necesita.
   //
-  // Cada una con su propio filtro: la oferta es para todo plan no vigente
-  // (planStatus "bad" = vencido O "Sin plan"), porque el que nunca contrató y
-  // acaba de pagar un lavado único entra al plan pagando solo la diferencia
-  // (ver el upgrade en calcularOfertasPlan) y eso es exactamente lo que le va
-  // a cobrar la inscripción — anunciarle el mensual completo era prometer un
-  // precio y cobrar otro. El ticket, en cambio, sigue siendo solo del
-  // vencido: preguntarlo para todos los "Sin plan" era una consulta más en un
-  // endpoint público para un dato que después se descarta.
+  // Cada una con su propio filtro: la oferta para todo plan no vigente
+  // (planStatus "bad", la misma condición con que la arma calcularOfertasPlan)
+  // y el ticket solo para el vencido: preguntarlo para todos los "Sin plan"
+  // era una consulta más en un endpoint público para un dato que después se
+  // descarta.
   const vencido = diasVencido(cliente) !== null;
   const [oferta, yaUsoTicket] = await Promise.all([
     // `config` y `preciosMap` ya están leídos acá arriba: pasárselos le ahorra

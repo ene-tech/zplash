@@ -35,7 +35,6 @@ try {
   });
 
   let conNumero = 0;
-  const upgrades: number[] = [];
   console.log(`Los ${objetivo.length} del aviso:\n`);
   for (const c of objetivo) {
     const cli = clienteFromRow(c);
@@ -43,12 +42,9 @@ try {
     const ren = o.renovacionAnticipada;
     const precioRenovacion = ren && ren.tramoVigente && ren.ahorro > 0 ? ren.pPromo : undefined;
     if (precioRenovacion !== undefined) conNumero++;
-    const upg = o.upgrade?.precio;
-    if (upg !== undefined) upgrades.push(upg);
     console.log(
       `  ${c.patente.padEnd(7)} heredado=${String(c.precio_plan_heredado ?? "-").padStart(6)}` +
-        `  {{precioRenovacion}}=${precioRenovacion === undefined ? "VACIO " : String(precioRenovacion).padStart(6)}` +
-        `  upgrade X5=${upg === undefined ? "-" : upg}`
+        `  {{precioRenovacion}}=${precioRenovacion === undefined ? "VACIO " : String(precioRenovacion).padStart(6)}`
     );
   }
   console.log(`\nCon numero en {{precioRenovacion}}: ${conNumero}/${objetivo.length}`);

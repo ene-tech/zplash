@@ -1,6 +1,6 @@
 import type { CanalPromo, Cliente, ConfigGlobal, Cupon, Ingreso, Precios, Venta } from "@/types";
 import { precioConCupon } from "./cupones";
-import { PLANES } from "./precios";
+import { PLANES, PROMOS_LAVADOS } from "./precios";
 import { diasVencido, planStatus } from "./clientes";
 import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
 import {
@@ -11,7 +11,8 @@ import {
   precioPagoAtrasado,
   precioRenovacionLocal,
   precioReactivacionVencido,
-  precioUpgradePlan,
+  precioUpgradePack,
+  TICKETS_UPGRADE_PACK,
   tramoRenovacionVigente,
   ventaUpgradeElegible,
 } from "./precios";
@@ -29,7 +30,12 @@ export interface OfertaPlan {
   // "Plan vencido" se lo dice al cliente ({{pasadas}}, ver @/lib/mailing/reglas/cron)
   // y sería absurdo recontarlo con otra consulta teniéndolo ya calculado.
   reactivacion?: { precio: number; diasVencido: number; pNormal: number; visitas: number };
-  upgrade?: { precio: number };
+  // Upgrade a Promo 4 Lavados (ver UPGRADE_PACK_KEY): pagó un lavado único
+  // hace poco y sigue sin plan vigente. No es una oferta de plan —no toca
+  // plan ni vencimiento, son tickets— pero va acá porque nace de la misma
+  // venta y sale en la misma tarjeta de Mi Cuenta. `vence` es el de los
+  // tickets: un mes desde ese lavado.
+  upgradePack?: { precio: number; tickets: number; vence: string };
   // Plan vencido SIN tramo de reactivación que le calce: no es una promoción,
   // es el plan de siempre esperando que lo paguen. Existe para que un cliente
   // vencido nunca se quede sin botón de pago en Mi Cuenta — antes, pasada la
@@ -82,7 +88,8 @@ export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | 
     o.renovacionAnticipada = { ...o.renovacionAnticipada, pPromo, ahorro: o.renovacionAnticipada.pNormal - pPromo };
   }
   if (o.reactivacion) o.reactivacion = { ...o.reactivacion, precio: precioConCupon(o.reactivacion.precio, cupon) };
-  if (o.upgrade) o.upgrade = { ...o.upgrade, precio: precioConCupon(o.upgrade.precio, cupon) };
+  // upgradePack no: como los packs de lavados, ya es una promoción y el cupón
+  // no se le resta (ver /api/pagos/webpay/crear).
   if (o.pagoVencido) o.pagoVencido = { ...o.pagoVencido, precio: precioConCupon(o.pagoVencido.precio, cupon) };
   // El cupón es de un solo uso: rebaja el primer cobro del plan O el lavado
   // suelto (lo que el cliente elija pagar primero lo quema — ver
@@ -105,19 +112,14 @@ export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | 
  * `undefined` = sin promoción, paga el precio de siempre de la renovación
  * automática (cobrarSuscripcion).
  *
- * `reactivacion` y `upgrade` nunca vienen juntas —calcularOfertasPlan deja
- * solo la más barata— y las dos son de un cliente SIN plan vigente:
- * `reactivacion` siempre de uno vencido, `upgrade` también del que nunca
- * contrató y viene de pagar un lavado único (ver calcularOfertasPlan, que las
- * dos las arma con `st.cls === "bad"`). Los dos llamadores tienen que abrirse
- * con esa misma condición, no con `diasVencido`. La renovación anticipada NO
+ * `reactivacion` es de un cliente SIN plan vigente: los dos llamadores se
+ * abren con `st.cls === "bad"`. La renovación anticipada NO
  * entra acá a propósito: con el plan vigente el primer cobro de la inscripción
  * es el de la renovación automática de siempre, que es justamente lo que
  * /pagar anuncia.
  */
-export function promoPrimerCobroOneclick(oferta: OfertaPlan): { tipo: "reactivacion" | "upgrade_plan"; monto: number } | undefined {
+export function promoPrimerCobroOneclick(oferta: OfertaPlan): { tipo: "reactivacion"; monto: number } | undefined {
   if (oferta.reactivacion) return { tipo: "reactivacion", monto: oferta.reactivacion.precio };
-  if (oferta.upgrade) return { tipo: "upgrade_plan", monto: oferta.upgrade.precio };
   return undefined;
 }
 
@@ -215,59 +217,21 @@ export function calcularOfertasPlan(
     }
   }
 
-  // Upgrade a plan: compró un "Lavado único" hace poco y sigue sin plan vigente.
-  //
-  // Sin adicional que cobrar no hay oferta: con un precio de 1ra contratación
-  // igual o menor a lo que el cliente ya pagó por el lavado, el adicional da 0
-  // y una oferta de $0 no es cobrable (los endpoints de pago rechazan monto <=
-  // 0). Que contrate el plan derecho, que es exactamente el mismo precio.
+  // Upgrade a Promo 4 Lavados: compró un "Lavado único" hace poco (ventana
+  // ConfigGlobal.horasVentanaUpgradePlan) y sigue sin plan vigente, el mismo
+  // público al que el mesón le ofrece los packs. Precio fijo, no depende de
+  // lo que pagó por el lavado; $0 = apagado.
   if (st.cls === "bad") {
-    const ventaUpgrade = ventaUpgradeElegible(ventasCliente, cliente.id, config.horasVentanaUpgradePlan);
-    const precio = ventaUpgrade ? precioUpgradePlan(precios, ventaUpgrade, cliente) : 0;
-    // Por canal WEB el upgrade compite con contratar el plan derecho por
-    // /pagar, que sale al precio de la renovación automática
-    // (precioPlanOneclick): si el adicional no le gana a eso, no es una
-    // promoción y no se ofrece. Pasa cuando el lavado único salió muy barato
-    // (promoción, cupón de primera vez): el adicional que falta para completar
-    // el precio de contratación sube por encima del de contratar derecho, y Mi
-    // Cuenta lo anunciaba igual bajo el badge "Promoción".
-    //
-    // Solo al que NUNCA contrató, que es a quien se le abre esa puerta (ver el
-    // bloque de `oferta.contratacion` más abajo, con la misma condición). Al
-    // vencido no se le ofrece contratar —su alternativa es reactivación o
-    // pagoVencido—, así que compararlo contra un precio que no le vamos a
-    // cobrar le podía borrar un upgrade más barato que lo que termina pagando;
-    // de dejarle la opción barata se encarga la dedupe de más abajo.
-    //
-    // En LOCAL tampoco aplica: ahí la alternativa es precioContratacion, contra
-    // el que el adicional siempre es menor por construcción.
-    const compiteConContratar = canal === "WEB" && !cliente.vencimiento;
-    if (precio > 0 && (!compiteConContratar || precio < precioConHeredado(precioPlanOneclick(precios), cliente))) {
-      oferta.upgrade = { precio };
+    const lavado = ventaUpgradeElegible(ventasCliente, cliente.id, config.horasVentanaUpgradePlan);
+    const precio = precioUpgradePack(precios);
+    if (lavado && precio > 0) {
+      const vence = new Date(new Date(lavado.fecha).getTime() + PROMOS_LAVADOS.promo_5_lavados.dias * 86400000).toISOString();
+      oferta.upgradePack = { precio, tickets: TICKETS_UPGRADE_PACK, vence };
     }
   }
 
-  // Un cliente vencido puede calificar a la vez para reactivación (o para el
-  // pago del plan vencido) y para el upgrade desde su lavado único: son dos
-  // caminos al mismo plan, así que se le ofrece solo el más barato. Dos
-  // precios distintos por lo mismo en la misma tarjeta se leen como error, y
-  // el cliente iba a elegir el barato igual.
-  const vencido = oferta.reactivacion ?? oferta.pagoVencido;
-  if (vencido && oferta.upgrade) {
-    if (oferta.upgrade.precio < vencido.precio) {
-      delete oferta.reactivacion;
-      delete oferta.pagoVencido;
-    } else {
-      delete oferta.upgrade;
-    }
-  }
-
-  // Nunca tuvo plan: se le ofrece contratarlo (o un lavado suelto). Va después
-  // del upgrade y excluido de él a propósito — quien acaba de pagar un lavado
-  // único entra al mismo plan pagando solo el adicional, y anunciarle las dos
-  // puertas con precios distintos se lee como error (mismo criterio que la
-  // dedupe de reactivacion/upgrade de arriba).
-  if (!cliente.vencimiento && !oferta.upgrade) {
+  // Nunca tuvo plan: se le ofrece contratarlo (o un lavado suelto).
+  if (!cliente.vencimiento) {
     // El precio de la renovación automática, que es la única forma de contratar
     // el plan por web (ver ResultadoBusqueda en /pagar): el cupón de la patente
     // lo resta después ofertaConCupon, igual que en el resto de las ofertas.

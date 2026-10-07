@@ -20,7 +20,6 @@ type Accion = "cambio" | "quitar" | "eliminar-plan" | null;
 const NOMBRE_OFERTA: Record<TipoOfertaPlan, string> = {
   renovacion_temprana: "Renovación anticipada",
   reactivacion: "Reactivación de plan",
-  upgrade_plan: "Upgrade a Plan X5",
   contratacion: "Contratación de plan",
 };
 
@@ -85,6 +84,7 @@ export function VehiculoCard({
     confirmarConTarjeta,
     pagarPlanVencido,
     comprarLavadoUnico,
+    comprarUpgradePack,
     // Sin tarjeta inscrita el plan no se puede cobrar: se manda a inscribir
     // una y ese retorno hace el primer cobro con el precio de la promoción
     // (ver promoPrimerCobroOneclick).
@@ -95,9 +95,7 @@ export function VehiculoCard({
       ? oferta?.renovacionAnticipada?.pPromo
       : tipo === "reactivacion"
         ? oferta?.reactivacion?.precio
-        : tipo === "contratacion"
-          ? oferta?.contratacion?.primerCobro
-          : oferta?.upgrade?.precio;
+        : oferta?.contratacion?.primerCobro;
 
   const ra = oferta?.renovacionAnticipada;
   // Sin tramo promocional (ahorro <= 0, o sea la renovación no queda más
@@ -324,23 +322,24 @@ export function VehiculoCard({
           </button>
         </div>
       )}
-      {oferta?.upgrade && (
+      {/* Upgrade a Promo 4 Lavados (ver OfertaPlan.upgradePack): tickets
+          para esta patente, por Webpay como los packs — no necesita tarjeta
+          inscrita. */}
+      {oferta?.upgradePack && (
         <div className="offer-card">
           <div className="offer-head">
             <span className="badge">Promoción</span>
-            <h4>¿Pasarte al Plan X5?</h4>
+            <h4>Completa tu Promo 4 lavados</h4>
           </div>
-          <div className="msg">Pagaste un lavado único hace poco. Quédate con el plan pagando solo el adicional.</div>
+          <div className="msg">
+            Pagaste un lavado único hace poco. Suma {oferta.upgradePack.tickets} lavados más para esta patente, para usar
+            hasta el {fmtFecha(oferta.upgradePack.vence)}.
+          </div>
           <div className="price-row">
-            <span className="new">+{fmtCLP(oferta.upgrade.precio)}</span>
+            <span className="new">+{fmtCLP(oferta.upgradePack.precio)}</span>
           </div>
-          {avisoInscripcion}
-          <button className="btn secondary" onClick={() => pedir("upgrade_plan")} disabled={ocupado}>
-            {pagando === "upgrade_plan"
-              ? "Procesando..."
-              : inscribiendo
-                ? "Redirigiendo..."
-                : `Upgrade a plan (+${fmtCLP(oferta.upgrade.precio)})`}
+          <button className="btn secondary" onClick={comprarUpgradePack} disabled={ocupado}>
+            {pagando === "upgrade_pack" ? "Redirigiendo..." : `Sumar ${oferta.upgradePack.tickets} lavados (+${fmtCLP(oferta.upgradePack.precio)})`}
           </button>
         </div>
       )}

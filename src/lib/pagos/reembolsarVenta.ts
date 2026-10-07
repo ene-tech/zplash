@@ -59,7 +59,7 @@ export type ResultadoReembolso = { ok: true; venta: Venta; vencimiento?: string 
  *
  * `anularVigencia` (solo ventas de plan, lo decide el administrador): le quita
  * al cliente el mes que esa compra le sumó — vencimiento − 1 mes, simétrico a
- * aplicarPagoAprobado/aplicarUpgradePlan, que dejan el vencimiento un mes
+ * aplicarPagoAprobado, que deja el vencimiento un mes
  * después. Restar y no "vencer hoy" respeta los meses que el cliente tenga
  * pagados aparte de esta venta.
  */
