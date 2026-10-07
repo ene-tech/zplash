@@ -2,14 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAppData } from "@/context/AppContext";
-import { clienteIdsConMensajePlantilla, enviarMensajesMasivosWhatsapp } from "@/lib/serverActions";
+import { clienteIdsConMensajePlantilla, enviarMensajesMasivosSms, enviarMensajesMasivosWhatsapp } from "@/lib/serverActions";
+import { MAX_SEGMENTOS_SMS, segmentosSms, textoFinalSms } from "@/lib/sms/texto";
 import { aplicarVariables, fmtFecha, montoDescuento } from "@/lib/helpers";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
 import { AccionEnvioMasivoFields } from "./mensajesUnicos/AccionEnvioMasivoFields";
+import { CamposSms } from "./mensajesUnicos/CamposSms";
 import { ClientesSeleccionablesList } from "./mensajesUnicos/ClientesSeleccionablesList";
 import { FiltrosEnvioMasivo, type FiltroEstado, type FiltroOrigen } from "./mensajesUnicos/FiltrosEnvioMasivo";
 import { filtrarClientesMensajeMasivo } from "./mensajesUnicos/filtrarClientesMensajeMasivo";
-import type { AccionReglaWhatsapp, ResultadoEnvioMasivoWhatsapp } from "@/types";
+import type { AccionReglaWhatsapp, ResultadoEnvioMasivoSms, ResultadoEnvioMasivoWhatsapp } from "@/types";
+
+// SMS es un canal paralelo para campañas (ver @/lib/sms/masivo): más barato por
+// mensaje que un template MARKETING de WhatsApp, pero sin respuesta del cliente.
+type Canal = "whatsapp" | "sms";
 
 // Fuera del componente porque Date.now() es impuro (regla react-hooks/purity
 // del React Compiler no lo permite dentro del cuerpo del render) — mismo
@@ -46,6 +52,16 @@ function sumarResultados(a: ResultadoEnvioMasivoWhatsapp, b: ResultadoEnvioMasiv
   };
 }
 
+function sumarResultadosSms(a: ResultadoEnvioMasivoSms, b: ResultadoEnvioMasivoSms): ResultadoEnvioMasivoSms {
+  return {
+    ...sumarResultados(a, b),
+    omitidos: a.omitidos + b.omitidos,
+    repetidos: a.repetidos + b.repetidos,
+    segmentos: a.segmentos + b.segmentos,
+    primerError: a.primerError ?? b.primerError,
+  };
+}
+
 export default function WebSettingsMensajesUnicosTab() {
   const { data, patchUi } = useAppData();
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
@@ -55,6 +71,10 @@ export default function WebSettingsMensajesUnicosTab() {
   const [inactivoDiasMin, setInactivoDiasMin] = useState("");
   const [clienteDesdeDiasMin, setClienteDesdeDiasMin] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  const [canal, setCanal] = useState<Canal>("whatsapp");
+  const [campanaSms, setCampanaSms] = useState("");
+  const [textoSms, setTextoSms] = useState("");
+  const [resultadoSms, setResultadoSms] = useState<ResultadoEnvioMasivoSms | null>(null);
   const [excluidos, setExcluidos] = useState<Set<string>>(new Set());
   const [plantillaId, setPlantillaId] = useState("");
   const [accion, setAccion] = useState<AccionReglaWhatsapp>("mensaje_simple");
@@ -81,7 +101,7 @@ export default function WebSettingsMensajesUnicosTab() {
     let cancelado = false;
     (async () => {
       setYaContactados(new Set());
-      if (!plantilla?.metaNombre) return;
+      if (canal !== "whatsapp" || !plantilla?.metaNombre) return;
       const hace24hISO = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const ids = await clienteIdsConMensajePlantilla(plantilla.metaNombre, hace24hISO);
       if (cancelado) return;
@@ -91,7 +111,7 @@ export default function WebSettingsMensajesUnicosTab() {
     return () => {
       cancelado = true;
     };
-  }, [plantilla?.metaNombre]);
+  }, [canal, plantilla?.metaNombre]);
 
   const candidatos = useMemo(
     () => filtrarClientesMensajeMasivo(data.clientes, { filtroEstado, filtroOrigen, visitasMin, visitasMax, inactivoDiasMin, clienteDesdeDiasMin, busqueda }),
@@ -106,7 +126,11 @@ export default function WebSettingsMensajesUnicosTab() {
   // sustituye como parámetro posicional del template en Meta), no contra el
   // texto libre de plantilla.mensaje — el admin puede editar metaVariables a
   // mano y quedar desalineado del mensaje (ver hint en WebSettingsWhatsappTab).
-  const metaVariablesMin = plantilla?.metaVariables?.map((v) => v.toLowerCase()) || [];
+  // En SMS no hay metaVariables: las variables son las que aparecen en el texto.
+  const metaVariablesMin =
+    canal === "sms"
+      ? [...textoSms.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1].toLowerCase())
+      : plantilla?.metaVariables?.map((v) => v.toLowerCase()) || [];
   const usaMontoOferta = metaVariablesMin.includes("montooferta");
   // fechaVencimientoOferta (hoy + diasValidez, ver construirVariables en
   // @/lib/whatsapp/reglas) también depende de que el admin ingrese los días de
@@ -135,21 +159,23 @@ export default function WebSettingsMensajesUnicosTab() {
       : undefined;
 
   const primerElegido = seleccionados[0];
-  const preview = plantilla
-    ? aplicarVariables(plantilla.mensaje, {
-        nombre: primerElegido?.nombre || "(nombre del cliente)",
-        patente: primerElegido?.patente || "(patente)",
-        plan: primerElegido?.plan || "",
-        fechaVencimiento: primerElegido?.vencimiento ? fmtFecha(primerElegido.vencimiento) : "",
-        fechaVencimientoOferta:
-          diasValidezEfectivo && !isNaN(Number(diasValidezEfectivo)) ? fechaOfertaDesdeHoy(Number(diasValidezEfectivo)) : "",
-        montoOferta: montoOfertaEfectivo,
-        montoDescuento: montoDescuentoEfectivo !== undefined ? String(montoDescuentoEfectivo) : "",
-        montoAPagar: montoAPagarEfectivo !== undefined ? String(montoAPagarEfectivo) : "",
-        diasValidez: diasValidezEfectivo,
-        monto: "",
-      })
-    : "";
+  const variablesPreview = {
+    nombre: primerElegido?.nombre || "(nombre del cliente)",
+    patente: primerElegido?.patente || "(patente)",
+    plan: primerElegido?.plan || "",
+    fechaVencimiento: primerElegido?.vencimiento ? fmtFecha(primerElegido.vencimiento) : "",
+    fechaVencimientoOferta:
+      diasValidezEfectivo && !isNaN(Number(diasValidezEfectivo)) ? fechaOfertaDesdeHoy(Number(diasValidezEfectivo)) : "",
+    montoOferta: montoOfertaEfectivo,
+    montoDescuento: montoDescuentoEfectivo !== undefined ? String(montoDescuentoEfectivo) : "",
+    montoAPagar: montoAPagarEfectivo !== undefined ? String(montoAPagarEfectivo) : "",
+    diasValidez: diasValidezEfectivo,
+    monto: "",
+    descuentoReferido: "(descuento referido)",
+  };
+  const preview = plantilla ? aplicarVariables(plantilla.mensaje, variablesPreview) : "";
+  const previewSms = aplicarVariables(textoSms, variablesPreview);
+  const segmentosPorCliente = segmentosSms(textoFinalSms(previewSms, "XXXXXX"));
 
   const toggleCliente = (id: string) => {
     setExcluidos((prev) => {
@@ -160,7 +186,33 @@ export default function WebSettingsMensajesUnicosTab() {
     });
   };
 
+  const opcionesOferta = () => ({
+    accion,
+    cuponEsPorcentaje: accion === "cupon_descuento" ? cuponEsPorcentaje : undefined,
+    cuponValor: accion === "cupon_descuento" ? Number(cuponValor || 0) : undefined,
+    cuponValidezDias: accion === "cupon_descuento" ? Number(cuponValidezDias || 7) : undefined,
+    precioBase: precioBaseNum,
+    montoOferta: accion === "mensaje_simple" && usaMontoOferta && montoOferta ? Number(montoOferta) : undefined,
+    diasValidez: accion === "mensaje_simple" && usaDiasValidez && diasValidez ? Number(diasValidez) : undefined,
+  });
+
+  const enviarSms = async () => {
+    setEnviando(true);
+    setResultadoSms(null);
+    let acumulado: ResultadoEnvioMasivoSms = { total: 0, enviados: 0, fallidos: 0, sinTelefono: 0, omitidos: 0, repetidos: 0, segmentos: 0 };
+    for (const lote of dividirEnLotes(seleccionados.map((c) => c.id), CLIENTES_POR_LOTE)) {
+      const r = await enviarMensajesMasivosSms({ campana: campanaSms, texto: textoSms, clienteIds: lote, ...opcionesOferta() });
+      acumulado = sumarResultadosSms(acumulado, r);
+      setResultadoSms(acumulado);
+      // Mismo criterio que WhatsApp con los cupones; y si ningún SMS del lote
+      // salió (sin saldo, credenciales), los lotes siguientes fallarían igual.
+      if (r.cuponError || (r.fallidos > 0 && r.enviados === 0)) break;
+    }
+    setEnviando(false);
+  };
+
   const enviar = async () => {
+    if (canal === "sms") return enviarSms();
     setEnviando(true);
     setResultado(null);
     const lotes = dividirEnLotes(
@@ -172,13 +224,7 @@ export default function WebSettingsMensajesUnicosTab() {
       const r = await enviarMensajesMasivosWhatsapp({
         plantillaId,
         clienteIds: lote,
-        accion,
-        cuponEsPorcentaje: accion === "cupon_descuento" ? cuponEsPorcentaje : undefined,
-        cuponValor: accion === "cupon_descuento" ? Number(cuponValor || 0) : undefined,
-        cuponValidezDias: accion === "cupon_descuento" ? Number(cuponValidezDias || 7) : undefined,
-        precioBase: precioBaseNum,
-        montoOferta: accion === "mensaje_simple" && usaMontoOferta && montoOferta ? Number(montoOferta) : undefined,
-        diasValidez: accion === "mensaje_simple" && usaDiasValidez && diasValidez ? Number(diasValidez) : undefined,
+        ...opcionesOferta(),
       });
       acumulado = sumarResultados(acumulado, r);
       setResultado(acumulado); // progreso visible lote a lote, no solo al final
@@ -191,6 +237,7 @@ export default function WebSettingsMensajesUnicosTab() {
   };
 
   const confirmarEnvio = () => {
+    if (canal === "sms") return confirmarEnvioSms();
     if (!plantilla) {
       setErr("Elige una plantilla de WhatsApp");
       return;
@@ -219,6 +266,25 @@ export default function WebSettingsMensajesUnicosTab() {
     });
   };
 
+  const confirmarEnvioSms = () => {
+    if (!campanaSms.trim()) return setErr("Ponle un nombre a la campaña");
+    if (!textoSms.trim()) return setErr("Escribe el texto del SMS");
+    if (segmentosPorCliente > MAX_SEGMENTOS_SMS) return setErr(`El texto pasa de ${MAX_SEGMENTOS_SMS} SMS por cliente: acórtalo`);
+    if (!seleccionados.length) return setErr("No hay clientes seleccionados");
+    if (accion === "cupon_descuento" && (!cuponValor || Number(cuponValor) <= 0)) return setErr("Ingresa el valor del descuento");
+    setErr(null);
+    const avisoCupon = accion === "cupon_descuento" ? ` Se generará un cupón de descuento por cliente, atado a su patente.` : "";
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `Vas a enviar la campaña "${campanaSms.trim()}" por SMS a ${seleccionados.length} cliente(s), ${segmentosPorCliente} SMS cada uno (~${seleccionados.length * segmentosPorCliente} SMS en total). Se saltan los que pidieron no recibir mensajes y los que ya recibieron esta campaña.${avisoCupon} Esta acción no se puede deshacer. ¿Confirmar?`,
+        confirmLabel: "Enviar",
+        danger: true,
+        onConfirm: enviar,
+      },
+    });
+  };
+
   return (
     <div>
       <div className="modal" style={{ maxWidth: 720, margin: "0 0 20px 0" }}>
@@ -228,7 +294,17 @@ export default function WebSettingsMensajesUnicosTab() {
           cierre por mantención a todos los clientes con plan, u ofrecer un precio especial a los que tienen el plan
           vencido y no lo han renovado. Solo se puede enviar usando una plantilla con su template ya{" "}
           <strong>Aprobado en Meta</strong> (pestaña &quot;WhatsApp Plantillas&quot;): la mayoría de estos clientes no te
-          han escrito en las últimas 24 horas, así que un mensaje de texto libre sería rechazado por WhatsApp.
+          han escrito en las últimas 24 horas, así que un mensaje de texto libre sería rechazado por WhatsApp. Por{" "}
+          <strong>SMS</strong> el texto es libre y sale más barato, pero el cliente no puede responder: sirve para
+          campañas, no para conversar.
+        </div>
+
+        <div className="field" style={{ marginBottom: 10 }}>
+          <label>Canal</label>
+          <select value={canal} onChange={(e) => setCanal(e.target.value as Canal)}>
+            <option value="whatsapp">WhatsApp (plantilla aprobada en Meta)</option>
+            <option value="sms">SMS (texto libre)</option>
+          </select>
         </div>
 
         <FiltrosEnvioMasivo
@@ -270,21 +346,23 @@ export default function WebSettingsMensajesUnicosTab() {
 
         <ClientesSeleccionablesList candidatos={candidatos} excluidos={excluidos} onToggle={toggleCliente} />
 
-        <div className="field" style={{ marginBottom: 10 }}>
-          <label>Plantilla de WhatsApp a enviar</label>
-          <select value={plantillaId} onChange={(e) => setPlantillaId(e.target.value)}>
-            <option value="">Elige una plantilla...</option>
-            {data.plantillasWhatsapp
-              .filter((p) => p.activo)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-          </select>
-        </div>
+        {canal === "whatsapp" && (
+          <div className="field" style={{ marginBottom: 10 }}>
+            <label>Plantilla de WhatsApp a enviar</label>
+            <select value={plantillaId} onChange={(e) => setPlantillaId(e.target.value)}>
+              <option value="">Elige una plantilla...</option>
+              {data.plantillasWhatsapp
+                .filter((p) => p.activo)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
 
-        {plantilla && (
+        {canal === "whatsapp" && plantilla && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             <BadgeAprobadoMeta aprobado={plantilla.metaAprobado} />
             {!plantilla.metaNombre && (
@@ -314,22 +392,39 @@ export default function WebSettingsMensajesUnicosTab() {
           setDiasValidez={setDiasValidez}
         />
 
-        {plantilla && (
+        {canal === "whatsapp" && plantilla && (
           <div className="field" style={{ marginBottom: 10 }}>
             <label>Vista previa (con el primer cliente seleccionado)</label>
             <textarea readOnly rows={4} value={preview} />
           </div>
         )}
 
+        {canal === "sms" && (
+          <CamposSms campana={campanaSms} setCampana={setCampanaSms} texto={textoSms} setTexto={setTextoSms} preview={previewSms} />
+        )}
+
         {err && <div className="err">{err}</div>}
-        {resultado?.cuponError && (
+        {canal === "sms" && resultadoSms?.cuponError && (
+          <div className="err">No se pudieron guardar los cupones del lote en curso: no se envió ningún SMS de ese lote.</div>
+        )}
+        {canal === "sms" && resultadoSms && (
+          <div className="err" style={{ color: resultadoSms.fallidos ? undefined : "var(--green)" }}>
+            {enviando ? "Procesando... " : ""}
+            SMS enviado a {resultadoSms.enviados} de {resultadoSms.total} cliente(s) ({resultadoSms.segmentos} SMS cobrados).
+            {resultadoSms.fallidos ? ` ${resultadoSms.fallidos} fallaron${resultadoSms.primerError ? ` (${resultadoSms.primerError})` : ""}.` : ""}
+            {resultadoSms.sinTelefono ? ` ${resultadoSms.sinTelefono} sin celular válido.` : ""}
+            {resultadoSms.omitidos ? ` ${resultadoSms.omitidos} pidieron no recibir mensajes.` : ""}
+            {resultadoSms.repetidos ? ` ${resultadoSms.repetidos} ya habían recibido esta campaña.` : ""}
+          </div>
+        )}
+        {canal === "whatsapp" && resultado?.cuponError && (
           <div className="err">
             No se pudieron guardar los cupones de descuento del lote en curso — no se envió ningún WhatsApp de ese lote
             (revisa los logs; probablemente haya que reintentar). El progreso mostrado abajo es real hasta antes de este
             lote.
           </div>
         )}
-        {resultado && (
+        {canal === "whatsapp" && resultado && (
           <div className="err" style={{ color: resultado.fallidos ? undefined : "var(--green)" }}>
             {enviando ? "Procesando... " : ""}
             Enviado a {resultado.enviados} de {enviando ? seleccionados.length : resultado.total} cliente(s)
@@ -339,8 +434,14 @@ export default function WebSettingsMensajesUnicosTab() {
           </div>
         )}
 
-        <button className="btn" onClick={confirmarEnvio} disabled={enviando || !plantilla || !seleccionados.length}>
-          {enviando ? `Enviando... (${resultado?.total ?? 0}/${seleccionados.length})` : `Enviar a ${seleccionados.length} cliente(s)`}
+        <button
+          className="btn"
+          onClick={confirmarEnvio}
+          disabled={enviando || !seleccionados.length || (canal === "whatsapp" ? !plantilla : !textoSms.trim() || !campanaSms.trim())}
+        >
+          {enviando
+            ? `Enviando... (${(canal === "sms" ? resultadoSms : resultado)?.total ?? 0}/${seleccionados.length})`
+            : `Enviar ${canal === "sms" ? "SMS " : ""}a ${seleccionados.length} cliente(s)`}
         </button>
       </div>
     </div>

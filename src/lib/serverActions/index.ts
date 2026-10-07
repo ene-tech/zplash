@@ -44,6 +44,7 @@ export * from "./pos";
 export * from "./precios";
 export * from "./recorrido";
 export * from "./servicios";
+export * from "./sms";
 export * from "./storage";
 export * from "./ventas";
 export * from "./whatsapp";

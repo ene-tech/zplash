@@ -250,3 +250,17 @@ export interface ResultadoEnvioMasivoWhatsapp {
   // (que sí intentó el envío contra la Graph API).
   cuponError?: boolean;
 }
+
+// Mismo resultado para el envío masivo por SMS (ver enviarMensajesMasivosSms
+// en @/lib/sms/masivo), más los que se saltan sin intentar: `omitidos` son
+// clientes con sinComunicacionAuto (pidieron no recibir) y `repetidos` los que
+// ya tienen un SMS de la misma campaña.
+export interface ResultadoEnvioMasivoSms extends ResultadoEnvioMasivoWhatsapp {
+  omitidos: number;
+  repetidos: number;
+  // Segmentos efectivamente enviados (lo que cobra el proveedor).
+  segmentos: number;
+  // Primer error devuelto por el proveedor, para mostrarlo en pantalla (ej.
+  // sin saldo o credenciales mal cargadas) sin tener que ir a los logs.
+  primerError?: string;
+}

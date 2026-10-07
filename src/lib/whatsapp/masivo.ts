@@ -2,8 +2,86 @@ import "server-only";
 
 import { getClientesByIds, obtenerPlantillaWhatsapp, upsertCupones } from "@/lib/dataAccess";
 import { isValidTelefono, montoDescuento } from "@/lib/helpers";
-import type { AccionReglaWhatsapp, Cupon, ResultadoEnvioMasivoWhatsapp } from "@/types";
+import type { AccionReglaWhatsapp, Cliente, Cupon, ResultadoEnvioMasivoWhatsapp } from "@/types";
 import { construirVariables, crearCuponDescuento, descuentoReferidoSiLoPide, enviarSegunPlantilla, generarCodigosCuponUnicos } from "./reglas";
+
+// Opciones de cupón/oferta comunes a los envíos masivos por WhatsApp y por SMS
+// (ver enviarMensajesMasivosSms en @/lib/sms/masivo): mismo contrato que
+// ReglaWhatsapp.accion, ver comentario de enviarMensajesMasivosWhatsapp.
+export interface OpcionesOfertaMasivo {
+  accion?: AccionReglaWhatsapp;
+  cuponEsPorcentaje?: boolean;
+  cuponValor?: number;
+  cuponValidezDias?: number;
+  precioBase?: number;
+  montoOferta?: number;
+  diasValidez?: number;
+}
+
+// Cupones (si corresponde) se generan y guardan en un solo lote antes de
+// enviar, no uno a uno dentro del loop de envío: evita una consulta a la
+// tabla cupones por cliente y deja los cupones creados aunque algún envío
+// individual falle después. Devuelve null si el lote no se pudo guardar.
+//
+// Si upsertCupones falla (ver "Error guardando cupones" en dataAccess),
+// no hay que enviar igual: el mensaje promete un "descuento automático"
+// atado a la patente (ver comentario del módulo) y sin el cupón real
+// guardado esa promesa queda rota para todo el lote — visto en producción:
+// 0 cupones guardados por una colisión de id, pero igual se mandaron ~250
+// WhatsApp antes de que la función se cortara por timeout. Mejor no mandar
+// nada de este lote que mandar de más.
+export async function generarCuponesMasivos(
+  destinatarios: Cliente[],
+  opts: OpcionesOfertaMasivo,
+  nombreLote: string,
+  creadoPor: string
+): Promise<Map<string, Cupon> | null> {
+  const cuponPorClienteId = new Map<string, Cupon>();
+  if (opts.accion !== "cupon_descuento" || !opts.cuponValor) return cuponPorClienteId;
+  const diasValidez = opts.cuponValidezDias ?? 7;
+  const codigos = await generarCodigosCuponUnicos(destinatarios.length);
+  const nuevosCupones = destinatarios.map((cliente, i) =>
+    crearCuponDescuento({
+      // Id explícito con el índice del loop — ver comentario en
+      // crearCuponDescuento (@/lib/whatsapp/reglas/motor.ts) sobre por qué
+      // uid() solo no basta para un lote de cientos generado en el mismo tick.
+      id: `c${Date.now()}${i}${Math.floor(Math.random() * 1000)}`,
+      codigo: codigos[i],
+      patente: cliente.patente,
+      valor: opts.cuponValor || 0,
+      esPorcentaje: opts.cuponEsPorcentaje || false,
+      validezDias: diasValidez,
+      nombreLote,
+      creadoPor,
+    })
+  );
+  const cuponesGuardados = await upsertCupones(nuevosCupones);
+  if (!cuponesGuardados) {
+    console.error(`Envío masivo: no se pudieron guardar los ${nuevosCupones.length} cupones del lote "${nombreLote}", no se envía ningún mensaje`);
+    return null;
+  }
+  nuevosCupones.forEach((c, i) => cuponPorClienteId.set(destinatarios[i].id, c));
+  return cuponPorClienteId;
+}
+
+// montoDescuento/montoAPagar solo se calculan si hay precioBase: para un
+// cupón de porcentaje sin precio de referencia no hay forma de saber
+// cuántos pesos representa. Sin precioBase, montoOferta (crudo, sin
+// ajustar) sigue siendo la única variable disponible — mismo
+// comportamiento que antes de que existiera este campo.
+export function variablesEnvioMasivo(cliente: Cliente, cupon: Cupon | undefined, opts: OpcionesOfertaMasivo, descuentoReferido?: number) {
+  const montoDescuentoPesos = cupon && opts.precioBase !== undefined ? montoDescuento(cupon, opts.precioBase) : undefined;
+  const montoAPagarPesos =
+    montoDescuentoPesos !== undefined && opts.precioBase !== undefined ? Math.max(0, opts.precioBase - montoDescuentoPesos) : undefined;
+  return construirVariables({
+    cliente,
+    montoOferta: cupon ? cupon.valor : opts.montoOferta,
+    montoDescuento: montoDescuentoPesos,
+    montoAPagar: montoAPagarPesos,
+    diasValidez: cupon ? opts.cuponValidezDias ?? 7 : opts.diasValidez,
+    descuentoReferido,
+  });
+}
 
 // Envío manual a un grupo de clientes elegido a mano en el momento (Web
 // Settings → Mensajes Únicos), para situaciones puntuales que no ameritan una
@@ -27,18 +105,13 @@ import { construirVariables, crearCuponDescuento, descuentoReferidoSiLoPide, env
 // comportamiento antes de que existiera `accion`) no hay Cupon detrás:
 // montoOferta/diasValidez son constantes de texto libre que el admin llena a
 // mano solo si la plantilla elegida los usa.
-export async function enviarMensajesMasivosWhatsapp(opts: {
-  plantillaId: string;
-  clienteIds: string[];
-  accion?: AccionReglaWhatsapp;
-  cuponEsPorcentaje?: boolean;
-  cuponValor?: number;
-  cuponValidezDias?: number;
-  precioBase?: number;
-  montoOferta?: number;
-  diasValidez?: number;
-  enviadoPor?: string;
-}): Promise<ResultadoEnvioMasivoWhatsapp> {
+export async function enviarMensajesMasivosWhatsapp(
+  opts: OpcionesOfertaMasivo & {
+    plantillaId: string;
+    clienteIds: string[];
+    enviadoPor?: string;
+  }
+): Promise<ResultadoEnvioMasivoWhatsapp> {
   const vacio: ResultadoEnvioMasivoWhatsapp = { total: 0, enviados: 0, fallidos: 0, sinTelefono: 0 };
   if (!opts.clienteIds.length) return vacio;
 
@@ -53,10 +126,6 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
   const descuentoReferido = await descuentoReferidoSiLoPide(plantilla);
   const enviadoPor = opts.enviadoPor || "mensajes-masivos";
 
-  // Cupones (si corresponde) se generan y guardan en un solo lote antes de
-  // enviar, no uno a uno dentro del loop de envío: evita una consulta a la
-  // tabla cupones por cliente y deja los cupones creados aunque algún envío
-  // individual falle después.
   // isValidTelefono descarta el placeholder "+569" que queda guardado tal
   // cual cuando un operador guarda sin completar los 8 dígitos (ver
   // OperadorFoundResult/ClientModal) — es un string truthy que superaba este
@@ -64,39 +133,9 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
   // Parameter value is not valid" y esos clientes quedaban contados como
   // "fallido" en vez de "sinTelefono".
   const conTelefono = clientesEncontrados.filter((c) => c.telefono && isValidTelefono(c.telefono));
-  const generaCupon = opts.accion === "cupon_descuento" && !!opts.cuponValor;
-  const cuponPorClienteId = new Map<string, Cupon>();
-  if (generaCupon) {
-    const diasValidez = opts.cuponValidezDias ?? 7;
-    const codigos = await generarCodigosCuponUnicos(conTelefono.length);
-    const nuevosCupones = conTelefono.map((cliente, i) =>
-      crearCuponDescuento({
-        // Id explícito con el índice del loop — ver comentario en
-        // crearCuponDescuento (@/lib/whatsapp/reglas/motor.ts) sobre por qué
-        // uid() solo no basta para un lote de cientos generado en el mismo tick.
-        id: `c${Date.now()}${i}${Math.floor(Math.random() * 1000)}`,
-        codigo: codigos[i],
-        patente: cliente.patente,
-        valor: opts.cuponValor || 0,
-        esPorcentaje: opts.cuponEsPorcentaje || false,
-        validezDias: diasValidez,
-        nombreLote: `WhatsApp masivo - ${plantilla.nombre}`,
-        creadoPor: enviadoPor,
-      })
-    );
-    const cuponesGuardados = await upsertCupones(nuevosCupones);
-    // Si upsertCupones falla (ver "Error guardando cupones" en dataAccess),
-    // no hay que enviar igual: el mensaje de esta plantilla promete un
-    // "descuento automático" atado a la patente (ver comentario del módulo)
-    // y sin el cupón real guardado esa promesa queda rota para todo el lote —
-    // visto en producción: 0 cupones guardados por una colisión de id, pero
-    // igual se mandaron ~250 WhatsApp antes de que la función se cortara por
-    // timeout. Mejor no mandar nada de este lote que mandar de más.
-    if (!cuponesGuardados) {
-      console.error(`Envío masivo WhatsApp: no se pudieron guardar los ${nuevosCupones.length} cupones del lote, no se envía ningún mensaje`);
-      return { total: clientesEncontrados.length, enviados: 0, fallidos: clientesEncontrados.length, sinTelefono: 0, cuponError: true };
-    }
-    nuevosCupones.forEach((c, i) => cuponPorClienteId.set(conTelefono[i].id, c));
+  const cuponPorClienteId = await generarCuponesMasivos(conTelefono, opts, `WhatsApp masivo - ${plantilla.nombre}`, enviadoPor);
+  if (!cuponPorClienteId) {
+    return { total: clientesEncontrados.length, enviados: 0, fallidos: clientesEncontrados.length, sinTelefono: 0, cuponError: true };
   }
 
   for (const cliente of clientesEncontrados) {
@@ -104,25 +143,7 @@ export async function enviarMensajesMasivosWhatsapp(opts: {
       resultado.sinTelefono++;
       continue;
     }
-    const cupon = cuponPorClienteId.get(cliente.id);
-    // montoDescuento/montoAPagar solo se calculan si hay precioBase: para un
-    // cupón de porcentaje sin precio de referencia no hay forma de saber
-    // cuántos pesos representa. Sin precioBase, montoOferta (crudo, sin
-    // ajustar) sigue siendo la única variable disponible — mismo
-    // comportamiento que antes de que existiera este campo.
-    const montoDescuentoPesos = cupon && opts.precioBase !== undefined ? montoDescuento(cupon, opts.precioBase) : undefined;
-    const montoAPagarPesos =
-      montoDescuentoPesos !== undefined && opts.precioBase !== undefined
-        ? Math.max(0, opts.precioBase - montoDescuentoPesos)
-        : undefined;
-    const variables = construirVariables({
-      cliente,
-      montoOferta: cupon ? cupon.valor : opts.montoOferta,
-      montoDescuento: montoDescuentoPesos,
-      montoAPagar: montoAPagarPesos,
-      diasValidez: cupon ? opts.cuponValidezDias ?? 7 : opts.diasValidez,
-      descuentoReferido,
-    });
+    const variables = variablesEnvioMasivo(cliente, cuponPorClienteId.get(cliente.id), opts, descuentoReferido);
     const mensaje = await enviarSegunPlantilla(plantilla, cliente.telefono, variables, enviadoPor).catch((error) => {
       console.error(`Error en envío masivo de WhatsApp a cliente ${cliente.id}`, error);
       return null;

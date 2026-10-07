@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/admin", "/api", "/cliente", "/pagar", "/carrito"],
+      disallow: ["/admin", "/api", "/cliente", "/pagar", "/carrito", "/b/"],
     },
     sitemap: "https://zplash.cl/sitemap.xml",
   };
