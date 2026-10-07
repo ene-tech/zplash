@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useAppData } from "@/context/AppContext";
 import { beneficioCupon, fmtCLP } from "@/lib/helpers";
 import { useOperadorNotFoundResult } from "@/components/operador/useOperadorNotFoundResult";
+import { QrPlanConTarjeta } from "@/components/operador/OperadorFoundOfertas";
 
 export default function OperadorNotFoundResult({
   plate,
@@ -53,7 +54,7 @@ export default function OperadorNotFoundResult({
           style={{ marginTop: 0, flex: "1 1 160px" }}
           onClick={() => r.setTipoLavado("plan")}
         >
-          Renovar / Contratar plan
+          Plan X5 (pago por la web)
         </button>
         <button
           className={r.tipoLavado === "unico" ? "btn" : "btn secondary"}
@@ -81,96 +82,111 @@ export default function OperadorNotFoundResult({
           </button>
         )}
       </div>
-      {r.tipoLavado === "promo2" && (
-        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-          2 lavados Full Túnel para esta patente, válidos 30 días: pasa ahora con el primero y el segundo queda como
-          ticket en su ficha — la próxima vez basta con leer la patente.
-        </div>
-      )}
-      {r.tipoLavado === "promo5" && (
-        <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-          4 lavados Full Túnel para esta patente, válidos 30 días y sin plan: pasa ahora con el primero y los otros 3
-          quedan como tickets en su ficha — la próxima vez basta con leer la patente.
-        </div>
-      )}
-      <div className="quick-form" style={{ marginBottom: r.cuponPrevio ? 4 : 14, marginTop: 0 }}>
-        <div>
-          <label>Código de descuento (opcional)</label>
-          <input
-            ref={qCuponRef}
-            placeholder="Ej: AB12CD"
-            defaultValue={codigoDescuento || ""}
-            onChange={(e) => r.setCodigoInput(e.target.value)}
-            style={{ textTransform: "uppercase" }}
+      {r.tipoLavado === "plan" ? (
+        <>
+          <QrPlanConTarjeta
+            patente={plate}
+            precio={{ primerCobro: r.precioPlanWeb, mensual: r.precioPlanWeb }}
+            perfilId={r.perfilId}
           />
-        </div>
-      </div>
-      {r.cuponPrevio && (
-        <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginBottom: 14 }}>
-          Beneficio: {beneficioCupon(r.cuponPrevio)}.
-          Lavado Full Túnel queda en {fmtCLP(r.precioConDescuento!)} (antes {fmtCLP(r.precioBaseLavado)}).
-        </div>
-      )}
-      <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 14 }}>
-        Registra un cliente rápido. Los campos con * son obligatorios.
-      </div>
-      <div className="quick-form">
-        <div>
-          <label>Nombre *</label>
-          <input ref={qNombreRef} placeholder="Nombre del cliente" />
-        </div>
-        <div>
-          <label>Teléfono *</label>
-          <input ref={qTelefonoRef} defaultValue="+569" placeholder="+569 -1111 1111" onBlur={r.onTelefonoBlur} />
-        </div>
-        <div>
-          <label>Correo electrónico{r.tipoLavado === "plan" && !r.sinCorreo ? " *" : ""}</label>
-          <input ref={qEmailRef} type="email" placeholder="correo@ejemplo.com" disabled={r.sinCorreo} />
-          <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontWeight: 400 }}>
-            <input type="checkbox" checked={r.sinCorreo} onChange={(e) => r.setSinCorreo(e.target.checked)} style={{ width: "auto" }} />
-            El cliente no quiere dar correo
-          </label>
-        </div>
-        <div>
-          <label>Vehículo (Marca y Modelo)</label>
-          <input ref={qVehiculoRef} placeholder="Ej: Toyota Yaris" />
-        </div>
-        <div>
-          <label>Tipo de documento</label>
-          <select value={r.tipoDoc} onChange={(e) => r.setTipoDoc(e.target.value as "Boleta" | "Factura")}>
-            <option value="Boleta">Boleta</option>
-            <option value="Factura">Factura</option>
-          </select>
-        </div>
-        {r.tipoDoc === "Factura" && (
-          <div>
-            <div style={{ marginBottom: 10 }}>
-              <label>RUT</label>
-              <input ref={qRutRef} placeholder="12.345.678-9" onBlur={r.onRutBlur} />
+          <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => patchUi({ operResult: null })}>
+            Cerrar
+          </button>
+        </>
+      ) : (
+        <>
+          {r.tipoLavado === "promo2" && (
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+              2 lavados Full Túnel para esta patente, válidos 30 días: pasa ahora con el primero y el segundo queda como
+              ticket en su ficha — la próxima vez basta con leer la patente.
             </div>
-            <div style={{ marginBottom: 10 }}>
-              <label>Razón Social</label>
-              <input ref={qRazonSocialRef} />
+          )}
+          {r.tipoLavado === "promo5" && (
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+              4 lavados Full Túnel para esta patente, válidos 30 días y sin plan: pasa ahora con el primero y los otros 3
+              quedan como tickets en su ficha — la próxima vez basta con leer la patente.
             </div>
-            <div style={{ marginBottom: 10 }}>
-              <label>Dirección</label>
-              <input ref={qDireccionRef} />
-            </div>
+          )}
+          <div className="quick-form" style={{ marginBottom: r.cuponPrevio ? 4 : 14, marginTop: 0 }}>
             <div>
-              <label>Giro</label>
-              <input ref={qGiroRef} />
+              <label>Código de descuento (opcional)</label>
+              <input
+                ref={qCuponRef}
+                placeholder="Ej: AB12CD"
+                defaultValue={codigoDescuento || ""}
+                onChange={(e) => r.setCodigoInput(e.target.value)}
+                style={{ textTransform: "uppercase" }}
+              />
             </div>
           </div>
-        )}
-      </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-        <button className="btn" style={{ marginTop: 0, flex: "2 1 200px" }} onClick={r.quickAdd} disabled={guardando}>
-          {guardando ? "Guardando…" : "Registrar cliente"}
-        </button>
-        <button className="btn ghost" style={{ marginTop: 0, flex: "1 1 120px" }} onClick={() => patchUi({ operResult: null })}>
-          Cancelar
-        </button>
-      </div>
+          {r.cuponPrevio && (
+            <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginBottom: 14 }}>
+              Beneficio: {beneficioCupon(r.cuponPrevio)}.
+              Lavado Full Túnel queda en {fmtCLP(r.precioConDescuento!)} (antes {fmtCLP(r.precioBaseLavado)}).
+            </div>
+          )}
+          <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 14 }}>
+            Registra un cliente rápido. Los campos con * son obligatorios.
+          </div>
+          <div className="quick-form">
+            <div>
+              <label>Nombre *</label>
+              <input ref={qNombreRef} placeholder="Nombre del cliente" />
+            </div>
+            <div>
+              <label>Teléfono *</label>
+              <input ref={qTelefonoRef} defaultValue="+569" placeholder="+569 -1111 1111" onBlur={r.onTelefonoBlur} />
+            </div>
+            <div>
+              <label>Correo electrónico</label>
+              <input ref={qEmailRef} type="email" placeholder="correo@ejemplo.com" disabled={r.sinCorreo} />
+              <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontWeight: 400 }}>
+                <input type="checkbox" checked={r.sinCorreo} onChange={(e) => r.setSinCorreo(e.target.checked)} style={{ width: "auto" }} />
+                El cliente no quiere dar correo
+              </label>
+            </div>
+            <div>
+              <label>Vehículo (Marca y Modelo)</label>
+              <input ref={qVehiculoRef} placeholder="Ej: Toyota Yaris" />
+            </div>
+            <div>
+              <label>Tipo de documento</label>
+              <select value={r.tipoDoc} onChange={(e) => r.setTipoDoc(e.target.value as "Boleta" | "Factura")}>
+                <option value="Boleta">Boleta</option>
+                <option value="Factura">Factura</option>
+              </select>
+            </div>
+            {r.tipoDoc === "Factura" && (
+              <div>
+                <div style={{ marginBottom: 10 }}>
+                  <label>RUT</label>
+                  <input ref={qRutRef} placeholder="12.345.678-9" onBlur={r.onRutBlur} />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label>Razón Social</label>
+                  <input ref={qRazonSocialRef} />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label>Dirección</label>
+                  <input ref={qDireccionRef} />
+                </div>
+                <div>
+                  <label>Giro</label>
+                  <input ref={qGiroRef} />
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+            <button className="btn" style={{ marginTop: 0, flex: "2 1 200px" }} onClick={r.quickAdd} disabled={guardando}>
+              {guardando ? "Guardando…" : "Registrar cliente"}
+            </button>
+            <button className="btn ghost" style={{ marginTop: 0, flex: "1 1 120px" }} onClick={() => patchUi({ operResult: null })}>
+              Cancelar
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

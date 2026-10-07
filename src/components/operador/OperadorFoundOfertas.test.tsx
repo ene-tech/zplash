@@ -4,6 +4,8 @@ import type { Cliente, Cupon } from "@/types";
 import OperadorFoundOfertas from "./OperadorFoundOfertas";
 
 vi.mock("@/context/AppContext", () => ({ useAppData: () => ({ guardando: false }) }));
+// La tarjeta del QR arma el link con window.location.origin.
+vi.stubGlobal("window", { location: { origin: "https://zplash.cl" } });
 
 // El caso real de la campaña de plan vencido (patente CZTF29, ago-2026): el
 // cupón de $4.000 pasó a canal "web", así que el mesón ya no lo puede aplicar
@@ -30,18 +32,45 @@ function render(props: Record<string, unknown>) {
 }
 
 describe("OperadorFoundOfertas — orden", () => {
-  it("las opciones cobrables van de menor a mayor precio", () => {
-    const html = render({ planVigente: false, pContratacion: 19990, precioLavadoUnicoFinal: 7990, precioPromo2: 12990 });
+  it("el lavado va primero y las promociones después, de menor a mayor precio", () => {
+    const html = render({
+      planVigente: false,
+      pContratacion: 19990,
+      precioLavadoUnicoFinal: 9990,
+      precioPromo2: 12990,
+      precioQrTarjeta: { primerCobro: 6910, mensual: 19990 },
+    });
     const lavado = html.indexOf("Cobrar Lavado Full Túnel");
+    const qr = html.indexOf("Mostrar QR para pagar con tarjeta");
     const promo2 = html.indexOf("Cobrar Promo 2 lavados");
-    const plan = html.indexOf("Contratar plan nuevo");
     expect(lavado).toBeGreaterThan(-1);
-    expect(lavado).toBeLessThan(promo2);
-    expect(promo2).toBeLessThan(plan);
+    expect(lavado).toBeLessThan(qr);
+    expect(qr).toBeLessThan(promo2);
+    // El Plan X5 se vende solo por la web: el mesón no lo cobra.
+    expect(html).not.toContain("Contratar plan nuevo");
     const vip = html.indexOf("Promociones exclusivas cliente VIP");
     expect(html).toContain("<span>MARCOS VALERIA</span>");
     expect(vip).toBeGreaterThan(lavado);
     expect(vip).toBeLessThan(promo2);
+  });
+});
+
+describe("OperadorFoundOfertas — plan solo por la web", () => {
+  it("al que tiene el plan vigente y lo paga en el mesón le muestra el QR, no un botón de renovar", () => {
+    const html = render({
+      c: { ...c, plan: "Plan X5", vencimiento: "2026-10-20T03:00:00.000Z" },
+      planVigente: true,
+      showOffer: true,
+      precioQrTarjeta: { primerCobro: 19990, mensual: 19990 },
+    });
+    expect(html).toContain("Mostrar QR para pagar con tarjeta");
+    expect(html).toContain("se le renueva solo cada mes");
+    expect(html).not.toContain("Renovar plan");
+  });
+
+  it("al que ya paga por la web no le ofrece nada", () => {
+    const html = render({ planVigente: true, showOffer: false, precioQrTarjeta: { primerCobro: 19990, mensual: 19990 } });
+    expect(html).not.toContain("Mostrar QR para pagar con tarjeta");
   });
 });
 
@@ -61,6 +90,16 @@ describe("OperadorFoundOfertas — descuento solo web", () => {
     const html = render({ cuponDescuentoSoloWeb: cupon("web", 4000), precioPlanWeb: 20990 });
     expect(html).toContain("$20.990");
     expect(html).toContain("total pagando por la web");
+  });
+
+  it("con el QR del plan a la vista no se repite", () => {
+    const html = render({
+      cuponDescuentoSoloWeb: cupon("web", 4000),
+      planVigente: false,
+      precioQrTarjeta: { primerCobro: 6910, mensual: 19990 },
+    });
+    expect(html).not.toContain("Promoción especial contratando por la web");
+    expect(html).toContain("Mostrar QR para pagar con tarjeta");
   });
 
   it("sin precio de plan web calculado no inventa un total", () => {

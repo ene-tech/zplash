@@ -4,11 +4,9 @@ import { useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
 import { puedeIngresarTunelDetailing } from "@/lib/agenda";
 import {
-  diasVencido,
   esExentoBloqueoReingreso,
   esExentoValidacionRegistroOperador,
   esNombreVacio,
-  enPlazoDePagoPlan,
   esServicioTunelLibre,
   estadoReingresoPlan,
   pasesRestantes,
@@ -24,25 +22,18 @@ import {
   PLANES,
   planStatus,
   precioConHeredado,
-  precioContratacion,
   precioLavadoAdicional,
   precioLavadoUnico,
   precioPromoLavados,
   precioRenovacionATiempo,
-  precioPagoAtrasado,
-  precioReactivacionVencido,
   precioRenovacionLocal,
-  precioUpgradePlan,
   ticketsVigentesDePatente,
   ventaLavadoWebPendiente,
-  ventaUpgradeElegible,
   visitasPeriodoPlan,
-  visitasUltimoPeriodoVencido,
 } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { useFichaClienteActions } from "./useFichaClienteActions";
 import { useIngresoActions } from "./useIngresoActions";
-import { usePlanActions } from "./usePlanActions";
 
 export const ERROR_GUARDADO_INGRESO =
   "No se pudo guardar el cambio (sin conexión con el almacenamiento). Verifica tu conexión e inténtalo de nuevo.";
@@ -56,11 +47,10 @@ type FoundResultRefs = {
 
 // Calcula todos los valores derivados del resultado "cliente encontrado" del
 // Operador (estado del plan, ofertas/promociones aplicables, bloqueo de
-// reingreso) y delega las acciones a tres hooks por dominio: ficha del
-// cliente (useFichaClienteActions), dar ingreso (useIngresoActions) y
-// planes/promociones (usePlanActions). Los refs de los inputs se crean en el
-// componente (no acá) y se pasan por parámetro: si el objeto que retorna
-// este hook incluyera refs, el linter de React Compiler marca cualquier
+// reingreso) y delega las acciones a dos hooks por dominio: ficha del
+// cliente (useFichaClienteActions) y dar ingreso (useIngresoActions). Los
+// refs de los inputs se crean en el componente (no acá) y se pasan por
+// parámetro: si el objeto que retorna este hook incluyera refs, el linter de React Compiler marca cualquier
 // lectura de sus otras propiedades durante el render como "acceso a ref"
 // (no distingue qué campo del bag es cuál).
 export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void, refs: FoundResultRefs) {
@@ -72,52 +62,18 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const registroIncompleto =
     esNombreVacio(c.nombre) || (!exentoValidacion && (!c.telefono || !isValidTelefono(c.telefono) || !c.email));
   const st = planStatus(c);
-  // Igual que en usePlanActions.contratarPlan: si el cliente aún no tiene
-  // plan (c.plan vacío), el precio a mostrar/cobrar es el del plan por
-  // defecto (PLANES[0]), no precioNormal(precios, "") — que no matchea
-  // ninguna clave de Precios y quedaba en $0.
-  //
-  // Con el precio heredado aplicado (ver precioConHeredado): renovar en el
-  // mesón antes del vencimiento es la misma renovación anticipada que por la
-  // web, así que al que venía pagando menos se le respeta ese valor acá
-  // también — si no, el mismo cliente pagaba distinto según por dónde entrara.
+  // El Plan X5 se vende solo por la web (oct-2026, ver OperadorFoundOfertas):
+  // acá no se cobra ningún plan, solo se le cuenta al cliente lo que le sale
+  // online. pNormal es el precio tachado de referencia, con su heredado.
   const pNormal = precioRenovacionATiempo(data.precios, c.plan || PLANES[0], c);
-  // Contratar un plan nuevo es su propio precio (ver precioContratacion): al
-  // que nunca tuvo plan se le cobra el valor de 1ra contratación, al que dejó
-  // vencer el suyo el normal. Sin precio heredado: contratar de nuevo no es
-  // renovar antes de vencer, que es lo único que ese precio respeta.
-  const pContratacion = precioContratacion(data.precios, c.plan || PLANES[0], c);
-  // Promoción de renovación anticipada, escalonada por cuántas veces pasó el
-  // cliente durante su período de plan vigente (ver tramosRenovacionLocal /
-  // precioRenovacionLocal): undefined = ningún tramo del canal Local le calza
-  // (típicamente porque viene mucho), así que no hay promoción y renueva al
-  // precio de renovar a tiempo (ver precioRenovacionATiempo).
-  //
-  // Mismo fallback que pNormal: si c.plan viniera vacío con un plan igual
-  // vigente (no debería pasar por convención, pero el esquema no lo obliga),
-  // que ahorro = pNormal - pPromo no se dispare a "gratis" por comparar
-  // contra precioRenovacionLocal(..., "", ...), que resuelve a 0.
-  const visitasPeriodo = visitasPeriodoPlan(data.ingresos, c);
-  const pPromoTramo = precioRenovacionLocal(data.config, data.precios, c.plan || PLANES[0], visitasPeriodo, "LOCAL");
-  const pPromo = precioConHeredado(pPromoTramo ?? pNormal, c);
-  // El cliente puede renovar cuando quiera, no solo cuando el plan está por
-  // vencer: renovarPlan ya ancla la nueva vigencia al vencimiento actual si
-  // todavía no pasó (ver lib/logic/ingresos.ts), así que renovar temprano no
-  // le hace perder días. Solo se excluye "bad" (vencido/sin plan), que tiene
-  // su propia oferta de reactivación (showReactivacion/esWebVencido).
+  // Al que ya paga por la web no hay nada que ofrecerle: se le renueva solo.
   const showOffer = st.cls !== "bad" && pNormal > 0 && c.origen !== "WEB";
-  const ahorro = pNormal - pPromo;
-  // Sin promoción vigente la tarjeta igual se muestra (el operador tiene que
-  // poder renovarle el plan antes de que venza), pero cobrando el precio
-  // normal y sin hablar de "precio preferencial" — ver OperadorFoundOfertas.
-  const hayPromoRenovacion = pPromoTramo !== undefined && ahorro > 0;
-  // Misma promoción consultada por el canal Web: un tramo marcado "Solo Web"
-  // no lo puede cobrar el operador (por eso no entra en pPromo, que es lo que
-  // cobra `renovar`), pero sí se le avisa para que invite al cliente a
-  // renovar online antes de que se le venza — mismo patrón que
-  // showReactivacionSoloWeb, más abajo.
+  // Promoción de renovación anticipada del canal Web, escalonada por cuántas
+  // veces pasó en su período (ver precioRenovacionLocal): se le avisa para que
+  // la tome en su cuenta antes de que se le venza.
+  const visitasPeriodo = visitasPeriodoPlan(data.ingresos, c);
   const pPromoWeb = precioRenovacionLocal(data.config, data.precios, c.plan || PLANES[0], visitasPeriodo, "WEB");
-  const showRenovacionSoloWeb = showOffer && !hayPromoRenovacion && pPromoWeb !== undefined && pPromoWeb < pNormal;
+  const showRenovacionSoloWeb = showOffer && pPromoWeb !== undefined && pPromoWeb < pNormal;
   const planVigente = st.cls !== "bad";
   // "Administración" y "Gerencia" pueden forzar el ingreso aunque el
   // reingreso esté bloqueado (cliente pasó hace menos de 24:30 horas): se
@@ -138,81 +94,11 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
         ? "garantia"
         : estadoIngresoBruto;
 
-  // Se le cobra el plan al mismo precio que le cobra la web al mismo cliente
-  // vencido (precioAtrasado, ver pagoVencido en calcularOfertasPlan). Antes
-  // esta tarjeta cobraba el precio de su ÚLTIMA venta, fuera del tipo que
-  // fuera —un lavado único, un servicio, una venta de $0—, así que al
-  // operador le aparecía "Renovar plan Web ($0)" y ese botón regalaba el
-  // plan.
-  const esWebVencido = c.origen === "WEB" && st.cls === "bad";
-
-  // Promoción: reactivación preferencial para un cliente (Local o Web) con
-  // el plan vencido hace poco, escalonada por hace cuánto venció y cuántas
-  // veces pasó durante su último período de plan pagado (ver
-  // tramosReactivacionVencido/precioReactivacionVencido). undefined =
-  // ningún tramo calza, no corresponde ofrecerla — en ese caso un cliente
-  // Web sigue viendo su oferta genérica (esWebVencido, más abajo). Que el
-  // tramo exista pero sea solo Web también cuenta como "hay promoción": la
-  // genérica no se muestra (ver OperadorFoundOfertas), porque cobrarla acá
-  // sería cobrarle MÁS que lo que el cliente acaba de escuchar que le sale
-  // online.
-  const diasVenc = diasVencido(c);
-  const visitasUltPeriodo = visitasUltimoPeriodoVencido(data.ingresos, c);
-  const precioReactivacion =
-    diasVenc !== null ? precioReactivacionVencido(data.config, c.plan || "", diasVenc, visitasUltPeriodo, "LOCAL") : undefined;
-  const showReactivacion = precioReactivacion !== undefined;
-  // Misma promoción consultada por el canal Web: si el tramo que le calza al
-  // cliente está marcado solo para Web, el Operador NO puede cobrarla acá
-  // (por eso no entra en precioReactivacion, que es lo que cobra `reactivar`),
-  // pero sí se le avisa el precio para que se lo mencione al cliente y este
-  // la tome donde corresponde — Mi Cuenta / pagar.
-  const precioReactivacionWeb =
-    diasVenc !== null ? precioReactivacionVencido(data.config, c.plan || "", diasVenc, visitasUltPeriodo, "WEB") : undefined;
-  const showReactivacionSoloWeb = !showReactivacion && precioReactivacionWeb !== undefined;
-
-  // Pago atrasado: el plan venció hace poco y sigue dentro de los días de
-  // gracia configurados, así que el operador puede cobrarlo como la
-  // renovación de siempre — al mismo precio que si hubiera pagado a tiempo
-  // (ver precioPagoAtrasado: el preferencial del plan con su heredado, NO el
-  // precio de lista) y sin moverle la fecha de vencimiento (ver renovarPlan).
-  //
-  // No se muestra cuando el operador ya tiene otra forma de cobrarle el mismo
-  // plan vencido —la reactivación promocional cobrable acá, o la oferta al
-  // cliente Web cuyo pago automático falló—: dos precios cobrables por lo
-  // mismo en la misma pantalla se leen como error (mismo criterio que
-  // calcularOfertasPlan para Mi Cuenta). Sí convive con la reactivación
-  // marcada "solo Web": esa el operador no la puede cobrar, y sin esta
-  // tarjeta se quedaría sin ninguna forma de cobrar el atraso en el mesón.
-  const precioAtrasado = precioPagoAtrasado(data.precios, c.plan || PLANES[0], c, data.config.diasGraciaPagoAtrasado);
-  const showPagoAtrasado =
-    st.cls === "bad" &&
-    !!c.vencimiento &&
-    enPlazoDePagoPlan(c, data.config.diasGraciaPagoAtrasado) &&
-    precioAtrasado > 0 &&
-    !showReactivacion &&
-    !esWebVencido;
-
-  // Promoción: si al cliente se le acaba de cobrar un lavado único (dentro de
-  // la ventana configurada, ver ventaUpgradeElegible) y sigue sin plan
-  // vigente, se le puede ofrecer quedar con el Plan X5 pagando
-  // solo el adicional — ver usePlanActions.upgradeAPlan.
-  //
-  // Un adicional de $0 (precio de 1ra contratación igual o menor al lavado que
-  // ya pagó) no se ofrece: `pedirPago(0)` no pregunta método y cerraría la
-  // venta regalando el plan. Sin la venta ancla no se muestra la tarjeta ni
-  // corre `upgradeAPlan` — el operador le contrata el plan derecho, al mismo
-  // precio.
-  const horasVentanaUpgrade = data.config.horasVentanaUpgradePlan;
-  const ventaUpgradeReciente = !planVigente ? ventaUpgradeElegible(data.ventas, c.id, horasVentanaUpgrade) : undefined;
-  const precioUpgrade = ventaUpgradeReciente ? precioUpgradePlan(data.precios, ventaUpgradeReciente, c) : 0;
-  const ventaUpgrade = precioUpgrade > 0 ? ventaUpgradeReciente : undefined;
-
   // Descuento generado por una regla de WhatsApp (ver @/lib/whatsapp/reglas)
   // tras una venta anterior de este vehículo — se reconoce solo por patente,
   // sin que el operador tenga que tipear ningún código (a diferencia del
-  // cupón manual que sí se pide en OperadorNotFoundResult). Se aplica tanto al
-  // Lavado Full Túnel (ver useIngresoActions.cobrarLavadoUnico) como a
-  // cualquier plan que se cobre acá (ver conCupon más abajo y usePlanActions).
+  // cupón manual que sí se pide en OperadorNotFoundResult). Se aplica al Lavado
+  // Full Túnel (ver useIngresoActions.cobrarLavadoUnico).
   const cuponDescuentoVigente = cuponDescuentoDePatente(data.cupones, c.patente, "local");
   // El descuento que esta patente TIENE pero el mesón NO puede aplicar: es de
   // canal "web" (ver cuponValeEnCanal). No rebaja ningún precio de esta
@@ -248,7 +134,9 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // /pagar): mismo cálculo que /api/pagos/estado para precioPrimerCobroAuto —
   // la promo que le calce o el mensual automático, menos el cupón web — para
   // que el operador anuncie el número que el cliente va a ver en su celular.
-  const qrMensual = !planVigente ? precioConHeredado(precioPlanOneclick(data.precios), c) : 0;
+  // Con el plan vigente no hay promo de primer cobro: inscribe la tarjeta y
+  // se le cobra el mensual recién al vencer.
+  const qrMensual = precioConHeredado(precioPlanOneclick(data.precios), c);
   const qrPromo = !planVigente
     ? promoPrimerCobroOneclick(calcularOfertasPlan(c, data.ventas, data.ingresos, data.config, data.precios))
     : undefined;
@@ -260,22 +148,6 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const precioBaseLavadoUnico =
     estadoIngreso === "sin_pases" ? precioLavadoAdicional(data.precios) : precioLavadoUnico(data.precios);
   const precioLavadoUnicoFinal = precioConCupon(precioBaseLavadoUnico, cuponDescuentoVigente);
-
-  // El mismo cupón vale para cualquier plan, no solo para el lavado suelto: se
-  // resta de todo lo cobrable de esta ficha. Estos son además los valores que
-  // pintan los botones (ver OperadorFoundOfertas/OperadorFoundResult), así que
-  // lo que se muestra y lo que se cobra no se pueden separar.
-  //
-  // Van aparte de los precios base a propósito: showPagoAtrasado, ventaUpgrade
-  // y hayPromoRenovacion se siguen decidiendo con el precio SIN descuento, para
-  // que un cupón abarate la oferta en vez de hacerla desaparecer (esas banderas
-  // exigen precio > 0).
-  const conCupon = (precio: number) => precioConCupon(precio, cuponDescuentoVigente);
-  const pPromoFinal = conCupon(pPromo);
-  const pContratacionFinal = conCupon(pContratacion);
-  const precioAtrasadoFinal = conCupon(precioAtrasado);
-  const precioReactivacionFinal = precioReactivacion === undefined ? undefined : conCupon(precioReactivacion);
-  const precioUpgradeFinal = conCupon(precioUpgrade);
 
   // Servicio con pasada libre por el túnel (Lavado Completo Detailing o un
   // add-on de motor/chasis, ver esServicioTunelLibre) vendido en Servicios
@@ -323,15 +195,6 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     cuponDescuentoVigente,
     precioLavadoUnicoFinal,
   });
-  const plan = usePlanActions(c, setGuardarErr, updateResult, {
-    pPromo: pPromoFinal,
-    pContratacion: pContratacionFinal,
-    precioAtrasado: precioAtrasadoFinal,
-    precioReactivacion: precioReactivacionFinal,
-    precioUpgrade: precioUpgradeFinal,
-    ventaUpgrade,
-    cuponDescuento: cuponDescuentoVigente,
-  });
   const ficha = useFichaClienteActions(c, refs, setGuardarErr, updateResult);
 
   // Envuelve una acción de ingreso/plan para que, si el registro está
@@ -371,27 +234,8 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     horasBloqueoReingreso,
     showOffer,
     pNormal,
-    // Los cobrables salen ya con el cupón restado (ver conCupon más arriba):
-    // el botón no puede anunciar un precio distinto del que cobra. `pNormal`
-    // no, que es el precio tachado de referencia — y `ahorro` se recalcula
-    // contra el precio final para no anunciar de menos.
-    pContratacion: pContratacionFinal,
-    pPromo: pPromoFinal,
-    ahorro: pNormal - pPromoFinal,
-    hayPromoRenovacion,
     showRenovacionSoloWeb,
     pPromoWeb,
-    showReactivacion,
-    diasVenc,
-    precioReactivacion: precioReactivacionFinal,
-    showReactivacionSoloWeb,
-    precioReactivacionWeb,
-    showPagoAtrasado,
-    precioAtrasado: precioAtrasadoFinal,
-    esWebVencido,
-    ventaUpgrade,
-    precioUpgrade: precioUpgradeFinal,
-    horasVentanaUpgrade,
     cuponDescuentoVigente,
     cuponDescuentoSoloWeb,
     precioPlanWeb,
@@ -407,7 +251,6 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     precioPromo2,
     precioPromo5,
     ...ingreso,
-    ...plan,
     ...ficha,
     registrar: conFichaCompleta(ingreso.registrar),
     registrarPagado: conFichaCompleta(ingreso.registrarPagado),
@@ -416,11 +259,5 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     usarTicket: conFichaCompleta(ingreso.usarTicket),
     registrarDetailing: conFichaCompleta(ingreso.registrarDetailing),
     registrarLavadoWeb: conFichaCompleta(ingreso.registrarLavadoWeb),
-    contratarPlan: conFichaCompleta(plan.contratarPlan),
-    renovar: conFichaCompleta(plan.renovar),
-    pagarAtrasado: conFichaCompleta(plan.pagarAtrasado),
-    reactivar: conFichaCompleta(plan.reactivar),
-    renovarWeb: conFichaCompleta(plan.renovarWeb),
-    upgradeAPlan: conFichaCompleta(plan.upgradeAPlan),
   };
 }

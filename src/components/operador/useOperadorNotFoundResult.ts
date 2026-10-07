@@ -11,6 +11,7 @@ import {
   montoDescuento,
   normPlate,
   precioLavadoUnico,
+  precioPlanOneclick,
   precioPromoLavados,
   resolverDescuento,
 } from "@/lib/helpers";
@@ -46,7 +47,10 @@ export function useOperadorNotFoundResult(
   // Salida honesta cuando el cliente no quiere dar el correo: sin esto el
   // operador inventa uno para poder guardar (ver esCorreoDeRelleno).
   const [sinCorreo, setSinCorreo] = useState(false);
-  const [tipoLavado, setTipoLavado] = useState<"plan" | "unico" | "promo2" | "promo5">("plan");
+  // "plan" no registra nada acá: el Plan X5 se vende solo por la web, así que
+  // muestra el QR para que el cliente lo pague en su celular (ver
+  // OperadorNotFoundResult).
+  const [tipoLavado, setTipoLavado] = useState<"plan" | "unico" | "promo2" | "promo5">("unico");
   const [err, setErr] = useState("");
   const [codigoInput, setCodigoInput] = useState(codigoDescuento || "");
 
@@ -94,6 +98,7 @@ export function useOperadorNotFoundResult(
   const precioConDescuento = cuponPrevio ? Math.max(0, precioBaseLavado - montoDescuento(cuponPrevio, precioBaseLavado)) : null;
 
   const quickAdd = () => {
+    if (tipoLavado === "plan") return;
     const resultado = validarQuickAddCliente({
       nombreRaw: qNombreRef.current?.value || "",
       telefonoRaw: qTelefonoRef.current?.value || "",
@@ -140,18 +145,7 @@ export function useOperadorNotFoundResult(
         return;
       }
       clearPlate();
-      // Vender/renovar un plan es solo eso, una venta (ver
-      // finalizarClienteRapido): no da ingreso al túnel de una. En vez de un
-      // segundo botón para eso, el cliente recién creado queda mostrado como
-      // "encontrado" para que el operador decida ahí mismo, como paso
-      // siguiente y opcional, si también le da ingreso ahora (mismo botón
-      // "Registrar ingreso" del resto del módulo) o lo deja para después.
-      const clienteCreado = patch.clientes?.find((x) => x.id === preparado.nuevo.id);
-      if (tipoLavado === "plan" && clienteCreado) {
-        patchUi({ operResult: { found: true, cliente: clienteCreado } });
-      } else {
-        patchUi({ operResult: null });
-      }
+      patchUi({ operResult: null });
     });
   };
 
@@ -165,6 +159,9 @@ export function useOperadorNotFoundResult(
     err,
     setCodigoInput,
     precioBaseLavado,
+    // Lo que /pagar le cobra a una patente sin cliente (ver /api/pagos/estado).
+    precioPlanWeb: precioPlanOneclick(data.precios),
+    perfilId: ui.perfilActual?.id,
     // $0 = pack apagado, su botón no se muestra (ver precioPromoLavados).
     precioPromo2: precioPromoLavados(data.precios, "promo_2_lavados"),
     precioPromo5: precioPromoLavados(data.precios, "promo_5_lavados"),
