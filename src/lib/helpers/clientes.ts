@@ -11,10 +11,20 @@ export const DIAS_AVISO_VENCIMIENTO = 7;
  * anterior al aniversario, ver finCicloPlan): medido oct-2026, 90 de 93 cobran
  * a 0–4 días del aniversario. Sin este margen el cliente se veía "Vencido" en
  * el mesón justo antes de su cobro (caso SZGW53), y el mesón le ofrecía
- * renovar, o sea un doble cobro. Si Woo no logra cobrar, pasado este margen
- * se ve vencido como cualquiera.
+ * renovar, o sea un doble cobro. Margen fijado por el dueño en 2 días: vence
+ * el 7, sigue vigente el 8 y el 9, y el 10 se ve vencido si Woo no cobró.
  */
-export const DIAS_ESPERA_COBRO_WOO = 6;
+export const DIAS_ESPERA_COBRO_WOO = 2;
+
+/**
+ * Día de calendario en que vence el plan, para contar los días de
+ * DIAS_ESPERA_COBRO_WOO. Un vencimiento grabado a medianoche UTC (lo que deja
+ * vencimientoAnclado al correr en Vercel) es ese día UTC: en hora de Chile
+ * caería el anterior a las 21:00 y se comería un día del margen.
+ */
+function diaVencimiento(iso: string): Date | null {
+  return iso.endsWith("T00:00:00.000Z") ? new Date(`${iso.slice(0, 10)}T00:00:00`) : diaEnSantiago(iso);
+}
 
 export function findClient(clientes: Cliente[], plate: string): Cliente | undefined {
   return clientes.find((c) => normPlate(c.patente) === normPlate(plate));
@@ -72,8 +82,8 @@ export function planStatus(c: Pick<Cliente, "vencimiento"> & Partial<Pick<Client
   hoy.setHours(0, 0, 0, 0);
   const venc = new Date(c.vencimiento);
   if (venc < hoy) {
-    const diasVencido = Math.ceil((hoy.getTime() - venc.getTime()) / 86400000);
-    if (c.renovacionAutoWooDesde && diasVencido <= DIAS_ESPERA_COBRO_WOO) return { label: "Vigente", cls: "ok" };
+    const dia = c.renovacionAutoWooDesde ? diaVencimiento(venc.toISOString()) : null;
+    if (dia && Math.round((hoy.getTime() - dia.getTime()) / 86400000) <= DIAS_ESPERA_COBRO_WOO) return { label: "Vigente", cls: "ok" };
     return { label: "Vencido", cls: "bad" };
   }
   const diff = Math.ceil((venc.getTime() - hoy.getTime()) / 86400000);

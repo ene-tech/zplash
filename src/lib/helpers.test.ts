@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   alertaMantencionStatus,
   mantencionStatus,
@@ -289,18 +289,26 @@ describe("planStatus", () => {
     expect(planStatus({ vencimiento: enUnMes.toISOString() }).label).toBe("Vigente");
   });
 
-  it("con renovación automática de Woo sigue Vigente mientras espera el cobro", () => {
-    const anteayer = new Date();
-    anteayer.setDate(anteayer.getDate() - 2);
-    const woo = { vencimiento: anteayer.toISOString(), renovacionAutoWooDesde: "2026-09-10T14:10:00Z" };
-    expect(planStatus(woo).label).toBe("Vigente");
-    expect(planStatus({ vencimiento: anteayer.toISOString() }).label).toBe("Vencido");
-  });
+  describe("con renovación automática de Woo", () => {
+    const woo = (vencimiento: string) => ({ vencimiento, renovacionAutoWooDesde: "2026-09-10T14:10:00Z" });
+    // Mediodía en Chile (UTC-3).
+    const elDia = (d: string) => vi.useFakeTimers({ now: new Date(`${d}T15:00:00Z`) });
+    afterEach(() => vi.useRealTimers());
 
-  it("con renovación automática de Woo se ve Vencido si el cobro no llega", () => {
-    const haceDiez = new Date();
-    haceDiez.setDate(haceDiez.getDate() - 10);
-    expect(planStatus({ vencimiento: haceDiez.toISOString(), renovacionAutoWooDesde: "2026-09-10T14:10:00Z" }).label).toBe("Vencido");
+    it("sigue Vigente hasta 2 días después del vencimiento, aunque esté grabado a medianoche UTC (SZGW53)", () => {
+      elDia("2026-10-09");
+      expect(planStatus(woo("2026-10-07T00:00:00Z")).label).toBe("Vigente");
+      expect(planStatus({ vencimiento: "2026-10-07T00:00:00Z" }).label).toBe("Vencido");
+      elDia("2026-10-10");
+      expect(planStatus(woo("2026-10-07T00:00:00Z")).label).toBe("Vencido");
+    });
+
+    it("cuenta igual con un vencimiento a cualquier hora", () => {
+      elDia("2026-10-09");
+      expect(planStatus(woo("2026-10-07T20:48:55Z")).label).toBe("Vigente");
+      elDia("2026-10-10");
+      expect(planStatus(woo("2026-10-07T20:48:55Z")).label).toBe("Vencido");
+    });
   });
 });
 
