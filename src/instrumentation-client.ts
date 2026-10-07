@@ -12,7 +12,22 @@ const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const esPanelInterno =
   window.location.hostname.startsWith("admin.") || window.location.pathname.startsWith("/admin");
 
-if (key && !esPanelInterno) {
+// Para que el dueño mire la web sin contarse como cliente: entrar una vez a
+// zplash.cl/?no_medir=1 marca ese navegador para siempre (?no_medir=0 lo
+// desmarca). Se salta el init completo, no un opt-out después, para que ni
+// la primera visita alcance a enviarse.
+function navegadorExcluido(): boolean {
+  try {
+    const param = new URLSearchParams(window.location.search).get("no_medir");
+    if (param === "1") localStorage.setItem("zplash_no_medir", "1");
+    if (param === "0") localStorage.removeItem("zplash_no_medir");
+    return localStorage.getItem("zplash_no_medir") === "1";
+  } catch {
+    return false;
+  }
+}
+
+if (key && !esPanelInterno && !navegadorExcluido()) {
   try {
     posthog.init(key, {
       api_host: "https://eu.i.posthog.com",
