@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rechazoSiNoEsCron } from "@/lib/cron";
-import { and, asc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lte, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, suscripcionesOneclick } from "@/db/schema";
 import { requiereValidacionX5 } from "@/lib/helpers";
@@ -45,10 +45,20 @@ export async function GET(request: NextRequest) {
     .from(suscripcionesOneclick)
     .leftJoin(clientes, eq(clientes.patente, suscripcionesOneclick.patente))
     // Las "pausada_validacion_x5" entran a propósito: ver el candado más abajo.
+    //
+    // También entran las que no tienen fecha de cobro pero sí un plan vigente:
+    // la tarjeta se guardó sin plan vigente (/inscripcion/retorno la deja sin
+    // fecha) y el plan se pagó después por otra vía (mesón, Webpay, Woo). Nadie
+    // les ponía fecha y no se cobraban nunca (oct-2026: VCRY73 inscribió y un
+    // minuto después pagó en el mesón). Aquí solo se reagendan al vencimiento,
+    // abajo, y no se cobran hoy.
     .where(
       and(
         inArray(suscripcionesOneclick.estado, ["activa", "pausada_validacion_x5"]),
-        lte(suscripcionesOneclick.proximoCobro, ahora)
+        or(
+          lte(suscripcionesOneclick.proximoCobro, ahora),
+          and(isNull(suscripcionesOneclick.proximoCobro), gt(clientes.vencimiento, ahora))
+        )
       )
     )
     // Deuda más vieja primero: si la tanda se corta, que lo que quede sin
@@ -89,6 +99,11 @@ export async function GET(request: NextRequest) {
       resultados.push({ suscripcionId: suscripcion.id, patente: suscripcion.patente, estado: "reagendada" });
       continue;
     }
+    // Sin fecha de cobro nunca se cobra aquí. El filtro de arriba solo deja
+    // pasar las que tienen el plan vigente, pero si el plan vence entre la
+    // consulta y esta línea, cobrar sería un cargo que el cliente no pidió:
+    // guardó la tarjeta en una pantalla que dice "no se hace ningún cobro".
+    if (!suscripcion.proximoCobro) continue;
 
     try {
       // sinCliente: este es el único camino de cobro sin nadie mirando una

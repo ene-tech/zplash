@@ -45,7 +45,7 @@ describe("GET /api/pagos/oneclick/cobrar", () => {
   it("pausada por el candado del X5 y el cliente sigue en el ilimitado viejo -> no reactiva, pero pasa por cobrarSuscripcion (vuelve a pausar y avisa)", async () => {
     filas = [
       {
-        suscripcion: { id: "s1", patente: "AB1234", estado: "pausada_validacion_x5" },
+        suscripcion: { id: "s1", patente: "AB1234", estado: "pausada_validacion_x5", proximoCobro: ayer },
         plan: PLAN_ILIMITADO_LEGACY,
         aceptoX5En: null,
         vencimiento: ayer,
@@ -69,8 +69,26 @@ describe("GET /api/pagos/oneclick/cobrar", () => {
     expect(updates).toEqual([expect.objectContaining({ estado: "activa" }), expect.objectContaining({ proximoCobro: enUnMes })]);
   });
 
+  it("tarjeta sin fecha de cobro y plan pagado después por otra vía -> se agenda al vencimiento, sin cobrar", async () => {
+    filas = [{ suscripcion: { id: "s1", patente: "AB1234", estado: "activa", proximoCobro: null }, plan: "Plan X5", aceptoX5En: null, vencimiento: enUnMes }];
+
+    await correr();
+
+    expect(cobrarSuscripcion).not.toHaveBeenCalled();
+    expect(updates).toEqual([expect.objectContaining({ proximoCobro: enUnMes })]);
+  });
+
+  it("tarjeta sin fecha de cobro y plan vencido -> no cobra", async () => {
+    filas = [{ suscripcion: { id: "s1", patente: "AB1234", estado: "activa", proximoCobro: null }, plan: "Plan X5", aceptoX5En: null, vencimiento: ayer }];
+
+    await correr();
+
+    expect(cobrarSuscripcion).not.toHaveBeenCalled();
+    expect(updates).toEqual([]);
+  });
+
   it("plan vencido -> cobra el ciclo", async () => {
-    filas = [{ suscripcion: { id: "s1", patente: "AB1234", estado: "activa" }, plan: "Plan X5", aceptoX5En: null, vencimiento: ayer }];
+    filas = [{ suscripcion: { id: "s1", patente: "AB1234", estado: "activa", proximoCobro: ayer }, plan: "Plan X5", aceptoX5En: null, vencimiento: ayer }];
 
     await correr();
 
