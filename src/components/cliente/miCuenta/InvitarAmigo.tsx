@@ -8,7 +8,17 @@ import { linkReferido, mensajeInvitacionReferido } from "@/lib/referidos";
 // cliente, el amigo recibe el descuento de bienvenida y, cuando lo usa, el
 // cron /api/referidos/premiar le deja a este cliente un descuento igual atado
 // a esa misma patente. Por eso con varios autos se elige a cuál va el premio.
-export function InvitarAmigo({ patentes, valor }: { patentes: string[]; valor: number }) {
+export type ReferidosPatente = { acumulado: number; llegaron: number; usaron: number };
+
+export function InvitarAmigo({
+  patentes,
+  valor,
+  referidos,
+}: {
+  patentes: string[];
+  valor: number;
+  referidos: Record<string, ReferidosPatente>;
+}) {
   const [patente, setPatente] = useState(patentes[0] || "");
   const [copiado, setCopiado] = useState(false);
 
@@ -29,6 +39,7 @@ export function InvitarAmigo({ patentes, valor }: { patentes: string[]; valor: n
   return (
     <div className="card" style={{ marginBottom: 26 }}>
       <h3 style={{ marginTop: 0 }}>Regala {fmtCLP(valor)}, gana {fmtCLP(valor)}</h3>
+      <ContadorReferidos patentes={patentes} referidos={referidos} />
       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 14px" }}>
         <Billete etiqueta="Regalas" valor={valor} />
         <span aria-hidden style={{ fontSize: 22, fontWeight: 800, color: "#1f7a3d" }}>
@@ -106,6 +117,45 @@ export function InvitarAmigo({ patentes, valor }: { patentes: string[]; valor: n
           {copiado ? "¡Copiado!" : "Copiar link"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Lo ganado por patente: el premio va atado a la patente que invitó y se
+// descuenta solo en su próximo pago, así que con varios autos va uno por fila.
+function ContadorReferidos({ patentes, referidos }: { patentes: string[]; referidos: Record<string, ReferidosPatente> }) {
+  return (
+    <div style={{ display: "grid", gap: 8, margin: "4px 0 14px" }}>
+      {patentes.map((p) => {
+        const r = referidos[p] || { acumulado: 0, llegaron: 0, usaron: 0 };
+        return (
+          <div
+            key={p}
+            style={{
+              border: "1.5px solid rgba(31, 122, 61, 0.35)",
+              borderRadius: 10,
+              padding: "10px 14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "#1f7a3d" }}>
+                Descuento acumulado{patentes.length > 1 ? ` · ${p}` : ""}
+              </div>
+              <div style={{ fontSize: 13, opacity: 0.75 }}>
+                {r.llegaron === 0
+                  ? "Todavía no invitas a nadie"
+                  : `${r.llegaron} ${r.llegaron === 1 ? "amigo invitado" : "amigos invitados"} · ${r.usaron} ya ${r.usaron === 1 ? "usó" : "usaron"} su descuento`}
+              </div>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: "#1f7a3d", lineHeight: 1 }}>{fmtCLP(r.acumulado)}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }

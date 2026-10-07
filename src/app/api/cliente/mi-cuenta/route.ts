@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { citaServicios, citas, cupones, ingresos, precios, servicios, suscripcionesOneclick, ventas } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
@@ -22,6 +22,7 @@ import {
 import { ingresoFromRow } from "@/lib/dataAccess/ingresos";
 import { buscarCuponDescuentoPlan, yaTieneTicketReactivacion } from "@/lib/pagos";
 import { ventaFromRow } from "@/lib/dataAccess/ventas";
+import { loteReferido, premioAcumulado, referidosDePatente } from "@/lib/referidos";
 import { esTicketGestionable, loteIdDeTicket } from "@/lib/ticketsGestion";
 import type { Cupon } from "@/types";
 
@@ -105,7 +106,7 @@ export async function GET() {
 
   const db = getDb();
 
-  const [comprasRows, citasRows, tarjetasRows, ventasClienteRows, ingresosClienteRows, config, preciosRows] = await Promise.all([
+  const [comprasRows, citasRows, tarjetasRows, ventasClienteRows, ingresosClienteRows, config, preciosRows, cuponesReferidosRows] = await Promise.all([
     db
       .select({ fecha: ventas.fecha, tipo: ventas.tipo, plan: ventas.plan, monto: ventas.precio, patente: ventas.patente })
       .from(ventas)
@@ -133,6 +134,23 @@ export async function GET() {
     db.select().from(ingresos).where(inArray(ingresos.clienteId, sesion.clienteIds)),
     getConfig(),
     db.select().from(precios),
+    // Programa de referidos por patente: sus premios (para el saldo acumulado)
+    // y los cupones de los amigos que llegaron con su link (ver @/lib/referidos).
+    db
+      .select({
+        nombreLote: cupones.nombreLote,
+        valor: cupones.valor,
+        usado: cupones.usado,
+        fechaCaducidad: cupones.fechaCaducidad,
+        patenteAsignada: cupones.patenteAsignada,
+      })
+      .from(cupones)
+      .where(
+        or(
+          and(like(cupones.nombreLote, "Premio referido - %"), inArray(cupones.patenteAsignada, patentes)),
+          inArray(cupones.nombreLote, patentes.map(loteReferido))
+        )
+      ),
   ]);
 
   // Cupón de descuento vigente por patente — el MISMO lookup que usan los dos
@@ -239,5 +257,9 @@ export async function GET() {
     // Lo que recibe el amigo y lo que gana quien invita (ver @/lib/referidos):
     // Configuración → Programa de referidos.
     descuentoReferido: config.descuentoReferidoValor,
+    // Por patente: descuento ganado que todavía puede usar y amigos que invitó.
+    referidos: Object.fromEntries(
+      patentes.map((p) => [p, { acumulado: premioAcumulado(cuponesReferidosRows, p), ...referidosDePatente(cuponesReferidosRows, p) }])
+    ),
   });
 }

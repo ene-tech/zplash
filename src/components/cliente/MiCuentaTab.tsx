@@ -19,7 +19,7 @@ import { DatosFacturacionSection } from "@/components/cliente/miCuenta/DatosFact
 import { AvisoPoliticas } from "@/components/cliente/miCuenta/AvisoPoliticas";
 import { LibroComentarios } from "@/components/cliente/miCuenta/LibroComentarios";
 import { PromoModal } from "@/components/cliente/miCuenta/PromoModal";
-import { InvitarAmigo } from "@/components/cliente/miCuenta/InvitarAmigo";
+import { InvitarAmigo, type ReferidosPatente } from "@/components/cliente/miCuenta/InvitarAmigo";
 
 interface Tarjeta {
   patente: string;
@@ -81,6 +81,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
   // ya aceptó.
   const [politicasAceptadas, setPoliticasAceptadas] = useState<boolean | undefined>(undefined);
   const [descuentoReferido, setDescuentoReferido] = useState(0);
+  const [referidos, setReferidos] = useState<Record<string, ReferidosPatente>>({});
 
   const cargarMiCuenta = useCallback(() => {
     fetch("/api/cliente/mi-cuenta")
@@ -99,6 +100,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
             descuentos: Record<string, { codigo: string; beneficio: string }>;
             politicasAceptadas: boolean;
             descuentoReferido: number;
+            referidos: Record<string, ReferidosPatente>;
           } | null
         ) => {
           if (!data) return;
@@ -113,6 +115,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
           setDescuentos(data.descuentos || {});
           setPoliticasAceptadas(data.politicasAceptadas);
           setDescuentoReferido(data.descuentoReferido || 0);
+          setReferidos(data.referidos || {});
         }
       );
   }, []);
@@ -136,7 +139,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
       <ActivarNotificaciones />
       <FilaEnVivo />
       <TicketsYCuponesSection cupones={cupones} vehiculos={sesion.vehiculos} onAgregado={cargarMiCuenta} />
-      <InvitarAmigo patentes={sesion.vehiculos.map((v) => v.patente)} valor={descuentoReferido} />
+      <InvitarAmigo patentes={sesion.vehiculos.map((v) => v.patente)} valor={descuentoReferido} referidos={referidos} />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <h3 style={{ margin: 0 }}>Mis vehículos</h3>

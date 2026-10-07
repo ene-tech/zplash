@@ -57,6 +57,36 @@ export function lotePremioReferido(codigoAmigo: string): string {
   return PREFIJO_PREMIO + codigoAmigo;
 }
 
+/** Amigos que llegaron con el link de esta patente (sacaron su cupón de
+ * bienvenida) y cuántos ya lo usaron — los que generaron premio. */
+export function referidosDePatente(
+  cupones: { nombreLote: string; usado: boolean }[],
+  patente: string
+): { llegaron: number; usaron: number } {
+  const lote = loteReferido(patente);
+  const suyos = cupones.filter((c) => c.nombreLote === lote);
+  return { llegaron: suyos.length, usaron: suyos.filter((c) => c.usado).length };
+}
+
+/** Premio de referido acumulado en una patente: la suma de sus premios vigentes
+ * sin usar (normalmente uno solo, ver acumularPremio; más de uno solo si se
+ * pasó el tope). Los absorbidos ya quedaron usados, así que no se cuentan dos veces. */
+export function premioAcumulado(
+  cupones: { nombreLote: string; valor: number; usado: boolean; fechaCaducidad: string; patenteAsignada?: string | null }[],
+  patente: string,
+  ahora: Date = new Date()
+): number {
+  return cupones
+    .filter(
+      (c) =>
+        c.nombreLote.startsWith(PREFIJO_PREMIO) &&
+        c.patenteAsignada === patente &&
+        !c.usado &&
+        new Date(c.fechaCaducidad) > ahora
+    )
+    .reduce((suma, c) => suma + c.valor, 0);
+}
+
 /** Hasta dónde se juntan premios en un solo cupón. Un cobro aplica UN cupón
  * (ver cuponDescuentoDePatente), así que el cron suma los premios sin usar en
  * el nuevo. Tope por debajo del lavado único ($9.990): Webpay no cobra $0 (ver
