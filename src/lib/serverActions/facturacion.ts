@@ -31,7 +31,7 @@ export async function emitirFacturaVentas(ventaIds: string[]): Promise<Resultado
     };
   });
   const receptor = receptores[0];
-  const falta = [!receptor.rut && "RUT", !receptor.razonSocial && "razón social", !receptor.giro && "giro"].filter(Boolean);
+  const falta = [!receptor.rut && "RUT", !receptor.razonSocial && "razón social", !receptor.giro && "giro", !receptor.direccion?.trim() && "dirección"].filter(Boolean);
   if (falta.length) return { ok: false, error: `Faltan datos de facturación: ${falta.join(", ")}` };
   if (receptores.some((r) => r.rut !== receptor.rut)) return { ok: false, error: "Las ventas son de RUTs distintos" };
 

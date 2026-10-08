@@ -22,4 +22,9 @@ describe("armarFactura", () => {
     expect(doc.Encabezado.IdDoc.FmaPago).toBe(2);
     expect(doc.Detalle[0].NmbItem).toBe("Renovación - ABCD12");
   });
+
+  it("sin coma en la dirección usa Temuco como comuna", () => {
+    const doc = armarFactura([venta(1000)], { ...receptor, direccion: "Prieto Norte 71" }, "2026-10-03", "1-9").Documento;
+    expect(doc.Encabezado.Receptor.CmnaRecep).toBe("Temuco");
+  });
 });

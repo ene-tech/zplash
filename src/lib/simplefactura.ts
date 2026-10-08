@@ -43,8 +43,9 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
   const neto = Math.round(total / 1.19);
   const pagada = ventas.every((v) => !v.estadoPago || v.estadoPago === "pagado");
   // No hay campo comuna en la ficha: se toma lo que venga después de la
-  // última coma de la dirección ("Av. X 123, Las Condes").
-  const comuna = receptor.direccion?.includes(",") ? receptor.direccion.split(",").pop()!.trim() : undefined;
+  // última coma de la dirección ("Av. X 123, Las Condes"). Sin coma, el SII
+  // igual exige comuna: se usa la del local, donde están casi todos.
+  const comuna = (receptor.direccion?.includes(",") && receptor.direccion.split(",").pop()!.trim()) || "Temuco";
   return {
     Documento: {
       Encabezado: {
@@ -55,7 +56,7 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
           RznSocRecep: receptor.razonSocial.slice(0, 100),
           GiroRecep: receptor.giro.slice(0, 40),
           DirRecep: receptor.direccion?.slice(0, 70),
-          CmnaRecep: comuna?.slice(0, 20),
+          CmnaRecep: comuna.slice(0, 20),
           CorreoRecep: receptor.email,
         },
         Totales: { MntNeto: neto, TasaIVA: 19, IVA: total - neto, MntTotal: total },
