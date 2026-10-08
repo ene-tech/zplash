@@ -97,6 +97,7 @@ function formulasFromRows(fs: (typeof formulas.$inferSelect)[], comps: (typeof f
   return fs.map((f) => ({
     id: f.id,
     nombre: f.nombre,
+    categoria: f.categoria || undefined,
     notas: f.notas || undefined,
     componentes: comps
       .filter((c) => c.formulaId === f.id)
@@ -302,6 +303,16 @@ export async function moverStockMateriaPrima(input: {
   }
 }
 
+/** "tienda zuper" o "Tienda  ZUPER " se guardan como la "Tienda ZUPER" que ya
+ * existe: la categoría es texto libre y sin esto cada variante abre un grupo. */
+async function categoriaCanonica(tx: Tx, categoria: string | undefined): Promise<string | null> {
+  const limpia = categoria?.trim().replace(/\s+/g, " ");
+  if (!limpia) return null;
+  const existentes = await tx.selectDistinct({ categoria: formulas.categoria }).from(formulas);
+  const clave = limpia.toLocaleLowerCase("es");
+  return existentes.find((e) => e.categoria?.trim().toLocaleLowerCase("es") === clave)?.categoria ?? limpia;
+}
+
 export async function guardarFormula(formula: Formula): Promise<Resultado> {
   if (!(await tieneModulo("fabricacion"))) return SIN_ACCESO;
   const errores = validarFormula(formula);
@@ -309,7 +320,7 @@ export async function guardarFormula(formula: Formula): Promise<Resultado> {
   const id = formula.id || uid();
   try {
     await getDb().transaction(async (tx) => {
-      const campos = { nombre: formula.nombre.trim(), notas: formula.notas?.trim() || null };
+      const campos = { nombre: formula.nombre.trim(), categoria: await categoriaCanonica(tx, formula.categoria), notas: formula.notas?.trim() || null };
       await tx.insert(formulas).values({ id, ...campos }).onConflictDoUpdate({ target: formulas.id, set: campos });
       await tx.delete(formulaComponentes).where(eq(formulaComponentes.formulaId, id));
       if (formula.componentes.length) {

@@ -49,6 +49,8 @@ export const lotesMateriaPrima = pgTable(
 export const formulas = pgTable("formulas", {
   id: text("id").primaryKey(),
   nombre: text("nombre").notNull(),
+  // Texto libre para agrupar en pantalla (ej. "Tienda ZUPER", "Insumos lavado").
+  categoria: text("categoria"),
   notas: text("notas"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
 });

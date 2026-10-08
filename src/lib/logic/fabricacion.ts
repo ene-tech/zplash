@@ -1,36 +1,175 @@
-import type { Formula, LoteMateriaPrima, MateriaPrima, Presentacion, RecepcionFabricaLinea } from "@/types";
+import type { Formula, LoteMateriaPrima, MateriaPrima, Presentacion, RecepcionFabrica, RecepcionFabricaLinea } from "@/types";
 
 /** Cantidades de materia prima con 3 decimales (ml/g si la unidad es L/kg). */
 export function redondearCantidad(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
-/** Cuánto de cada materia prima lleva UNA unidad de la presentación: la
- * mezcla en % del volumen (L o kg por litro) + los envases fijos. */
-export function requerimientoPorUnidad(p: Presentacion, formula: Formula): Map<string, number> {
+export const SIN_CATEGORIA = "Sin categoría";
+
+/** Orden de categorías en todas las pestañas: alfabético, "Sin categoría" al final. */
+export function compararCategoria(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a === SIN_CATEGORIA) return 1;
+  if (b === SIN_CATEGORIA) return -1;
+  return a.localeCompare(b);
+}
+
+/** Cuánto de cada materia prima lleva UNA unidad por la mezcla (% del volumen, en L o kg por litro). */
+function requerimientoMezcla(p: Presentacion, formula: Formula): Map<string, number> {
   const req = new Map<string, number>();
   const litros = p.mlPorUnidad / 1000;
   for (const c of formula.componentes) req.set(c.materiaPrimaId, (req.get(c.materiaPrimaId) ?? 0) + litros * (c.porcentaje / 100));
+  return req;
+}
+
+/** Cuánto de cada envase (u otro ítem fijo) lleva UNA unidad. */
+function requerimientoEnvases(p: Presentacion): Map<string, number> {
+  const req = new Map<string, number>();
   for (const c of p.componentes) req.set(c.materiaPrimaId, (req.get(c.materiaPrimaId) ?? 0) + c.cantidadPorUnidad);
   return req;
 }
 
-/** Costo estimado de una unidad con los lotes y precios de hoy: lo nuestro
- * al costo del lote más antiguo con saldo (o el precio de la fábrica si no
- * tenemos), más la maquila. Es una referencia para la pantalla de fórmulas;
- * el costo real queda en cada recepción. */
+/** Cuánto de cada materia prima lleva UNA unidad de la presentación: la
+ * mezcla + los envases fijos. */
+export function requerimientoPorUnidad(p: Presentacion, formula: Formula): Map<string, number> {
+  const req = requerimientoMezcla(p, formula);
+  for (const [id, cantidad] of requerimientoEnvases(p)) req.set(id, (req.get(id) ?? 0) + cantidad);
+  return req;
+}
+
+/** Costo estimado de una unidad con los lotes y precios de hoy, con el
+ * mismo criterio que una recepción: lo nuestro sale de los lotes en orden
+ * FIFO y lo que falta lo pone la fábrica a su precio. Es una referencia; el
+ * costo real queda en cada recepción. `sinPrecio` = alguna materia prima no
+ * alcanza con lo nuestro y la fábrica no la pone (costo incompleto). */
 export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materias: MateriaPrima[], lotes: LoteMateriaPrima[]) {
   const mpPorId = new Map(materias.map((m) => [m.id, m]));
-  let materiasCosto = 0;
   let sinPrecio = false;
-  for (const [id, cantidad] of requerimientoPorUnidad(p, formula)) {
-    const lote = lotes.find((l) => l.materiaPrimaId === id && l.restante > 0);
-    const precio = lote?.costoUnitario ?? mpPorId.get(id)?.precioFabrica;
-    if (precio === undefined) sinPrecio = true;
-    else materiasCosto += cantidad * precio;
+  const costear = (req: Map<string, number>) => {
+    let total = 0;
+    for (const [id, cantidad] of req) {
+      let pendiente = cantidad;
+      for (const l of lotes) {
+        if (pendiente <= 0) break;
+        if (l.materiaPrimaId !== id || l.restante <= 0) continue;
+        const toma = Math.min(l.restante, pendiente);
+        total += toma * l.costoUnitario;
+        pendiente -= toma;
+      }
+      if (pendiente > 1e-9) {
+        const precio = mpPorId.get(id)?.precioFabrica;
+        if (precio === undefined) sinPrecio = true;
+        else total += pendiente * precio;
+      }
+    }
+    return Math.round(total);
+  };
+  const mezcla = costear(requerimientoMezcla(p, formula));
+  const envases = costear(requerimientoEnvases(p));
+  return {
+    maquila: p.maquilaPorUnidad,
+    mezcla,
+    envases,
+    materias: mezcla + envases,
+    total: p.maquilaPorUnidad + mezcla + envases,
+    sinPrecio,
+  };
+}
+
+/** Una fila de la planilla "Productos terminados": una por presentación. */
+export interface FilaProductoTerminado {
+  presentacionId: string;
+  categoria: string;
+  formula: string;
+  destino: "tienda" | "insumo";
+  nombre: string;
+  mlPorUnidad: number;
+  activa: boolean;
+  stock: number;
+  /** Costo estimado hoy (neto): lote FIFO más antiguo o precio de fábrica. */
+  mezcla: number;
+  envases: number;
+  maquila: number;
+  costo: number;
+  sinPrecio: boolean;
+  /** Costo real (neto) de la última recepción de esta presentación. */
+  ultimoCostoReal?: number;
+  ultimaRecepcion?: string;
+  /** Solo productos de la tienda: precio con IVA, su neto y el margen sobre
+   * el neto. Sin margen si el costo está incompleto (`sinPrecio`): un margen
+   * calculado con costo de menos se leería como sano. */
+  precioVenta?: number;
+  precioNeto?: number;
+  margen?: number;
+  margenPct?: number;
+}
+
+export function filasProductosTerminados(input: {
+  presentaciones: Presentacion[];
+  formulas: Formula[];
+  materias: MateriaPrima[];
+  lotes: LoteMateriaPrima[];
+  /** Del más nuevo al más antiguo. */
+  recepciones: RecepcionFabrica[];
+  productos: { id: string; detalle: string; valorVenta: number; stock: number }[];
+  insumos: { id: string; nombre: string; stock: number }[];
+}): FilaProductoTerminado[] {
+  const formulaPorId = new Map(input.formulas.map((f) => [f.id, f]));
+  const productoPorId = new Map(input.productos.map((x) => [x.id, x]));
+  const insumoPorId = new Map(input.insumos.map((x) => [x.id, x]));
+  // Última recepción de cada presentación, sumando todas sus líneas en esa
+  // recepción (puede venir en más de una línea).
+  const ultimoReal = new Map<string, { fecha: string; costo: number; unidades: number }>();
+  for (const r of input.recepciones) {
+    const enEsta = new Map<string, { costo: number; unidades: number }>();
+    for (const l of r.lineas) {
+      if (!l.presentacionId || ultimoReal.has(l.presentacionId)) continue;
+      const acc = enEsta.get(l.presentacionId) ?? { costo: 0, unidades: 0 };
+      acc.costo += l.maquila + l.materiasFabrica + l.propias;
+      acc.unidades += l.unidades;
+      enEsta.set(l.presentacionId, acc);
+    }
+    for (const [id, acc] of enEsta) if (acc.unidades > 0) ultimoReal.set(id, { fecha: r.fecha, ...acc });
   }
-  const materiasPesos = Math.round(materiasCosto);
-  return { maquila: p.maquilaPorUnidad, materias: materiasPesos, total: p.maquilaPorUnidad + materiasPesos, sinPrecio };
+  const filas: FilaProductoTerminado[] = [];
+  for (const p of input.presentaciones) {
+    const formula = formulaPorId.get(p.formulaId);
+    if (!formula) continue;
+    const producto = p.productoId ? productoPorId.get(p.productoId) : undefined;
+    const insumo = p.insumoId ? insumoPorId.get(p.insumoId) : undefined;
+    const costo = costoEstimadoPorUnidad(p, formula, input.materias, input.lotes);
+    const real = ultimoReal.get(p.id);
+    const fila: FilaProductoTerminado = {
+      presentacionId: p.id,
+      categoria: formula.categoria || SIN_CATEGORIA,
+      formula: formula.nombre,
+      destino: p.productoId ? "tienda" : "insumo",
+      nombre: producto?.detalle ?? insumo?.nombre ?? "(borrado)",
+      mlPorUnidad: p.mlPorUnidad,
+      activa: p.activa,
+      stock: producto?.stock ?? insumo?.stock ?? 0,
+      mezcla: costo.mezcla,
+      envases: costo.envases,
+      maquila: costo.maquila,
+      costo: costo.total,
+      sinPrecio: costo.sinPrecio,
+      ultimoCostoReal: real ? Math.round(real.costo / real.unidades) : undefined,
+      ultimaRecepcion: real?.fecha,
+    };
+    if (producto && producto.valorVenta > 0) {
+      // valorVenta se guarda bruto (IVA incluido), igual que en el POS.
+      const neto = Math.round(producto.valorVenta / 1.19);
+      fila.precioVenta = producto.valorVenta;
+      fila.precioNeto = neto;
+      if (!costo.sinPrecio) {
+        fila.margen = neto - costo.total;
+        fila.margenPct = Math.round(((neto - costo.total) / neto) * 1000) / 10;
+      }
+    }
+    filas.push(fila);
+  }
+  return filas.sort((a, b) => compararCategoria(a.categoria, b.categoria) || a.nombre.localeCompare(b.nombre));
 }
 
 export interface LineaRecepcionInput {

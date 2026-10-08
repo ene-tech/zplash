@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP, fmtFecha } from "@/lib/helpers";
-import { calcularRecepcion, totalesConIva } from "@/lib/logic";
+import { calcularRecepcion, compararCategoria, SIN_CATEGORIA, totalesConIva } from "@/lib/logic";
 import { registrarRecepcionFabrica } from "@/lib/serverActions";
 import type { Presentacion } from "@/types";
 import { Label } from "@/components/ui/label";
@@ -33,10 +33,16 @@ export default function RecepcionesFabricaTab({ datos, recargar }: FabricacionTa
   const formulaNombre = (id: string) => datos.formulas.find((f) => f.id === id)?.nombre || "";
   const destinoNombre = (p: Presentacion) =>
     p.productoId ? data.productos.find((x) => x.id === p.productoId)?.detalle || "?" : data.insumos.find((x) => x.id === p.insumoId)?.nombre || "?";
+  const formulaCategoria = (id: string) => datos.formulas.find((f) => f.id === id)?.categoria || SIN_CATEGORIA;
+  // Agrupadas por la categoría de su fórmula ("Sin categoría" al final), como en la pestaña Fórmulas.
   const opciones = datos.presentaciones
     .filter((p) => p.activa)
-    .map((p) => ({ id: p.id, label: `${destinoNombre(p)} · ${fmtFormato(p.mlPorUnidad)} (${formulaNombre(p.formulaId)})` }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .map((p) => ({
+      id: p.id,
+      grupo: formulaCategoria(p.formulaId),
+      label: `${destinoNombre(p)} · ${fmtFormato(p.mlPorUnidad)} (${formulaNombre(p.formulaId)})`,
+    }))
+    .sort((a, b) => compararCategoria(a.grupo, b.grupo) || a.label.localeCompare(b.label));
   const proveedorNombre = (id?: string) => data.proveedores.find((p) => p.id === id)?.nombre || "-";
 
   const completas = filas.filter((f) => f.presentacionId && parseDecimal(f.unidades) > 0);
@@ -117,7 +123,7 @@ export default function RecepcionesFabricaTab({ datos, recargar }: FabricacionTa
                 value={f.presentacionId}
                 onChange={(v) => setFila(i, { presentacionId: v })}
                 placeholder="Presentación…"
-                opciones={opciones.map((o) => ({ value: o.id, label: o.label }))}
+                opciones={opciones.map((o) => ({ value: o.id, label: o.label, grupo: o.grupo }))}
               />
               <Input className="w-28" inputMode="decimal" placeholder="Unidades" value={f.unidades} onChange={(e) => setFila(i, { unidades: e.target.value })} />
               <span className="text-sm">un</span>

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP } from "@/lib/helpers";
-import { costoEstimadoPorUnidad } from "@/lib/logic";
+import { compararCategoria, costoEstimadoPorUnidad, SIN_CATEGORIA } from "@/lib/logic";
 import { eliminarFormula, eliminarPresentacion, guardarFormula, guardarPresentacion } from "@/lib/serverActions";
 import type { Formula, Presentacion } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -56,90 +56,99 @@ export default function FormulasTab({ datos, recargar }: FabricacionTabProps) {
       {datos.formulas.length === 0 ? (
         <div className="empty">Todavía no hay fórmulas</div>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {datos.formulas.map((f) => {
-            const suma = f.componentes.reduce((s, c) => s + c.porcentaje, 0);
-            const pres = datos.presentaciones.filter((p) => p.formulaId === f.id);
-            return (
-              <div key={f.id} className="rounded-lg border border-border bg-card p-3 text-sm">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <strong>{f.nombre}</strong>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon-sm" title="Editar fórmula" aria-label="Editar fórmula" onClick={() => setEditando(f)}>
-                      <Pencil />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      title="Eliminar fórmula"
-                      aria-label="Eliminar fórmula"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => confirmar(`¿Eliminar la fórmula ${f.nombre} y sus presentaciones? Las recepciones ya registradas no cambian.`, () => eliminarFormula(f.id))}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
-                </div>
-                {f.componentes.map((c) => (
-                  <div key={c.id} className="flex justify-between">
-                    <span>{mpPorId.get(c.materiaPrimaId)?.nombre || "?"}</span>
-                    <span>{fmtCantidad(c.porcentaje)}%</span>
-                  </div>
-                ))}
-                <div className={`text-right ${Math.abs(suma - 100) > 0.01 ? "text-destructive" : "text-muted-foreground"}`}>Suma {fmtCantidad(suma)}%</div>
-                {f.notas && <div className="mt-1 text-muted-foreground">{f.notas}</div>}
-
-                <div className="mt-3 border-t border-border pt-2">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="font-medium">Presentaciones</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPresEditando({ id: "", formulaId: f.id, mlPorUnidad: 0, maquilaPorUnidad: 0, activa: true, componentes: [] })}
-                    >
-                      + Presentación
-                    </Button>
-                  </div>
-                  {pres.length === 0 && <div className="text-muted-foreground">Sin presentaciones: no se puede recibir todavía.</div>}
-                  {pres.map((p) => {
-                    const costo = costoEstimadoPorUnidad(p, f, datos.materiasPrimas, datos.lotes);
-                    return (
-                      <div key={p.id} className={`flex items-start justify-between gap-2 border-b border-border py-1.5 ${p.activa ? "" : "opacity-50"}`}>
-                        <div>
-                          <div>
-                            {destinoNombre(p)} <span className="text-muted-foreground">· {fmtFormato(p.mlPorUnidad)} · {p.productoId ? "tienda" : "insumo"}</span>
-                          </div>
-                          <div className="text-muted-foreground">
-                            Maquila {fmtCLP(p.maquilaPorUnidad)}
-                            {p.componentes.length > 0 &&
-                              ` · ${p.componentes.map((c) => `${fmtCantidad(c.cantidadPorUnidad)} ${mpPorId.get(c.materiaPrimaId)?.nombre || "?"}`).join(", ")}`}
-                          </div>
-                          <div className="text-muted-foreground">
-                            Costo estimado por unidad: <strong className="text-foreground">{fmtCLP(costo.total)}</strong>
-                            {costo.sinPrecio && <span className="text-destructive"> (falta costo de alguna materia prima)</span>}
-                          </div>
-                        </div>
+        <div className="grid gap-6">
+          {agruparPorCategoria(datos.formulas).map((g) => (
+            <section key={g.titulo}>
+              <h3 className="mb-2 font-semibold">
+                {g.titulo} <span className="font-normal text-muted-foreground">({g.formulas.length})</span>
+              </h3>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {g.formulas.map((f) => {
+                  const suma = f.componentes.reduce((s, c) => s + c.porcentaje, 0);
+                  const pres = datos.presentaciones.filter((p) => p.formulaId === f.id);
+                  return (
+                    <div key={f.id} className="rounded-lg border border-border bg-card p-3 text-sm">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <strong>{f.nombre}</strong>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon-sm" aria-label="Editar presentación" onClick={() => setPresEditando(p)}>
+                          <Button variant="ghost" size="icon-sm" title="Editar fórmula" aria-label="Editar fórmula" onClick={() => setEditando(f)}>
                             <Pencil />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            aria-label="Eliminar presentación"
+                            title="Eliminar fórmula"
+                            aria-label="Eliminar fórmula"
                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => confirmar(`¿Eliminar la presentación de ${destinoNombre(p)}?`, () => eliminarPresentacion(p.id))}
+                            onClick={() => confirmar(`¿Eliminar la fórmula ${f.nombre} y sus presentaciones? Las recepciones ya registradas no cambian.`, () => eliminarFormula(f.id))}
                           >
                             <Trash2 />
                           </Button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                      {f.componentes.map((c) => (
+                        <div key={c.id} className="flex justify-between">
+                          <span>{mpPorId.get(c.materiaPrimaId)?.nombre || "?"}</span>
+                          <span>{fmtCantidad(c.porcentaje)}%</span>
+                        </div>
+                      ))}
+                      <div className={`text-right ${Math.abs(suma - 100) > 0.01 ? "text-destructive" : "text-muted-foreground"}`}>Suma {fmtCantidad(suma)}%</div>
+                      {f.notas && <div className="mt-1 text-muted-foreground">{f.notas}</div>}
+
+                      <div className="mt-3 border-t border-border pt-2">
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="font-medium">Presentaciones</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPresEditando({ id: "", formulaId: f.id, mlPorUnidad: 0, maquilaPorUnidad: 0, activa: true, componentes: [] })}
+                          >
+                            + Presentación
+                          </Button>
+                        </div>
+                        {pres.length === 0 && <div className="text-muted-foreground">Sin presentaciones: no se puede recibir todavía.</div>}
+                        {pres.map((p) => {
+                          const costo = costoEstimadoPorUnidad(p, f, datos.materiasPrimas, datos.lotes);
+                          return (
+                            <div key={p.id} className={`flex items-start justify-between gap-2 border-b border-border py-1.5 ${p.activa ? "" : "opacity-50"}`}>
+                              <div>
+                                <div>
+                                  {destinoNombre(p)} <span className="text-muted-foreground">· {fmtFormato(p.mlPorUnidad)} · {p.productoId ? "tienda" : "insumo"}</span>
+                                </div>
+                                <div className="text-muted-foreground">
+                                  Maquila {fmtCLP(p.maquilaPorUnidad)}
+                                  {p.componentes.length > 0 &&
+                                    ` · ${p.componentes.map((c) => `${fmtCantidad(c.cantidadPorUnidad)} ${mpPorId.get(c.materiaPrimaId)?.nombre || "?"}`).join(", ")}`}
+                                </div>
+                                <div className="text-muted-foreground">
+                                  Costo estimado por unidad: <strong className="text-foreground">{fmtCLP(costo.total)}</strong>
+                                  {costo.sinPrecio && <span className="text-destructive"> (falta costo de alguna materia prima)</span>}
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon-sm" aria-label="Editar presentación" onClick={() => setPresEditando(p)}>
+                                  <Pencil />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Eliminar presentación"
+                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => confirmar(`¿Eliminar la presentación de ${destinoNombre(p)}?`, () => eliminarPresentacion(p.id))}
+                                >
+                                  <Trash2 />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </section>
+          ))}
         </div>
       )}
 
@@ -197,9 +206,23 @@ function FilasComponentes({
 
 const aTexto = (n: number) => String(n).replace(".", ",");
 
+/** Categorías en orden alfabético, "Sin categoría" al final; dentro, por nombre. */
+function agruparPorCategoria(formulas: Formula[]): { titulo: string; formulas: Formula[] }[] {
+  const grupos = new Map<string, Formula[]>();
+  for (const f of formulas) {
+    const titulo = f.categoria || SIN_CATEGORIA;
+    grupos.set(titulo, [...(grupos.get(titulo) ?? []), f]);
+  }
+  return [...grupos]
+    .sort(([a], [b]) => compararCategoria(a, b))
+    .map(([titulo, fs]) => ({ titulo, formulas: fs.sort((a, b) => a.nombre.localeCompare(b.nombre)) }));
+}
+
 function FormulaDialog({ formula, onClose, datos, recargar }: { formula: Formula; onClose: () => void } & FabricacionTabProps) {
   const [nombre, setNombre] = useState(formula.nombre);
+  const [categoria, setCategoria] = useState(formula.categoria || "");
   const [notas, setNotas] = useState(formula.notas || "");
+  const categorias = [...new Set(datos.formulas.flatMap((f) => (f.categoria ? [f.categoria] : [])))].sort((a, b) => a.localeCompare(b));
   const [filas, setFilas] = useState<FilaComponente[]>(formula.componentes.map((c) => ({ materiaPrimaId: c.materiaPrimaId, valor: aTexto(c.porcentaje) })));
   const [guardando, setGuardando] = useState(false);
   const materias = datos.materiasPrimas.filter((m) => m.activa || filas.some((f) => f.materiaPrimaId === m.id));
@@ -210,6 +233,7 @@ function FormulaDialog({ formula, onClose, datos, recargar }: { formula: Formula
     const r = await guardarFormula({
       id: formula.id,
       nombre,
+      categoria,
       notas,
       componentes: filas.map((f) => ({ id: "", materiaPrimaId: f.materiaPrimaId, porcentaje: parseDecimal(f.valor) })),
     });
@@ -229,6 +253,19 @@ function FormulaDialog({ formula, onClose, datos, recargar }: { formula: Formula
           <div className="grid gap-1.5">
             <Label htmlFor="f-nombre">Nombre</Label>
             <Input id="f-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Limpia vidrios" autoFocus />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="f-categoria">Categoría</Label>
+            <Input id="f-categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} placeholder="Ej: Tienda ZUPER, Insumos lavado" />
+            {categorias.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {categorias.map((c) => (
+                  <Button key={c} type="button" variant={c === categoria.trim() ? "default" : "outline"} size="sm" onClick={() => setCategoria(c)}>
+                    {c}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="grid gap-1.5">
             <Label>Mezcla (% del volumen)</Label>

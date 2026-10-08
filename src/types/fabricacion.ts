@@ -34,6 +34,8 @@ export interface FormulaComponente {
 export interface Formula {
   id: string;
   nombre: string;
+  /** Texto libre para agrupar en pantalla. */
+  categoria?: string;
   notas?: string;
   componentes: FormulaComponente[];
 }

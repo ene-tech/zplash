@@ -6,14 +6,16 @@ import Topbar from "@/components/Topbar";
 import MateriasPrimasTab from "@/components/tabs/fabricacion/MateriasPrimasTab";
 import FormulasTab from "@/components/tabs/fabricacion/FormulasTab";
 import RecepcionesFabricaTab from "@/components/tabs/fabricacion/RecepcionesFabricaTab";
+import ProductosTerminadosTab from "@/components/tabs/fabricacion/ProductosTerminadosTab";
 import { cargarFabricacion } from "@/lib/serverActions";
 import type { DatosFabricacion } from "@/types";
-import { FlaskConical, ListOrdered, PackageCheck } from "lucide-react";
+import { FlaskConical, ListOrdered, PackageCheck, Sheet } from "lucide-react";
 
 const TABS = [
   { id: "recepciones", label: "Recepciones", icon: PackageCheck },
   { id: "materias", label: "Materias primas", icon: FlaskConical },
   { id: "formulas", label: "Fórmulas", icon: ListOrdered },
+  { id: "terminados", label: "Productos terminados", icon: Sheet },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -67,6 +69,7 @@ export default function FabricacionView() {
                 {tab === "recepciones" && <RecepcionesFabricaTab datos={datos} recargar={recargar} />}
                 {tab === "materias" && <MateriasPrimasTab datos={datos} recargar={recargar} />}
                 {tab === "formulas" && <FormulasTab datos={datos} recargar={recargar} />}
+                {tab === "terminados" && <ProductosTerminadosTab datos={datos} recargar={recargar} />}
               </>
             )}
           </div>
