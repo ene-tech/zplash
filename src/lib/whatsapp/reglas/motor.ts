@@ -11,9 +11,12 @@ import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
 import { upsertCupones } from "@/lib/dataAccess/cupones";
 import { marcarDisparoReglaWhatsapp, obtenerPlantillaWhatsapp } from "@/lib/dataAccess/whatsapp";
-import { aplicarVariables, fmtCLP, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
+import { aplicarVariables, esEmailEnviable, fmtCLP, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
 import { posicionesVariableEnLink, sufijoOrigen } from "@/lib/helpers/utm";
+import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
+import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { enviarPush } from "@/lib/push/enviar";
+import { enviarSms } from "@/lib/sms/enviar";
 import { enviarMensajePlantilla } from "../enviar";
 import type { Cliente, Cupon, PlantillaWhatsapp, ReglaWhatsapp } from "@/types";
 
@@ -110,7 +113,8 @@ export function construirVariables(opts: {
 // lee la config). Lo usan las reglas (ejecutarAccionRegla) y el envío masivo
 // (@/lib/whatsapp/masivo), que arman sus variables por separado.
 export async function descuentoReferidoSiLoPide(plantilla: PlantillaWhatsapp): Promise<number | undefined> {
-  return plantilla.metaVariables?.some((v) => v.toLowerCase() === "descuentoreferido")
+  // El texto también cuenta: las reglas por SMS y correo no tienen metaVariables.
+  return plantilla.metaVariables?.some((v) => v.toLowerCase() === "descuentoreferido") || plantilla.mensaje.includes("{{descuentoReferido}}")
     ? (await getConfig()).descuentoReferidoValor
     : undefined;
 }
@@ -238,7 +242,7 @@ export async function ejecutarAccionRegla(
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
     return;
   }
-  if (!cliente.telefono) {
+  if (regla.canal !== "correo" && !cliente.telefono) {
     console.error(`Regla WhatsApp "${regla.nombre}": cliente ${cliente.id} sin teléfono, no se puede enviar`);
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
     return;
@@ -274,6 +278,22 @@ export async function ejecutarAccionRegla(
   const descuentoReferido = await descuentoReferidoSiLoPide(plantilla);
   const variables = construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior, descuentoReferido, cupon });
 
+  // SMS y correo mandan el texto de la plantilla tal cual (con sus
+  // {{variables}}): no pasan por la aprobación de Meta, así que no necesitan
+  // metaNombre ni metaVariables.
+  if (regla.canal === "sms" || regla.canal === "correo") {
+    const texto = aplicarVariables(plantilla.mensaje, variables);
+    const envio =
+      regla.canal === "sms"
+        ? await enviarSms({ telefono: cliente.telefono ?? "", texto, campana: `regla:${regla.id}`, clienteId: cliente.id, enviadoPor: "regla-sms" })
+        : esEmailEnviable(cliente.email)
+          ? await enviarCorreoTransaccional({ to: cliente.email!.trim(), subject: aplicarVariables(plantilla.nombre, variables), html: envolverCorreoBase(texto, {}), clienteId: cliente.id })
+          : { ok: false, error: "sin correo" };
+    if (!envio.ok) console.error(`Regla "${regla.nombre}" (${regla.canal}): no se pudo enviar al cliente ${cliente.id}`, envio.error);
+    await marcarDisparoReglaWhatsapp(disparoId, { estado: envio.ok ? "enviado" : "error", cuponId });
+    return;
+  }
+
   // Con PUSH_FALLBACK_A_WHATSAPP="true" (opt-in, ver plan de la PWA), si el
   // cliente tiene una suscripción push activa y el envío llega, nos ahorramos
   // el mensaje de plantilla pago; sin la variable (o en "false") el
@@ -296,7 +316,7 @@ export async function ejecutarAccionRegla(
     return;
   }
 
-  const mensaje = await enviarSegunPlantilla(plantilla, cliente.telefono, variables);
+  const mensaje = await enviarSegunPlantilla(plantilla, cliente.telefono!, variables);
   // `mensaje` siempre existe salvo que falte metaNombre — enviarMensajePlantilla
   // (@/lib/whatsapp/enviar) registra la fila de todos modos aunque la Graph
   // API rechace el envío, con estado "fallido" adentro. Hay que mirar ese

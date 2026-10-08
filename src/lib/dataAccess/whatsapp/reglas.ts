@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { reglasWhatsapp } from "@/db/schema";
-import type { AccionReglaWhatsapp, ReglaWhatsapp, TipoEventoReglaWhatsapp } from "@/types";
+import type { AccionReglaWhatsapp, CanalReglaWhatsapp, ReglaWhatsapp, TipoEventoReglaWhatsapp } from "@/types";
 import { upsertRows } from "../shared";
 
 type ReglaWhatsappRow = typeof reglasWhatsapp.$inferSelect;
@@ -25,6 +25,7 @@ function reglaWhatsappToRow(r: ReglaWhatsapp): typeof reglasWhatsapp.$inferInser
     cuponValor: r.cuponValor ?? null,
     cuponValidezDias: r.cuponValidezDias ?? null,
     plantillaWhatsappId: r.plantillaWhatsappId,
+    canal: r.canal || "whatsapp",
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || null,
   };
@@ -47,6 +48,7 @@ export function reglaWhatsappFromRow(r: ReglaWhatsappRow): ReglaWhatsapp {
     cuponValor: r.cuponValor ?? undefined,
     cuponValidezDias: r.cuponValidezDias ?? undefined,
     plantillaWhatsappId: r.plantillaWhatsappId,
+    canal: (r.canal || "whatsapp") as CanalReglaWhatsapp,
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
   };

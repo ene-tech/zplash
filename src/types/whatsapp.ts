@@ -168,6 +168,8 @@ export type TipoEventoReglaWhatsapp =
   | "primer_ingreso_mes"
   | "ticket_por_vencer";
 export type AccionReglaWhatsapp = "cupon_descuento" | "mensaje_simple";
+// Ver `canal` en @/db/schema/whatsapp.
+export type CanalReglaWhatsapp = "whatsapp" | "sms" | "correo";
 
 // Regla de negocio ("cuándo mandar qué") — ver plan de "motor de reglas
 // WhatsApp" y comentario en @/db/schema/whatsapp. Editable desde Web
@@ -190,6 +192,7 @@ export interface ReglaWhatsapp {
   cuponValor?: number;
   cuponValidezDias?: number;
   plantillaWhatsappId: string;
+  canal: CanalReglaWhatsapp;
   creadoEn: string;
   creadoPor?: string;
 }

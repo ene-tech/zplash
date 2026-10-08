@@ -3,13 +3,15 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { PLANES, TIPOS_VENTA_PLAN, uid } from "@/lib/helpers";
-import type { AccionReglaWhatsapp, ReglaWhatsapp, TipoEventoReglaWhatsapp } from "@/types";
+import type { AccionReglaWhatsapp, CanalReglaWhatsapp, ReglaWhatsapp, TipoEventoReglaWhatsapp } from "@/types";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
 
 // Mismo selector que ReglasCorreoTab, misma razón: sale de TIPOS_VENTA_PLAN
 // para que un canal de cobro nuevo no quede sin poder disparar reglas.
 // "Lavado único" se agrega aparte porque no es una venta de plan.
 const TIPOS_VENTA_CONOCIDOS = ["Lavado único", ...TIPOS_VENTA_PLAN];
+
+const NOMBRE_CANAL: Record<CanalReglaWhatsapp, string> = { whatsapp: "WhatsApp", sms: "SMS", correo: "Correo" };
 
 function resumenCondicion(r: ReglaWhatsapp): string {
   if (r.tipoEvento === "venta_creada") {
@@ -64,7 +66,9 @@ function ReglaRow({ regla, puedeBorrar }: { regla: ReglaWhatsapp; puedeBorrar: b
 
   return (
     <div className="vehicle-card" style={{ opacity: regla.activa ? 1 : 0.6, marginBottom: 12 }}>
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>{regla.nombre}</div>
+      <div style={{ fontWeight: 700, marginBottom: 4 }}>
+        {regla.nombre} · {NOMBRE_CANAL[regla.canal]}
+      </div>
       <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 4 }}>
         {resumenCondicion(regla)}
       </div>
@@ -76,7 +80,7 @@ function ReglaRow({ regla, puedeBorrar }: { regla: ReglaWhatsapp; puedeBorrar: b
           {" · Plantilla: "}
           {plantilla?.nombre || "(eliminada)"}
         </span>
-        {plantilla && <BadgeAprobadoMeta aprobado={plantilla.metaAprobado} />}
+        {plantilla && regla.canal === "whatsapp" && <BadgeAprobadoMeta aprobado={plantilla.metaAprobado} />}
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button className="icon-btn" onClick={toggleActiva}>
@@ -114,6 +118,7 @@ export default function ReglasWhatsappTab() {
   const cuponValorRef = useRef<HTMLInputElement>(null);
   const cuponValidezDiasRef = useRef<HTMLInputElement>(null);
   const [plantillaId, setPlantillaId] = useState("");
+  const [canal, setCanal] = useState<CanalReglaWhatsapp>("sms");
 
   const togglePlan = (plan: string) => {
     setPlanesElegidos((prev) => (prev.includes(plan) ? prev.filter((p) => p !== plan) : [...prev, plan]));
@@ -126,7 +131,7 @@ export default function ReglasWhatsappTab() {
       return;
     }
     if (!plantillaId) {
-      setErr({ msg: "Elige una plantilla de WhatsApp", ok: false });
+      setErr({ msg: "Elige una plantilla", ok: false });
       return;
     }
     const cuponValor = Number(cuponValorRef.current?.value || 0);
@@ -151,6 +156,7 @@ export default function ReglasWhatsappTab() {
       cuponValor: accion === "cupon_descuento" ? cuponValor : undefined,
       cuponValidezDias: accion === "cupon_descuento" ? Number(cuponValidezDiasRef.current?.value || 7) : undefined,
       plantillaWhatsappId: plantillaId,
+      canal,
       creadoEn: new Date().toISOString(),
       creadoPor: ui.perfilActual?.nombre || undefined,
     };
@@ -174,10 +180,12 @@ export default function ReglasWhatsappTab() {
   return (
     <div>
       <div className="modal" style={{ maxWidth: 720, margin: "0 0 20px 0" }}>
-        <h3>Nueva regla WhatsApp</h3>
+        <h3>Nueva regla automática</h3>
         <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
-          Define cuándo el sistema le escribe a un cliente por WhatsApp: al registrarse una venta que coincida, o unos
-          días antes de que venza su plan. Las plantillas se administran en la pestaña &quot;WhatsApp Plantillas&quot;.
+          Define cuándo el sistema le escribe a un cliente y por dónde: al registrarse una venta que coincida, o unos
+          días antes de que venza su plan. El texto sale de una plantilla de la pestaña &quot;WhatsApp Plantillas&quot;: por SMS
+          va en una sola línea con el link de baja al final; por correo, el nombre de la plantilla es el asunto. WhatsApp
+          se cobra por mensaje: úsalo solo si de verdad hace falta.
         </div>
 
         <div className="field" style={{ marginBottom: 10 }}>
@@ -270,7 +278,16 @@ export default function ReglasWhatsappTab() {
         )}
 
         <div className="field" style={{ marginBottom: 10 }}>
-          <label>Plantilla de WhatsApp a enviar</label>
+          <label>Canal</label>
+          <select value={canal} onChange={(e) => setCanal(e.target.value as CanalReglaWhatsapp)}>
+            <option value="sms">SMS</option>
+            <option value="correo">Correo</option>
+            <option value="whatsapp">WhatsApp (se cobra por mensaje)</option>
+          </select>
+        </div>
+
+        <div className="field" style={{ marginBottom: 10 }}>
+          <label>Plantilla a enviar</label>
           <select value={plantillaId} onChange={(e) => setPlantillaId(e.target.value)}>
             <option value="">Elige una plantilla...</option>
             {data.plantillasWhatsapp

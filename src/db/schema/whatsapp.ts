@@ -165,6 +165,12 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   plantillaWhatsappId: text("plantilla_whatsapp_id")
     .notNull()
     .references(() => plantillasWhatsapp.id),
+  // Por dónde sale el aviso: "whatsapp" (template de Meta), "sms" (texto de la
+  // plantilla por LabsMobile, ver @/lib/sms) o "correo" (texto de la plantilla
+  // por Resend, asunto = nombre de la plantilla). Desde oct-2026 no se inician
+  // conversaciones por WhatsApp (se cobran): las reglas van por SMS y correo,
+  // reusando los mismos disparadores, idempotencia y opt-out.
+  canal: text("canal").notNull().default("whatsapp"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),
 });

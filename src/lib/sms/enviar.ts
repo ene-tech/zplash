@@ -1,7 +1,9 @@
 import "server-only";
 
 import { randomInt } from "node:crypto";
-import { insertarMensajeSmsPendiente, marcarMensajeSms } from "@/lib/dataAccess";
+// Submódulo y no el barrel: el motor de reglas (@/lib/whatsapp/reglas/motor)
+// importa este archivo y el barrel lo cerraría en ciclo vía dataAccess/ventas.
+import { insertarMensajeSmsPendiente, marcarMensajeSms } from "@/lib/dataAccess/sms";
 import { uid } from "@/lib/helpers";
 import { LARGO_CODIGO_BAJA, MAX_SEGMENTOS_SMS, segmentosSms, textoFinalSms } from "./texto";
 
