@@ -16,7 +16,7 @@ import {
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { sesionActual, tieneAlgunModulo, tieneSesionValida } from "@/lib/session";
-import { enviarMensajePlantilla, enviarMensajeTexto } from "@/lib/whatsapp/enviar";
+import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
 import type { Cupon } from "@/types";
 
 // No hay un módulo "cupones" en la UI: el permiso sale de las pantallas que
@@ -47,16 +47,6 @@ export async function deleteCupones(ids: string[]): Promise<boolean> {
   if (!(await tieneAlgunModulo(MODULOS_BORRAN_CUPONES))) return false;
   return dataAccess.deleteCupones(ids);
 }
-
-// Template de Meta para entregar un código fuera de la ventana de 24h (dentro
-// de ella se manda texto libre, que sale igual y no cuesta conversación). Las
-// variables van posicionales: {{1}} nombre, {{2}} beneficio, {{3}} código,
-// {{4}} fecha de caducidad — ver scripts/crear-template-entrega-cupon.mts,
-// que es con lo que se crea y se manda a aprobar en el WABA, y que además
-// documenta por qué el template es MARKETING y por qué el cuerpo no puede
-// decir "Código: X" (Meta lo confunde con un OTP y lo rechaza).
-const TEMPLATE_ENTREGA_CUPON = "entrega_codigo_cupon";
-const IDIOMA_TEMPLATE = "es_CL";
 
 /** Condiciones de uso en una línea, para que el cliente sepa si puede
  * regalarlo. Un "vale" sin `patentesAutorizadas` lo canjea cualquier auto
@@ -133,16 +123,16 @@ async function enviarPorWhatsapp(
   const numero = formatTelefono(telefono);
 
   try {
-    // Dentro de la ventana de 24h el texto libre pasa y se lee mejor; fuera,
-    // Meta solo acepta un template aprobado (ver enviarMensajeTexto).
+    // Solo dentro de la ventana de 24h (el cliente nos escribió), donde el
+    // texto libre no se cobra. Fuera de ella no se manda el template: desde
+    // oct-2026 no iniciamos conversaciones por WhatsApp, el cupón va por correo.
     const conversacion = await dataAccess.buscarOCrearConversacion(numero);
-    const mensaje = (await dataAccess.dentroVentana24h(conversacion.id))
-      ? await enviarMensajeTexto(
-          numero,
-          `Hola ${nombre}! Te dejamos tu ${beneficio.toLowerCase()} en ZPlash 🚗\n\nCódigo: ${codigo}\nVálido hasta el ${vence}.`,
-          enviadoPor
-        )
-      : await enviarMensajePlantilla(numero, TEMPLATE_ENTREGA_CUPON, IDIOMA_TEMPLATE, [nombre, beneficio, codigo, vence], enviadoPor);
+    if (!(await dataAccess.dentroVentana24h(conversacion.id))) return "WhatsApp no enviado (el cliente no ha escrito en 24 h; va solo por correo)";
+    const mensaje = await enviarMensajeTexto(
+      numero,
+      `Hola ${nombre}! Te dejamos tu ${beneficio.toLowerCase()} en ZPlash 🚗\n\nCódigo: ${codigo}\nVálido hasta el ${vence}.`,
+      enviadoPor
+    );
     return mensaje.estado === "enviado" ? `WhatsApp enviado a ${numero}` : `WhatsApp no enviado (${mensaje.error || "error"})`;
   } catch (error) {
     console.error("Error enviando el cupón por WhatsApp", codigo, error);
