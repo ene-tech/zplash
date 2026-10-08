@@ -1,112 +1,191 @@
-import type { Formula, MateriaPrima, RecepcionFabricaLinea } from "@/types";
+import type { Formula, LoteMateriaPrima, MateriaPrima, Presentacion, RecepcionFabricaLinea } from "@/types";
 
-/** Cantidades de materia prima con 3 decimales (gramos/ml si la unidad es kg/L). */
+/** Cantidades de materia prima con 3 decimales (ml/g si la unidad es L/kg). */
 export function redondearCantidad(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
+/** Cuánto de cada materia prima lleva UNA unidad de la presentación: la
+ * mezcla en % del volumen (L o kg por litro) + los envases fijos. */
+export function requerimientoPorUnidad(p: Presentacion, formula: Formula): Map<string, number> {
+  const req = new Map<string, number>();
+  const litros = p.mlPorUnidad / 1000;
+  for (const c of formula.componentes) req.set(c.materiaPrimaId, (req.get(c.materiaPrimaId) ?? 0) + litros * (c.porcentaje / 100));
+  for (const c of p.componentes) req.set(c.materiaPrimaId, (req.get(c.materiaPrimaId) ?? 0) + c.cantidadPorUnidad);
+  return req;
+}
+
+/** Costo estimado de una unidad con los lotes y precios de hoy: lo nuestro
+ * al costo del lote más antiguo con saldo (o el precio de la fábrica si no
+ * tenemos), más la maquila. Es una referencia para la pantalla de fórmulas;
+ * el costo real queda en cada recepción. */
+export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materias: MateriaPrima[], lotes: LoteMateriaPrima[]) {
+  const mpPorId = new Map(materias.map((m) => [m.id, m]));
+  let materiasCosto = 0;
+  let sinPrecio = false;
+  for (const [id, cantidad] of requerimientoPorUnidad(p, formula)) {
+    const lote = lotes.find((l) => l.materiaPrimaId === id && l.restante > 0);
+    const precio = lote?.costoUnitario ?? mpPorId.get(id)?.precioFabrica;
+    if (precio === undefined) sinPrecio = true;
+    else materiasCosto += cantidad * precio;
+  }
+  const materiasPesos = Math.round(materiasCosto);
+  return { maquila: p.maquilaPorUnidad, materias: materiasPesos, total: p.maquilaPorUnidad + materiasPesos, sinPrecio };
+}
+
 export interface LineaRecepcionInput {
-  insumoId: string;
-  litros: number;
+  presentacionId: string;
+  unidades: number;
+}
+
+/** Lo que sale de un lote nuestro para una recepción. */
+export interface ConsumoLote {
+  loteId: string;
+  materiaPrimaId: string;
+  cantidad: number;
+  costoUnitario: number;
 }
 
 export interface Faltante {
   materiaPrimaId: string;
   nombre: string;
   unidad: string;
-  necesita: number;
-  hay: number;
+  falta: number;
+}
+
+/** Por materia prima: cuánto sale de lo nuestro y cuánto pone la fábrica. */
+export interface UsoMateriaPrima {
+  materiaPrimaId: string;
+  propia: number;
+  fabrica: number;
 }
 
 export interface RecepcionCalculada {
   lineas: RecepcionFabricaLinea[];
-  /** Cuánto se descuenta de cada materia prima propia (positivo). */
-  consumos: Map<string, number>;
+  consumos: ConsumoLote[];
+  usos: UsoMateriaPrima[];
   faltantes: Faltante[];
   totalMaquila: number;
   totalMateriasFabrica: number;
+  totalPropias: number;
 }
 
-/** Costo por litro de una fórmula: maquila + lo que cobra la fábrica + el
- * costo de nuestras propias materias primas (este último no se paga al
- * recibir, ya se pagó al comprarlas, pero sirve para saber cuánto cuesta el
- * litro de verdad). */
-export function costoPorLitro(formula: Formula, materias: MateriaPrima[]) {
-  const porId = new Map(materias.map((m) => [m.id, m]));
-  let fabrica = 0;
-  let propias = 0;
-  for (const c of formula.componentes) {
-    const mp = porId.get(c.materiaPrimaId);
-    if (!mp) continue;
-    const costo = (c.porcentaje / 100) * mp.costoUnitario;
-    if (mp.propia) propias += costo;
-    else fabrica += costo;
-  }
-  return { maquila: formula.maquilaPorLitro, fabrica, propias, total: formula.maquilaPorLitro + fabrica + propias };
-}
-
-/** Arma una recepción: cuánto se paga (maquila + materias que pone la
- * fábrica, en pesos enteros por línea) y cuánto se descuenta de cada materia
- * prima propia. Si alguna propia no alcanza queda en `faltantes` y la
- * recepción no se debe guardar. */
+/** Arma una recepción. Por cada materia prima se consume primero lo nuestro,
+ * del lote más antiguo (FIFO); lo que falta lo pone la fábrica a su precio.
+ * Si la fábrica no la pone, queda en `faltantes` y no se debe guardar.
+ * `lotes` deben venir del más antiguo al más nuevo. */
 export function calcularRecepcion(
   input: LineaRecepcionInput[],
+  presentaciones: Presentacion[],
   formulas: Formula[],
   materias: MateriaPrima[],
-  insumos: { id: string; nombre: string }[]
+  lotes: LoteMateriaPrima[],
+  destinos: { productos: { id: string; detalle: string }[]; insumos: { id: string; nombre: string }[] }
 ): RecepcionCalculada | { error: string } {
-  const formulaPorInsumo = new Map(formulas.map((f) => [f.insumoId, f]));
+  const presPorId = new Map(presentaciones.map((p) => [p.id, p]));
+  const formulaPorId = new Map(formulas.map((f) => [f.id, f]));
   const mpPorId = new Map(materias.map((m) => [m.id, m]));
-  const nombreInsumo = new Map(insumos.map((i) => [i.id, i.nombre]));
+  // Copia: el cálculo va descontando saldo a medida que avanza por las líneas.
+  const saldo = lotes.filter((l) => l.restante > 0).map((l) => ({ ...l }));
 
   const lineas: RecepcionFabricaLinea[] = [];
-  const consumos = new Map<string, number>();
+  const consumos = new Map<string, ConsumoLote>();
+  const usos = new Map<string, UsoMateriaPrima>();
+  const faltan = new Map<string, number>();
 
   for (const l of input) {
-    const nombre = nombreInsumo.get(l.insumoId);
-    if (!nombre) return { error: "Uno de los productos ya no existe en Insumos" };
-    if (!(l.litros > 0)) return { error: `Indica los litros recibidos de ${nombre}` };
-    const formula = formulaPorInsumo.get(l.insumoId);
-    if (!formula) return { error: `${nombre} no tiene fórmula: créala en la pestaña Fórmulas antes de recibirlo` };
+    const p = presPorId.get(l.presentacionId);
+    if (!p) return { error: "Una de las presentaciones ya no existe" };
+    const formula = formulaPorId.get(p.formulaId);
+    if (!formula) return { error: "La fórmula de una presentación ya no existe" };
+    const nombre = p.productoId
+      ? destinos.productos.find((x) => x.id === p.productoId)?.detalle
+      : destinos.insumos.find((x) => x.id === p.insumoId)?.nombre;
+    if (!nombre) return { error: "El producto o insumo de una presentación ya no existe" };
+    if (!(l.unidades > 0)) return { error: `Indica las unidades recibidas de ${nombre}` };
+    if (p.productoId && !Number.isInteger(l.unidades)) return { error: `${nombre} se recibe en unidades enteras` };
 
     let materiasFabrica = 0;
-    for (const c of formula.componentes) {
-      const mp = mpPorId.get(c.materiaPrimaId);
+    let propias = 0;
+    for (const [mpId, porUnidad] of requerimientoPorUnidad(p, formula)) {
+      const mp = mpPorId.get(mpId);
       if (!mp) return { error: `La fórmula de ${nombre} usa una materia prima que ya no existe` };
-      const cantidad = l.litros * (c.porcentaje / 100);
-      if (mp.propia) consumos.set(mp.id, (consumos.get(mp.id) ?? 0) + cantidad);
-      else materiasFabrica += cantidad * mp.costoUnitario;
+      let pendiente = redondearCantidad(porUnidad * l.unidades);
+      const uso = usos.get(mpId) ?? { materiaPrimaId: mpId, propia: 0, fabrica: 0 };
+      for (const lote of saldo) {
+        if (pendiente <= 0) break;
+        if (lote.materiaPrimaId !== mpId || lote.restante <= 0) continue;
+        const toma = redondearCantidad(Math.min(lote.restante, pendiente));
+        lote.restante = redondearCantidad(lote.restante - toma);
+        pendiente = redondearCantidad(pendiente - toma);
+        propias += toma * lote.costoUnitario;
+        uso.propia = redondearCantidad(uso.propia + toma);
+        const c = consumos.get(lote.id) ?? { loteId: lote.id, materiaPrimaId: mpId, cantidad: 0, costoUnitario: lote.costoUnitario };
+        c.cantidad = redondearCantidad(c.cantidad + toma);
+        consumos.set(lote.id, c);
+      }
+      if (pendiente > 0) {
+        if (mp.precioFabrica === undefined) faltan.set(mpId, redondearCantidad((faltan.get(mpId) ?? 0) + pendiente));
+        else {
+          materiasFabrica += pendiente * mp.precioFabrica;
+          uso.fabrica = redondearCantidad(uso.fabrica + pendiente);
+        }
+      }
+      usos.set(mpId, uso);
     }
     lineas.push({
-      insumoId: l.insumoId,
-      insumoNombre: nombre,
-      litros: l.litros,
-      maquila: Math.round(l.litros * formula.maquilaPorLitro),
+      presentacionId: p.id,
+      productoId: p.productoId,
+      insumoId: p.insumoId,
+      nombre,
+      unidades: l.unidades,
+      maquila: Math.round(l.unidades * p.maquilaPorUnidad),
       materiasFabrica: Math.round(materiasFabrica),
+      propias: Math.round(propias),
     });
-  }
-
-  for (const [id, cantidad] of consumos) consumos.set(id, redondearCantidad(cantidad));
-
-  const faltantes: Faltante[] = [];
-  for (const [id, necesita] of consumos) {
-    const mp = mpPorId.get(id)!;
-    if (necesita > mp.stock) faltantes.push({ materiaPrimaId: id, nombre: mp.nombre, unidad: mp.unidad, necesita, hay: mp.stock });
   }
 
   return {
     lineas,
-    consumos,
-    faltantes,
+    consumos: [...consumos.values()],
+    usos: [...usos.values()],
+    faltantes: [...faltan].map(([id, falta]) => {
+      const mp = mpPorId.get(id)!;
+      return { materiaPrimaId: id, nombre: mp.nombre, unidad: mp.unidad, falta };
+    }),
     totalMaquila: lineas.reduce((s, l) => s + l.maquila, 0),
     totalMateriasFabrica: lineas.reduce((s, l) => s + l.materiasFabrica, 0),
+    totalPropias: lineas.reduce((s, l) => s + l.propias, 0),
   };
 }
 
-/** Problemas de una fórmula antes de guardarla (lista vacía = válida). */
+/** Saca `cantidad` de los lotes FIFO (para un ajuste negativo). Devuelve qué
+ * sale de cada lote, o null si no alcanza. */
+export function consumirFifo(lotes: LoteMateriaPrima[], cantidad: number): ConsumoLote[] | null {
+  let pendiente = redondearCantidad(cantidad);
+  const out: ConsumoLote[] = [];
+  for (const l of lotes) {
+    if (pendiente <= 0) break;
+    if (l.restante <= 0) continue;
+    const toma = redondearCantidad(Math.min(l.restante, pendiente));
+    out.push({ loteId: l.id, materiaPrimaId: l.materiaPrimaId, cantidad: toma, costoUnitario: l.costoUnitario });
+    pendiente = redondearCantidad(pendiente - toma);
+  }
+  return pendiente > 0 ? null : out;
+}
+
+/** La maquila y los precios de la fábrica son NETOS; la factura (y el egreso
+ * en Contabilidad, que siempre va bruto) lleva IVA encima. */
+export function totalesConIva(totalMaquila: number, totalMateriasFabrica: number) {
+  const neto = totalMaquila + totalMateriasFabrica;
+  const iva = Math.round(neto * 0.19);
+  return { neto, iva, total: neto + iva };
+}
+
+/** Problemas de una mezcla antes de guardarla (lista vacía = válida). */
 export function validarFormula(formula: Formula): string[] {
   const errores: string[] = [];
-  if (formula.maquilaPorLitro < 0) errores.push("La maquila no puede ser negativa");
+  if (!formula.nombre.trim()) errores.push("Falta el nombre de la fórmula");
   const ids = new Set<string>();
   let suma = 0;
   for (const c of formula.componentes) {
@@ -117,5 +196,20 @@ export function validarFormula(formula: Formula): string[] {
     suma += c.porcentaje || 0;
   }
   if (suma > 100.0001) errores.push(`Los componentes suman ${redondearCantidad(suma)}%: no pueden pasar de 100%`);
+  return errores;
+}
+
+export function validarPresentacion(p: Presentacion): string[] {
+  const errores: string[] = [];
+  if (!p.productoId === !p.insumoId) errores.push("Elige el producto o el insumo al que suma stock");
+  if (!(p.mlPorUnidad > 0)) errores.push("Indica el formato (ml por unidad)");
+  if (p.maquilaPorUnidad < 0) errores.push("La maquila no puede ser negativa");
+  const ids = new Set<string>();
+  for (const c of p.componentes) {
+    if (!c.materiaPrimaId) errores.push("Hay un envase sin elegir");
+    else if (ids.has(c.materiaPrimaId)) errores.push("Un envase está repetido");
+    ids.add(c.materiaPrimaId);
+    if (!(c.cantidadPorUnidad > 0)) errores.push("Cada envase necesita una cantidad por unidad mayor a 0");
+  }
   return errores;
 }

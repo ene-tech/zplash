@@ -24,9 +24,16 @@ export default function FabricacionView() {
   const { ui, patchUi, logout } = useAppUi();
   const [tab, setTab] = useState<TabId>("recepciones");
   const [datos, setDatos] = useState<DatosFabricacion | null>(null);
+  const [error, setError] = useState("");
 
   const recargar = useCallback(async () => {
-    setDatos(await cargarFabricacion());
+    const r = await cargarFabricacion();
+    if ("error" in r) {
+      setError(r.error);
+      return;
+    }
+    setError("");
+    setDatos(r);
   }, []);
 
   useEffect(() => {
@@ -52,8 +59,9 @@ export default function FabricacionView() {
             ))}
           </div>
           <div className="sidebar-content">
+            {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
             {!datos ? (
-              <div className="empty">Cargando…</div>
+              !error && <div className="empty">Cargando…</div>
             ) : (
               <>
                 {tab === "recepciones" && <RecepcionesFabricaTab datos={datos} recargar={recargar} />}
