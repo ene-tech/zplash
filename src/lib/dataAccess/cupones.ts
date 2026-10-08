@@ -167,6 +167,25 @@ export async function deleteCupones(ids: string[]): Promise<boolean> {
   }
 }
 
+/** Cupones "descuento" de un lote, sin usar y vigentes, atados a alguna de
+ * estas patentes. Lo usa el reintento del masivo de SMS para reenviar el
+ * mismo cupón a quien le falló el envío en vez de emitirle otro. */
+export async function cuponesVigentesDeLote(nombreLote: string, patentes: string[]): Promise<Cupon[]> {
+  if (!patentes.length) return [];
+  const rows = await getDb()
+    .select()
+    .from(cupones)
+    .where(
+      and(
+        eq(cupones.nombreLote, nombreLote),
+        inArray(cupones.patenteAsignada, patentes),
+        eq(cupones.usado, false),
+        sql`${cupones.fechaCaducidad} > now()`
+      )
+    );
+  return rows.map(cuponFromRow);
+}
+
 export async function obtenerCuponPorCodigo(codigo: string): Promise<Cupon | null> {
   const [row] = await getDb().select().from(cupones).where(eq(cupones.codigo, codigo)).limit(1);
   return row ? cuponFromRow(row) : null;

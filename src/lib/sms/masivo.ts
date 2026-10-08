@@ -1,9 +1,9 @@
 import "server-only";
 
-import { clienteIdsConSmsDeCampana, getClientesByIds, getConfig } from "@/lib/dataAccess";
+import { clienteIdsConSmsDeCampana, cuponesVigentesDeLote, getClientesByIds, getConfig } from "@/lib/dataAccess";
 import { aplicarVariables } from "@/lib/helpers";
 import { generarCuponesMasivos, variablesEnvioMasivo, type OpcionesOfertaMasivo } from "@/lib/whatsapp/masivo";
-import type { ResultadoEnvioMasivoSms } from "@/types";
+import type { Cupon, ResultadoEnvioMasivoSms } from "@/types";
 import { enviarSms, msisdnChile } from "./enviar";
 import { segmentosSms, textoFinalSms } from "./texto";
 
@@ -58,8 +58,24 @@ export async function enviarMensajesMasivosSms(
   });
   if (!destinatarios.length) return resultado;
 
-  const cuponPorClienteId = await generarCuponesMasivos(destinatarios, opts, `SMS masivo - ${campana}`, enviadoPor);
+  // Reintentar la campaña vuelve a pasar por aquí a quienes les falló el SMS
+  // (clienteIdsConSmsDeCampana no cuenta los fallidos): si ya tienen el cupón
+  // del lote, vigente y sin usar, se les reenvía ese mismo. Sin esto cada
+  // reintento les dejaba un cupón válido más.
+  const nombreLote = `SMS masivo - ${campana}`;
+  const cuponPorPatente = new Map<string, Cupon>();
+  if (opts.accion === "cupon_descuento" && opts.cuponValor) {
+    for (const c of await cuponesVigentesDeLote(nombreLote, destinatarios.map((d) => d.patente))) {
+      if (c.patenteAsignada) cuponPorPatente.set(c.patenteAsignada, c);
+    }
+  }
+  const sinCupon = destinatarios.filter((d) => !cuponPorPatente.has(d.patente));
+  const cuponPorClienteId = await generarCuponesMasivos(sinCupon, opts, nombreLote, enviadoPor);
   if (!cuponPorClienteId) return { ...resultado, fallidos: destinatarios.length, cuponError: true };
+  for (const d of destinatarios) {
+    const previo = cuponPorPatente.get(d.patente);
+    if (previo) cuponPorClienteId.set(d.id, previo);
+  }
 
   const descuentoReferido = /\{\{descuentoReferido\}\}/.test(opts.texto) ? (await getConfig()).descuentoReferidoValor : undefined;
 
