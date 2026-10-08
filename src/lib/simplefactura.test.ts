@@ -18,6 +18,7 @@ describe("armarFactura", () => {
   it("normaliza el RUT, saca la comuna de la dirección y marca crédito si hay saldo pendiente", () => {
     const doc = armarFactura([venta(1000, { estadoPago: "pendiente" })], receptor, "2026-10-03", "1-9").Documento;
     expect(doc.Encabezado.Receptor.RUTRecep).toBe("76123456-K");
+    expect(doc.Encabezado.Emisor.RznSoc).toBe("Servicio e Inversiones Las Aguilas Spa");
     expect(doc.Encabezado.Receptor.CmnaRecep).toBe("Las Condes");
     expect(doc.Encabezado.IdDoc.FmaPago).toBe(2);
     expect(doc.Detalle[0].NmbItem).toBe("Renovación - ABCD12");

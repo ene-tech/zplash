@@ -36,6 +36,16 @@ async function token(): Promise<string> {
   return tokenCache.token;
 }
 
+// SimpleFactura no completa el emisor desde la cuenta: el SII exige estos
+// campos en el XML y en este orden (RUTEmisor, RznSoc, GiroEmis, Acteco...).
+const EMISOR = {
+  RznSoc: "Servicio e Inversiones Las Aguilas Spa",
+  GiroEmis: "Lavado de vehículos",
+  Acteco: [452001],
+  DirOrigen: "Prieto Norte 71",
+  CmnaOrigen: "Temuco",
+};
+
 /** Arma el JSON de invoiceV2 para una factura afecta. Los precios de las
  * ventas ya traen IVA, por eso va MntBruto=1 y el neto se despeja del total. */
 export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: string, rutEmisor: string) {
@@ -50,7 +60,7 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
     Documento: {
       Encabezado: {
         IdDoc: { TipoDTE: 33, FchEmis: fecha, FmaPago: pagada ? 1 : 2, MntBruto: 1 },
-        Emisor: { RUTEmisor: rutEmisor },
+        Emisor: { RUTEmisor: rutEmisor, ...EMISOR },
         Receptor: {
           RUTRecep: receptor.rut.replace(/\./g, "").toUpperCase(),
           RznSocRecep: receptor.razonSocial.slice(0, 100),
