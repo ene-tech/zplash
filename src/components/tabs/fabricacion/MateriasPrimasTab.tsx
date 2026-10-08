@@ -15,7 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { ArrowDownUp, History, Pencil, ShoppingCart, Trash2 } from "lucide-react";
 import SelectFab from "./SelectFab";
-import { fmtCantidad, parseDecimal, type FabricacionTabProps } from "./shared";
+import { aTexto, esNumero, fmtCantidad, fmtFormatoCompra, parseDecimal, unidadFormato, type FabricacionTabProps } from "./shared";
+import { redondearCantidad } from "@/lib/logic";
 
 const NUEVA: MateriaPrima = { id: "", nombre: "", unidad: "L", stock: 0, stockMin: 0, activa: true };
 const INPUT_PRECIO = "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
@@ -81,6 +82,7 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
           <TableHeader>
             <TableRow>
               <TableHead>Nombre</TableHead>
+              <TableHead>Formato compra</TableHead>
               <TableHead>Nuestro stock</TableHead>
               <TableHead>Costo actual (FIFO)</TableHead>
               <TableHead>Precio fábrica</TableHead>
@@ -91,7 +93,7 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
           <TableBody>
             {lista.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={7}>
                   <div className="empty">Todavía no hay materias primas</div>
                 </TableCell>
               </TableRow>
@@ -101,6 +103,7 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
                 return (
                   <TableRow key={m.id} className={m.activa ? undefined : "opacity-50"}>
                     <TableCell>{m.nombre}</TableCell>
+                    <TableCell>{m.formatoCompra ? fmtFormatoCompra(m.formatoCompra, m.unidad) : <span className="text-muted-foreground">-</span>}</TableCell>
                     <TableCell style={m.stockMin > 0 && m.stock < m.stockMin ? { color: "var(--red)", fontWeight: 600 } : undefined}>
                       {fmtCantidad(m.stock)} {m.unidad}
                     </TableCell>
@@ -200,27 +203,57 @@ function HistorialDialog({ mp, datos, onClose }: { mp: MateriaPrima; datos: Fabr
   );
 }
 
+const MEDIDAS = [
+  { value: "L", label: "Líquido (litros)" },
+  { value: "kg", label: "Sólido (kilos)" },
+  { value: "un", label: "Unidades (frascos, etiquetas, sprayers…)" },
+];
+
 function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClose: () => void; recargar: () => Promise<void> }) {
   const [form, setForm] = useState({
     nombre: mp.nombre,
     unidad: mp.unidad,
+    // El formato se escribe en ml / g / un (ver unidadFormato), se guarda en L / kg / un.
+    formato: mp.formatoCompra ? aTexto(redondearCantidad(mp.formatoCompra * unidadFormato(mp.unidad).factor)) : "",
     laPone: mp.precioFabrica !== undefined,
     precio: mp.precioFabrica ? String(mp.precioFabrica) : "",
-    minimo: mp.stockMin ? String(mp.stockMin).replace(".", ",") : "",
+    minimo: mp.stockMin ? aTexto(mp.stockMin) : "",
+    stock: aTexto(mp.stock),
+    costoStock: "",
     activa: mp.activa,
   });
   const [guardando, setGuardando] = useState(false);
 
+  const uf = unidadFormato(form.unidad);
+  const formatoValido = form.formato.trim() === "" || (esNumero(form.formato) && parseDecimal(form.formato) > 0);
+  const formatoCompra = form.formato.trim() && formatoValido ? Math.round((parseDecimal(form.formato) / uf.factor) * 1e6) / 1e6 : undefined;
+  // El stock solo se ajusta si el usuario tocó el campo: guardar la ficha por
+  // otro motivo no debe mover stock.
+  const stockTocado = form.stock.trim() !== aTexto(mp.stock);
+  const stockValido = esNumero(form.stock) && parseDecimal(form.stock) >= 0;
+  const stockNuevo = parseDecimal(form.stock);
+  const sube = stockTocado && stockValido && stockNuevo > mp.stock + 1e-9;
+  // Con stock cargado no se cambia la unidad: los lotes quedarían en la anterior.
+  const unidadFija = mp.stock > 0;
+
   const guardar = async () => {
+    if (!formatoValido) return toast.error("El formato de compra tiene que ser un número mayor a 0 (o déjalo vacío)");
+    if (stockTocado && !stockValido) return toast.error("El stock existente tiene que ser un número (0 o más)");
+    if (sube && form.costoStock === "") return toast.error("Indica el costo neto del stock que agregas");
     setGuardando(true);
-    const r = await guardarMateriaPrima({
-      ...mp,
-      nombre: form.nombre,
-      unidad: form.unidad,
-      precioFabrica: form.laPone ? Number(form.precio) || 0 : undefined,
-      stockMin: parseDecimal(form.minimo),
-      activa: form.activa,
-    });
+    const costo = Number(form.costoStock) || 0;
+    const r = await guardarMateriaPrima(
+      {
+        ...mp,
+        nombre: form.nombre,
+        unidad: form.unidad,
+        formatoCompra,
+        precioFabrica: form.laPone ? Number(form.precio) || 0 : undefined,
+        stockMin: parseDecimal(form.minimo),
+        activa: form.activa,
+      },
+      stockTocado ? { anterior: mp.stock, existente: stockNuevo, costoUnitario: sube ? (formatoCompra ? costo / formatoCompra : costo) : undefined } : undefined
+    );
     setGuardando(false);
     if (!r.ok) return toast.error(r.error);
     await recargar();
@@ -233,22 +266,63 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
         <DialogHeader>
           <DialogTitle>{mp.id ? "Editar materia prima" : "Nueva materia prima"}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-3">
-          <div className="grid grid-cols-[1fr_6rem] gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="mp-nombre">Nombre</Label>
-              <Input id="mp-nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} autoFocus />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="mp-unidad">Unidad</Label>
+        <div className="grid max-h-[70vh] gap-3 overflow-y-auto pr-1">
+          <div className="grid gap-1.5">
+            <Label htmlFor="mp-nombre">Nombre</Label>
+            <Input id="mp-nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} autoFocus />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="mp-unidad">¿Cómo se mide?</Label>
+            {unidadFija ? (
+              <div className="text-sm text-muted-foreground">
+                {MEDIDAS.find((m) => m.value === form.unidad)?.label ?? form.unidad} · no se puede cambiar mientras tenga stock
+              </div>
+            ) : (
               <SelectFab
                 id="mp-unidad"
                 value={form.unidad}
-                onChange={(v) => setForm({ ...form, unidad: v })}
-                opciones={["L", "kg", "un"].map((u) => ({ value: u, label: u }))}
+                // El formato está escrito en la unidad anterior (ml, g, un): se limpia para no reinterpretarlo.
+                onChange={(v) => setForm({ ...form, unidad: v, formato: v === form.unidad ? form.formato : "" })}
+                opciones={MEDIDAS}
               />
-            </div>
+            )}
           </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="mp-formato">Formato de compra ({uf.sufijo} por envase)</Label>
+            <Input
+              id="mp-formato"
+              inputMode="decimal"
+              value={form.formato}
+              onChange={(e) => setForm({ ...form, formato: e.target.value })}
+              placeholder={form.unidad === "un" ? "Ej: 100 (caja de 100)" : form.unidad === "kg" ? "Ej: 25000 (saco de 25 kg)" : "Ej: 5000 (bidón de 5 L)"}
+            />
+            <span className="text-xs text-muted-foreground">Opcional. Con formato, las compras se cargan por envase y el sistema calcula el costo por {form.unidad}.</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="mp-stock">Stock existente ({form.unidad})</Label>
+              <Input id="mp-stock" inputMode="decimal" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+              {formatoCompra && stockNuevo > 0 && (
+                <span className="text-xs text-muted-foreground">= {fmtCantidad(Math.round((stockNuevo / formatoCompra) * 100) / 100)} envases</span>
+              )}
+            </div>
+            {sube && (
+              <div className="grid gap-1.5">
+                <Label>Costo neto por {formatoCompra ? `envase (${fmtFormatoCompra(formatoCompra, form.unidad)})` : form.unidad}</Label>
+                <PriceInput value={form.costoStock} onChange={(v) => setForm({ ...form, costoStock: v })} className={INPUT_PRECIO} />
+              </div>
+            )}
+          </div>
+          {mp.id && stockTocado && stockValido && stockNuevo !== mp.stock && (
+            <p className="text-xs text-muted-foreground">
+              {sube
+                ? `Entran ${fmtCantidad(stockNuevo - mp.stock)} ${form.unidad} como un lote nuevo con este costo.`
+                : `Salen ${fmtCantidad(mp.stock - stockNuevo)} ${form.unidad} de los lotes más antiguos (FIFO).`}{" "}
+              Queda en el historial como ajuste.
+            </p>
+          )}
+
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={form.laPone} onCheckedChange={(c) => setForm({ ...form, laPone: c === true })} />
             La fábrica la puede poner cuando no alcanza lo nuestro
@@ -267,7 +341,6 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
             <Checkbox checked={form.activa} onCheckedChange={(c) => setForm({ ...form, activa: c === true })} />
             Activa
           </label>
-          <p className="text-xs text-muted-foreground">Lo que compramos nosotros se registra con el botón de compra (carrito), con su costo.</p>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
@@ -297,14 +370,18 @@ function MovimientoDialog({
   const [costo, setCosto] = useState("");
   const [notas, setNotas] = useState("");
   const [guardando, setGuardando] = useState(false);
+  // Con formato, la compra se escribe en envases y su costo es por envase.
+  const porEnvase = tipo === "compra" && !!mp.formatoCompra;
+  const cantidadEnUnidad = porEnvase ? parseDecimal(cantidad) * mp.formatoCompra! : parseDecimal(cantidad);
+  const costoUnitario = costo === "" ? undefined : porEnvase ? Number(costo) / mp.formatoCompra! : Number(costo);
 
   const guardar = async () => {
     setGuardando(true);
     const r = await moverStockMateriaPrima({
       materiaPrimaId: mp.id,
       tipo,
-      cantidad: parseDecimal(cantidad),
-      costoUnitario: tipo === "compra" ? (costo === "" ? undefined : Number(costo)) : undefined,
+      cantidad: cantidadEnUnidad,
+      costoUnitario: tipo === "compra" ? costoUnitario : undefined,
       notas,
     });
     setGuardando(false);
@@ -324,24 +401,31 @@ function MovimientoDialog({
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           Nuestro stock en la fábrica: {fmtCantidad(mp.stock)} {mp.unidad}
+          {mp.formatoCompra ? ` · formato ${fmtFormatoCompra(mp.formatoCompra, mp.unidad)}` : ""}
         </p>
         <div className="grid gap-3">
           <div className="grid gap-1.5">
-            <Label htmlFor="mov-cant">Cantidad ({mp.unidad})</Label>
+            <Label htmlFor="mov-cant">{porEnvase ? `Envases de ${fmtFormatoCompra(mp.formatoCompra!, mp.unidad)}` : `Cantidad (${mp.unidad})`}</Label>
             <Input
               id="mov-cant"
               inputMode="decimal"
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
-              placeholder={tipo === "ajuste" ? "Ej: -2,5 si contaste menos" : "Ej: 25"}
+              placeholder={tipo === "ajuste" ? "Ej: -2,5 si contaste menos" : porEnvase ? "Ej: 3" : "Ej: 25"}
               autoFocus
             />
           </div>
           {tipo === "compra" && (
             <div className="grid gap-1.5">
-              <Label>Costo neto por {mp.unidad}</Label>
+              <Label>Costo neto por {porEnvase ? "envase" : mp.unidad}</Label>
               <PriceInput value={costo} onChange={setCosto} className={INPUT_PRECIO} />
             </div>
+          )}
+          {porEnvase && cantidadEnUnidad > 0 && (
+            <p className="text-sm">
+              = {fmtCantidad(cantidadEnUnidad)} {mp.unidad}
+              {costoUnitario !== undefined && ` · ${fmtCLP(Math.round(costoUnitario * 100) / 100)} por ${mp.unidad} · total ${fmtCLP(Math.round(costoUnitario * cantidadEnUnidad))}`}
+            </p>
           )}
           <div className="grid gap-1.5">
             <Label htmlFor="mov-notas">Nota</Label>

@@ -15,6 +15,9 @@ export const materiasPrimas = pgTable("materias_primas", {
   id: text("id").primaryKey(),
   nombre: text("nombre").notNull(),
   unidad: text("unidad").notNull().default("L"),
+  // Cuánto trae el envase de compra, en `unidad` (bidón de 5 L = 5; caja de
+  // 100 frascos = 100). Solo sirve para cargar compras por envase.
+  formatoCompra: numeric("formato_compra", { mode: "number" }),
   // null = la fábrica no la pone. Neto, por unidad.
   precioFabrica: numeric("precio_fabrica", { mode: "number" }),
   // Suma de `restante` de sus lotes: se mantiene en la misma transacción

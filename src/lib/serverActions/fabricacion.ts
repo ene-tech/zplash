@@ -68,6 +68,7 @@ function materiaPrimaFromRow(m: typeof materiasPrimas.$inferSelect): MateriaPrim
     id: m.id,
     nombre: m.nombre,
     unidad: m.unidad,
+    formatoCompra: m.formatoCompra ?? undefined,
     precioFabrica: m.precioFabrica ?? undefined,
     stock: m.stock,
     stockMin: m.stockMin,
@@ -173,27 +174,60 @@ export async function cargarFabricacion(): Promise<DatosFabricacion | { error: s
   }
 }
 
-/** Crea o edita la ficha. El stock NO se toca acá: solo cambia con compras,
- * ajustes o recepciones, para que todo quede en los lotes y el historial. */
-export async function guardarMateriaPrima(mp: MateriaPrima): Promise<Resultado> {
-  if (!(await tieneModulo("fabricacion"))) return SIN_ACCESO;
+class OperacionInvalida extends Error {}
+
+/** Crea o edita la ficha. El stock no se escribe directo: si viene `stock`
+ * (el usuario cambió el campo), la diferencia contra `anterior` entra como un
+ * ajuste (lote nuevo a `costoUnitario`, o salida FIFO si baja), igual que el
+ * botón de ajuste, para que lotes, historial y costo sigan cuadrando.
+ * `anterior` es el stock que vio la pantalla: si otra compra o recepción lo
+ * movió mientras se editaba, no se adivina, se rechaza (si no, guardar la
+ * ficha deshacía ese movimiento). */
+export async function guardarMateriaPrima(
+  mp: MateriaPrima,
+  stock?: { anterior: number; existente: number; costoUnitario?: number }
+): Promise<Resultado> {
+  const sesion = await sesionActual();
+  if (!sesion?.modulos.includes("fabricacion")) return SIN_ACCESO;
   const nombre = mp.nombre.trim();
   if (!nombre) return { ok: false, error: "Falta el nombre" };
   if (mp.precioFabrica !== undefined && mp.precioFabrica < 0) return { ok: false, error: "El precio de la fábrica no puede ser negativo" };
+  if (mp.formatoCompra !== undefined && !(mp.formatoCompra > 0)) return { ok: false, error: "El formato de compra tiene que ser mayor a 0" };
+  if (stock && !(stock.existente >= 0)) return { ok: false, error: "El stock existente no puede ser negativo" };
+  if (stock && stock.existente > stock.anterior && !(stock.costoUnitario !== undefined && stock.costoUnitario >= 0)) {
+    return { ok: false, error: "Indica el costo neto del stock que agregas" };
+  }
+  const id = mp.id || uid();
   const campos = {
     nombre,
     unidad: mp.unidad.trim() || "L",
+    formatoCompra: mp.formatoCompra ?? null,
     precioFabrica: mp.precioFabrica ?? null,
     stockMin: Math.max(0, mp.stockMin || 0),
     activa: mp.activa,
   };
   try {
-    await getDb()
-      .insert(materiasPrimas)
-      .values({ id: mp.id || uid(), ...campos })
-      .onConflictDoUpdate({ target: materiasPrimas.id, set: campos });
+    await getDb().transaction(async (tx) => {
+      const [actual] = await tx
+        .select({ stock: materiasPrimas.stock, unidad: materiasPrimas.unidad })
+        .from(materiasPrimas)
+        .where(eq(materiasPrimas.id, id))
+        .for("update");
+      // Con stock, la unidad no cambia: los lotes y su costo quedarían leídos en otra unidad.
+      if (actual && actual.stock !== 0 && actual.unidad !== campos.unidad) {
+        throw new OperacionInvalida("No se puede cambiar la unidad mientras tenga stock: primero déjalo en 0 con un ajuste");
+      }
+      if (stock && actual && redondearCantidad(actual.stock) !== redondearCantidad(stock.anterior)) {
+        throw new OperacionInvalida("El stock cambió mientras editabas (otra compra o recepción). Cierra, revisa el stock nuevo y vuelve a intentar");
+      }
+      await tx.insert(materiasPrimas).values({ id, ...campos }).onConflictDoUpdate({ target: materiasPrimas.id, set: campos });
+      if (!stock) return;
+      const delta = redondearCantidad(stock.existente - (actual?.stock ?? 0));
+      if (delta) await moverStockTx(tx, id, "ajuste", delta, delta > 0 ? stock.costoUnitario : undefined, "Stock existente (ficha)", sesion.nombre);
+    });
     return { ok: true };
   } catch (error) {
+    if (error instanceof OperacionInvalida) return { ok: false, error: error.message };
     console.error("Error guardando materia prima", error);
     return { ok: false, error: "No se pudo guardar la materia prima" };
   }
@@ -218,14 +252,69 @@ export async function eliminarMateriaPrima(id: string): Promise<Resultado> {
   }
 }
 
-class OperacionInvalida extends Error {}
+/** Mueve el stock de lo nuestro dentro de una transacción ya abierta.
+ * - cantidad positiva: lote nuevo a `costoUnitario` (neto); si no viene, al
+ *   costo del último lote (o 0).
+ * - cantidad negativa: sale FIFO de los lotes; no puede dejar stock negativo. */
+async function moverStockTx(
+  tx: Tx,
+  materiaPrimaId: string,
+  tipo: "compra" | "ajuste",
+  cantidad: number,
+  costoUnitario: number | undefined,
+  notas: string | null,
+  creadoPor: string
+): Promise<void> {
+  const fecha = new Date().toISOString();
+  const [mp] = await tx.select().from(materiasPrimas).where(eq(materiasPrimas.id, materiaPrimaId)).for("update");
+  if (!mp) throw new OperacionInvalida("La materia prima ya no existe");
+  if (cantidad > 0) {
+    let costo = costoUnitario;
+    if (costo === undefined) {
+      const [ultimo] = await tx
+        .select({ costo: lotesMateriaPrima.costoUnitario })
+        .from(lotesMateriaPrima)
+        .where(eq(lotesMateriaPrima.materiaPrimaId, mp.id))
+        .orderBy(desc(lotesMateriaPrima.fecha))
+        .limit(1);
+      costo = ultimo?.costo ?? 0;
+    }
+    const loteId = uid();
+    await tx.insert(lotesMateriaPrima).values({ id: loteId, materiaPrimaId: mp.id, fecha, cantidad, restante: cantidad, costoUnitario: costo, notas, creadoPor });
+    await tx.insert(movimientosMateriaPrima).values({ id: `${loteId}-m`, materiaPrimaId: mp.id, loteId, fecha, tipo, cantidad, costoUnitario: costo, notas, creadoPor });
+  } else {
+    const lotes = (
+      await tx
+        .select()
+        .from(lotesMateriaPrima)
+        .where(eq(lotesMateriaPrima.materiaPrimaId, mp.id))
+        .orderBy(asc(lotesMateriaPrima.fecha), asc(lotesMateriaPrima.id))
+        .for("update")
+    ).map(loteFromRow);
+    const salidas = consumirFifo(lotes, -cantidad);
+    if (!salidas) throw new OperacionInvalida(`No hay tanto stock: quedan ${mp.stock} ${mp.unidad}`);
+    const movId = uid();
+    for (const sal of salidas) {
+      await tx.update(lotesMateriaPrima).set({ restante: sql`${lotesMateriaPrima.restante} - ${sal.cantidad}` }).where(eq(lotesMateriaPrima.id, sal.loteId));
+      await tx.insert(movimientosMateriaPrima).values({
+        id: `${movId}-${sal.loteId}`,
+        materiaPrimaId: mp.id,
+        loteId: sal.loteId,
+        fecha,
+        tipo: "ajuste",
+        cantidad: -sal.cantidad,
+        costoUnitario: sal.costoUnitario,
+        notas,
+        creadoPor,
+      });
+    }
+  }
+  await tx.update(materiasPrimas).set({ stock: sql`${materiasPrimas.stock} + ${cantidad}` }).where(eq(materiasPrimas.id, mp.id));
+}
 
-/** Mueve el stock de lo nuestro.
- * - compra: crea un lote nuevo a `costoUnitario` (neto). La factura de la
- *   compra se registra en Contabilidad como siempre: acá no se crea egreso,
- *   para no duplicar el gasto.
- * - ajuste positivo: lote nuevo al costo del último lote (o 0).
- * - ajuste negativo: sale FIFO de los lotes; no puede dejar stock negativo. */
+/** Compra o ajuste de lo nuestro (ver moverStockTx). La factura de una
+ * compra se registra en Contabilidad como siempre: acá no se crea egreso,
+ * para no duplicar el gasto. Un ajuste positivo entra al costo del último lote. */
 export async function moverStockMateriaPrima(input: {
   materiaPrimaId: string;
   tipo: "compra" | "ajuste";
@@ -239,62 +328,12 @@ export async function moverStockMateriaPrima(input: {
   if (!cantidad) return { ok: false, error: "Indica una cantidad distinta de 0" };
   if (input.tipo === "compra" && cantidad < 0) return { ok: false, error: "Una compra no puede ser negativa: usa un ajuste" };
   if (input.tipo === "compra" && !(input.costoUnitario !== undefined && input.costoUnitario >= 0)) {
-    return { ok: false, error: "Indica el costo neto por unidad de la compra" };
+    return { ok: false, error: "Indica el costo neto de la compra" };
   }
-  const fecha = new Date().toISOString();
-  const notas = input.notas?.trim() || null;
-
   try {
-    await getDb().transaction(async (tx) => {
-      const [mp] = await tx.select().from(materiasPrimas).where(eq(materiasPrimas.id, input.materiaPrimaId)).for("update");
-      if (!mp) throw new OperacionInvalida("La materia prima ya no existe");
-      if (cantidad > 0) {
-        let costo = input.costoUnitario ?? 0;
-        if (input.tipo === "ajuste") {
-          const [ultimo] = await tx
-            .select({ costo: lotesMateriaPrima.costoUnitario })
-            .from(lotesMateriaPrima)
-            .where(eq(lotesMateriaPrima.materiaPrimaId, mp.id))
-            .orderBy(desc(lotesMateriaPrima.fecha))
-            .limit(1);
-          costo = ultimo?.costo ?? 0;
-        }
-        const loteId = uid();
-        await tx
-          .insert(lotesMateriaPrima)
-          .values({ id: loteId, materiaPrimaId: mp.id, fecha, cantidad, restante: cantidad, costoUnitario: costo, notas, creadoPor: sesion.nombre });
-        await tx
-          .insert(movimientosMateriaPrima)
-          .values({ id: `${loteId}-m`, materiaPrimaId: mp.id, loteId, fecha, tipo: input.tipo, cantidad, costoUnitario: costo, notas, creadoPor: sesion.nombre });
-      } else {
-        const lotes = (
-          await tx
-            .select()
-            .from(lotesMateriaPrima)
-            .where(eq(lotesMateriaPrima.materiaPrimaId, mp.id))
-            .orderBy(asc(lotesMateriaPrima.fecha), asc(lotesMateriaPrima.id))
-            .for("update")
-        ).map(loteFromRow);
-        const salidas = consumirFifo(lotes, -cantidad);
-        if (!salidas) throw new OperacionInvalida(`No hay tanto stock: quedan ${mp.stock} ${mp.unidad}`);
-        const movId = uid();
-        for (const s of salidas) {
-          await tx.update(lotesMateriaPrima).set({ restante: sql`${lotesMateriaPrima.restante} - ${s.cantidad}` }).where(eq(lotesMateriaPrima.id, s.loteId));
-          await tx.insert(movimientosMateriaPrima).values({
-            id: `${movId}-${s.loteId}`,
-            materiaPrimaId: mp.id,
-            loteId: s.loteId,
-            fecha,
-            tipo: "ajuste",
-            cantidad: -s.cantidad,
-            costoUnitario: s.costoUnitario,
-            notas,
-            creadoPor: sesion.nombre,
-          });
-        }
-      }
-      await tx.update(materiasPrimas).set({ stock: sql`${materiasPrimas.stock} + ${cantidad}` }).where(eq(materiasPrimas.id, mp.id));
-    });
+    await getDb().transaction((tx) =>
+      moverStockTx(tx, input.materiaPrimaId, input.tipo, cantidad, input.tipo === "compra" ? input.costoUnitario : undefined, input.notas?.trim() || null, sesion.nombre)
+    );
     return { ok: true };
   } catch (error) {
     if (error instanceof OperacionInvalida) return { ok: false, error: error.message };

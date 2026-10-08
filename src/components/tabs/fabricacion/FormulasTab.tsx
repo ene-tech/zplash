@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, X } from "lucide-react";
 import SelectFab from "./SelectFab";
-import { fmtCantidad, fmtFormato, parseDecimal, type FabricacionTabProps } from "./shared";
+import { aTexto, fmtCantidad, fmtFormato, parseDecimal, type FabricacionTabProps } from "./shared";
 
 export default function FormulasTab({ datos, recargar }: FabricacionTabProps) {
   const { data, patchUi } = useApp();
@@ -203,8 +203,6 @@ function FilasComponentes({
     </>
   );
 }
-
-const aTexto = (n: number) => String(n).replace(".", ",");
 
 /** Categorías en orden alfabético, "Sin categoría" al final; dentro, por nombre. */
 function agruparPorCategoria(formulas: Formula[]): { titulo: string; formulas: Formula[] }[] {

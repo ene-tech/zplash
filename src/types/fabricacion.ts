@@ -7,6 +7,9 @@ export interface MateriaPrima {
   id: string;
   nombre: string;
   unidad: string;
+  /** Cuánto trae el envase en que se compra, en `unidad` (un bidón de
+   * 5.000 ml = 5 L; una caja de 100 frascos = 100 un). Opcional. */
+  formatoCompra?: number;
   /** Neto por unidad. undefined = la fábrica no la pone. */
   precioFabrica?: number;
   /** Lo nuestro guardado en la fábrica (suma de lotes). */
