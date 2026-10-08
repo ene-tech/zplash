@@ -41,6 +41,9 @@ export const ventas = pgTable(
     viaCupon: boolean("via_cupon").notNull().default(false),
     cuponCodigo: text("cupon_codigo").references(() => cupones.codigo, { onDelete: "set null" }),
     facturaEmitida: boolean("factura_emitida").notNull().default(false),
+    // Folio SII de la factura emitida por SimpleFactura (varias ventas pueden
+    // compartirlo). Null en las marcadas a mano como emitidas.
+    facturaFolio: integer("factura_folio"),
     // Momento en que un "Lavado único (Web)" comprado por adelantado desde
     // /pagar se canjeó físicamente en el túnel (ver registrarIngresoLavadoWeb
     // en @/lib/logic/ingresos) — null mientras siga pendiente de canjear.

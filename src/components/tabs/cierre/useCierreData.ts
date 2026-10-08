@@ -318,8 +318,8 @@ export function useCierreData() {
   }, [ingresos, clientes, ventas, movimientosContables, desde, hasta]);
 
   const marcarEmitida = useCallback(
-    (ventaIds: string[]) => {
-      const updated = ventas.map((v) => (ventaIds.includes(v.id) ? { ...v, facturaEmitida: true } : v));
+    (ventaIds: string[], facturaFolio?: number) => {
+      const updated = ventas.map((v) => (ventaIds.includes(v.id) ? { ...v, facturaEmitida: true, ...(facturaFolio && { facturaFolio }) } : v));
       commit({ ventas: updated });
     },
     [ventas, commit]
@@ -332,7 +332,7 @@ export function useCierreData() {
       if (!window.confirm("¿Emitir la factura electrónica en el SII? No se puede deshacer.")) return;
       const r = await emitirFacturaVentas(ventaIds);
       if (!r.ok) return window.alert(`No se emitió la factura: ${r.error}`);
-      marcarEmitida(ventaIds);
+      marcarEmitida(ventaIds, r.folio);
       window.alert(`Factura N° ${r.folio} emitida.`);
     },
     [marcarEmitida]

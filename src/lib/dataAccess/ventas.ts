@@ -79,6 +79,8 @@ export function ventaFromRow(r: VentaRow): Venta {
     viaCupon: r.viaCupon || undefined,
     cuponCodigo: r.cuponCodigo || undefined,
     facturaEmitida: r.facturaEmitida || undefined,
+    // Tampoco va en ventaToRow: solo lo escribe marcarFacturaEmitida.
+    facturaFolio: r.facturaFolio ?? undefined,
     canjeadaEn: r.canjeadaEn || undefined,
     // No va en ventaToRow a propósito: lo escribe /inscripcion/retorno y la
     // app nunca debe pisarlo al re-guardar la venta.
@@ -93,9 +95,9 @@ export async function ventasPorIds(ids: string[]): Promise<Venta[]> {
 
 /** Solo prende factura_emitida: lo usa la emisión por SimpleFactura, que no
  * debe re-escribir el resto de la fila. */
-export async function marcarFacturaEmitida(ids: string[]): Promise<boolean> {
+export async function marcarFacturaEmitida(ids: string[], folio: number): Promise<boolean> {
   try {
-    await getDb().update(ventas).set({ facturaEmitida: true }).where(inArray(ventas.id, ids));
+    await getDb().update(ventas).set({ facturaEmitida: true, facturaFolio: folio }).where(inArray(ventas.id, ids));
     return true;
   } catch (error) {
     console.error("Error marcando factura emitida", error);

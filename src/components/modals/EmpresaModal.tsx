@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { RUT_FORMATO_MSG, fmtTelefono, formatRut, formatTelefono, isValidRut, uid } from "@/lib/helpers";
+import { RUT_FORMATO_MSG, fmtCLP, fmtFecha, fmtTelefono, formatRut, formatTelefono, isValidRut, uid } from "@/lib/helpers";
+import { facturasDeEmpresa } from "@/lib/logic";
 import type { Empresa } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 const SIN_CONTACTO = "sin-contacto";
 
 export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | null; onGuardada?: (empresa: Empresa) => void }) {
-  const { data, commit, patchUi, ui } = useApp();
+  const { data, commit, patchUi, ui, loadingHistorial } = useApp();
   const emp = e || ({} as Partial<Empresa>);
 
   const razonSocialRef = useRef<HTMLInputElement>(null);
@@ -25,6 +26,8 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
   const [err, setErr] = useState("");
 
   const cerrar = () => patchUi({ modal: null });
+
+  const facturas = useMemo(() => (e ? facturasDeEmpresa(e, data.ventas, data.clientes) : []), [e, data.ventas, data.clientes]);
 
   const clientesOrdenados = [...data.clientes].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
@@ -60,8 +63,16 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
   const guardar = async () => {
     const razonSocial = razonSocialRef.current?.value.trim() || "";
     const rutRaw = rutRef.current?.value.trim() || "";
-    if (!razonSocial || !rutRaw) {
-      setErr("Razón Social y RUT son obligatorios");
+    const giro = giroRef.current?.value.trim() || "";
+    const direccion = direccionRef.current?.value.trim() || "";
+    const telefonoRaw = telefonoRef.current?.value.trim() || "";
+    if (!razonSocial || !rutRaw || !giro || !direccion || !telefonoRaw || contacto === SIN_CONTACTO) {
+      setErr("Todos los campos son obligatorios");
+      return;
+    }
+    // La factura saca la comuna de lo que va después de la última coma.
+    if (!direccion.includes(",") || !direccion.split(",").pop()!.trim()) {
+      setErr("La dirección debe incluir la comuna después de una coma (ej: Prieto Norte 71, Temuco)");
       return;
     }
     if (!isValidRut(rutRaw)) {
@@ -75,14 +86,9 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
       return;
     }
 
-    const giro = giroRef.current?.value.trim() || "";
-    const direccion = direccionRef.current?.value.trim() || "";
-    const telefonoRaw = telefonoRef.current?.value.trim() || "";
-    const telefono = telefonoRaw ? formatTelefono(telefonoRaw) : "";
-    const contactoClienteId = contacto === SIN_CONTACTO ? "" : contacto;
-    const contactoNombre = contactoClienteId
-      ? data.clientes.find((c) => c.id === contactoClienteId)?.nombre || ""
-      : "";
+    const telefono = formatTelefono(telefonoRaw);
+    const contactoClienteId = contacto;
+    const contactoNombre = data.clientes.find((c) => c.id === contactoClienteId)?.nombre || "";
 
     let empresas: Empresa[];
     let creada: Empresa | null = null;
@@ -146,7 +152,7 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="emp-direccion">Dirección</Label>
-            <Input id="emp-direccion" ref={direccionRef} defaultValue={emp.direccion || ""} />
+            <Input id="emp-direccion" ref={direccionRef} defaultValue={emp.direccion || ""} placeholder="Prieto Norte 71, Temuco" />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="emp-telefono">Teléfono</Label>
@@ -165,7 +171,7 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SIN_CONTACTO}>Sin contacto asignado</SelectItem>
+                <SelectItem value={SIN_CONTACTO}>Elegir contacto…</SelectItem>
                 {clientesOrdenados.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.nombre} — {c.rut ? formatRut(c.rut) : "sin RUT"}
@@ -174,6 +180,31 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
               </SelectContent>
             </Select>
           </div>
+
+          {e && (
+            <div className="grid gap-1.5">
+              <Label>Facturas emitidas</Label>
+              {loadingHistorial ? (
+                <p className="text-sm text-muted-foreground">Cargando…</p>
+              ) : facturas.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Sin facturas emitidas</p>
+              ) : (
+                <ul className="max-h-48 overflow-y-auto rounded-md border text-sm">
+                  {facturas.map((f) => (
+                    <li key={f.folio ?? f.ventas[0].id} className="flex justify-between gap-2 border-b px-2 py-1.5 last:border-b-0">
+                      <span>
+                        {f.folio ? `N° ${f.folio}` : "Sin folio (marcada a mano)"} · {fmtFecha(f.fecha)}
+                        <span className="block text-xs text-muted-foreground">
+                          {f.ventas.map((v) => [v.tipo, v.patente].filter(Boolean).join(" ")).join(", ")}
+                        </span>
+                      </span>
+                      <span className="whitespace-nowrap font-medium">{fmtCLP(f.total)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {err && <p className="text-sm text-destructive">{err}</p>}
         </div>

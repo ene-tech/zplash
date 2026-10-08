@@ -59,6 +59,8 @@ export interface Venta extends DatosFacturacion {
   viaCupon?: boolean;
   cuponCodigo?: string;
   facturaEmitida?: boolean;
+  // Folio SII si la emitió SimpleFactura (ver marcarFacturaEmitida).
+  facturaFolio?: number;
   // Email de quien compró (hoy solo se llena en Pack Empresa por web) —
   // permite mostrarle esta venta en Mi Cuenta buscando por el correo de la
   // sesión, sin depender de clienteId (que queda null en compras B2B).

@@ -41,7 +41,7 @@ export async function emitirFacturaVentas(ventaIds: string[]): Promise<Resultado
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-  if (!(await dataAccess.marcarFacturaEmitida(ventas.map((v) => v.id)))) {
+  if (!(await dataAccess.marcarFacturaEmitida(ventas.map((v) => v.id), folio))) {
     // La factura ya existe en el SII: avisar el folio para no emitirla dos veces.
     return { ok: false, error: `Se emitió la factura N° ${folio} pero no se pudo marcar en la base. Márcala a mano como emitida.` };
   }
