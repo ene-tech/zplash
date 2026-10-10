@@ -6,6 +6,7 @@ import { useStatsData } from "@/components/tabs/stats/useStatsData";
 import { RecorridoEtapas } from "@/components/tabs/stats/RecorridoEtapas";
 import { StatsResumenGlobal } from "@/components/tabs/stats/StatsResumenGlobal";
 import { StatsResumenPeriodo } from "@/components/tabs/stats/StatsResumenPeriodo";
+import { StatsPacksLavados } from "@/components/tabs/stats/StatsPacksLavados";
 import { StatsUsoPlanes } from "@/components/tabs/stats/StatsUsoPlanes";
 import { StatsVentasQr } from "@/components/tabs/stats/StatsVentasQr";
 
@@ -95,6 +96,8 @@ export default function StatsTab() {
         pctMontoTickets={r.pctMontoTickets}
         pctMontoLimpiezas={r.pctMontoLimpiezas}
       />
+
+      <StatsPacksLavados packsLavados={r.packsLavados} upgradesPack={r.upgradesPack} />
 
       <StatsVentasQr
         ventasQrCantidad={r.ventasQrCantidad}

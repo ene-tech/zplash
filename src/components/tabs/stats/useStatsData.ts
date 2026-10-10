@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { patentesConOneclickActiva } from "@/lib/serverActions";
-import { TIPOS_VENTA_PLAN, inRange, normPlate, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
+import { IDS_PROMOS_LAVADOS, PROMOS_LAVADOS, TIPOS_VENTA_PLAN, UPGRADE_PACK_KEY, inRange, normPlate, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 // Calcula todos los datos derivados del dashboard de Estadísticas: el
@@ -99,6 +99,36 @@ export function useStatsData() {
   const rankingQr = [...porOperadorQr.values()].sort((a, b) => b.monto - a.monto || b.ventas - a.ventas);
   const montoQr = ventasQr.reduce((s, v) => s + (v.precio || 0), 0);
   const pctMontoQrDePlanes = (montoPlanes ? ((montoQr / montoPlanes) * 100).toFixed(1) : "0.0") + "%";
+
+  // Packs de lavados (2 y 4 tickets): ventas del período por canal y el estado
+  // de HOY de los tickets que esas ventas emitieron. Los tickets no guardan la
+  // venta que los generó, así que se toman los del lote del pack creados en el
+  // período (nacen en el mismo commit que la venta). Los del upgrade a Promo 4
+  // Lavados caen en el lote de 4 tickets, por eso esas ventas se cuentan aparte.
+  const ahora = new Date();
+  const packsLavados = IDS_PROMOS_LAVADOS.map((id) => {
+    const { key, lavados } = PROMOS_LAVADOS[id];
+    const ventasPack = data.ventas.filter((v) => (v.tipo === key || v.tipo === `${key} (Web)`) && inRange(v.fecha, desde, hasta));
+    const tickets = data.cupones.filter((c) => c.tipo === "vale" && c.nombreLote === key && inRange(c.creadoEn, desde, hasta));
+    const usados = tickets.filter((c) => c.usado).length;
+    const caducados = tickets.filter((c) => !c.usado && new Date(c.fechaCaducidad) <= ahora).length;
+    return {
+      id,
+      lavados,
+      ventas: ventasPack.length,
+      ventasWeb: ventasPack.filter((v) => v.tipo.endsWith(" (Web)")).length,
+      monto: ventasPack.reduce((s, v) => s + (v.precio || 0), 0),
+      ticketsEmitidos: tickets.length,
+      usados,
+      pendientes: tickets.length - usados - caducados,
+      caducados,
+    };
+  });
+  const ventasUpgradePack = data.ventas.filter((v) => v.tipo.startsWith(UPGRADE_PACK_KEY) && inRange(v.fecha, desde, hasta));
+  const upgradesPack = {
+    ventas: ventasUpgradePack.length,
+    monto: ventasUpgradePack.reduce((s, v) => s + (v.precio || 0), 0),
+  };
 
   // --- Uso de planes y ranking de clientes, según el período seleccionado arriba ---
   const clientesPorId = new Map(data.clientes.map((c) => [c.id, c]));
@@ -220,6 +250,8 @@ export function useStatsData() {
     montoQr,
     pctMontoQrDePlanes,
     rankingQr,
+    packsLavados,
+    upgradesPack,
     promedioVisitasPlan,
     clientesConPlan,
     filasDistribucion,
