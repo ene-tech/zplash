@@ -61,6 +61,24 @@ export function lotePremioReferido(codigoAmigo: string): string {
   return PREFIJO_PREMIO + codigoAmigo;
 }
 
+// Regalo del lavado (oct-2026): una hora después de un lavado único pagado,
+// si en ese rato no compró tickets, el cliente recibe un código de descuento
+// ABIERTO (sin patente asignada) para usar en cualquier auto, incluido el
+// suyo — lo emite la regla con accion "cupon_regalo" (ver ejecutarAccionRegla).
+// La patente que lo recibió va en el nombreLote solo para medir. A diferencia
+// de "Referido - ", su uso no premia a nadie: el cron de premios no lo mira.
+const PREFIJO_REGALO = "Regalo lavado - ";
+
+export function loteRegaloLavado(patente: string): string {
+  return PREFIJO_REGALO + patente;
+}
+
+/** Venta de tickets (Promo 2/5 Lavados, Upgrade a Promo 4 Lavados, Packs de
+ * Tickets): quien la hizo después de su lavado no recibe el regalo. */
+export function esCompraDeTickets(tipoVenta: string): boolean {
+  return /promo \d+ lavados|tickets/i.test(tipoVenta);
+}
+
 /** Amigos que llegaron con el link de esta patente (sacaron su cupón de
  * bienvenida) y cuántos ya lo usaron — los que generaron premio. */
 export function referidosDePatente(

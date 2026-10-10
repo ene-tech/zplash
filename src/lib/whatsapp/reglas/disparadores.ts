@@ -22,8 +22,8 @@ async function dispararPorVenta(regla: ReglaWhatsapp, venta: Venta): Promise<voi
   // normal para esta persona cuando termina la pausa.
   if (cliente && saltarInvitacionReferidos(regla.plantillaWhatsappId, cliente.creadoEn)) return;
 
-  const delayDias = regla.delayDias || 0;
-  const enviarEn = new Date(Date.now() + delayDias * MS_POR_DIA).toISOString();
+  const esperaMs = (regla.delayDias || 0) * MS_POR_DIA + (regla.delayMinutos || 0) * 60_000;
+  const enviarEn = new Date(Date.now() + esperaMs).toISOString();
   // El insert falla en silencio (retorna null) si esta venta ya disparó esta
   // regla antes (constraint único regla+origen) — necesario porque
   // insertVentas puede, en teoría, llamar esto más de una vez para el mismo
@@ -39,7 +39,7 @@ async function dispararPorVenta(regla: ReglaWhatsapp, venta: Venta): Promise<voi
     enviarEn,
   });
   if (!disparo) return;
-  if (delayDias > 0) return; // el cron lo procesa más adelante (ver procesarPendientesYVencimientos en ./cron)
+  if (esperaMs > 0) return; // el cron lo procesa más adelante (ver procesarPendientesYVencimientos en ./cron)
 
   if (!cliente) {
     await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" });

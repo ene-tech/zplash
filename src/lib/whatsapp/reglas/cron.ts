@@ -10,6 +10,7 @@ import {
   marcarDisparoReglaWhatsapp,
   obtenerReglaWhatsapp,
   registrarDisparoReglaWhatsapp,
+  tomarDisparoProgramado,
 } from "@/lib/dataAccess/whatsapp";
 import { periodoPlan, planVigente, uid } from "@/lib/helpers";
 import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
@@ -17,26 +18,22 @@ import { LOTE_TICKET_REACTIVACION } from "@/lib/pagos/ticketReactivacion";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 
-// Llamado por el cron diario (/api/whatsapp/reglas/evaluar): (1) procesa
-// disparos "venta_creada" con delayDias > 0 cuya fecha ya llegó, generando
-// recién ahí el Cupon (para que los días de validez cuenten desde que el
-// cliente recibe el mensaje, no desde la compra); (2) evalúa reglas
-// "plan_proximo_vencer" escaneando clientes por vencimiento; (3) evalúa
-// "ticket_por_vencer" escaneando los tickets sin usar de la promo de
-// reactivación.
-export async function procesarPendientesYVencimientos(): Promise<{ procesados: number; errores: number }> {
+// Disparos "venta_creada" con espera (delayDias/delayMinutos) cuya hora ya
+// llegó. Lo corren el cron diario (abajo) y el de cada 15 min
+// (/api/whatsapp/reglas/programados); tomarDisparoProgramado evita que los
+// dos manden el mismo.
+export async function procesarDisparosProgramados(): Promise<{ procesados: number; errores: number }> {
   let procesados = 0;
   let errores = 0;
-  const ahoraISO = new Date().toISOString();
-
   let pendientes: DisparoReglaWhatsapp[] = [];
   try {
-    pendientes = await listarDisparosProgramadosVencidos(ahoraISO);
+    pendientes = await listarDisparosProgramadosVencidos(new Date().toISOString());
   } catch (error) {
     console.error("Error listando disparos programados de WhatsApp", error);
   }
   for (const disparo of pendientes) {
     try {
+      if (!(await tomarDisparoProgramado(disparo.id))) continue;
       const regla = await obtenerReglaWhatsapp(disparo.reglaId);
       const cliente = disparo.clienteId ? await buscarCliente(disparo.clienteId) : null;
       if (!regla || !cliente) {
@@ -52,6 +49,19 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
       errores++;
     }
   }
+  return { procesados, errores };
+}
+
+// Llamado por el cron diario (/api/whatsapp/reglas/evaluar): (1) procesa
+// disparos "venta_creada" con delayDias > 0 cuya fecha ya llegó, generando
+// recién ahí el Cupon (para que los días de validez cuenten desde que el
+// cliente recibe el mensaje, no desde la compra); (2) evalúa reglas
+// "plan_proximo_vencer" escaneando clientes por vencimiento; (3) evalúa
+// "ticket_por_vencer" escaneando los tickets sin usar de la promo de
+// reactivación.
+export async function procesarPendientesYVencimientos(): Promise<{ procesados: number; errores: number }> {
+  let { procesados, errores } = await procesarDisparosProgramados();
+  const ahoraISO = new Date().toISOString();
 
   let reglasVencimiento: ReglaWhatsapp[] = [];
   try {

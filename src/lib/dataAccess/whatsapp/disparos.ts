@@ -78,6 +78,17 @@ export async function marcarDisparoReglaWhatsapp(
     .where(eq(disparosReglaWhatsapp.id, id));
 }
 
+/** Pasa un disparo de "programado" a "procesando". false = otro cron ya lo
+ * tomó (el diario y el de cada 15 min pueden coincidir) y no hay que mandarlo. */
+export async function tomarDisparoProgramado(id: string): Promise<boolean> {
+  const filas = await getDb()
+    .update(disparosReglaWhatsapp)
+    .set({ estado: "procesando" })
+    .where(and(eq(disparosReglaWhatsapp.id, id), eq(disparosReglaWhatsapp.estado, "programado")))
+    .returning({ id: disparosReglaWhatsapp.id });
+  return filas.length > 0;
+}
+
 export async function listarDisparosProgramadosVencidos(ahoraISO: string): Promise<DisparoReglaWhatsapp[]> {
   const rows = await getDb()
     .select()

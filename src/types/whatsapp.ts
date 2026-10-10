@@ -167,7 +167,9 @@ export type TipoEventoReglaWhatsapp =
   | "cambio_patente"
   | "primer_ingreso_mes"
   | "ticket_por_vencer";
-export type AccionReglaWhatsapp = "cupon_descuento" | "mensaje_simple";
+// "cupon_regalo": código abierto, para cualquier auto (ver
+// loteRegaloLavado en @/lib/referidos); usa cuponValor/cuponValidezDias.
+export type AccionReglaWhatsapp = "cupon_descuento" | "cupon_regalo" | "mensaje_simple";
 // Ver `canal` en @/db/schema/whatsapp.
 export type CanalReglaWhatsapp = "whatsapp" | "sms" | "correo";
 
@@ -187,6 +189,7 @@ export interface ReglaWhatsapp {
   condicionDiasAntesVencimiento?: number;
   condicionPasadasMin?: number;
   delayDias: number;
+  delayMinutos?: number;
   accion: AccionReglaWhatsapp;
   cuponEsPorcentaje?: boolean;
   cuponValor?: number;
@@ -198,7 +201,10 @@ export interface ReglaWhatsapp {
 }
 
 export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente" | "cobro" | "ingreso" | "cupon";
-export type EstadoDisparoReglaWhatsapp = "programado" | "enviado" | "error";
+// "procesando": el cron lo tomó (evita que dos crons lo manden dos veces).
+// "omitido": llegó la hora pero ya no correspondía (ej. el regalo del
+// lavado a quien compró tickets en esa hora).
+export type EstadoDisparoReglaWhatsapp = "programado" | "procesando" | "enviado" | "error" | "omitido";
 
 // Auditoría + idempotencia de cada disparo de una ReglaWhatsapp — ver
 // comentario en @/db/schema/whatsapp.

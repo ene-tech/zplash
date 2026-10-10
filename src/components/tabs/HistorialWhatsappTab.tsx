@@ -136,12 +136,16 @@ const COLOR_ESTADO: Record<EstadoDisparoReglaWhatsapp, string> = {
   enviado: "var(--green)",
   error: "var(--red)",
   programado: "var(--gray)",
+  procesando: "var(--gray)",
+  omitido: "var(--gray)",
 };
 
 const ETIQUETA_ESTADO: Record<EstadoDisparoReglaWhatsapp, string> = {
   enviado: "Enviado",
   error: "Error",
   programado: "Programado",
+  procesando: "Procesando",
+  omitido: "Omitido (compró tickets)",
 };
 
 function EstadoBadge({ estado }: { estado: EstadoDisparoReglaWhatsapp }) {

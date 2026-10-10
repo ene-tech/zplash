@@ -153,6 +153,11 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   // antes de mandar (0 = inmediato). En "plan_proximo_vencer" el "cuándo" ya
   // lo define condicionDiasAntesVencimiento.
   delayDias: integer("delay_dias").notNull().default(0),
+  // Minutos de espera que se SUMAN a delayDias (null/0 = nada). Existe para
+  // esperas cortas, como mandar el regalo una hora después de pasar por el
+  // túnel: los disparos programados los procesa también el cron de cada 15
+  // min (/api/whatsapp/reglas/programados), así que la precisión es ±15 min.
+  delayMinutos: integer("delay_minutos"),
   // "cupon_descuento": genera un Cupon tipo "descuento" atado a la patente de
   // la venta/cliente (ver @/db/schema/cupones), reconocible automáticamente
   // sin código al volver (ver OperadorFoundResult). "mensaje_simple": solo

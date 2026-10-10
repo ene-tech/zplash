@@ -1,21 +1,22 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, cupones as cuponesTabla } from "@/db/schema";
+import { clientes, cupones as cuponesTabla, disparosReglaWhatsapp, ventas } from "@/db/schema";
 // Import directo a los submódulos de dataAccess (no al barrel @/lib/dataAccess)
 // para no crear un ciclo con dataAccess/ventas.ts, que llama a
 // evaluarReglasPorVenta (ver @/lib/whatsapp/reglas/disparadores) e importa
 // este archivo transitivamente.
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import { getConfig } from "@/lib/dataAccess/config";
-import { upsertCupones } from "@/lib/dataAccess/cupones";
+import { cuponFromRow, cuponToRow, upsertCupones } from "@/lib/dataAccess/cupones";
 import { marcarDisparoReglaWhatsapp, obtenerPlantillaWhatsapp } from "@/lib/dataAccess/whatsapp";
-import { aplicarVariables, esEmailEnviable, fmtCLP, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
+import { aplicarVariables, esEmailEnviable, fmtCLP, fmtFecha, generarCodigoCupon, normPlate, uid } from "@/lib/helpers";
 import { posicionesVariableEnLink, sufijoOrigen } from "@/lib/helpers/utm";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { enviarPush } from "@/lib/push/enviar";
+import { esCompraDeTickets, loteRegaloLavado } from "@/lib/referidos";
 import { enviarSms } from "@/lib/sms/enviar";
 import { enviarMensajePlantilla } from "../enviar";
 import type { Cliente, Cupon, PlantillaWhatsapp, ReglaWhatsapp } from "@/types";
@@ -214,6 +215,58 @@ export function crearCuponDescuento(opts: {
   };
 }
 
+// Código de regalo del lavado (ver loteRegaloLavado en @/lib/referidos):
+// descuento ABIERTO —sin patente asignada, lo canjea cualquier auto, incluido
+// el de quien lo recibió— tipeándolo en el mesón o guardándolo en Mi Cuenta.
+// Se manda con espera (delayMinutos) y "omitido" si en ese rato el cliente
+// compró tickets: ya se llevó lo suyo. Uno por venta, no por regla: la regla
+// de SMS y la de correo del mismo lavado mandan el MISMO código. El id sale de
+// la venta y el insert no pisa, así que aunque los dos crons tomen uno cada
+// uno a la vez, gana el primero y el otro lee ese mismo.
+async function cuponRegaloLavado(
+  regla: ReglaWhatsapp,
+  disparoId: string,
+  cliente: Cliente
+): Promise<Cupon | "compro-tickets" | null> {
+  const db = getDb();
+  const [disparo] = await db
+    .select({ origenId: disparosReglaWhatsapp.origenId })
+    .from(disparosReglaWhatsapp)
+    .where(eq(disparosReglaWhatsapp.id, disparoId))
+    .limit(1);
+  if (!disparo) return null;
+  const [lavado] = await db.select({ fecha: ventas.fecha }).from(ventas).where(eq(ventas.id, disparo.origenId)).limit(1);
+  if (lavado) {
+    const despues = await db
+      .select({ tipo: ventas.tipo })
+      .from(ventas)
+      .where(and(eq(ventas.clienteId, cliente.id), gt(ventas.fecha, lavado.fecha)));
+    if (despues.some((v) => esCompraDeTickets(v.tipo))) return "compro-tickets";
+  }
+
+  const id = `regalo-${disparo.origenId}`;
+  const [codigo] = await generarCodigosCuponUnicos(1);
+  const nuevo: Cupon = {
+    ...crearCuponDescuento({
+      id,
+      codigo,
+      patente: "",
+      valor: regla.cuponValor || 0,
+      esPorcentaje: regla.cuponEsPorcentaje || false,
+      validezDias: regla.cuponValidezDias ?? 15,
+      nombreLote: loteRegaloLavado(normPlate(cliente.patente)),
+      creadoPor: `regla-whatsapp:${regla.id}`,
+    }),
+    // Abierto a propósito. Sin email tampoco: quedaría en la cuenta de quien
+    // lo recibió y nadie más podría guardarlo en la suya (ver
+    // /api/cliente/mi-cuenta/agregar-cupon).
+    patenteAsignada: undefined,
+  };
+  await db.insert(cuponesTabla).values(cuponToRow(nuevo)).onConflictDoNothing({ target: cuponesTabla.id });
+  const [guardado] = await db.select().from(cuponesTabla).where(eq(cuponesTabla.id, id)).limit(1);
+  return guardado ? cuponFromRow(guardado) : null;
+}
+
 // Ejecuta la acción de una regla ya disparada (fila en disparos_regla_whatsapp
 // ya insertada, para idempotencia) contra un cliente concreto: si corresponde
 // genera el Cupon "descuento" atado a la patente (reconocible sin código al
@@ -256,7 +309,21 @@ export async function ejecutarAccionRegla(
   let cuponId = cupon?.id;
   let montoOferta: number | undefined;
   let diasValidez: number | undefined;
-  if (regla.accion === "cupon_descuento") {
+  if (regla.accion === "cupon_regalo") {
+    const regalo = await cuponRegaloLavado(regla, disparoId, cliente);
+    if (regalo === "compro-tickets") {
+      await marcarDisparoReglaWhatsapp(disparoId, { estado: "omitido" });
+      return;
+    }
+    if (!regalo) {
+      // Sin código no hay nada que avisar: el mensaje entero es el código.
+      await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
+      return;
+    }
+    cupon = regalo;
+    cuponId = regalo.id;
+    montoOferta = regalo.valor;
+  } else if (regla.accion === "cupon_descuento") {
     diasValidez = regla.cuponValidezDias ?? 7;
     const [codigo] = await generarCodigosCuponUnicos(1);
     const nuevo = crearCuponDescuento({

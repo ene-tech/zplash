@@ -17,7 +17,8 @@ function resumenCondicion(r: ReglaWhatsapp): string {
   if (r.tipoEvento === "venta_creada") {
     const tipo = r.condicionTipoVenta || "cualquier tipo de venta";
     const planes = r.condicionPlanes?.length ? ` (plan: ${r.condicionPlanes.join(", ")})` : "";
-    const delay = r.delayDias ? `, ${r.delayDias} día(s) después` : ", de inmediato";
+    const espera = [r.delayDias ? `${r.delayDias} día(s)` : "", r.delayMinutos ? `${r.delayMinutos} min` : ""].filter(Boolean).join(" y ");
+    const delay = espera ? `, ${espera} después` : ", de inmediato";
     const sinCupon = r.condicionExcluirConCupon ? ", salvo que la venta haya usado un cupón" : "";
     return `Al vender "${tipo}"${planes}${delay}${sinCupon}`;
   }
@@ -76,7 +77,9 @@ function ReglaRow({ regla, puedeBorrar }: { regla: ReglaWhatsapp; puedeBorrar: b
         <span>
           {regla.accion === "cupon_descuento"
             ? `Genera descuento: ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
-            : "Solo manda el mensaje (sin descuento)"}
+            : regla.accion === "cupon_regalo"
+              ? `Genera código abierto: ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
+              : "Solo manda el mensaje (sin descuento)"}
           {" · Plantilla: "}
           {plantilla?.nombre || "(eliminada)"}
         </span>
@@ -135,7 +138,8 @@ export default function ReglasWhatsappTab() {
       return;
     }
     const cuponValor = Number(cuponValorRef.current?.value || 0);
-    if (accion === "cupon_descuento" && (!cuponValor || cuponValor <= 0)) {
+    const generaCupon = accion !== "mensaje_simple";
+    if (generaCupon && (!cuponValor || cuponValor <= 0)) {
       setErr({ msg: "Ingresa el valor del descuento", ok: false });
       return;
     }
@@ -152,9 +156,9 @@ export default function ReglasWhatsappTab() {
         tipoEvento === "plan_proximo_vencer" || tipoEvento === "ticket_por_vencer" ? Number(diasAntesRef.current?.value || 0) : undefined,
       delayDias: tipoEvento === "venta_creada" ? Number(delayDiasRef.current?.value || 0) : 0,
       accion,
-      cuponEsPorcentaje: accion === "cupon_descuento" ? cuponEsPorcentaje : undefined,
-      cuponValor: accion === "cupon_descuento" ? cuponValor : undefined,
-      cuponValidezDias: accion === "cupon_descuento" ? Number(cuponValidezDiasRef.current?.value || 7) : undefined,
+      cuponEsPorcentaje: generaCupon ? cuponEsPorcentaje : undefined,
+      cuponValor: generaCupon ? cuponValor : undefined,
+      cuponValidezDias: generaCupon ? Number(cuponValidezDiasRef.current?.value || 7) : undefined,
       plantillaWhatsappId: plantillaId,
       canal,
       creadoEn: new Date().toISOString(),
@@ -253,11 +257,12 @@ export default function ReglasWhatsappTab() {
           <label>Acción</label>
           <select value={accion} onChange={(e) => setAccion(e.target.value as AccionReglaWhatsapp)}>
             <option value="cupon_descuento">Generar descuento (reconocido por patente al volver)</option>
+            <option value="cupon_regalo">Generar código abierto (cualquier auto; no se manda si compró tickets después)</option>
             <option value="mensaje_simple">Solo enviar el mensaje</option>
           </select>
         </div>
 
-        {accion === "cupon_descuento" && (
+        {accion !== "mensaje_simple" && (
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
             <div className="field" style={{ margin: 0 }}>
               <label>Tipo</label>

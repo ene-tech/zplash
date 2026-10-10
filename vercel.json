@@ -4,6 +4,7 @@
     { "path": "/api/pagos/oneclick/cobrar", "schedule": "0 13 * * *" },
     { "path": "/api/pagos/webpay/conciliar", "schedule": "*/15 * * * *" },
     { "path": "/api/whatsapp/reglas/evaluar", "schedule": "0 14 * * *" },
+    { "path": "/api/whatsapp/reglas/programados", "schedule": "*/15 * * * *" },
     { "path": "/api/correo/reglas/evaluar", "schedule": "0 14 * * *" },
     { "path": "/api/correo/filtros/evaluar", "schedule": "*/15 * * * *" },
     { "path": "/api/referidos/premiar", "schedule": "0 15 * * *" }
