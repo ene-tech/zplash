@@ -5,9 +5,10 @@ import { listarUltimosSms, resumenSmsPorCampana, saldoSms } from "@/lib/serverAc
 import { fmtCLP, fmtFecha, fmtHora, primerDiaMesActualYMD, todayYMD } from "@/lib/helpers";
 import type { ResumenSmsCampana, SaldoSms, SmsEnviado } from "@/types";
 
-// Lo que cuesta cada SMS (segmento) según la recarga de LabsMobile de
-// oct-2026. Si una recarga sale a otro precio, se cambia acá.
-const COSTO_SMS_CLP = 12.5;
+// Lo que cuesta cada SMS (segmento): recarga de LabsMobile de oct-2026,
+// $65.000 por 1.328 créditos a 0,266 créditos por SMS a Chile ≈ $13. Si una
+// recarga sale a otro precio, se cambia acá.
+const COSTO_SMS_CLP = 13;
 
 const COLOR_ESTADO: Record<SmsEnviado["estado"], string> = { enviado: "var(--green)", fallido: "var(--red)", pendiente: "var(--gray)" };
 
