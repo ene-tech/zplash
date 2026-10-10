@@ -1,9 +1,10 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, mensajesSms } from "@/db/schema";
+import { clientes, mensajesSms, reglasWhatsapp } from "@/db/schema";
+import type { EstadoMensajeSms, ResumenSmsCampana, SmsEnviado } from "@/types";
 
-export type EstadoMensajeSms = "pendiente" | "enviado" | "fallido";
+export type { EstadoMensajeSms };
 
 // Se inserta ANTES de llamar al proveedor (estado "pendiente"): así el código
 // de baja queda reservado (unique) y, si la función se corta a mitad del envío,
@@ -67,4 +68,42 @@ export async function darDeBajaPorCodigoSms(codigo: string): Promise<boolean> {
   if (!mensaje?.clienteId) return false;
   await getDb().update(clientes).set({ sinComunicacionAuto: true }).where(eq(clientes.id, mensaje.clienteId));
   return true;
+}
+
+// Web Settings → Mensajes de texto: SMS del período agrupados por campaña. Las
+// reglas automáticas usan campana "regla:<id>" (ver ejecutarAccionRegla en
+// @/lib/whatsapp/reglas/motor), por eso el join para mostrar su nombre.
+export async function resumenSmsPorCampana(desdeISO: string, hastaISO: string): Promise<ResumenSmsCampana[]> {
+  const rows = await getDb()
+    .select({
+      campana: mensajesSms.campana,
+      regla: reglasWhatsapp.nombre,
+      enviados: sql<number>`count(*) filter (where ${mensajesSms.estado} = 'enviado')`.mapWith(Number),
+      segmentos: sql<number>`coalesce(sum(${mensajesSms.segmentos}) filter (where ${mensajesSms.estado} = 'enviado'), 0)`.mapWith(Number),
+      fallidos: sql<number>`count(*) filter (where ${mensajesSms.estado} = 'fallido')`.mapWith(Number),
+    })
+    .from(mensajesSms)
+    .leftJoin(reglasWhatsapp, sql`${mensajesSms.campana} = 'regla:' || ${reglasWhatsapp.id}`)
+    .where(and(gte(mensajesSms.creadoEn, desdeISO), lte(mensajesSms.creadoEn, hastaISO)))
+    .groupBy(mensajesSms.campana, reglasWhatsapp.nombre)
+    .orderBy(desc(sql`count(*)`));
+  return rows.map((r) => ({ ...r, regla: r.regla ?? undefined }));
+}
+
+export async function listarUltimosSms(limite: number): Promise<SmsEnviado[]> {
+  const rows = await getDb()
+    .select({
+      id: mensajesSms.id,
+      telefono: mensajesSms.telefono,
+      campana: mensajesSms.campana,
+      texto: mensajesSms.texto,
+      segmentos: mensajesSms.segmentos,
+      estado: mensajesSms.estado,
+      error: mensajesSms.error,
+      creadoEn: mensajesSms.creadoEn,
+    })
+    .from(mensajesSms)
+    .orderBy(desc(mensajesSms.creadoEn))
+    .limit(limite);
+  return rows.map((r) => ({ ...r, estado: r.estado as EstadoMensajeSms, error: r.error ?? undefined }));
 }

@@ -5,6 +5,7 @@ import { randomInt } from "node:crypto";
 // importa este archivo y el barrel lo cerraría en ciclo vía dataAccess/ventas.
 import { insertarMensajeSmsPendiente, marcarMensajeSms } from "@/lib/dataAccess/sms";
 import { uid } from "@/lib/helpers";
+import type { SaldoSms } from "@/types";
 import { LARGO_CODIGO_BAJA, MAX_SEGMENTOS_SMS, segmentosSms, textoFinalSms } from "./texto";
 
 // Proveedor: LabsMobile (API JSON, https://api.labsmobile.com/json/send, auth
@@ -107,4 +108,30 @@ export async function enviarSms(opts: {
   const resultado = await llamarLabsMobile(msisdn, texto, id);
   await marcarMensajeSms(id, resultado.ok ? { estado: "enviado", proveedorId: resultado.proveedorId } : { estado: "fallido", error: resultado.error });
   return { ok: resultado.ok, error: resultado.error };
+}
+
+/**
+ * Saldo de la cuenta y cuántos créditos cuesta un SMS a Chile (LabsMobile cobra
+ * en créditos; al 7-oct-2026, 0,266 por SMS). Para Web Settings → Mensajes de texto.
+ */
+export async function saldoLabsMobile(): Promise<SaldoSms> {
+  const usuario = process.env.LABSMOBILE_USUARIO;
+  const token = process.env.LABSMOBILE_TOKEN;
+  if (!usuario || !token) return { error: "Faltan LABSMOBILE_USUARIO / LABSMOBILE_TOKEN en las variables de entorno" };
+  const headers = { "Content-Type": "application/json", Authorization: `Basic ${Buffer.from(`${usuario}:${token}`).toString("base64")}` };
+  try {
+    const [saldo, precios] = await Promise.all([
+      fetch("https://api.labsmobile.com/json/balance", { headers }).then((r) => r.json() as Promise<{ code?: number; credits?: string }>),
+      fetch("https://api.labsmobile.com/json/prices", { method: "POST", headers, body: JSON.stringify({ format: "JSON", countries: ["CL"] }) }).then(
+        (r) => r.json() as Promise<{ CL?: { credits?: number } }>
+      ),
+    ]);
+    const creditos = Number(saldo.credits);
+    const creditosPorSms = Number(precios.CL?.credits);
+    if (!Number.isFinite(creditos) || !creditosPorSms) return { error: "Respuesta inválida de LabsMobile" };
+    return { creditos, creditosPorSms };
+  } catch (error) {
+    console.error("Error consultando el saldo de LabsMobile", error);
+    return { error: "Error de red" };
+  }
 }

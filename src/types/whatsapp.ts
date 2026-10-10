@@ -273,3 +273,29 @@ export interface ResultadoEnvioMasivoSms extends ResultadoEnvioMasivoWhatsapp {
   // sin saldo o credenciales mal cargadas) sin tener que ir a los logs.
   primerError?: string;
 }
+
+export type EstadoMensajeSms = "pendiente" | "enviado" | "fallido";
+
+// Web Settings → Mensajes de texto (ver resumenSmsPorCampana en
+// @/lib/dataAccess/sms). `regla` solo viene en los SMS de reglas automáticas.
+export interface ResumenSmsCampana {
+  campana: string;
+  regla?: string;
+  enviados: number;
+  segmentos: number;
+  fallidos: number;
+}
+
+export interface SmsEnviado {
+  id: string;
+  telefono: string;
+  campana: string;
+  texto: string;
+  segmentos: number;
+  estado: EstadoMensajeSms;
+  error?: string;
+  creadoEn: string;
+}
+
+// Saldo de la cuenta LabsMobile (ver saldoLabsMobile en @/lib/sms/enviar).
+export type SaldoSms = { creditos: number; creditosPorSms: number } | { error: string };
