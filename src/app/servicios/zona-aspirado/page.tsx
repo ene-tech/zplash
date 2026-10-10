@@ -52,7 +52,7 @@ export default async function ZonaAspiradoPage() {
           eyebrow="Autoservicio"
           titulo="Uso Zona Aspirado Autoservicio"
           descripcion="Estación de aspirado autoservicio disponible para cualquier cliente: pagas el uso puntual y aspiras tu auto tú mismo, sin límite de tiempo."
-          imagen="/fondo-producto.jpg"
+          imagen={[{ src: "/tunel/aspirado.jpg", alt: "Zona de aspirado autoservicio con aspiradoras y pistolas de aire" }]}
           features={[
             { icon: <Wind />, titulo: "Autoservicio", detalle: "Tú mismo limpias el interior, a tu ritmo." },
             { icon: <Clock />, titulo: "Sin límite de tiempo", detalle: "Usa la estación el tiempo que necesites en cada uso." },
