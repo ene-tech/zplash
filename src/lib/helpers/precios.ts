@@ -673,11 +673,12 @@ export const PROMO_2_LAVADOS_KEY = "Promo 2 Lavados";
 export const LAVADOS_PROMO_2_LAVADOS = 2;
 export const DIAS_PROMO_2_LAVADOS = 30;
 /** Hermana de la Promo 2 Lavados (oct-2026): 4 tickets para un auto en 30
- * días (eran 5 hasta el 7-oct-2026; la clave sigue diciendo 5 porque es el
- * `Venta.tipo` histórico y la fila de `precios`). Compra única para
- * quien no quiere un plan — por eso NO toca plan ni vencimiento ni entra en
- * los avisos de vencido: son tickets, igual que la de 2. */
-export const PROMO_5_LAVADOS_KEY = "Promo 5 Lavados";
+ * días (eran 5 hasta el 7-oct-2026, y la clave se llamaba "Promo 5 Lavados"
+ * hasta el 9-oct-2026: ventas, tickets y la fila de `precios` se renombraron
+ * con SQL; el id `promo_5_lavados` sigue igual porque va en links de /pagar).
+ * Compra única para quien no quiere un plan — por eso NO toca plan ni
+ * vencimiento ni entra en los avisos de vencido: son tickets, igual que la de 2. */
+export const PROMO_5_LAVADOS_KEY = "Promo 4 Lavados";
 
 /** Los packs de lavados prepagados para un auto, por el id que usan /pagar
  * (`?item=`), webpay/crear y el mesón. `key` es a la vez la fila de `precios`,

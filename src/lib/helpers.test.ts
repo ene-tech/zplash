@@ -2559,7 +2559,7 @@ describe("Promo 2 Lavados — tickets por patente", () => {
     expect(precioPromo2Lavados({ [PROMO_2_LAVADOS_KEY]: { normal: 14990, promo: 0 } })).toBe(14990);
   });
 
-  it("Promo 5 Lavados: 4 vales de su propio lote, 30 días, y su precio no se mezcla con la de 2", () => {
+  it("Promo 4 Lavados: 4 vales de su propio lote, 30 días, y su precio no se mezcla con la de 2", () => {
     const cinco = cuponesPromoLavados({ promo: "promo_5_lavados", patente: "ab1234", precio: 19990, existentes: new Set(), creadoPor: "x", idBase: "c5", ahora });
     expect(cinco).toHaveLength(4);
     expect(new Set(cinco.map((t) => t.codigo)).size).toBe(4);
@@ -2590,7 +2590,7 @@ describe("neto e IVA de un monto bruto", () => {
 
 describe("esCompraDeTickets", () => {
   it("reconoce las ventas de tickets y deja fuera lavados y planes", () => {
-    for (const t of ["Upgrade a Promo 4 Lavados", "Upgrade a Promo 4 Lavados (Web)", "Promo 2 Lavados", "Promo 5 Lavados", "10 Tickets (Web)"]) {
+    for (const t of ["Upgrade a Promo 4 Lavados", "Upgrade a Promo 4 Lavados (Web)", "Promo 2 Lavados", "Promo 4 Lavados", "10 Tickets (Web)"]) {
       expect(esCompraDeTickets(t)).toBe(true);
     }
     for (const t of ["Lavado único", "Lavado único (Web)", "Plan nuevo", "Venta de productos"]) {

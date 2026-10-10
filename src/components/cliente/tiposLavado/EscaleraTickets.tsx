@@ -56,7 +56,7 @@ type Opcion = {
 };
 
 // Escalera de compra única del lavado túnel: 1 lavado, 2 tickets (Promo 2
-// Lavados) y 4 tickets (Promo 5 Lavados), todas por Webpay Plus y sin plan —
+// Lavados) y 4 tickets (Promo 4 Lavados), todas por Webpay Plus y sin plan —
 // el Plan X5 con cobro automático va aparte (ver TiposLavadoTab). Muestra el
 // precio por lavado y el ahorro contra el suelto para que la comparación se
 // haga sola. Los precios salen siempre de la base (getPreciosPublicos), los
