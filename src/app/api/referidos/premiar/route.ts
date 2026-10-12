@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const db = getDb();
   const [usados, premios, existentes, config, plantillaAviso] = await Promise.all([
     db
-      .select({ codigo: cupones.codigo, nombreLote: cupones.nombreLote })
+      .select({ codigo: cupones.codigo, nombreLote: cupones.nombreLote, patenteUso: cupones.patenteUso })
       .from(cupones)
       .where(and(like(cupones.nombreLote, "Referido - %"), eq(cupones.usado, true))),
     db.select({ nombreLote: cupones.nombreLote }).from(cupones).where(like(cupones.nombreLote, "Premio referido - %")),

@@ -122,7 +122,6 @@ import {
   visitasUltimoPeriodoVencido,
 } from "./helpers";
 import type { Cliente, ConfigGlobal, Cupon, Ingreso, PerfilPublico, Precios, Venta } from "@/types";
-import { esCompraDeTickets } from "@/lib/referidos";
 
 describe("normPlate", () => {
   it("pasa a mayúsculas y saca todo lo que no sea letra/número", () => {
@@ -2585,16 +2584,5 @@ describe("neto e IVA de un monto bruto", () => {
     }
     expect(netoDeBruto(11900)).toBe(10000);
     expect(ivaDeBruto(11900)).toBe(1900);
-  });
-});
-
-describe("esCompraDeTickets", () => {
-  it("reconoce las ventas de tickets y deja fuera lavados y planes", () => {
-    for (const t of ["Upgrade a Promo 4 Lavados", "Upgrade a Promo 4 Lavados (Web)", "Promo 2 Lavados", "Promo 4 Lavados", "10 Tickets (Web)"]) {
-      expect(esCompraDeTickets(t)).toBe(true);
-    }
-    for (const t of ["Lavado único", "Lavado único (Web)", "Plan nuevo", "Venta de productos"]) {
-      expect(esCompraDeTickets(t)).toBe(false);
-    }
   });
 });

@@ -4,8 +4,10 @@ import { getDb } from "@/db";
 import { cupones } from "@/db/schema";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
+import { patenteYaFueReferida } from "@/lib/dataAccess/cupones";
 import { generarCodigoCupon, normPlate, uid } from "@/lib/helpers";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
+import { referidorDeLote } from "@/lib/referidos";
 
 export const runtime = "nodejs";
 
@@ -158,6 +160,17 @@ export async function POST(request: NextRequest) {
         // la cuenta: queda "abierto" y el operador lo aplica tipeando el código
         // (ver resolverDescuento).
         patenteAsignada = elegida || (patentes.length === 1 ? patentes[0] : null);
+      }
+      // Código de referido (ver rechazoCodigoReferido): es para regalarlo, no
+      // para la cuenta que lo recibió, y cada patente recibe uno solo. Solo el
+      // abierto: el del link ya viene atado a la patente del amigo y
+      // patenteYaFueReferida lo encontraría a él mismo.
+      const referidor = cupon.patenteAsignada ? null : referidorDeLote(cupon.nombreLote);
+      if (referidor && patentes.includes(referidor)) {
+        return NextResponse.json({ ok: false, error: "Ese código es para regalárselo a un amigo, no para tus autos" }, { status: 409 });
+      }
+      if (referidor && patenteAsignada && (await patenteYaFueReferida(patenteAsignada))) {
+        return NextResponse.json({ ok: false, error: "Esa patente ya usó un descuento de amigo" }, { status: 409 });
       }
     }
 

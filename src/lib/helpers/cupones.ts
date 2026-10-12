@@ -2,6 +2,7 @@ import type { Cliente, Cupon, Venta } from "@/types";
 import { findClient } from "./clientes";
 import { PROMOS_LAVADOS, fmtCLP, type IdPromoLavados } from "./precios";
 import { limpiarRut, normPlate } from "./validadores";
+import { rechazoCodigoReferido } from "@/lib/referidos";
 
 /** Alfabeto sin 0/O ni 1/I para evitar confusiones al leer o tipear el código. */
 const ALFABETO_CUPON = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -85,6 +86,8 @@ export function resolverDescuento(
   if (cupon.soloClientesNuevos && findClient(clientes, patente)) {
     return { ok: false, msg: "Este descuento es solo para clientes nuevos" };
   }
+  const rechazoReferido = rechazoCodigoReferido(cupon, patente, cupones);
+  if (rechazoReferido) return { ok: false, msg: rechazoReferido };
   return { ok: true, cupon };
 }
 

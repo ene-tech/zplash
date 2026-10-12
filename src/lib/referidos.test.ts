@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acumularPremio, loteReferido, lotePremioReferido, premioAcumulado, premiosPendientes, referidosDePatente, saltarInvitacionReferidos } from "./referidos";
+import { acumularPremio, loteReferido, lotePremioReferido, premioAcumulado, premiosPendientes, rechazoCodigoReferido, referidosDePatente, saltarInvitacionReferidos } from "./referidos";
 
 describe("saltarInvitacionReferidos (fin de semana post campaña)", () => {
   const sabado = new Date("2026-10-03T15:00:00Z");
@@ -25,6 +25,31 @@ describe("premiosPendientes", () => {
       { patenteReferidor: "AB1234", codigoAmigo: "BBB222", nombreLote: lotePremioReferido("BBB222") },
     ]);
   });
+
+  it("el código usado en el mismo auto que lo recibió no premia", () => {
+    const usados = [
+      { codigo: "AAA111", nombreLote: loteReferido("AB1234"), patenteUso: "AB1234" },
+      { codigo: "BBB222", nombreLote: loteReferido("AB1234"), patenteUso: "CD5678" },
+    ];
+    expect(premiosPendientes(usados, new Set()).map((p) => p.codigoAmigo)).toEqual(["BBB222"]);
+  });
+});
+
+describe("rechazoCodigoReferido", () => {
+  const codigo = { id: "c1", nombreLote: loteReferido("AB1234") };
+  it("el dueño no lo usa en su auto; un amigo nuevo sí", () => {
+    expect(rechazoCodigoReferido(codigo, "AB1234", [codigo])).toMatch(/amigo/);
+    expect(rechazoCodigoReferido(codigo, "CD5678", [codigo])).toBeNull();
+  });
+  it("una patente usa un solo descuento de amigo (link o código)", () => {
+    const otro = { id: "c2", nombreLote: loteReferido("ZZ9999"), patenteUso: "CD5678" };
+    const link = { id: "c3", nombreLote: loteReferido("ZZ9999"), patenteAsignada: "EF9012" };
+    expect(rechazoCodigoReferido(codigo, "CD5678", [codigo, otro])).toMatch(/ya usó/);
+    expect(rechazoCodigoReferido(codigo, "EF9012", [codigo, link])).toMatch(/ya usó/);
+  });
+  it("no toca los cupones que no son de amigo", () => {
+    expect(rechazoCodigoReferido({ id: "x", nombreLote: "Web - Primera vez" }, "AB1234", [])).toBeNull();
+  });
 });
 
 describe("acumularPremio", () => {
@@ -43,6 +68,8 @@ describe("referidosDePatente", () => {
   it("cuenta solo los cupones de amigo de esa patente, y cuáles se usaron", () => {
     const cupones = [
       { nombreLote: loteReferido("AB1234"), usado: true },
+      { nombreLote: loteReferido("AB1234"), usado: false, patenteAsignada: "CD5678" },
+      // Código abierto que nadie tomó todavía: no es un amigo que llegó.
       { nombreLote: loteReferido("AB1234"), usado: false },
       { nombreLote: loteReferido("CD5678"), usado: true },
       { nombreLote: lotePremioReferido("XYZ"), usado: false },

@@ -37,12 +37,15 @@ vi.mock("@/lib/dataAccess/clientes", () => ({ getClientesByIds: () => mockClient
 
 vi.mock("@/lib/rateLimit", () => ({ clienteIp: () => "1.2.3.4", rateLimited: () => false }));
 
+const mockYaReferida = vi.fn();
+vi.mock("@/lib/dataAccess/cupones", () => ({ patenteYaFueReferida: (p: string) => mockYaReferida(p) }));
+
 import { POST } from "./route";
 
 const vigente = new Date(Date.now() + 30 * 86400000).toISOString();
 
 function fila(extra: Record<string, unknown>) {
-  cuponEnBase.fila = { id: "cup1", codigo: "K7M4PQ", usado: false, fechaCaducidad: vigente, email: null, patenteAsignada: null, ...extra };
+  cuponEnBase.fila = { id: "cup1", codigo: "K7M4PQ", nombreLote: "Promo", usado: false, fechaCaducidad: vigente, email: null, patenteAsignada: null, ...extra };
 }
 
 function pedir(body: unknown) {
@@ -55,6 +58,25 @@ describe("POST /api/cliente/mi-cuenta/agregar-cupon", () => {
     vi.clearAllMocks();
     quemados = [{ id: "cup1" }];
     mockClientes.mockResolvedValue([{ patente: "AB1234" }]);
+    mockYaReferida.mockResolvedValue(false);
+  });
+
+  it("el código de referido no se guarda en la cuenta que lo recibió", async () => {
+    fila({ tipo: "descuento", nombreLote: "Referido - AB1234" });
+    const res = await pedir({ codigo: "K7M4PQ" });
+    expect(res.status).toBe(409);
+    expect(setGuardado).not.toHaveBeenCalled();
+  });
+
+  it("el código de referido se ata a la patente del amigo, una sola vez", async () => {
+    fila({ tipo: "descuento", nombreLote: "Referido - ZZ9999" });
+    expect((await pedir({ codigo: "K7M4PQ" })).status).toBe(200);
+    expect(setGuardado).toHaveBeenCalledWith({ email: "ana@ejemplo.cl", patenteAsignada: "AB1234" });
+
+    setGuardado.mockClear();
+    mockYaReferida.mockResolvedValue(true);
+    expect((await pedir({ codigo: "K7M4PQ" })).status).toBe(409);
+    expect(setGuardado).not.toHaveBeenCalled();
   });
 
   it("ata el descuento abierto al único vehículo de la cuenta", async () => {

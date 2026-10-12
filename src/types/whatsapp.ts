@@ -167,8 +167,10 @@ export type TipoEventoReglaWhatsapp =
   | "cambio_patente"
   | "primer_ingreso_mes"
   | "ticket_por_vencer";
-// "cupon_regalo": código abierto, para cualquier auto (ver
-// loteRegaloLavado en @/lib/referidos); usa cuponValor/cuponValidezDias.
+// "cupon_regalo": código de referido abierto, para regalárselo a un amigo (ver
+// rechazoCodigoReferido en @/lib/referidos); usa cuponValor/cuponValidezDias.
+// Conserva el nombre de antes (oct-2026, "regalo del lavado") porque es el
+// valor guardado en reglas_whatsapp.accion.
 export type AccionReglaWhatsapp = "cupon_descuento" | "cupon_regalo" | "mensaje_simple";
 // Ver `canal` en @/db/schema/whatsapp.
 export type CanalReglaWhatsapp = "whatsapp" | "sms" | "correo";

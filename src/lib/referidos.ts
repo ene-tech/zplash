@@ -61,32 +61,47 @@ export function lotePremioReferido(codigoAmigo: string): string {
   return PREFIJO_PREMIO + codigoAmigo;
 }
 
-// Regalo del lavado (oct-2026): una hora después de un lavado único pagado,
-// si en ese rato no compró tickets, el cliente recibe un código de descuento
-// ABIERTO (sin patente asignada) para usar en cualquier auto, incluido el
-// suyo — lo emite la regla con accion "cupon_regalo" (ver ejecutarAccionRegla).
-// La patente que lo recibió va en el nombreLote solo para medir. A diferencia
-// de "Referido - ", su uso no premia a nadie: el cron de premios no lo mira.
-const PREFIJO_REGALO = "Regalo lavado - ";
+// Código de referido (oct-2026, reemplaza al "regalo $2.000 del lavado"): una
+// hora después de un lavado único pagado, el cliente recibe un código ABIERTO
+// (sin patente asignada) para regalárselo a un amigo — lo emite la regla con
+// accion "cupon_regalo" (ver ejecutarAccionRegla). Lleva el mismo nombreLote
+// "Referido - SUPATENTE" que el link, así que cuando el amigo lo usa el cron
+// de premios le paga a quien lo compartió sin saber de dónde vino. El dueño no
+// lo puede usar en su auto, y una patente usa un solo descuento de amigo (ver
+// rechazoCodigoReferido).
 
-export function loteRegaloLavado(patente: string): string {
-  return PREFIJO_REGALO + patente;
+/** Patente que invitó, si el cupón es de amigo (link o código). */
+export function referidorDeLote(nombreLote: string): string | null {
+  return nombreLote.startsWith(PREFIJO_REFERIDO) ? nombreLote.slice(PREFIJO_REFERIDO.length) || null : null;
 }
 
-/** Venta de tickets (Promo 2/5 Lavados, Upgrade a Promo 4 Lavados, Packs de
- * Tickets): quien la hizo después de su lavado no recibe el regalo. */
-export function esCompraDeTickets(tipoVenta: string): boolean {
-  return /promo \d+ lavados|tickets/i.test(tipoVenta);
+/** Por qué esta patente no puede usar este cupón de amigo, o null si puede (o
+ * si no es de amigo). `cupones` es la tabla cargada (el mesón la tiene entera):
+ * la patente que ya recibió o usó otro cupón de amigo no recibe un segundo —
+ * misma regla que patenteYaFueReferida para el link. */
+export function rechazoCodigoReferido(
+  cupon: { id: string; nombreLote: string },
+  patente: string,
+  cupones: { id: string; nombreLote: string; patenteAsignada?: string | null; patenteUso?: string | null }[]
+): string | null {
+  const referidor = referidorDeLote(cupon.nombreLote);
+  if (!referidor) return null;
+  if (referidor === patente) return "Este código es para regalárselo a un amigo, no se usa en el auto que lo recibió";
+  const yaReferida = cupones.some(
+    (c) => c.id !== cupon.id && c.nombreLote.startsWith(PREFIJO_REFERIDO) && (c.patenteAsignada === patente || c.patenteUso === patente)
+  );
+  return yaReferida ? "Esta patente ya usó un descuento de amigo" : null;
 }
 
-/** Amigos que llegaron con el link de esta patente (sacaron su cupón de
- * bienvenida) y cuántos ya lo usaron — los que generaron premio. */
+/** Amigos que llegaron con el link o el código de esta patente y cuántos ya
+ * lo usaron — los que generaron premio. Un código que nadie tomó todavía
+ * (abierto, sin usar) no cuenta como amigo que llegó. */
 export function referidosDePatente(
-  cupones: { nombreLote: string; usado: boolean }[],
+  cupones: { nombreLote: string; usado: boolean; patenteAsignada?: string | null }[],
   patente: string
 ): { llegaron: number; usaron: number } {
   const lote = loteReferido(patente);
-  const suyos = cupones.filter((c) => c.nombreLote === lote);
+  const suyos = cupones.filter((c) => c.nombreLote === lote && (c.usado || !!c.patenteAsignada));
   return { llegaron: suyos.length, usaron: suyos.filter((c) => c.usado).length };
 }
 
@@ -129,11 +144,13 @@ export function acumularPremio(
  * ponytail: sin tope por referidor — si aparecen abusos (una persona
  * inscribiendo patentes ajenas), contar premios por patente en el mes y cortar. */
 export function premiosPendientes(
-  cuponesAmigoUsados: { codigo: string; nombreLote: string }[],
+  cuponesAmigoUsados: { codigo: string; nombreLote: string; patenteUso?: string | null }[],
   lotesPremioExistentes: Set<string>
 ): { patenteReferidor: string; codigoAmigo: string; nombreLote: string }[] {
   return cuponesAmigoUsados
-    .filter((c) => c.nombreLote.startsWith(PREFIJO_REFERIDO))
+    // El código usado en el mismo auto que lo recibió no premia (no debería
+    // pasar: rechazoCodigoReferido lo frena en el cobro).
+    .filter((c) => c.nombreLote.startsWith(PREFIJO_REFERIDO) && c.patenteUso !== referidorDeLote(c.nombreLote))
     .map((c) => ({
       patenteReferidor: c.nombreLote.slice(PREFIJO_REFERIDO.length),
       codigoAmigo: c.codigo,

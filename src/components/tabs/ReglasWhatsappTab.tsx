@@ -78,7 +78,7 @@ function ReglaRow({ regla, puedeBorrar }: { regla: ReglaWhatsapp; puedeBorrar: b
           {regla.accion === "cupon_descuento"
             ? `Genera descuento: ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
             : regla.accion === "cupon_regalo"
-              ? `Genera código abierto: ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
+              ? `Genera código de referido: ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
               : "Solo manda el mensaje (sin descuento)"}
           {" · Plantilla: "}
           {plantilla?.nombre || "(eliminada)"}
@@ -257,7 +257,7 @@ export default function ReglasWhatsappTab() {
           <label>Acción</label>
           <select value={accion} onChange={(e) => setAccion(e.target.value as AccionReglaWhatsapp)}>
             <option value="cupon_descuento">Generar descuento (reconocido por patente al volver)</option>
-            <option value="cupon_regalo">Generar código abierto (cualquier auto; no se manda si compró tickets después)</option>
+            <option value="cupon_regalo">Generar código de referido (para regalar a un amigo; cuando lo usa, premia a este cliente)</option>
             <option value="mensaje_simple">Solo enviar el mensaje</option>
           </select>
         </div>
