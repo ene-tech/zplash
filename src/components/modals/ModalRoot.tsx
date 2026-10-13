@@ -8,6 +8,7 @@ import BulkModal from "@/components/modals/BulkModal";
 import PagoModal from "@/components/modals/PagoModal";
 import ClienteInfoModal from "@/components/modals/ClienteInfoModal";
 import EmpresaModal from "@/components/modals/EmpresaModal";
+import EmpresaFichaModal from "@/components/modals/EmpresaFichaModal";
 import ProductoModal from "@/components/modals/ProductoModal";
 import ProveedorModal from "@/components/modals/ProveedorModal";
 import InsumoModal from "@/components/modals/InsumoModal";
@@ -45,6 +46,7 @@ export default function ModalRoot() {
   if (m.type === "proveedor") return <ProveedorModal data={m.data} />;
   if (m.type === "insumo") return <InsumoModal data={m.data} />;
   if (m.type === "traspasoInventario") return <TraspasoModal productoId={m.productoId} />;
+  if (m.type === "empresaFicha") return <EmpresaFichaModal data={m.data} />;
   if (m.type === "maquinariaFicha") return <MaquinariaFichaModal data={m.data} />;
   if (m.type === "correoRedactar") return <CorreoRedactarModal original={m.original} />;
   return null;

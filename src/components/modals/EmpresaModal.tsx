@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { RUT_FORMATO_MSG, fmtCLP, fmtFecha, fmtTelefono, formatRut, formatTelefono, isValidRut, uid } from "@/lib/helpers";
-import { facturasDeEmpresa } from "@/lib/logic";
+import { RUT_FORMATO_MSG, fmtTelefono, formatRut, formatTelefono, isValidRut, uid } from "@/lib/helpers";
 import type { Empresa } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -14,7 +13,7 @@ import { Button } from "@/components/ui/button";
 const SIN_CONTACTO = "sin-contacto";
 
 export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | null; onGuardada?: (empresa: Empresa) => void }) {
-  const { data, commit, patchUi, ui, loadingHistorial } = useApp();
+  const { data, commit, patchUi, ui } = useApp();
   const emp = e || ({} as Partial<Empresa>);
 
   const razonSocialRef = useRef<HTMLInputElement>(null);
@@ -26,8 +25,6 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
   const [err, setErr] = useState("");
 
   const cerrar = () => patchUi({ modal: null });
-
-  const facturas = useMemo(() => (e ? facturasDeEmpresa(e, data.ventas, data.clientes) : []), [e, data.ventas, data.clientes]);
 
   const clientesOrdenados = [...data.clientes].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
@@ -180,31 +177,6 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
               </SelectContent>
             </Select>
           </div>
-
-          {e && (
-            <div className="grid gap-1.5">
-              <Label>Facturas emitidas</Label>
-              {loadingHistorial ? (
-                <p className="text-sm text-muted-foreground">Cargando…</p>
-              ) : facturas.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin facturas emitidas</p>
-              ) : (
-                <ul className="max-h-48 overflow-y-auto rounded-md border text-sm">
-                  {facturas.map((f) => (
-                    <li key={f.folio ?? f.ventas[0].id} className="flex justify-between gap-2 border-b px-2 py-1.5 last:border-b-0">
-                      <span>
-                        {f.folio ? `N° ${f.folio}` : "Sin folio (marcada a mano)"} · {fmtFecha(f.fecha)}
-                        <span className="block text-xs text-muted-foreground">
-                          {f.ventas.map((v) => [v.tipo, v.patente].filter(Boolean).join(" ")).join(", ")}
-                        </span>
-                      </span>
-                      <span className="whitespace-nowrap font-medium">{fmtCLP(f.total)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
 
           {err && <p className="text-sm text-destructive">{err}</p>}
         </div>

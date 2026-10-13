@@ -3,6 +3,7 @@ import "server-only";
 import { inArray, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { empresas } from "@/db/schema";
+import { formatRut } from "@/lib/helpers";
 import type { Empresa } from "@/types";
 import { upsertRows } from "./shared";
 
@@ -36,6 +37,15 @@ export function empresaFromRow(r: EmpresaRow): Empresa {
     creadoEn: r.creadoEn,
     creadoPor: r.creadoPor || undefined,
   };
+}
+
+/** El RUT de la empresa se guarda formateado (formatRut) por EmpresaModal;
+ * el que llega puede venir de una venta web con otro formato. */
+export async function empresaPorRut(rut: string): Promise<Empresa | null> {
+  const buscado = formatRut(rut);
+  const filas = await getDb().select().from(empresas);
+  const fila = filas.find((r) => formatRut(r.rut) === buscado);
+  return fila ? empresaFromRow(fila) : null;
 }
 
 /** true si TODAS las filas son altas: ni el id ni el RUT existen ya. Lo usa

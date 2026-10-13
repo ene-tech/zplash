@@ -28,6 +28,7 @@ export interface EnvioCorreoTransaccional {
   to: string;
   subject: string;
   html: string;
+  adjuntos?: { nombre: string; contenido: Buffer }[];
   // Solo para la copia en la bandeja de salida (ver
   // registrarCorreoAutomatico): de qué disparo/cliente vino este correo, para
   // poder mostrar el nombre junto al destinatario y cruzarlo con Historial
@@ -127,7 +128,13 @@ export async function enviarCorreoTransaccional(envio: EnvioCorreoTransaccional)
   // Links a zplash.cl marcados como venidos del correo, para PostHog (ver
   // @/lib/helpers/utm); la copia en la bandeja de salida queda sin marcar.
   const html = linksConOrigen(envio.html, { source: "correo", medium: "email" });
-  const { data, error } = await resend.emails.send({ from, to: envio.to, subject: envio.subject, html });
+  const { data, error } = await resend.emails.send({
+    from,
+    to: envio.to,
+    subject: envio.subject,
+    html,
+    attachments: envio.adjuntos?.map((a) => ({ filename: a.nombre, content: a.contenido })),
+  });
   const resultado: ResultadoEnvioTransaccional = error
     ? {
         ok: false,

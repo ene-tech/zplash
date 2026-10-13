@@ -30,6 +30,16 @@ export default function EmpresasTab() {
     [data.empresas, q]
   );
 
+  // Correo y nombre salen de la ficha del cliente contacto (el nombre
+  // denormalizado queda de respaldo si el cliente se borró).
+  const clientesPorId = useMemo(() => new Map(data.clientes.map((c) => [c.id, c])), [data.clientes]);
+  const contactoDe = (e: Empresa) => {
+    const c = e.contactoClienteId ? clientesPorId.get(e.contactoClienteId) : undefined;
+    return { nombre: c?.nombre || e.contactoNombre || "", email: c?.email || "" };
+  };
+  const verFicha = (e: Empresa) => patchUi({ modal: { type: "empresaFicha", data: e } });
+  const editar = (e: Empresa) => patchUi({ modal: { type: "empresa", data: e } });
+
   const eliminar = (e: Empresa) => {
     patchUi({
       modal: {
@@ -96,16 +106,17 @@ export default function EmpresasTab() {
               key={e.id}
               avatar={<MobileRecordAvatar icon={Building2} />}
               title={e.razonSocial}
-              subtitle={`${e.rut} · ${e.contactoNombre || "Sin contacto"}`}
+              subtitle={`${e.rut} · ${contactoDe(e).nombre || "Sin contacto"}`}
+              onClick={() => verFicha(e)}
               menu={
                 <MobileRowMenu
                   actions={[
-                    { label: "Editar", icon: <Pencil />, onClick: () => patchUi({ modal: { type: "empresa", data: e } }) },
+                    { label: "Editar", icon: <Pencil />, onClick: () => editar(e) },
                     { label: "Eliminar", icon: <Trash2 />, destructive: true, onClick: () => eliminar(e) },
                   ]}
                 />
               }
-              meta={<MobileRecordMeta left={e.giro || "Sin giro"} right={e.telefono ? fmtTelefono(e.telefono) : undefined} />}
+              meta={<MobileRecordMeta left={contactoDe(e).email || "Sin correo"} right={e.telefono ? fmtTelefono(e.telefono) : undefined} />}
             />
           ))
         )}
@@ -121,33 +132,35 @@ export default function EmpresasTab() {
               <TableHead>Dirección</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Contacto</TableHead>
+              <TableHead>Correo</TableHead>
               <TableHead className="sticky right-0 z-10 w-0 bg-background" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={8}>
                   <div className="empty">No hay empresas que coincidan</div>
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((e) => (
-                <TableRow key={e.id}>
+                <TableRow key={e.id} className="cursor-pointer" onClick={() => verFicha(e)}>
                   <TableCell className="max-w-[180px] truncate" title={e.razonSocial}>{e.razonSocial}</TableCell>
                   <TableCell>{e.rut}</TableCell>
                   <TableCell>{e.giro || "-"}</TableCell>
                   <TableCell>{e.direccion || "-"}</TableCell>
                   <TableCell>{e.telefono ? fmtTelefono(e.telefono) : "-"}</TableCell>
-                  <TableCell>{e.contactoNombre || "-"}</TableCell>
+                  <TableCell>{contactoDe(e).nombre || "-"}</TableCell>
+                  <TableCell>{contactoDe(e).email || "-"}</TableCell>
                   <TableCell className="sticky right-0 z-10 bg-background">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1" onClick={(ev) => ev.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="icon-sm"
                         title="Editar"
                         aria-label="Editar"
-                        onClick={() => patchUi({ modal: { type: "empresa", data: e } })}
+                        onClick={() => editar(e)}
                       >
                         <Pencil />
                       </Button>

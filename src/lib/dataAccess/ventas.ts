@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, ne } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
@@ -91,6 +91,30 @@ export function ventaFromRow(r: VentaRow): Venta {
 export async function ventasPorIds(ids: string[]): Promise<Venta[]> {
   if (!ids.length) return [];
   return (await getDb().select().from(ventas).where(inArray(ventas.id, ids))).map(ventaFromRow);
+}
+
+export async function ventasPorFolio(folio: number): Promise<Venta[]> {
+  return (await getDb().select().from(ventas).where(eq(ventas.facturaFolio, folio))).map(ventaFromRow);
+}
+
+/** Reserva las ventas para emitirles factura: las marca emitidas en un solo
+ * UPDATE condicional y devuelve las que logró tomar. Dos emisiones a la vez
+ * (la automática al vender y el botón del cierre) no pueden tomar la misma
+ * venta, así que no sale una factura duplicada al SII. */
+export async function reservarVentasFactura(ids: string[]): Promise<string[]> {
+  if (!ids.length) return [];
+  const filas = await getDb()
+    .update(ventas)
+    .set({ facturaEmitida: true })
+    .where(and(inArray(ventas.id, ids), eq(ventas.facturaEmitida, false)))
+    .returning({ id: ventas.id });
+  return filas.map((f) => f.id);
+}
+
+/** Devuelve a pendientes las ventas reservadas cuya emisión falló. */
+export async function liberarVentasFactura(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  await getDb().update(ventas).set({ facturaEmitida: false }).where(and(inArray(ventas.id, ids), isNull(ventas.facturaFolio)));
 }
 
 /** Solo prende factura_emitida: lo usa la emisión por SimpleFactura, que no
@@ -199,7 +223,16 @@ export async function insertVentas(rows: Venta[]): Promise<boolean> {
 export async function upsertVentas(rows: Venta[]): Promise<boolean> {
   if (!rows.length) return true;
   try {
-    await upsertRows(ventas, ventas.id, rows.map(ventaToRow));
+    // La factura se emite en el server (ver @/lib/facturacion) y la pantalla
+    // que edita la venta puede traerla todavía como no emitida: guardar esa
+    // copia no puede apagar la marca, o el cierre la ofrecería de nuevo y
+    // saldría una factura duplicada.
+    const emitidas = new Set(
+      (await getDb().select({ id: ventas.id }).from(ventas).where(and(inArray(ventas.id, rows.map((r) => r.id)), eq(ventas.facturaEmitida, true)))).map(
+        (r) => r.id
+      )
+    );
+    await upsertRows(ventas, ventas.id, rows.map((r) => ventaToRow(emitidas.has(r.id) ? { ...r, facturaEmitida: true } : r)));
     return true;
   } catch (error) {
     console.error("Error actualizando ventas", error);

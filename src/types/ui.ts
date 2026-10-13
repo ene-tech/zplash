@@ -47,6 +47,7 @@ export type ModalState =
   | { type: "traspasoInventario"; productoId?: string }
   | { type: "servicioAdicional"; data: Venta }
   | { type: "maquinariaFicha"; data: Maquinaria }
+  | { type: "empresaFicha"; data: Empresa }
   | { type: "correoRedactar"; original?: CorreoDetalle }
   | null;
 

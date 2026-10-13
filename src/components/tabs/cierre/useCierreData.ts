@@ -333,7 +333,8 @@ export function useCierreData() {
       const r = await emitirFacturaVentas(ventaIds);
       if (!r.ok) return window.alert(`No se emitió la factura: ${r.error}`);
       marcarEmitida(ventaIds, r.folio);
-      window.alert(`Factura N° ${r.folio} emitida.`);
+      const correo = r.correo.ok ? `Enviada a ${r.correo.email}.` : `No se envió por correo: ${r.correo.error}. Reenvíala desde la ficha de la empresa.`;
+      window.alert(`Factura N° ${r.folio} emitida. ${correo}`);
     },
     [marcarEmitida]
   );

@@ -9,6 +9,7 @@ import {
   History,
   Users,
   Building2,
+  FileText,
   RefreshCw,
   Ticket,
   CalendarDays,
@@ -31,13 +32,17 @@ const StatsTab = dynamic(() => import("@/components/tabs/StatsTab"));
 const ConfigTab = dynamic(() => import("@/components/tabs/ConfigTab"));
 const VentaEmpresaTab = dynamic(() => import("@/components/tabs/VentaEmpresaTab"));
 const EmpresasTab = dynamic(() => import("@/components/tabs/EmpresasTab"));
+const FacturasTab = dynamic(() => import("@/components/tabs/FacturasTab"));
 const AgendaTab = dynamic(() => import("@/components/tabs/AgendaTab"));
 
-const TABS: { id: Modulo; label: string; icon: LucideIcon }[] = [
+// modulo: el que abre la pestaña cuando no es su mismo id (Facturas va con el
+// de Empresas, que es donde se ven y reenvían las facturas de cada empresa).
+const TABS: { id: string; modulo?: Modulo; label: string; icon: LucideIcon }[] = [
   { id: "cierre", label: "Cierre de Caja", icon: CircleDollarSign },
   { id: "ingresos", label: "Historial de ingresos", icon: History },
   { id: "clientes", label: "Clientes", icon: Users },
   { id: "empresas_facturacion", label: "Empresas", icon: Building2 },
+  { id: "facturas", modulo: "empresas_facturacion", label: "Facturas", icon: FileText },
   { id: "suscripciones", label: "Suscripciones", icon: RefreshCw },
   { id: "empresa", label: "B2B/Tickets/Dsctos", icon: Ticket },
   { id: "agenda", label: "Agenda", icon: CalendarDays },
@@ -49,7 +54,7 @@ const TABS: { id: Modulo; label: string; icon: LucideIcon }[] = [
 export default function AdminView() {
   const { ui, patchUi, logout } = useAppUi();
   const modulos = ui.perfilActual?.modulos || [];
-  const tabsPermitidas = TABS.filter((t) => modulos.includes(t.id));
+  const tabsPermitidas = TABS.filter((t) => modulos.includes(t.modulo || (t.id as Modulo)));
 
   return (
     <>
@@ -78,6 +83,7 @@ export default function AdminView() {
         {ui.adminTab === "cierre" && <CierreTab />}
         {ui.adminTab === "empresa" && <VentaEmpresaTab />}
         {ui.adminTab === "empresas_facturacion" && <EmpresasTab />}
+        {ui.adminTab === "facturas" && <FacturasTab />}
         {ui.adminTab === "perfiles" && <PerfilesTab />}
         {ui.adminTab === "stats" && <StatsTab />}
         {ui.adminTab === "agenda" && <AgendaTab />}

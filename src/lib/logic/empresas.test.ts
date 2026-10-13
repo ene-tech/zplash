@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Cliente, Empresa, Venta } from "@/types";
-import { facturasDeEmpresa } from "./empresas";
+import { facturasDeEmpresa, facturasEmitidas } from "./empresas";
 
 const empresa = { id: "e", razonSocial: "Transportes X", rut: "76.123.456-K", creadoEn: "" } as Empresa;
 const clientes = [{ id: "c1", rut: "76123456-k" }, { id: "c2", rut: "11.111.111-1" }] as Cliente[];
@@ -22,6 +22,23 @@ describe("facturasDeEmpresa", () => {
       [11, 1000, 1],
       [10, 2000, 2],
       [undefined, 1000, 1],
+    ]);
+  });
+});
+
+describe("facturasEmitidas", () => {
+  it("trae todas las emitidas con RUT y razón social de la venta o del cliente", () => {
+    const conRazon = [{ id: "c1", rut: "76123456-k", razonSocial: "Transportes X" }] as Cliente[];
+    const ventas = [
+      venta("a", { facturaFolio: 10 }),
+      venta("b", { clienteId: "", rut: "11111111-1", razonSocial: "Web SpA", facturaFolio: 11, fecha: "2026-10-07T12:00:00Z" }),
+      venta("c", { clienteId: "", facturaFolio: 12, fecha: "2026-09-01T12:00:00Z" }),
+      venta("d", { facturaEmitida: false }),
+    ];
+    expect(facturasEmitidas(ventas, conRazon).map((f) => [f.folio, f.rut, f.razonSocial])).toEqual([
+      [11, "11.111.111-1", "Web SpA"],
+      [10, "76.123.456-K", "Transportes X"],
+      [12, "", ""],
     ]);
   });
 });

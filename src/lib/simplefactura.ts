@@ -102,3 +102,32 @@ export async function emitirFactura(ventas: Venta[], receptor: ReceptorFactura, 
   }
   return folio;
 }
+
+/** PDF de una factura ya emitida, para mandarla por correo. ambiente: 1 =
+ * producción, 0 = certificación (SIMPLEFACTURA_AMBIENTE=0 en una cuenta de
+ * pruebas); a diferencia de la emisión, este endpoint sí lo pide. */
+export async function pdfFactura(folio: number): Promise<Buffer> {
+  const rutEmisor = process.env.SIMPLEFACTURA_RUT_EMISOR;
+  if (!rutEmisor) throw new Error("Falta configurar SIMPLEFACTURA_RUT_EMISOR");
+  const res = await fetch(`${API}/dte/pdf`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
+    body: JSON.stringify({
+      credenciales: { rutEmisor, nombreSucursal: process.env.SIMPLEFACTURA_SUCURSAL || "Casa Matriz" },
+      dteReferenciadoExterno: { folio, codigoTipoDte: 33, ambiente: process.env.SIMPLEFACTURA_AMBIENTE === "0" ? 0 : 1 },
+    }),
+  });
+  const buf = Buffer.from(await res.arrayBuffer());
+  // Los errores vienen en JSON; el PDF, en binario.
+  if (!res.ok || buf.subarray(0, 4).toString() !== "%PDF") {
+    const json = (() => {
+      try {
+        return JSON.parse(buf.toString());
+      } catch {
+        return null;
+      }
+    })();
+    throw new Error(json?.errors?.join("; ") || json?.message || `SimpleFactura no entregó el PDF (${res.status})`);
+  }
+  return buf;
+}

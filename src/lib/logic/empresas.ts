@@ -37,24 +37,38 @@ export interface FacturaEmpresa {
   ventas: Venta[];
 }
 
-// Facturas emitidas a una empresa, más nueva primero. El RUT sale de la venta
-// (compra web) o, si no trae, de la ficha del cliente: el mismo criterio que
-// usa emitirFacturaVentas. Las ventas con folio se agrupan en una factura; las
-// marcadas a mano (sin folio) quedan una por venta.
-export function facturasDeEmpresa(empresa: Empresa, ventas: Venta[], clientes: Cliente[]): FacturaEmpresa[] {
-  const rut = formatRut(empresa.rut);
-  const rutCliente = new Map(clientes.map((c) => [c.id, c.rut]));
-  const porFolio = new Map<string, FacturaEmpresa>();
+export interface FacturaEmitida extends FacturaEmpresa {
+  /** RUT formateado; vacío si la venta no lo trae ni el cliente lo tiene. */
+  rut: string;
+  razonSocial: string;
+}
+
+// Todas las facturas emitidas, más nueva primero. El RUT y la razón social
+// salen de la venta (compra web) o, si no traen, de la ficha del cliente: el
+// mismo criterio que usa emitirFacturaVentas. Las ventas con folio se agrupan
+// en una factura; las marcadas a mano (sin folio) quedan una por venta.
+export function facturasEmitidas(ventas: Venta[], clientes: Cliente[]): FacturaEmitida[] {
+  const clientePorId = new Map(clientes.map((c) => [c.id, c]));
+  const porFolio = new Map<string, FacturaEmitida>();
   for (const v of ventas) {
     if (!v.facturaEmitida) continue;
-    const rutVenta = v.rut || rutCliente.get(v.clienteId);
-    if (!rutVenta || formatRut(rutVenta) !== rut) continue;
     const key = v.facturaFolio ? `f${v.facturaFolio}` : `v${v.id}`;
-    const f = porFolio.get(key) || { folio: v.facturaFolio, fecha: v.fecha, total: 0, ventas: [] };
+    let f = porFolio.get(key);
+    if (!f) {
+      const cliente = clientePorId.get(v.clienteId);
+      const rut = v.rut || cliente?.rut;
+      f = { folio: v.facturaFolio, fecha: v.fecha, total: 0, ventas: [], rut: rut ? formatRut(rut) : "", razonSocial: v.razonSocial || cliente?.razonSocial || "" };
+      porFolio.set(key, f);
+    }
     f.total += v.precio || 0;
     f.ventas.push(v);
     if (v.fecha > f.fecha) f.fecha = v.fecha;
-    porFolio.set(key, f);
   }
   return [...porFolio.values()].sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
+// Facturas emitidas a una empresa (ver facturasEmitidas).
+export function facturasDeEmpresa(empresa: Empresa, ventas: Venta[], clientes: Cliente[]): FacturaEmpresa[] {
+  const rut = formatRut(empresa.rut);
+  return facturasEmitidas(ventas, clientes).filter((f) => f.rut && f.rut === rut);
 }
