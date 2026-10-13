@@ -53,6 +53,12 @@ export default function StatsTab() {
   }
 
   const referidos = r.data.cupones.filter((c) => c.nombreLote.startsWith("Referido - "));
+  // Los códigos de referido (oct-2026) los emite una regla y nacen abiertos: no
+  // son patentes que llegaron, recién cuentan cuando un amigo los canjea.
+  const esCodigo = (c: (typeof referidos)[number]) => !!c.creadoPor?.startsWith("regla-whatsapp:");
+  const porLink = referidos.filter((c) => !esCodigo(c));
+  const codigos = referidos.filter(esCodigo);
+  const premios = r.data.cupones.filter((c) => c.nombreLote.startsWith("Premio referido - ")).length;
 
   return (
     <div>
@@ -106,18 +112,28 @@ export default function StatsTab() {
         rankingQr={r.rankingQr}
       />
 
-      {/* Cada patente que llega con ?ref= recibe un cupón "Referido - PATENTEQUEINVITÓ"
-          (ver lib/referidos.ts), así que contar esos cupones = registros por referido.
+      {/* Cupones "Referido - PATENTEQUEINVITÓ" (ver lib/referidos.ts): los del
+          link ?ref= nacen atados a la patente del amigo; los códigos los emite
+          la regla del lavado / 1ª pasada del mes con plan. Un canje de
+          cualquiera de los dos genera un premio al día siguiente (cron).
           Histórico, no sigue el período de arriba. */}
       <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Programa de referidos</h3>
       <div className="stat-grid">
         <div className="stat-card">
-          <div className="num">{referidos.length}</div>
-          <div className="lbl">Patentes registradas por referido</div>
+          <div className="num">{codigos.length}</div>
+          <div className="lbl">Códigos de referido entregados</div>
         </div>
         <div className="stat-card ok">
-          <div className="num">{referidos.filter((c) => c.usado).length}</div>
-          <div className="lbl">Cupones de referido canjeados</div>
+          <div className="num">{codigos.filter((c) => c.usado).length}</div>
+          <div className="lbl">Códigos canjeados por un amigo</div>
+        </div>
+        <div className="stat-card">
+          <div className="num">{porLink.length}</div>
+          <div className="lbl">Patentes llegadas por link (canjeadas: {porLink.filter((c) => c.usado).length})</div>
+        </div>
+        <div className="stat-card ok">
+          <div className="num">{premios}</div>
+          <div className="lbl">Premios emitidos al que invitó</div>
         </div>
       </div>
 
