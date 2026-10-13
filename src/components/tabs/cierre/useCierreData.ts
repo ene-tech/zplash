@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { esTarjetaWeb, esVentaNuevaWeb, inRange, normPlate, TIPO_VENTA_REEMBOLSO, todayYMD } from "@/lib/helpers";
-import { ventasAFacturarPorCliente } from "@/lib/logic";
+import { sigueDocumentoDeFicha, ventasAFacturarPorCliente } from "@/lib/logic";
 import { emitirFacturaVentas } from "@/lib/serverActions";
 import { PRODUCTOS_CIERRE } from "./productos";
 
@@ -247,7 +247,9 @@ export function useCierreData() {
       const items = clientes
         .filter((c) => c.tipoDocumento === "Factura")
         .flatMap((c) => {
-          const ventPeriodo = ventas.filter((v) => v.clienteId === c.id && v.tipo !== "Cupón Venta Empresa" && inRange(v.fecha, desde, hasta));
+          const ventPeriodo = ventas.filter(
+            (v) => v.clienteId === c.id && v.tipo !== "Cupón Venta Empresa" && sigueDocumentoDeFicha(v) && inRange(v.fecha, desde, hasta)
+          );
           const monto = ventPeriodo.reduce((s, v) => s + (v.precio || 0), 0);
           if (ventPeriodo.length === 0 || monto === 0) return [];
           return [{ cliente: c, monto, ventaIds: ventPeriodo.map((v) => v.id), allEmitida: ventPeriodo.every((v) => v.facturaEmitida) }];
@@ -277,7 +279,7 @@ export function useCierreData() {
     // Cliente con tipoDocumento="Factura" en su ficha), acá el dato es un
     // snapshot por venta que llega directo del checkout — ver
     // pagosWebpayItems y aplicarPagoAprobado/aplicarPagoPackEmpresa.
-    const facturasEmpresaPeriodo = ventasPeriodo.filter((v) => v.tipoDocumento === "Factura" && !v.facturaEmitida);
+    const facturasEmpresaPeriodo = ventasPeriodo.filter((v) => v.tipoDocumento === "Factura" && !sigueDocumentoDeFicha(v) && !v.facturaEmitida);
 
     // Lo que hay que facturarle a cada cliente con Factura en el período, por
     // cliente.id: lo que realmente se le vendió, nada más. El que no compró en

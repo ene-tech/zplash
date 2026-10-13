@@ -9,6 +9,7 @@ import {
   registrarIngresoDetailing,
   registrarIngresoLavadoWeb,
   renovarPlan,
+  sigueDocumentoDeFicha,
   ventasAFacturarPorCliente,
 } from "./logic";
 import { CONFIG_DEFAULT, PLAN_X5, PRECIOS_DEFAULT, finCicloPlan, pasesRestantes, sumarMesesFecha } from "./helpers";
@@ -846,6 +847,30 @@ describe("ventasAFacturarPorCliente", () => {
 
     expect(porCliente.get("c1")).toBeUndefined();
   });
+  it("respeta la Boleta elegida al cobrar en el mesón aunque la ficha diga Factura, y su reembolso tampoco cuenta", () => {
+    const data = appDataVacia();
+    data.clientes = [clienteBase({ id: "c1", tipoDocumento: "Factura", rut: "76.773.137-K" })];
+    data.ventas = [
+      ventaWeb({ id: "v-boleta", clienteId: "c1", tipoDocumento: "Boleta", rut: undefined }),
+      ventaWeb({ id: "reembolso-v-boleta", clienteId: "c1", precio: -79990, tipoDocumento: undefined, rut: undefined }),
+      ventaWeb({ id: "v-ficha", clienteId: "c1", precio: 9990, tipoDocumento: "Factura", rut: undefined }),
+      ventaWeb({ id: "v-vieja", clienteId: "c1", precio: 5000, tipoDocumento: undefined, rut: undefined }),
+      ventaWeb({ id: "v-otra-empresa", clienteId: "c1", precio: 7000, tipoDocumento: "Factura", rut: "11.111.111-1" }),
+      ventaWeb({ id: "reembolso-v-otra-empresa", clienteId: "c1", precio: -7000, tipoDocumento: undefined, rut: undefined }),
+    ];
+
+    const porCliente = ventasAFacturarPorCliente(data.clientes, data.ventas, "2026-09-01", "2026-09-30");
+
+    expect(porCliente.get("c1")?.map((v) => v.id)).toEqual(["v-ficha", "v-vieja"]);
+  });
+
+  it("sigueDocumentoDeFicha: solo la venta sin documento o con Factura sin RUT propio usa la ficha", () => {
+    expect(sigueDocumentoDeFicha(ventaWeb({ tipoDocumento: undefined, rut: undefined }))).toBe(true);
+    expect(sigueDocumentoDeFicha(ventaWeb({ tipoDocumento: "Factura", rut: undefined }))).toBe(true);
+    expect(sigueDocumentoDeFicha(ventaWeb({ tipoDocumento: "Factura" }))).toBe(false);
+    expect(sigueDocumentoDeFicha(ventaWeb({ tipoDocumento: "Boleta", rut: undefined }))).toBe(false);
+  });
+
   it("devuelve el reembolso de una compra web a la misma ficha, para que no quede como plata por facturar", () => {
     const data = appDataVacia();
     data.clientes = [clienteBase({ id: "c1", tipoDocumento: "Factura", rut: "76.773.137-K" })];

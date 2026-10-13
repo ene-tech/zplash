@@ -36,7 +36,9 @@ export type ModalState =
   | { type: "confirm"; mensaje: string; onConfirm: () => void; confirmLabel?: string; danger?: boolean }
   | { type: "perfil"; data: PerfilPublico | null }
   | { type: "bulk" }
-  | { type: "pago"; monto: number; descripcion: string; onConfirm: (pago: PagoInfo) => void }
+  // cliente: si viene, el modal también pregunta boleta o factura (es una
+  // venta, no el cobro de un saldo).
+  | { type: "pago"; monto: number; descripcion: string; onConfirm: (pago: PagoInfo) => void; cliente?: Cliente }
   | { type: "clienteInfo"; data: Cliente }
   // onGuardada: el POS la usa para dejar seleccionada la empresa que se
   // acaba de crear sin salir de la pantalla de cobro.

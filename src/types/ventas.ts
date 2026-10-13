@@ -7,6 +7,10 @@ export interface PagoInfo {
   // usePlanActions/useOperadorNotFoundResult).
   metodo?: "efectivo" | "tarjeta" | "transferencia";
   voucher?: string;
+  // Boleta o factura elegida al cobrar (solo cuando el modal recibe el
+  // cliente). Se copia tal cual en la Venta. Factura sin RUT = con los datos
+  // de la ficha del cliente (ver receptorDe en @/lib/facturacion).
+  documento?: DatosFacturacion;
 }
 
 /** Una línea de un ticket del POS de productos (tabla venta_items).

@@ -76,7 +76,9 @@ export function armarVentaPos(datos: DatosVentaPos): { venta: Venta; items: Vent
     // podía mandar {precio, fecha, creadoPor, ...} y pisar lo que el servidor
     // acababa de calcular — precio negativo, venta metida en un día ya
     // cerrado, o a nombre de otro funcionario.
-    tipoDocumento: datos.datosFactura?.tipoDocumento,
+    // Boleta explícita: sin ella una venta a un cliente con Factura en su
+    // ficha se facturaría igual (ver sigueDocumentoDeFicha).
+    tipoDocumento: datos.datosFactura?.tipoDocumento ?? "Boleta",
     razonSocial: datos.datosFactura?.razonSocial,
     rut: datos.datosFactura?.rut,
     direccion: datos.datosFactura?.direccion,

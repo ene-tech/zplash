@@ -141,6 +141,15 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
 // "Clientes con Factura" mostraba $0 aunque hubiera comprado con factura
 // dentro del período. Cuando un RUT tiene varias fichas (una por auto) el
 // monto se le carga a una sola, para no emitir dos veces la misma factura.
+// Si la venta se factura con los datos de la ficha del cliente: no se eligió
+// documento al cobrar (ventas viejas) o se eligió Factura "de la ficha" (sin
+// RUT propio). Una Boleta elegida no se factura; una Factura con RUT propio va
+// por su cuenta (Cierre → facturas pedidas en la compra). Misma regla que
+// emitirFacturasAutomaticas.
+export function sigueDocumentoDeFicha(v: Venta): boolean {
+  return !v.tipoDocumento || (v.tipoDocumento === "Factura" && !v.rut);
+}
+
 export function ventasAFacturarPorCliente(
   clientes: Cliente[],
   ventas: Venta[],
@@ -154,6 +163,7 @@ export function ventasAFacturarPorCliente(
     if (rut && !fichaPorRut.has(rut)) fichaPorRut.set(rut, c.id);
   }
   const porId = new Map(ventas.map((v) => [v.id, v]));
+  const rutPorId = new Map(clientes.map((c) => [c.id, c.rut]));
   // El contra-asiento de un reembolso (ver reembolsarVenta) copia el clienteId
   // de la venta original pero no su razón social ni su RUT, así que el de una
   // compra web se queda sin dueño: hay que devolverlo a la misma ficha que la
@@ -167,11 +177,24 @@ export function ventasAFacturarPorCliente(
     return undefined;
   };
 
+  // Boleta elegida al cobrar: no se factura aunque la ficha diga Factura. El
+  // contra-asiento de su reembolso tampoco (no copia el tipo de documento).
+  const esBoleta = (v: Venta | undefined): boolean => {
+    if (!v) return false;
+    if (v.tipoDocumento === "Boleta") return true;
+    return v.id.startsWith(PREFIJO_VENTA_REEMBOLSO) && esBoleta(porId.get(v.id.slice(PREFIJO_VENTA_REEMBOLSO.length)));
+  };
+
   const porCliente = new Map<string, Venta[]>();
   for (const v of ventas) {
-    if (!inRangeLocal(v.fecha, desde, hasta)) continue;
+    if (!inRangeLocal(v.fecha, desde, hasta) || esBoleta(v)) continue;
     const clienteId = fichaDe(v);
     if (!clienteId) continue;
+    // Factura a otra empresa (elegida al cobrar): se emite a ese RUT, no a la
+    // ficha de este cliente — si no, saldría dos veces. Su reembolso, igual.
+    const rutFicha = limpiarRut(rutPorId.get(clienteId));
+    const original = v.id.startsWith(PREFIJO_VENTA_REEMBOLSO) ? porId.get(v.id.slice(PREFIJO_VENTA_REEMBOLSO.length)) : v;
+    if (original?.tipoDocumento === "Factura" && original.rut && rutFicha && limpiarRut(original.rut) !== rutFicha) continue;
     const lista = porCliente.get(clienteId);
     if (lista) lista.push(v);
     else porCliente.set(clienteId, [v]);

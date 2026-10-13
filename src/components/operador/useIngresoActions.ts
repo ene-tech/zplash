@@ -85,6 +85,7 @@ export function useIngresoActions(
         creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,
         voucher: pago.voucher,
+        ...pago.documento,
         viaCupon: !!cuponDescuentoVigente,
         cuponCodigo: cuponDescuentoVigente?.codigo,
       };
@@ -122,6 +123,7 @@ export function useIngresoActions(
         monto: precio,
         descripcion: `Lavado único para ${cliente.nombre} (${cliente.patente})`,
         onConfirm: confirmarCobro,
+        cliente,
       },
     });
   };
@@ -166,6 +168,7 @@ export function useIngresoActions(
         type: "pago",
         monto: precio,
         descripcion: `Promo ${PROMOS_LAVADOS[promo].lavados} lavados para ${cliente.nombre} (${cliente.patente})`,
+        cliente,
         onConfirm: async (pago: PagoInfo) => {
           const venta: Venta = {
             id: uidVenta(),
@@ -179,6 +182,7 @@ export function useIngresoActions(
             creadoPor: ui.perfilActual?.nombre || "",
             metodoPago: pago.metodo,
             voucher: pago.voucher,
+            ...pago.documento,
           };
           const patch = entregarPromoLavados(data, cliente, precio, ui.perfilActual?.nombre, promo);
           const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
@@ -202,6 +206,7 @@ export function useIngresoActions(
         type: "pago",
         monto: upgrade.precio,
         descripcion: `${TICKETS_UPGRADE_PACK} lavados más (Promo 4 lavados) para ${cliente.nombre} (${cliente.patente})`,
+        cliente,
         onConfirm: async (pago: PagoInfo) => {
           const venta: Venta = {
             id: uidVenta(),
@@ -215,6 +220,7 @@ export function useIngresoActions(
             creadoPor: ui.perfilActual?.nombre || "",
             metodoPago: pago.metodo,
             voucher: pago.voucher,
+            ...pago.documento,
           };
           const patch = entregarUpgradePack(data, cliente, upgrade.lavado, upgrade.precio, ui.perfilActual?.nombre);
           const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
