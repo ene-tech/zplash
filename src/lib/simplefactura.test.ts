@@ -28,4 +28,10 @@ describe("armarFactura", () => {
     const doc = armarFactura([venta(1000)], { ...receptor, direccion: "Prieto Norte 71" }, "2026-10-03", "1-9").Documento;
     expect(doc.Encabezado.Receptor.CmnaRecep).toBe("Temuco");
   });
+
+  it("emisor y receptor llevan ciudad Temuco", () => {
+    const { Emisor, Receptor } = armarFactura([venta(1000)], receptor, "2026-10-03", "1-9").Documento.Encabezado;
+    expect(Emisor.CiudadOrigen).toBe("Temuco");
+    expect(Receptor.CiudadRecep).toBe("Temuco");
+  });
 });

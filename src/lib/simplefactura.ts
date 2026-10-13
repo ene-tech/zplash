@@ -44,6 +44,7 @@ const EMISOR = {
   Acteco: [452001],
   DirOrigen: "Prieto Norte 71",
   CmnaOrigen: "Temuco",
+  CiudadOrigen: "Temuco",
 };
 
 /** Arma el JSON de invoiceV2 para una factura afecta. Los precios de las
@@ -67,6 +68,8 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
           GiroRecep: receptor.giro.slice(0, 40),
           DirRecep: receptor.direccion?.slice(0, 70),
           CmnaRecep: comuna.slice(0, 20),
+          // Sin esto el PDF imprime "Sin ciudad". Casi todos los clientes son de Temuco.
+          CiudadRecep: "Temuco",
           CorreoRecep: receptor.email,
         },
         Totales: { MntNeto: neto, TasaIVA: 19, IVA: total - neto, MntTotal: total },
