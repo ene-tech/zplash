@@ -1,5 +1,15 @@
-import type { AppData, Cliente, Venta } from "@/types";
-import { esTarjetaWeb, fmtTelefono, limpiarRut, normPlate, planStatus, PREFIJO_VENTA_REEMBOLSO, tipoIngreso } from "@/lib/helpers";
+import type { AppData, Cliente, Venta, VentaItem } from "@/types";
+import {
+  esTarjetaWeb,
+  fmtTelefono,
+  limpiarRut,
+  normPlate,
+  planStatus,
+  PREFIJO_VENTA_REEMBOLSO,
+  TIPO_VENTA_PRODUCTOS,
+  TIPO_VENTA_REEMBOLSO,
+  tipoIngreso,
+} from "@/lib/helpers";
 
 function inRangeLocal(iso: string | null | undefined, desde: string, hasta: string): boolean {
   if (!iso) return false;
@@ -18,7 +28,68 @@ function fmtDateLocal(d: string): string {
   );
 }
 
-export function descargarCierre(data: AppData, desde: string, hasta: string) {
+function metodoPagoLabel(v: Venta): string {
+  if (v.metodoPago === "efectivo") return "Efectivo";
+  if (v.metodoPago === "tarjeta") return esTarjetaWeb(v.creadoPor) ? "Tarjetas Transbank" : "Tarjetas GETNET";
+  if (v.metodoPago === "transferencia") return "Transferencia bancaria";
+  return "-";
+}
+
+/** Ventas del período que pueden tener líneas de producto (POS): las ventas
+ * de productos y los reembolsos, porque una devolución del POS es un
+ * reembolso con sus líneas en negativo (ver armarDevolucionPos). Las líneas
+ * no vienen en AppData: quien llama las pide con lineasDeVentas. */
+export function ventasPosDelPeriodo(ventas: Venta[], desde: string, hasta: string): Venta[] {
+  return ventas.filter(
+    (v) => (v.tipo === TIPO_VENTA_PRODUCTOS || v.tipo === TIPO_VENTA_REEMBOLSO) && inRangeLocal(v.fecha, desde, hasta)
+  );
+}
+
+/** Hoja "Ventas POS": arriba lo vendido por producto (neto de devoluciones),
+ * abajo cada línea de cada ticket con quién la cobró y cómo se pagó. */
+export function filasVentasPos(ventasPos: Venta[], items: VentaItem[]): (string | number)[][] {
+  const ventaPorId = new Map(ventasPos.map((v) => [v.id, v]));
+  const lineas = items
+    .filter((it) => ventaPorId.has(it.ventaId))
+    .map((it) => ({ it, venta: ventaPorId.get(it.ventaId)! }))
+    .sort((a, b) => a.venta.fecha.localeCompare(b.venta.fecha) || a.it.id.localeCompare(b.it.id));
+
+  const porProducto = new Map<string, { sku: string; detalle: string; cantidad: number; monto: number }>();
+  for (const { it } of lineas) {
+    const key = it.productoId || it.sku;
+    const p = porProducto.get(key) || { sku: it.sku, detalle: it.detalle, cantidad: 0, monto: 0 };
+    p.cantidad += it.cantidad;
+    p.monto += it.cantidad * it.precioUnitario;
+    porProducto.set(key, p);
+  }
+  const resumen = [...porProducto.values()].sort((a, b) => b.monto - a.monto);
+  const tickets = new Set(lineas.filter(({ venta }) => venta.tipo === TIPO_VENTA_PRODUCTOS).map(({ venta }) => venta.id));
+
+  return [
+    ["Productos vendidos"],
+    ["SKU", "Producto", "Cantidad", "Monto"],
+    ...resumen.map((p) => [p.sku, p.detalle, p.cantidad, p.monto]),
+    ["", "Total", resumen.reduce((s, p) => s + p.cantidad, 0), resumen.reduce((s, p) => s + p.monto, 0)],
+    [],
+    [`Detalle de ventas POS (${tickets.size} ${tickets.size === 1 ? "ticket" : "tickets"})`],
+    ["Fecha", "N° venta", "Tipo", "Funcionario", "Cliente", "Método de pago", "SKU", "Producto", "Cantidad", "Precio unitario", "Subtotal"],
+    ...lineas.map(({ it, venta }) => [
+      fmtDateLocal(venta.fecha),
+      venta.id,
+      venta.tipo === TIPO_VENTA_REEMBOLSO ? "Devolución" : "Venta",
+      venta.creadoPor || "",
+      venta.nombre,
+      metodoPagoLabel(venta),
+      it.sku,
+      it.detalle,
+      it.cantidad,
+      it.precioUnitario,
+      it.cantidad * it.precioUnitario,
+    ]),
+  ];
+}
+
+export function descargarCierre(data: AppData, desde: string, hasta: string, itemsPos: VentaItem[] = []) {
   const { ingresos, clientes, ventas } = data;
   const ingresosPeriodo = ingresos.filter((i) => inRangeLocal(i.fecha, desde, hasta));
   const nuevosPeriodo = clientes.filter((c) => inRangeLocal(c.creadoEn, desde, hasta));
@@ -95,17 +166,9 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
     Cliente: v.nombre,
     Tipo: v.tipo,
     Precio: v.precio,
-    "Método de pago":
-      v.metodoPago === "efectivo"
-        ? "Efectivo"
-        : v.metodoPago === "tarjeta"
-          ? esTarjetaWeb(v.creadoPor)
-            ? "Tarjetas Transbank"
-            : "Tarjetas GETNET"
-          : v.metodoPago === "transferencia"
-            ? "Transferencia bancaria"
-            : "-",
+    "Método de pago": metodoPagoLabel(v),
   }));
+  const ventasPos = filasVentasPos(ventasPosDelPeriodo(ventas, desde, hasta), itemsPos);
   // Facturas pedidas en el checkout web (ver facturasEmpresaPeriodo en
   // useCierreData): acá van también las ya emitidas, marcadas en su columna.
   const facturasWeb = ventasPeriodo
@@ -157,6 +220,7 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
       ),
       "Detalle de Venta"
     );
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ventasPos), "Ventas POS");
     XLSX.utils.book_append_sheet(
       wb,
       XLSX.utils.json_to_sheet(

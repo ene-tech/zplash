@@ -1,7 +1,9 @@
 "use client";
 
 import { useAppData } from "@/context/AppContext";
-import { descargarCierre, descargarFacturables } from "@/lib/logic";
+import { useState } from "react";
+import { descargarCierre, descargarFacturables, ventasPosDelPeriodo } from "@/lib/logic";
+import { lineasDeVentas } from "@/lib/serverActions";
 import { todayYMD } from "@/lib/helpers";
 import { useCierreData } from "@/components/tabs/cierre/useCierreData";
 import { DetalleVentaYMetodosPago } from "@/components/tabs/cierre/DetalleVentaYMetodosPago";
@@ -17,6 +19,21 @@ export default function CierreTab() {
   // llegar, ver AppContext) solo calcula puros ceros, no falla.
   const r = useCierreData();
   const { loadingHistorial } = useAppData();
+  const [descargando, setDescargando] = useState(false);
+
+  // Las líneas de producto del POS no vienen en AppData (venta_items crece con
+  // cada venta): se piden recién al descargar, solo las del período.
+  const descargar = async () => {
+    setDescargando(true);
+    try {
+      const ids = ventasPosDelPeriodo(r.data.ventas, r.desde, r.hasta).map((v) => v.id);
+      descargarCierre(r.data, r.desde, r.hasta, await lineasDeVentas(ids));
+    } catch {
+      window.alert("No se pudo traer el detalle del POS. Revisa la conexión e inténtalo de nuevo.");
+    } finally {
+      setDescargando(false);
+    }
+  };
 
   if (loadingHistorial) {
     return <div className="empty">Cargando historial de ventas e ingresos…</div>;
@@ -50,8 +67,8 @@ export default function CierreTab() {
         >
           Hoy
         </button>
-        <button className="btn" style={{ alignSelf: "flex-end" }} onClick={() => descargarCierre(r.data, r.desde, r.hasta)}>
-          Descargar cierre (Excel)
+        <button className="btn" style={{ alignSelf: "flex-end" }} disabled={descargando} onClick={descargar}>
+          {descargando ? "Preparando…" : "Descargar cierre (Excel)"}
         </button>
       </div>
       <div className="stat-grid">

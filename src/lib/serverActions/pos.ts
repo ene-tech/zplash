@@ -193,9 +193,14 @@ const DESTINO_REVISION = { id: "dest-revision-devoluciones", nombre: "Revisión 
  * global a propósito: venta_items crece con cada venta y ninguna pantalla lo
  * necesita completo. */
 export async function lineasDeVenta(ventaId: string): Promise<VentaItem[]> {
-  if (!(await tieneAlgunModulo(["pos", ...MODULOS_EDITAN_VENTAS]))) return [];
+  return lineasDeVentas([ventaId]);
+}
+
+/** Las líneas de varios tickets del POS a la vez (Cierre → Excel). */
+export async function lineasDeVentas(ventaIds: string[]): Promise<VentaItem[]> {
+  if (!ventaIds.length || !(await tieneAlgunModulo(["pos", ...MODULOS_EDITAN_VENTAS]))) return [];
   const db = getDb();
-  const filas = await db.select().from(ventaItems).where(eq(ventaItems.ventaId, ventaId));
+  const filas = await db.select().from(ventaItems).where(inArray(ventaItems.ventaId, ventaIds));
   return filas.map((r) => ({
     id: r.id,
     ventaId: r.ventaId,
