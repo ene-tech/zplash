@@ -1,5 +1,5 @@
 import type { AppData, Cliente, Venta } from "@/types";
-import { esTarjetaWeb, fmtTelefono, limpiarRut, normPlate, planStatus, PREFIJO_VENTA_REEMBOLSO } from "@/lib/helpers";
+import { esTarjetaWeb, fmtTelefono, limpiarRut, normPlate, planStatus, PREFIJO_VENTA_REEMBOLSO, tipoIngreso } from "@/lib/helpers";
 
 function inRangeLocal(iso: string | null | undefined, desde: string, hasta: string): boolean {
   if (!iso) return false;
@@ -34,12 +34,40 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
     Monto: v.precio,
   }));
 
+  // Lavados con ticket: todo canje de un cupón "vale" en el túnel (Pack de
+  // Tickets, Pack Empresa, Promo de lavados) deja el Ingreso con viaCupon y el
+  // código del ticket, ver registrarIngresoCupon. El funcionario es quien
+  // registró el ingreso en el módulo Operador.
+  const cuponesPorCodigo = new Map(data.cupones.map((c) => [c.codigo, c]));
+  const ingresosTicket = ingresosPeriodo.filter((i) => i.viaCupon);
+  const lavadosTicket = ingresosTicket.map((i) => {
+    const cupon = i.cuponCodigo ? cuponesPorCodigo.get(i.cuponCodigo) : undefined;
+    return {
+      Fecha: fmtDateLocal(i.fecha),
+      Patente: i.patente,
+      Cliente: i.nombre,
+      "Código ticket": i.cuponCodigo || "",
+      Lote: cupon?.nombreLote || "",
+      "RUT empresa": cupon?.rut || "",
+      Funcionario: i.creadoPor || "",
+    };
+  });
+  const ticketsPorFuncionario = new Map<string, number>();
+  for (const i of ingresosTicket) {
+    const f = i.creadoPor || "Sin registrar";
+    ticketsPorFuncionario.set(f, (ticketsPorFuncionario.get(f) || 0) + 1);
+  }
+
   const rango = desde === hasta ? desde : `${desde} a ${hasta}`;
   const resumen = [
     { Concepto: "Período", Valor: rango },
     { Concepto: "Total de ingresos", Valor: ingresosPeriodo.length },
     { Concepto: "Autos que pasaron con el plan vigente", Valor: autosConPlan },
     { Concepto: "Autos con plan vencido", Valor: ingresosPeriodo.length - autosConPlan },
+    { Concepto: "Lavados con ticket", Valor: ingresosTicket.length },
+    ...[...ticketsPorFuncionario]
+      .sort((a, b) => b[1] - a[1])
+      .map(([f, n]) => ({ Concepto: `  Lavados con ticket — ${f}`, Valor: n })),
     { Concepto: "Registros nuevos", Valor: nuevosPeriodo.length },
     { Concepto: "Planes vendidos (nuevos + renovaciones)", Valor: ventasPeriodo.length },
   ];
@@ -57,6 +85,7 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
       Email: cliente?.email || "",
       Teléfono: cliente?.telefono ? fmtTelefono(cliente.telefono) : "",
       Operador: i.creadoPor || "",
+      Tipo: i.viaCupon ? "Ticket" : tipoIngreso(i).label,
       "Estado plan": i.planEstadoAlIngreso === "bad" ? "Vencido" : i.planEstadoAlIngreso === "warn" ? "Por vencer" : "Vigente",
     };
   });
@@ -108,9 +137,18 @@ export function descargarCierre(data: AppData, desde: string, hasta: string) {
     XLSX.utils.book_append_sheet(
       wb,
       XLSX.utils.json_to_sheet(
-        detalle.length ? detalle : [{ Fecha: "", Patente: "", Cliente: "", Email: "", Teléfono: "", Operador: "", "Estado plan": "" }]
+        detalle.length ? detalle : [{ Fecha: "", Patente: "", Cliente: "", Email: "", Teléfono: "", Operador: "", Tipo: "", "Estado plan": "" }]
       ),
       "Ingresos"
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(
+        lavadosTicket.length
+          ? lavadosTicket
+          : [{ Fecha: "", Patente: "", Cliente: "", "Código ticket": "", Lote: "", "RUT empresa": "", Funcionario: "" }]
+      ),
+      "Lavados con ticket"
     );
     XLSX.utils.book_append_sheet(
       wb,
