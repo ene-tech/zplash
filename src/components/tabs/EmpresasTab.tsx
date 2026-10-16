@@ -130,6 +130,8 @@ export default function EmpresasTab() {
               <TableHead>RUT</TableHead>
               <TableHead>Giro</TableHead>
               <TableHead>Dirección</TableHead>
+              <TableHead>Comuna</TableHead>
+              <TableHead>Ciudad</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Contacto</TableHead>
               <TableHead>Correo</TableHead>
@@ -139,7 +141,7 @@ export default function EmpresasTab() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8}>
+                <TableCell colSpan={10}>
                   <div className="empty">No hay empresas que coincidan</div>
                 </TableCell>
               </TableRow>
@@ -150,6 +152,8 @@ export default function EmpresasTab() {
                   <TableCell>{e.rut}</TableCell>
                   <TableCell>{e.giro || "-"}</TableCell>
                   <TableCell>{e.direccion || "-"}</TableCell>
+                  <TableCell>{e.comuna || "-"}</TableCell>
+                  <TableCell>{e.ciudad || "-"}</TableCell>
                   <TableCell>{e.telefono ? fmtTelefono(e.telefono) : "-"}</TableCell>
                   <TableCell>{contactoDe(e).nombre || "-"}</TableCell>
                   <TableCell>{contactoDe(e).email || "-"}</TableCell>

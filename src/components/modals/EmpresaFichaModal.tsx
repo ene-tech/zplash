@@ -54,6 +54,8 @@ export default function EmpresaFichaModal({ data: empresaInicial }: { data: Empr
         <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           {dato("Giro", empresa.giro)}
           {dato("Dirección", empresa.direccion)}
+          {dato("Comuna", empresa.comuna)}
+          {dato("Ciudad", empresa.ciudad)}
           {dato("Teléfono", empresa.telefono ? fmtTelefono(empresa.telefono) : undefined)}
         </dl>
 
