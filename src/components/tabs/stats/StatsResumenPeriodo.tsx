@@ -27,6 +27,8 @@ type Props = Pick<
   | "pctMonto9990"
   | "pctMontoTickets"
   | "pctMontoLimpiezas"
+  | "pasadasTunel"
+  | "valorPromedioPasadaTunel"
 >;
 
 // Selector de período + el resumen de ingresos de ese período, mostrado dos
@@ -65,6 +67,10 @@ export function StatsResumenPeriodo(p: Props) {
         <div className="stat-card ok">
           <div className="num">{fmtCLP(p.montoTotalPeriodo / 1.19)}</div>
           <div className="lbl">Monto total neto del período</div>
+        </div>
+        <div className="stat-card ok">
+          <div className="num">{fmtCLP(p.valorPromedioPasadaTunel)}</div>
+          <div className="lbl">Valor promedio por pasada de túnel ({p.pasadasTunel} pasadas, sin limpiezas ni POS)</div>
         </div>
         <div className="stat-card">
           <div className="num">{p.conPlan.length}</div>

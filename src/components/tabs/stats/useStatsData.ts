@@ -86,6 +86,12 @@ export function useStatsData() {
   const pctMontoTickets = pctMonto(montoTickets);
   const pctMontoLimpiezas = pctMonto(montoLimpiezas);
 
+  // Valor promedio de una pasada por el túnel: lo vendido en planes, $9.990 y
+  // tickets dividido por las pasadas de esos tres tipos (tickets gratis
+  // incluidos, aportan $0). Quedan fuera las limpiezas completas y el POS.
+  const pasadasTunel = conPlan.length + por9990.length + ticketGratis.length + ticketPagado.length;
+  const valorPromedioPasadaTunel = pasadasTunel ? (montoPlanes + montoPor9990 + montoTickets) / pasadasTunel : 0;
+
   // Ventas de plan pagadas con el QR del mesón (ver QrPlanConTarjeta), por
   // operador que lo mostró — ranking de monto, el que más vende primero.
   const ventasQr = data.ventas.filter((v) => v.operadorQr && inRange(v.fecha, desde, hasta));
@@ -245,6 +251,8 @@ export function useStatsData() {
     pctMonto9990,
     pctMontoTickets,
     pctMontoLimpiezas,
+    pasadasTunel,
+    valorPromedioPasadaTunel,
     promedioLavadosDiariosPeriodo,
     ventasQrCantidad: ventasQr.length,
     montoQr,

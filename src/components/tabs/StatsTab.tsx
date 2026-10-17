@@ -101,6 +101,8 @@ export default function StatsTab() {
         pctMonto9990={r.pctMonto9990}
         pctMontoTickets={r.pctMontoTickets}
         pctMontoLimpiezas={r.pctMontoLimpiezas}
+        pasadasTunel={r.pasadasTunel}
+        valorPromedioPasadaTunel={r.valorPromedioPasadaTunel}
       />
 
       <StatsPacksLavados packsLavados={r.packsLavados} upgradesPack={r.upgradesPack} />
