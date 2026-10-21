@@ -2,11 +2,14 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
-import { clientes, cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
+import { clientes, cobrosOneclick, movimientosContables, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
+import { movimientoToRow } from "@/lib/dataAccess/contabilidad";
 import {
   esEmailEnviable,
   fmtCLP,
   fmtFecha,
+  idMovimientoContableDeVenta,
+  movimientoContableDeReembolso,
   PREFIJO_VENTA_REEMBOLSO,
   sumarMesesFecha,
   TIPO_VENTA_REEMBOLSO,
@@ -49,6 +52,8 @@ export type ResultadoReembolso = { ok: true; venta: Venta; vencimiento?: string 
  * de Caja del día en que se hizo el reembolso lo descuenta solo, tanto en
  * "Detalle de venta" (fila Reembolso, ver useCierreData) como en "Métodos de
  * pago" (resta en Tarjetas Transbank vía esTarjetaWeb + precio negativo).
+ * Además escribe el asiento contable negativo en el canal de la venta
+ * original (ver movimientoContableDeReembolso), así el EERR también lo resta.
  *
  * `montoPedido` permite una devolución PARCIAL (hasta lo cobrado por
  * Transbank para el ítem); sin él se devuelve el total. Un solo reembolso por
@@ -180,9 +185,22 @@ export async function reembolsarVentaTarjeta(
       }
     }
 
+    // Asiento contable negativo en el canal de la venta original, para que el
+    // EERR descuente el reembolso (antes seguía contándolo como ingreso). Se
+    // llega acá solo con la devolución ya confirmada por Transbank, y va en la
+    // misma transacción que el contra-asiento: los dos o ninguno. Su id sale
+    // del contra-asiento, cuya PK ya impide un segundo reembolso.
+    const [asientoOriginal] = await tx
+      .select({ categoria: movimientosContables.categoria })
+      .from(movimientosContables)
+      .where(eq(movimientosContables.id, idMovimientoContableDeVenta(ventaId)))
+      .limit(1);
+    const asiento = movimientoContableDeReembolso(filaReembolso, venta, asientoOriginal?.categoria);
+
     // Insert directo (no dataAccess.insertVentas): un contra-asiento negativo
     // no debe gatillar reglas de WhatsApp/correo por venta nueva.
     await tx.insert(ventas).values({ ...filaReembolso, clienteId: venta.clienteId });
+    await tx.insert(movimientosContables).values(movimientoToRow(asiento));
     return { ok: true, venta: filaReembolso, vencimiento };
   });
 

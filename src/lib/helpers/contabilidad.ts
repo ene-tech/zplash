@@ -167,6 +167,37 @@ export function movimientoContableDesdeVenta(venta: {
   };
 }
 
+/** Asiento contable del reembolso a la tarjeta (ver reembolsarVentaTarjeta en
+ * @/lib/pagos): ingreso de monto NEGATIVO en el mismo canal que la venta
+ * original, igual que las devoluciones del POS (ver armarDevolucionPos) — la
+ * devolución deshace venta, no es un gasto. `reembolso` es el contra-asiento
+ * en `ventas` (precio negativo, fecha de hoy); el id sale de él, así que es
+ * uno solo por reembolso. `categoriaOriginal` es la del asiento de la venta
+ * original si existe (alguien pudo reclasificarlo); si no, el canal que
+ * movimientoContableDesdeVenta le habría dado. */
+export function movimientoContableDeReembolso(
+  reembolso: { id: string; precio: number; fecha: string; patente: string; nombre: string; creadoPor?: string | null },
+  original: { tipo: string },
+  categoriaOriginal?: string | null
+): MovimientoContable {
+  return {
+    id: idMovimientoContableDeVenta(reembolso.id),
+    tipo: "ingreso",
+    fecha: reembolso.fecha,
+    descripcion: reembolso.patente
+      ? `Reembolso de ${original.tipo} – ${reembolso.nombre} (${reembolso.patente})`
+      : `Reembolso de ${original.tipo} – ${reembolso.nombre}`,
+    categoria: categoriaOriginal || (original.tipo === TIPO_VENTA_PRODUCTOS ? CANAL_INGRESO_PRODUCTOS : CANAL_INGRESO_TUNEL),
+    contraparte: reembolso.nombre,
+    monto: reembolso.precio,
+    estado: "pagado",
+    metodoPago: "tarjeta",
+    creadoEn: reembolso.fecha,
+    creadoPor: reembolso.creadoPor || undefined,
+    ventaId: reembolso.id,
+  };
+}
+
 export function esEstadoPagadoEgreso(estado: string): boolean {
   return estado === "pagado_cc" || estado === "pagado_efectivo";
 }

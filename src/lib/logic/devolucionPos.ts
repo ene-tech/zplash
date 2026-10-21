@@ -50,9 +50,8 @@ export interface DevolucionArmada {
  *
  * El movimiento contable es un ingreso de monto negativo, no un egreso: la
  * devolución no es un gasto del negocio, es venta que se deshace. Así el EERR
- * la resta del canal "Venta de Productos" en vez de inflar los costos —y los
- * reembolsos de tarjeta, que hoy no escriben asiento, quedan como la
- * excepción a corregir aparte. */
+ * la resta del canal "Venta de Productos" en vez de inflar los costos (mismo
+ * criterio que el reembolso a tarjeta, ver movimientoContableDeReembolso). */
 export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada | { error: string } {
   if (!datos.lineas.length) return { error: "No hay nada marcado para devolver" };
   if (!datos.motivo.trim()) return { error: "Escribe el motivo de la devolución" };
