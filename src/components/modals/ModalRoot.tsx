@@ -34,12 +34,13 @@ export default function ModalRoot() {
         patenteInicial={m.patenteInicial}
         telefonoInicial={m.telefonoInicial}
         sinPlan={m.sinPlan}
+        permitirSinPatente={m.permitirSinPatente}
         onGuardado={m.onGuardado}
       />
     );
   if (m.type === "perfil") return <PerfilModal data={m.data} />;
   if (m.type === "bulk") return <BulkModal />;
-  if (m.type === "pago") return <PagoModal monto={m.monto} descripcion={m.descripcion} onConfirm={m.onConfirm} cliente={m.cliente} />;
+  if (m.type === "pago") return <PagoModal monto={m.monto} descripcion={m.descripcion} onConfirm={m.onConfirm} cliente={m.cliente} terminal={m.terminal} />;
   if (m.type === "clienteInfo") return <ClienteInfoModal data={m.data} />;
   if (m.type === "empresa") return <EmpresaModal data={m.data} onGuardada={m.onGuardada} />;
   if (m.type === "producto") return <ProductoModal data={m.data} />;

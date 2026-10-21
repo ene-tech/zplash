@@ -32,7 +32,7 @@ export const ClienteRow = memo(function ClienteRow({
     <TableRow className="cursor-pointer" onClick={() => onInfo(c)}>
       <TableCell className={`plate-tag ${plateEstadoCls(c)}`}>
         <span className="inline-flex items-center gap-1">
-          {c.patente}
+          {c.patente || "Sin auto"}
           {c.patentePendiente && <IconoCambioPatentePendiente patentePendiente={c.patentePendiente} />}
         </span>
       </TableCell>

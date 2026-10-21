@@ -205,7 +205,8 @@ async function fichaVehiculo(c: Cliente) {
 
 async function consultarVehiculos(telefono: string, patenteCruda?: string): Promise<string> {
   const db = getDb();
-  const propios = (await db.select().from(clientes).where(eq(clientes.telefono, telefono))).map(clienteFromRow);
+  // Solo fichas con auto: un comprador de la tienda sin patente no es un vehículo.
+  const propios = (await db.select().from(clientes).where(eq(clientes.telefono, telefono))).map(clienteFromRow).filter((c) => c.patente);
   const patente = patenteCruda ? normPlate(patenteCruda) : undefined;
 
   if (patente && !propios.some((c) => c.patente === patente)) {

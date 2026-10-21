@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { armarVentaPos, type DatosVentaPos } from "./pos";
+import { armarVentaPos, resolverDescuentoPos, type DatosVentaPos } from "./pos";
+import type { Cupon } from "@/types";
 
 const base: DatosVentaPos = {
   id: "v1",
@@ -85,5 +86,88 @@ describe("armarVentaPos — el navegador no puede pisar lo que calcula el servid
     expect(r.venta.tipo).toBe("Venta de productos");
     expect(r.venta.estadoPago).toBe("pagado");
     expect(r.venta.razonSocial).toBe("ACME SpA");
+  });
+});
+
+describe("armarVentaPos — código de descuento", () => {
+  it("monto fijo: rebaja el total y deja la marca del cupón", () => {
+    const r = armarVentaPos({ ...base, descuento: { codigo: "VALE01", valor: 1000, esPorcentaje: false } });
+    if ("error" in r) throw new Error(r.error);
+    expect(r.venta.precio).toBe(4990 - 1000);
+    expect(r.venta.viaCupon).toBe(true);
+    expect(r.venta.cuponCodigo).toBe("VALE01");
+    expect(r.venta.notas).toContain("VALE01");
+    // Las líneas quedan a precio de lista.
+    expect(r.items[0].precioUnitario).toBe(1000);
+  });
+
+  it("porcentaje sobre el subtotal", () => {
+    const r = armarVentaPos({ ...base, descuento: { codigo: "P10", valor: 10, esPorcentaje: true } });
+    if ("error" in r) throw new Error(r.error);
+    expect(r.venta.precio).toBe(4990 - 499);
+  });
+
+  it("nunca deja el total negativo; con $0 no lleva medio de pago", () => {
+    const r = armarVentaPos({
+      ...base,
+      metodoPago: undefined,
+      voucher: "123",
+      descuento: { codigo: "VALE99", valor: 99999, esPorcentaje: false },
+    });
+    if ("error" in r) throw new Error(r.error);
+    expect(r.venta.precio).toBe(0);
+    expect(r.venta.metodoPago).toBeUndefined();
+    expect(r.venta.voucher).toBeUndefined();
+  });
+
+  it("con algo que cobrar exige un medio de pago válido", () => {
+    expect(armarVentaPos({ ...base, metodoPago: undefined })).toEqual({ error: "Elige la forma de pago" });
+    expect(armarVentaPos({ ...base, metodoPago: "bitcoin" as never })).toEqual({ error: "Elige la forma de pago" });
+  });
+});
+
+describe("resolverDescuentoPos", () => {
+  const cupon = (extra: Partial<Cupon>): Cupon => ({
+    id: "c1",
+    codigo: "ABC123",
+    nombreLote: "Devolución",
+    valor: 2000,
+    numeroLote: 1,
+    totalLote: 1,
+    fechaCaducidad: "2999-01-01T00:00:00.000Z",
+    usado: false,
+    creadoEn: "2026-10-01T00:00:00.000Z",
+    tipo: "descuento",
+    esPorcentaje: false,
+    canal: "local",
+    ...extra,
+  });
+
+  it("acepta un vale abierto para un invitado (sin patente)", () => {
+    expect(resolverDescuentoPos("abc123", "", [cupon({})], [])).toMatchObject({ ok: true });
+  });
+
+  it("rechaza usado, caducado, solo web y atado a otra patente", () => {
+    expect(resolverDescuentoPos("ABC123", "", [cupon({ usado: true })], []).ok).toBe(false);
+    expect(resolverDescuentoPos("ABC123", "", [cupon({ fechaCaducidad: "2020-01-01T00:00:00.000Z" })], []).ok).toBe(false);
+    expect(resolverDescuentoPos("ABC123", "", [cupon({ canal: "web" })], []).ok).toBe(false);
+    expect(resolverDescuentoPos("ABC123", "", [cupon({ patenteAsignada: "ABCD12" })], []).ok).toBe(false);
+    expect(resolverDescuentoPos("ABC123", "ZZZZ99", [cupon({ patenteAsignada: "ABCD12" })], []).ok).toBe(false);
+    expect(resolverDescuentoPos("ABC123", "ABCD12", [cupon({ patenteAsignada: "ABCD12" })], []).ok).toBe(true);
+  });
+
+  it("un tique de lavado (vale) no es un descuento", () => {
+    expect(resolverDescuentoPos("ABC123", "", [cupon({ tipo: "vale" })], []).ok).toBe(false);
+  });
+
+  it("sin patente no acepta códigos cuya regla es la patente", () => {
+    expect(resolverDescuentoPos("ABC123", "", [cupon({ unUsoPorPatente: true })], []).ok).toBe(false);
+    expect(resolverDescuentoPos("ABC123", "", [cupon({ nombreLote: "Referido - ABCD12" })], []).ok).toBe(false);
+    expect(resolverDescuentoPos("ABC123", "", [cupon({ soloClientesNuevos: true })], []).ok).toBe(false);
+  });
+
+  it("respeta la regla de referidos: el dueño no usa su propio código", () => {
+    const r = resolverDescuentoPos("ABC123", "ABCD12", [cupon({ nombreLote: "Referido - ABCD12" })], []);
+    expect(r.ok).toBe(false);
   });
 });

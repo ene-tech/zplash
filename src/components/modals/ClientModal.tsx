@@ -18,6 +18,7 @@ export default function ClientModal({
   patenteInicial,
   telefonoInicial,
   sinPlan,
+  permitirSinPatente,
   onGuardado,
 }: {
   data: Cliente | null;
@@ -26,6 +27,8 @@ export default function ClientModal({
   telefonoInicial?: string;
   /** Alta desde el POS de la tienda: siempre sin plan (ese flujo no cobra planes). */
   sinPlan?: boolean;
+  /** Alta desde el POS: comprador sin auto, la patente es opcional. */
+  permitirSinPatente?: boolean;
   onGuardado?: (cliente: Cliente) => void;
 }) {
   const nombreRef = useRef<HTMLInputElement>(null);
@@ -59,7 +62,7 @@ export default function ClientModal({
     giroRef,
     vencRef,
     heredadoRef,
-  }, onGuardado);
+  }, onGuardado, permitirSinPatente);
   const cli = r.cli;
   // Estado propio (no pasa por AppContext.commit) para reflejar al toque el
   // resultado de solicitar/cancelar un cambio de patente diferido — ver
@@ -79,7 +82,7 @@ export default function ClientModal({
             <Input id="cli-nombre" ref={nombreRef} defaultValue={cli.nombre || ""} autoFocus />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="cli-patente">Patente</Label>
+            <Label htmlFor="cli-patente">{r.patenteOpcional ? "Patente (opcional si no tiene auto)" : "Patente"}</Label>
             <Input id="cli-patente" ref={patenteRef} defaultValue={cli.patente || patenteInicial || ""} className="uppercase" />
           </div>
           {contexto !== "operador" && clienteConPatentePendiente && clienteConPatentePendiente.vencimiento && (

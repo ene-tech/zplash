@@ -1,5 +1,8 @@
-import { TIPO_VENTA_PRODUCTOS } from "@/lib/helpers";
-import type { DatosFacturacion, Venta, VentaItem } from "@/types";
+import { fmtCLP, montoDescuento, resolverDescuento, TIPO_VENTA_PRODUCTOS } from "@/lib/helpers";
+import { referidorDeLote } from "@/lib/referidos";
+import type { Cliente, Cupon, DatosFacturacion, Venta, VentaItem } from "@/types";
+
+const METODOS_POS = ["efectivo", "tarjeta", "transferencia"] as const;
 
 export interface LineaPos {
   productoId: string;
@@ -12,9 +15,12 @@ export interface DatosVentaPos {
   fecha: string;
   lineas: LineaPos[];
   productos: { id: string; sku: string; detalle: string }[];
-  metodoPago: "efectivo" | "tarjeta" | "transferencia";
+  /** Sin definir solo si el descuento cubre el total (venta en $0). */
+  metodoPago?: "efectivo" | "tarjeta" | "transferencia";
   voucher?: string;
   creadoPor: string;
+  /** Código de descuento YA validado en el servidor (resolverDescuentoPos). */
+  descuento?: Pick<Cupon, "codigo" | "valor" | "esPorcentaje">;
   /** Cliente del lavado, opcional: la venta de mesón no lo pide, pero si se
    * elige, la compra queda en su ficha (misma patente que sus lavados). */
   cliente?: { id: string; nombre: string; patente: string };
@@ -52,6 +58,20 @@ export function armarVentaPos(datos: DatosVentaPos): { venta: Venta; items: Vent
     });
   }
 
+  const bruto = items.reduce((s, it) => s + it.cantidad * it.precioUnitario, 0);
+  // Nunca total negativo: un vale de $10.000 contra $6.000 de productos deja
+  // la venta en $0 y el saldo se pierde (mismo criterio que precioConCupon en
+  // el mesón; un vale es de un solo uso).
+  const rebaja = datos.descuento ? Math.min(bruto, Math.max(0, montoDescuento(datos.descuento, bruto))) : 0;
+  const precio = bruto - rebaja;
+  // El método llega del navegador: se valida contra la lista (y no solo por
+  // el tipo, que en runtime no existe). Con $0 no hay nada que cobrar.
+  if (precio > 0 && !METODOS_POS.includes(datos.metodoPago as (typeof METODOS_POS)[number])) {
+    return { error: "Elige la forma de pago" };
+  }
+  const glosaDescuento = datos.descuento ? `Descuento ${datos.descuento.codigo} (−${fmtCLP(rebaja)})` : "";
+  const notas = [datos.notas?.trim(), glosaDescuento].filter(Boolean).join(" · ");
+
   const venta: Venta = {
     id: datos.id,
     // "" = venta a invitado (ventaToRow lo normaliza a NULL, igual que en
@@ -62,14 +82,19 @@ export function armarVentaPos(datos: DatosVentaPos): { venta: Venta; items: Vent
     patente: datos.cliente?.patente || "",
     nombre: datos.cliente?.nombre || datos.nombre?.trim() || "Invitado",
     plan: "",
-    precio: items.reduce((s, it) => s + it.cantidad * it.precioUnitario, 0),
+    // Las líneas quedan a precio de lista y la venta al precio cobrado: la
+    // diferencia es el descuento (ver glosa en notas y cuponCodigo), y la
+    // devolución la prorratea (ver armarDevolucionPos).
+    precio,
     tipo: TIPO_VENTA_PRODUCTOS,
     fecha: datos.fecha,
     creadoPor: datos.creadoPor,
-    metodoPago: datos.metodoPago,
-    voucher: datos.voucher?.trim() || undefined,
+    metodoPago: precio > 0 ? datos.metodoPago : undefined,
+    voucher: precio > 0 ? datos.voucher?.trim() || undefined : undefined,
     cantidadItems: items.reduce((s, it) => s + it.cantidad, 0),
-    notas: datos.notas?.trim() || undefined,
+    notas: notas || undefined,
+    viaCupon: datos.descuento ? true : undefined,
+    cuponCodigo: datos.descuento?.codigo,
     estadoPago: "pagado",
     // Campo por campo y NO `...datos.datosFactura`: eso viene del navegador y
     // el tipo no existe en runtime, así que un POST directo al Server Action
@@ -85,4 +110,25 @@ export function armarVentaPos(datos: DatosVentaPos): { venta: Venta; items: Vent
     giro: datos.datosFactura?.giro,
   };
   return { venta, items };
+}
+
+/** Valida un código de descuento tipeado en el POS de la tienda. Mismas
+ * reglas que el mesón del lavado (resolverDescuento: tipo, usado, vigencia,
+ * canal local, patente asignada, solo clientes nuevos, referidos), con un
+ * agregado propio: la venta de tienda puede ir sin patente (invitado o
+ * comprador sin auto), y hay códigos cuya regla ES la patente — "un uso por
+ * patente", "solo clientes nuevos" y los de amigo (referidos). Sin patente esa regla no se puede
+ * aplicar, así que esos piden elegir al cliente del lavado. */
+export function resolverDescuentoPos(
+  codigoCrudo: string,
+  patente: string,
+  cupones: Cupon[],
+  clientes: Cliente[]
+): { ok: true; cupon: Cupon } | { ok: false; msg: string } {
+  const codigo = codigoCrudo.trim().toUpperCase();
+  const cupon = cupones.find((c) => c.codigo === codigo);
+  if (cupon && !patente && (cupon.unUsoPorPatente || cupon.soloClientesNuevos || referidorDeLote(cupon.nombreLote))) {
+    return { ok: false, msg: "Este código va atado a una patente: elige al cliente del lavado para usarlo" };
+  }
+  return resolverDescuento(codigo, patente, cupones, clientes);
 }

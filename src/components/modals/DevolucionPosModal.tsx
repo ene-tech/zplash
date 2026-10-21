@@ -82,7 +82,14 @@ export default function DevolucionPosModal({ onCerrar }: { onCerrar: () => void 
       nuevo: marcadas[it.productoId!].nuevo,
       precioUnitario: it.precioUnitario,
     }));
-  const totalDevolver = lineas.reduce((s, l) => s + l.cantidad * l.precioUnitario, 0);
+  // Mismo prorrateo que armarDevolucionPos: si la venta llevó un código de
+  // descuento, se devuelve la proporción de lo cobrado, no el precio de lista.
+  const totalLista = lineas.reduce((s, l) => s + l.cantidad * l.precioUnitario, 0);
+  const brutoVenta = (items || []).reduce((s, it) => s + it.cantidad * it.precioUnitario, 0);
+  const totalDevolver =
+    venta && brutoVenta > 0 && venta.precio < brutoVenta
+      ? Math.round((totalLista * Math.max(0, venta.precio)) / brutoVenta)
+      : totalLista;
 
   const confirmar = async () => {
     if (!venta || guardando) return;

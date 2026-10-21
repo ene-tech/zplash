@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   citas,
@@ -48,7 +48,9 @@ export async function buscarClientesPorEmail(email: string): Promise<Cliente[]> 
   const rows = await getDb()
     .select()
     .from(clientes)
-    .where(sql`lower(${clientes.email}) = ${email.toLowerCase()}`);
+    // Solo fichas con auto: el portal es por vehículo, y un comprador de la
+    // tienda sin patente no tiene nada que ver ahí.
+    .where(and(sql`lower(${clientes.email}) = ${email.toLowerCase()}`, isNotNull(clientes.patente)));
   return rows.map(clienteFromRow);
 }
 
@@ -58,7 +60,8 @@ export function clienteToRow(c: Cliente): typeof clientes.$inferInsert {
   return {
     id: c.id,
     nombre: c.nombre,
-    patente: c.patente,
+    // "" (comprador sin auto) se guarda NULL: el índice único es parcial.
+    patente: c.patente || null,
     telefono: c.telefono || null,
     email: c.email || null,
     vehiculo: c.vehiculo || null,
@@ -91,7 +94,7 @@ export function clienteFromRow(r: ClienteRow): Cliente {
   return {
     id: r.id,
     nombre: r.nombre,
-    patente: r.patente,
+    patente: r.patente || "",
     telefono: r.telefono || undefined,
     email: r.email || undefined,
     vehiculo: r.vehiculo || undefined,
@@ -263,7 +266,7 @@ export async function registrarAceptacionX5(id: string): Promise<boolean> {
       .update(clientes)
       .set({ aceptoX5En: new Date().toISOString() })
       .where(and(eq(clientes.id, id), isNull(clientes.aceptoX5En)));
-    await despausarValidacionX5(cliente.patente);
+    if (cliente.patente) await despausarValidacionX5(cliente.patente);
     return true;
   } catch (error) {
     console.error("Error registrando la aceptación del paso al X5", id, error);
@@ -447,13 +450,17 @@ export async function fusionarClientes(
 
       // Cobro automático: una fila por patente (índice único). La tarjeta de la
       // patente vieja pasa a la nueva, salvo que la nueva ya tenga la suya viva.
-      const subs = await tx
-        .select()
-        .from(suscripcionesOneclick)
-        .where(inArray(suscripcionesOneclick.patente, [viejo.patente, nuevo.patente]));
+      // Una ficha sin patente (comprador de la tienda) no tiene cobro ni cupones.
+      const patentes = [viejo.patente, nuevo.patente].filter((p): p is string => !!p);
+      const subs = patentes.length
+        ? await tx.select().from(suscripcionesOneclick).where(inArray(suscripcionesOneclick.patente, patentes))
+        : [];
       const subVieja = subs.find((s) => s.patente === viejo.patente);
       const subNueva = subs.find((s) => s.patente === nuevo.patente);
       if (subVieja && ESTADOS_TARJETA_VIVA.includes(subVieja.estado)) {
+        if (!nuevo.patente) {
+          return { ok: false as const, error: "La ficha de destino no tiene patente: no puede recibir el cobro automático" };
+        }
         if (subNueva && ESTADOS_TARJETA_VIVA.includes(subNueva.estado)) {
           return { ok: false as const, error: "Las dos patentes tienen cobro automático activo: cancela uno antes de fusionar" };
         }
@@ -470,7 +477,9 @@ export async function fusionarClientes(
         await tx.update(tabla).set({ clienteId: nuevoId }).where(eq(tabla.clienteId, viejoId));
       }
       await tx.update(empresas).set({ contactoClienteId: nuevoId }).where(eq(empresas.contactoClienteId, viejoId));
-      await tx.update(cupones).set({ patenteAsignada: nuevo.patente }).where(eq(cupones.patenteAsignada, viejo.patente));
+      if (viejo.patente && nuevo.patente) {
+        await tx.update(cupones).set({ patenteAsignada: nuevo.patente }).where(eq(cupones.patenteAsignada, viejo.patente));
+      }
       // ponytail: las suscripciones push de la ficha vieja se van en cascada; el
       // navegador del cliente se vuelve a suscribir al entrar a Mi Cuenta.
 
@@ -525,6 +534,7 @@ export async function fusionarClientes(
  * queda para el botón de la ficha, que pide el módulo "clientes".
  */
 export async function absorberSolicitudCambioPatente(nuevoId: string, patente: string): Promise<void> {
+  if (!patente) return; // comprador sin auto: no hay cambio de patente que absorber
   try {
     const [viejo] = await getDb()
       .select()

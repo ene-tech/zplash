@@ -26,6 +26,9 @@ export interface FiltrosMensajeMasivo {
 export function filtrarClientesMensajeMasivo(clientes: Cliente[], f: FiltrosMensajeMasivo): Cliente[] {
   const q = f.busqueda.trim().toLowerCase();
   return clientes.filter((c) => {
+    // Las campañas son por vehículo (cupón atado a la patente, {patente} en el
+    // texto): un comprador de la tienda sin auto no entra.
+    if (!c.patente) return false;
     if (f.filtroEstado !== "todos" && planStatus(c).label !== f.filtroEstado) return false;
     if (f.filtroOrigen !== "todos" && (c.origen || "LOCAL") !== f.filtroOrigen) return false;
     if (f.visitasMin && (c.visitas || 0) < Number(f.visitasMin)) return false;

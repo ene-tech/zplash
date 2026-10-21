@@ -64,7 +64,15 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { eq } from "drizzle-orm";
 import { auditoria, clientes } from "@/db/schema";
-import { type Cliente, type Hallazgo, formatTelefono, revisarCliente, sugerirDominio, transliterar } from "./calidadDatosClientes";
+import {
+  type Cliente,
+  type Hallazgo,
+  conPatenteTexto,
+  formatTelefono,
+  revisarCliente,
+  sugerirDominio,
+  transliterar,
+} from "./calidadDatosClientes";
 
 const NOMBRE_VACIO = "Sin nombre";
 
@@ -180,7 +188,7 @@ async function main() {
   const db = drizzle(client);
   const ahora = new Date();
 
-  const filas = await db.select().from(clientes);
+  const filas = (await db.select().from(clientes)).map(conPatenteTexto);
   const cambios = filas.flatMap((c) => planificar(c, revisarCliente(c, ahora)));
   const fichas = new Set(cambios.map((x) => x.cliente.id));
 

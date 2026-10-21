@@ -141,7 +141,7 @@ export default function ClientesTab() {
       patchUi({
         modal: {
           type: "confirm",
-          mensaje: `¿Eliminar a ${c.nombre} (${c.patente})? Esta acción no se puede deshacer.`,
+          mensaje: `¿Eliminar a ${c.nombre} (${c.patente || "sin auto"})? Esta acción no se puede deshacer.`,
           onConfirm: () => {
             commit({ clientes: data.clientes.filter((x) => x.id !== c.id) });
           },

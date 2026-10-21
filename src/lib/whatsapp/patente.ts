@@ -40,7 +40,7 @@ export async function estadoPlanPorPatente(
   const estado = planStatus(cliente);
   const plan = cliente.plan || textos.patenteEstadoPlanVacio;
   const lineas = [
-    aplicarVariables(textos.patenteEstadoEncabezado, { patente: cliente.patente, nombre: cliente.nombre }),
+    aplicarVariables(textos.patenteEstadoEncabezado, { patente: cliente.patente ?? "", nombre: cliente.nombre }),
     aplicarVariables(textos.patenteEstadoPlan, { plan }),
     aplicarVariables(textos.patenteEstadoLinea, { estado: estado.label }),
   ];

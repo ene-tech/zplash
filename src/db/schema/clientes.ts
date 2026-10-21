@@ -1,10 +1,16 @@
-import { boolean, integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, check, integer, pgTable, primaryKey, text, uniqueIndex } from "drizzle-orm/pg-core";
 import { timestamptz } from "./shared";
 
 export const clientes = pgTable("clientes", {
   id: text("id").primaryKey(),
   nombre: text("nombre").notNull(),
-  patente: text("patente").notNull().unique(),
+  // NULL = comprador de la tienda sin auto (alta desde el POS, oct-2026). Única
+  // solo cuando hay patente (índice parcial abajo), y nunca "" (check): en
+  // el dominio, Cliente.patente es "" para "sin patente" y clienteToRow lo
+  // convierte a NULL. Un cliente sin patente no participa de lo que se busca
+  // por patente (Oneclick, cupones, ingresos del túnel).
+  patente: text("patente"),
   telefono: text("telefono"),
   email: text("email"),
   vehiculo: text("vehiculo"),
@@ -86,7 +92,10 @@ export const clientes = pgTable("clientes", {
   ultimaRenovacion: timestamptz("ultima_renovacion"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   creadoPor: text("creado_por"),
-});
+}, (t) => [
+  uniqueIndex("clientes_patente_unique").on(t.patente).where(sql`${t.patente} is not null`),
+  check("clientes_patente_no_vacia", sql`${t.patente} is null or ${t.patente} <> ''`),
+]);
 
 // Aceptación de las "Políticas de Funcionamiento y Garantía" (ver
 // @/lib/politicas) por parte de una cuenta del Portal Cliente. Va por email

@@ -9,6 +9,7 @@ import {
   isValidRut,
   isValidTelefono,
   normPlate,
+  rechazoClienteSinPatente,
   telefonoTipeado,
 } from "@/lib/helpers";
 import type { Cliente } from "@/types";
@@ -27,6 +28,9 @@ export interface DatosValidacionClienteModal {
   exentoFormato: boolean;
   clientes: Cliente[];
   clienteIdActual: string | undefined;
+  /** Comprador de la tienda sin auto: alta desde el POS, o edición de una
+   * ficha que ya no tenía patente. En el túnel/operador nunca. */
+  permitirSinPatente?: boolean;
 }
 
 export type ResultadoValidacionClienteModal =
@@ -50,10 +54,12 @@ export type ResultadoValidacionClienteModal =
 export function validarClienteModal(d: DatosValidacionClienteModal): ResultadoValidacionClienteModal {
   const nombre = d.nombreRaw.trim().toUpperCase();
   const patente = normPlate(d.patenteRaw);
-  if (!nombre || !patente) return { ok: false, error: "Nombre y patente son obligatorios" };
-  if (!d.exentoFormato && !isValidPatente(patente)) return { ok: false, error: PATENTE_FORMATO_MSG };
-  const dup = d.clientes.find((x) => normPlate(x.patente) === patente && x.id !== d.clienteIdActual);
-  if (dup) return { ok: false, error: "Ya existe un cliente con esa patente" };
+  if (!nombre || (!patente && !d.permitirSinPatente)) return { ok: false, error: "Nombre y patente son obligatorios" };
+  if (patente) {
+    if (!d.exentoFormato && !isValidPatente(patente)) return { ok: false, error: PATENTE_FORMATO_MSG };
+    const dup = d.clientes.find((x) => normPlate(x.patente) === patente && x.id !== d.clienteIdActual);
+    if (dup) return { ok: false, error: "Ya existe un cliente con esa patente" };
+  }
 
   const telefonoRaw = telefonoTipeado(d.telefonoRaw);
   // El campo precarga "+569" como ayuda para tipear solo los 8 dígitos
@@ -67,6 +73,11 @@ export function validarClienteModal(d: DatosValidacionClienteModal): ResultadoVa
   if (!d.exentoFormato && telefono && !isValidTelefono(telefono)) return { ok: false, error: TELEFONO_FORMATO_MSG };
 
   const email = d.emailRaw.trim();
+  if (!patente) {
+    if (email && !isValidEmail(email)) return { ok: false, error: "Ingresa un email válido" };
+    const rechazo = rechazoClienteSinPatente({ telefono, email });
+    if (rechazo) return { ok: false, error: rechazo };
+  }
   const vehiculo = d.vehiculoRaw.trim();
   const razonSocial = d.tipoDocumento === "Factura" ? d.razonSocialRaw.trim() : "";
   const rutRawTrim = d.tipoDocumento === "Factura" ? d.rutRaw.trim() : "";

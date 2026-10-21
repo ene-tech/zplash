@@ -98,3 +98,25 @@ describe("armarDevolucionPos", () => {
     expect(r.venta.rut).toBe("76.123.456-7");
   });
 });
+
+describe("armarDevolucionPos — venta que llevó código de descuento", () => {
+  it("devuelve la proporción de lo cobrado, no el precio de lista", () => {
+    // Lista 32.960, se cobró 16.480 (50%): devolver una unidad de 9.990 = 4.995.
+    const r = armarDevolucionPos({ ...base, venta: { ...base.venta, precio: 16480 } });
+    if ("error" in r) throw new Error(r.error);
+    expect(r.venta.precio).toBe(-4995);
+    expect(r.movimiento.monto).toBe(-4995);
+  });
+
+  it("una venta cubierta entera por un vale no devuelve plata", () => {
+    const r = armarDevolucionPos({ ...base, venta: { ...base.venta, precio: 0 } });
+    if ("error" in r) throw new Error(r.error);
+    expect(r.venta.precio === 0).toBe(true);
+  });
+
+  it("sin descuento (precio igual a la lista) no cambia nada", () => {
+    const r = armarDevolucionPos({ ...base, venta: { ...base.venta, precio: 32960 } });
+    if ("error" in r) throw new Error(r.error);
+    expect(r.venta.precio).toBe(-9990);
+  });
+});

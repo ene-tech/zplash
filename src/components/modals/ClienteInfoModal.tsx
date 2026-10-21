@@ -233,6 +233,11 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const cerrar = () => patchUi({ modal: null });
 
   useEffect(() => {
+    // Comprador de la tienda sin auto: no hay cobro automático que buscar.
+    if (!c.patente) {
+      setSuscripcion(null);
+      return;
+    }
     obtenerSuscripcionOneclick(c.patente)
       .then(setSuscripcion)
       .catch(() => setSuscripcion(null));
@@ -419,7 +424,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           </div>
           <div>
             <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Patente</div>
-            <div className="font-medium">{c.patente}</div>
+            <div className="font-medium">{c.patente || "Sin auto (comprador de la tienda)"}</div>
             {otrasPatentes.map((o) => (
               <div key={o.id} className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                 <span>
@@ -499,8 +504,8 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           </div>
           <div>
             <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Código de referido</div>
-            <div className="font-medium">{c.patente}</div>
-            <div className="text-xs text-muted-foreground">zplash.cl/?ref={c.patente}</div>
+            <div className="font-medium">{c.patente || "—"}</div>
+            {c.patente && <div className="text-xs text-muted-foreground">zplash.cl/?ref={c.patente}</div>}
           </div>
           <div>
             <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Clientes referidos</div>
@@ -682,7 +687,9 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
               ))}
             </div>
           )}
-          <div className="mb-2 flex flex-wrap items-center gap-2">
+          {/* Los cupones se atan a la patente: sin auto, el atajo emitiría
+              códigos abiertos que cualquiera podría canjear. */}
+          <div className={c.patente ? "mb-2 flex flex-wrap items-center gap-2" : "hidden"}>
             <span className="text-xs uppercase tracking-wide text-muted-foreground">Entregar cupón</span>
             <Button
               variant={entregar === "descuento" ? "default" : "secondary"}

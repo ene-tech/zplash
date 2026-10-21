@@ -1,6 +1,7 @@
 "use server";
 
 import { eq, inArray, like, sql } from "drizzle-orm";
+import type { DbOrTx } from "@/db";
 import { getDb } from "@/db";
 import {
   clientes,
@@ -14,8 +15,10 @@ import {
 } from "@/db/schema";
 import * as dataAccess from "@/lib/dataAccess";
 import {
+  beneficioCupon,
   generarCodigoCupon,
   generarFolioTraspaso,
+  marcarDescuentoUsado,
   MODULOS_EDITAN_VENTAS,
   movimientoContableDesdeVenta,
   PREFIJO_VENTA_REEMBOLSO,
@@ -23,14 +26,25 @@ import {
   uid,
   uidVenta,
 } from "@/lib/helpers";
-import { armarDevolucionPos, armarVentaPos, type LineaDevolucion, type LineaPos } from "@/lib/logic";
+import {
+  armarDevolucionPos,
+  armarVentaPos,
+  resolverDescuentoPos,
+  type LineaDevolucion,
+  type LineaPos,
+} from "@/lib/logic";
 import { sesionActual, tieneAlgunModulo } from "@/lib/session";
 import type { Cupon, DatosFacturacion, MovimientoContable, Producto, Venta, VentaItem } from "@/types";
 
 export interface VentaPosInput {
   lineas: LineaPos[];
-  metodoPago: "efectivo" | "tarjeta" | "transferencia";
+  /** Sin definir solo si un código de descuento cubre el total. */
+  metodoPago?: "efectivo" | "tarjeta" | "transferencia";
   voucher?: string;
+  /** Código de descuento tipeado en el cobro. Se valida y se quema acá, en la
+   * misma transacción que la venta: el monto del descuento nunca viene del
+   * navegador. */
+  codigoDescuento?: string;
   /** Opcional: si viene, la compra queda en la ficha de ese cliente. */
   clienteId?: string;
   nombre?: string;
@@ -39,7 +53,15 @@ export interface VentaPosInput {
 }
 
 export type VentaPosResultado =
-  | { ok: true; venta: Venta; items: VentaItem[]; productos: Producto[]; movimiento: MovimientoContable | null }
+  | {
+      ok: true;
+      venta: Venta;
+      items: VentaItem[];
+      productos: Producto[];
+      movimiento: MovimientoContable | null;
+      /** El código de descuento ya quemado, para reflejarlo en memoria. */
+      cupon?: Cupon;
+    }
   | { ok: false; error: string };
 
 /** ÚNICO camino para registrar una venta de productos: inserta la venta, sus
@@ -103,27 +125,47 @@ async function cuadrarBodega(
   }
 }
 
-export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosResultado> {
-  const sesion = await sesionActual();
-  if (!sesion || !sesion.modulos.includes("pos")) return { ok: false, error: "Tu perfil no tiene acceso al POS" };
+/** Error de validación que corta la transacción y se muestra tal cual. */
+class RechazoVenta extends Error {}
 
-  const fecha = new Date().toISOString();
-  if (await dataAccess.altaEnDiaCerrado([fecha])) {
-    return { ok: false, error: "La caja de hoy ya está cerrada: no se pueden registrar más ventas" };
-  }
+type Sesion = NonNullable<Awaited<ReturnType<typeof sesionActual>>>;
 
+const PREFIJO_LOTE_AMIGO = "Referido - ";
+
+/** Lee productos, cliente y (si hay código) el cupón, valida todo y arma la
+ * venta. Compartido entre cotizarVentaPos (solo lectura, para mostrar el
+ * total antes de cobrar) y registrarVentaPos (dentro de la transacción, con
+ * el cupón bloqueado FOR UPDATE para que dos cajas no lo quemen dos veces).
+ * Lanza RechazoVenta con un mensaje legible si algo no cuadra. */
+async function prepararVentaPos(db: DbOrTx, input: VentaPosInput, sesion: Sesion, fecha: string, bloquear: boolean) {
   const ids = input.lineas.map((l) => l.productoId);
-  if (!ids.length) return { ok: false, error: "El carrito está vacío" };
+  if (!ids.length) throw new RechazoVenta("El carrito está vacío");
 
-  const db = getDb();
   const [productosRows, clienteRows] = await Promise.all([
     db.select().from(productos).where(inArray(productos.id, ids)),
     input.clienteId
       ? db.select().from(clientes).where(eq(clientes.id, input.clienteId)).limit(1)
       : Promise.resolve([]),
   ]);
-  if (input.clienteId && !clienteRows.length) return { ok: false, error: "El cliente elegido ya no existe" };
-  const cliente = clienteRows[0];
+  if (input.clienteId && !clienteRows.length) throw new RechazoVenta("El cliente elegido ya no existe");
+  const cliente = clienteRows[0] ? dataAccess.clienteFromRow(clienteRows[0]) : undefined;
+  const patente = cliente?.patente || "";
+
+  let cupon: Cupon | undefined;
+  const codigo = (input.codigoDescuento || "").trim().toUpperCase();
+  if (codigo) {
+    const consulta = db.select().from(cupones).where(eq(cupones.codigo, codigo)).limit(1);
+    const filas = bloquear ? await consulta.for("update") : await consulta;
+    // Los cupones de amigo (referidos) se cruzan contra los demás de su tipo
+    // (ver rechazoCodigoReferido); solo se leen si el código es uno de esos.
+    const deAmigo = filas[0]?.nombreLote.startsWith(PREFIJO_LOTE_AMIGO)
+      ? await db.select().from(cupones).where(like(cupones.nombreLote, `${PREFIJO_LOTE_AMIGO}%`))
+      : [];
+    const lista = [...filas, ...deAmigo.filter((c) => c.id !== filas[0]?.id)].map(dataAccess.cuponFromRow);
+    const r = resolverDescuentoPos(codigo, patente, lista, cliente ? [cliente] : []);
+    if (!r.ok) throw new RechazoVenta(r.msg);
+    cupon = r.cupon;
+  }
 
   const armado = armarVentaPos({
     id: uidVenta(),
@@ -133,19 +175,82 @@ export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosR
     metodoPago: input.metodoPago,
     voucher: input.voucher,
     creadoPor: sesion.nombre,
-    cliente: cliente ? { id: cliente.id, nombre: cliente.nombre, patente: cliente.patente } : undefined,
+    cliente: cliente ? { id: cliente.id, nombre: cliente.nombre, patente } : undefined,
     nombre: input.nombre,
     notas: input.notas,
     datosFactura: input.datosFactura,
+    descuento: cupon,
   });
-  if ("error" in armado) return { ok: false, error: armado.error };
+  if ("error" in armado) throw new RechazoVenta(armado.error);
+  return { ...armado, cupon, patente, ids };
+}
 
-  const movimiento = movimientoContableDesdeVenta(armado.venta);
+async function abrirVentaPos(): Promise<{ sesion: Sesion; fecha: string } | { error: string }> {
+  const sesion = await sesionActual();
+  if (!sesion || !sesion.modulos.includes("pos")) return { error: "Tu perfil no tiene acceso al POS" };
+  const fecha = new Date().toISOString();
+  if (await dataAccess.altaEnDiaCerrado([fecha])) {
+    return { error: "La caja de hoy ya está cerrada: no se pueden registrar más ventas" };
+  }
+  return { sesion, fecha };
+}
+
+export type CotizacionPos =
+  | { ok: true; bruto: number; total: number; descuento?: { codigo: string; beneficio: string; monto: number; valor: number; esPorcentaje: boolean } }
+  | { ok: false; error: string };
+
+/** Total que va a cobrar registrarVentaPos, calculado igual que ella pero sin
+ * escribir nada: el POS lo pide al aplicar un código de descuento y antes de
+ * cobrar, así el monto que se manda al terminal es el mismo que se graba. */
+export async function cotizarVentaPos(input: VentaPosInput): Promise<CotizacionPos> {
+  const apertura = await abrirVentaPos();
+  if ("error" in apertura) return { ok: false, error: apertura.error };
   try {
-    await db.transaction(async (tx) => {
-      await tx.insert(ventas).values(dataAccess.ventaToRow(armado.venta));
+    // metodoPago de relleno: acá solo interesa el total, la forma de pago se
+    // elige después de cotizar.
+    const v = await prepararVentaPos(
+      getDb(),
+      { ...input, metodoPago: input.metodoPago ?? "efectivo" },
+      apertura.sesion,
+      apertura.fecha,
+      false
+    );
+    const bruto = v.items.reduce((s, it) => s + it.cantidad * it.precioUnitario, 0);
+    return {
+      ok: true,
+      bruto,
+      total: v.venta.precio,
+      descuento: v.cupon
+        ? {
+            codigo: v.cupon.codigo,
+            beneficio: beneficioCupon(v.cupon),
+            monto: bruto - v.venta.precio,
+            valor: v.cupon.valor,
+            esPorcentaje: !!v.cupon.esPorcentaje,
+          }
+        : undefined,
+    };
+  } catch (error) {
+    if (error instanceof RechazoVenta) return { ok: false, error: error.message };
+    console.error("Error cotizando venta POS", error);
+    return { ok: false, error: "No se pudo calcular el total. Revisa la conexión e inténtalo de nuevo." };
+  }
+}
+
+export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosResultado> {
+  const apertura = await abrirVentaPos();
+  if ("error" in apertura) return { ok: false, error: apertura.error };
+  const { sesion, fecha } = apertura;
+
+  const db = getDb();
+  let resultado: Awaited<ReturnType<typeof prepararVentaPos>> & { movimiento: MovimientoContable | null };
+  try {
+    resultado = await db.transaction(async (tx) => {
+      const v = await prepararVentaPos(tx, input, sesion, fecha, true);
+      const movimiento = movimientoContableDesdeVenta(v.venta);
+      await tx.insert(ventas).values(dataAccess.ventaToRow(v.venta));
       await tx.insert(ventaItems).values(
-        armado.items.map((it) => ({
+        v.items.map((it) => ({
           id: it.id,
           ventaId: it.ventaId,
           productoId: it.productoId || null,
@@ -165,20 +270,38 @@ export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosR
           .where(eq(productos.id, linea.productoId));
       }
       if (movimiento) await tx.insert(movimientosContables).values(dataAccess.movimientoToRow(movimiento));
-      await cuadrarBodega(tx, ids, sesion.nombre);
+      // El cupón se quema en la misma transacción (fila ya bloqueada FOR
+      // UPDATE): si algo de arriba falla, el código sigue vivo.
+      if (v.cupon) {
+        const quemado = marcarDescuentoUsado(v.cupon, v.patente, sesion.nombre, fecha);
+        await tx
+          .update(cupones)
+          .set({
+            usado: quemado.usado,
+            patenteUso: quemado.patenteUso || null,
+            fechaUso: quemado.fechaUso || null,
+            operadorUso: quemado.operadorUso || null,
+            patentesUsadas: quemado.patentesUsadas ?? null,
+          })
+          .where(eq(cupones.id, v.cupon.id));
+      }
+      await cuadrarBodega(tx, v.ids, sesion.nombre);
+      return { ...v, movimiento };
     });
   } catch (error) {
+    if (error instanceof RechazoVenta) return { ok: false, error: error.message };
     console.error("Error registrando venta POS", error);
     return { ok: false, error: "No se pudo guardar la venta. Revisa la conexión e inténtalo de nuevo." };
   }
 
-  const actualizados = await db.select().from(productos).where(inArray(productos.id, ids));
+  const actualizados = await db.select().from(productos).where(inArray(productos.id, resultado.ids));
   return {
     ok: true,
-    venta: armado.venta,
-    items: armado.items,
+    venta: resultado.venta,
+    items: resultado.items,
     productos: actualizados.map(dataAccess.productoFromRow),
-    movimiento,
+    movimiento: resultado.movimiento,
+    cupon: resultado.cupon ? marcarDescuentoUsado(resultado.cupon, resultado.patente, sesion.nombre, fecha) : undefined,
   };
 }
 
@@ -270,6 +393,7 @@ export async function registrarDevolucionPos(input: DevolucionPosInput): Promise
       clienteId: original.clienteId || "",
       patente: original.patente,
       nombre: original.nombre,
+      precio: original.precio,
       tipoDocumento: (original.tipoDocumento as Venta["tipoDocumento"]) || undefined,
       razonSocial: original.razonSocial || undefined,
       rut: original.rut || undefined,

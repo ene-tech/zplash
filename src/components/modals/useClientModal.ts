@@ -29,7 +29,8 @@ export function useClientModal(
   c: Cliente | null,
   contexto: "operador" | "admin" | undefined,
   refs: ClientModalRefs,
-  onGuardado?: (cliente: Cliente) => void
+  onGuardado?: (cliente: Cliente) => void,
+  permitirSinPatente?: boolean
 ) {
   const { data, commit, patchUi, ui } = useApp();
   const cli = c || ({} as Partial<Cliente>);
@@ -53,6 +54,10 @@ export function useClientModal(
   const [bajaPlanConfirmada, setBajaPlanConfirmada] = useState(false);
 
   const cerrar = () => patchUi({ modal: null });
+
+  // Patente opcional: alta de comprador sin auto desde el POS, o editar una
+  // ficha que ya no tenía. Nunca en el túnel: el operador siempre la exige.
+  const patenteOpcional = contexto !== "operador" && (!!permitirSinPatente || (!!c && !c.patente));
 
   // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
   // existe una con ese RUT se traen sus datos en vez de tipearlos de nuevo.
@@ -92,6 +97,7 @@ export function useClientModal(
       exentoFormato,
       clientes: data.clientes,
       clienteIdActual: cli.id,
+      permitirSinPatente: patenteOpcional,
     });
     if (!resultado.ok) {
       setErr(resultado.error);
@@ -221,6 +227,7 @@ export function useClientModal(
     origenSeleccionado,
     setOrigenSeleccionado,
     puedeEditarHeredado,
+    patenteOpcional,
     err,
     cerrar,
     onRutBlur,
