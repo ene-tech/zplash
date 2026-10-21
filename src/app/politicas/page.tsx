@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import SiteNav from "@/components/cliente/SiteNav";
+import SiteFooter from "@/components/cliente/SiteFooter";
 import { POLITICAS, POLITICAS_VERSION } from "@/lib/politicas";
 
 // Ruta pública (fuera de /cliente, que va noindex por robots.ts): el cliente
@@ -37,6 +38,8 @@ export default function PoliticasPage() {
           Ir a Mi Cuenta
         </Link>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

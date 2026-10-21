@@ -3,6 +3,7 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
+import AvisoCookies from "@/components/cliente/AvisoCookies";
 
 // Título de sección (.section-title en globals.css): opción E de la
 // propuesta de tipografías, más liviana que el peso 800 de Helvetica Neue
@@ -37,6 +38,7 @@ export default function RootLayout({
         {children}
         <Toaster />
         <RegisterServiceWorker />
+        <AvisoCookies />
       </body>
     </html>
   );

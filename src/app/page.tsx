@@ -4,6 +4,7 @@ import Link from "next/link";
 import AnnounceBar from "@/components/cliente/AnnounceBar";
 import DescuentoBienvenidaModal from "@/components/cliente/DescuentoBienvenidaModal";
 import SiteNav from "@/components/cliente/SiteNav";
+import SiteFooter from "@/components/cliente/SiteFooter";
 import TiposLavadoTab from "@/components/cliente/TiposLavadoTab";
 import DetailingTab from "@/components/cliente/DetailingTab";
 import FaqTab from "@/components/cliente/FaqTab";
@@ -86,6 +87,8 @@ export default async function LandingPage() {
           <UbicacionTab />
         </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }
