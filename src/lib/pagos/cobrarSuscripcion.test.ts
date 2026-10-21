@@ -295,6 +295,14 @@ describe("Transbank no contestó dos veces seguidas", () => {
     expect(authorize).toHaveBeenCalled();
   });
 
+  // Cortada, el cliente pagó por el link y el cron la reagendó: los dos sin
+  // respuesta quedaron antes de la fecha nueva y no cortan el ciclo siguiente.
+  it("dos sin respuesta de un ciclo anterior -> se cobra normal", async () => {
+    respuestas = [precios, cliente, [], historial];
+    await cobrarSuscripcion({ ...suscripcion, proximoCobro: "2026-10-19T13:00:00.000Z" }, { sinCliente: true });
+    expect(authorize).toHaveBeenCalled();
+  });
+
   it("uno solo sin respuesta -> se intenta de nuevo", async () => {
     const haceDias = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
     respuestas = [precios, cliente, [], [sinRespuesta("oc2", haceDias(1)), { ...sinRespuesta("oc1", haceDias(2)), responseCode: -1 }]];
