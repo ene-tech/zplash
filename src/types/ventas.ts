@@ -11,6 +11,9 @@ export interface PagoInfo {
   // cliente). Se copia tal cual en la Venta. Factura sin RUT = con los datos
   // de la ficha del cliente (ver receptorDe en @/lib/facturacion).
   documento?: DatosFacturacion;
+  // true si el cobro lo aprobó el terminal integrado (ver posIntegrado): si
+  // después la venta no se guarda, la plata YA se cobró y hay que decirlo.
+  viaTerminal?: boolean;
 }
 
 /** Una línea de un ticket del POS de productos (tabla venta_items).

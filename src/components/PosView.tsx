@@ -198,7 +198,13 @@ export default function PosView() {
         voucher: pago.voucher,
       });
       if (!r.ok) {
-        setErr(r.error);
+        // El terminal ya cobró: la venta tiene que quedar sí o sí. Reintentar
+        // Cobrar con Tarjeta (manual) y el mismo voucher no vuelve a cobrar.
+        setErr(
+          pago.viaTerminal
+            ? `El terminal APROBÓ el cobro (${pago.voucher}) pero la venta no se guardó: ${r.error} Vuelve a Cobrar con Tarjeta (manual) anotando ese voucher, sin pasar la tarjeta de nuevo.`
+            : r.error
+        );
         return;
       }
       // La transacción ya quedó en la base: acá solo se funde el resultado en
@@ -225,7 +231,11 @@ export default function PosView() {
       // El fetch de la Server Action nunca llegó al servidor (offline): sin
       // este catch el rechazo quedaba sin manejar y el carrito en el limbo.
       console.error("No se pudo registrar la venta", error);
-      setErr("No se pudo registrar la venta (sin conexión). El carrito sigue intacto: inténtalo de nuevo.");
+      setErr(
+        pago.viaTerminal
+          ? `El terminal APROBÓ el cobro (${pago.voucher}) pero la venta no se guardó (sin conexión). Vuelve a Cobrar con Tarjeta (manual) anotando ese voucher, sin pasar la tarjeta de nuevo.`
+          : "No se pudo registrar la venta (sin conexión). El carrito sigue intacto: inténtalo de nuevo."
+      );
     } finally {
       cobrandoRef.current = false;
       setCobrando(false);
@@ -278,6 +288,7 @@ export default function PosView() {
       modal: {
         type: "pago",
         monto,
+        terminal: true,
         descripcion: `Venta de productos · ${unidades} ${unidades === 1 ? "unidad" : "unidades"}`,
         onConfirm: cobrar,
       },

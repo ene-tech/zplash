@@ -38,7 +38,16 @@ export type ModalState =
   | { type: "bulk" }
   // cliente: si viene, el modal también pregunta boleta o factura (es una
   // venta, no el cobro de un saldo).
-  | { type: "pago"; monto: number; descripcion: string; onConfirm: (pago: PagoInfo) => void; cliente?: Cliente }
+  | {
+      type: "pago";
+      monto: number;
+      descripcion: string;
+      onConfirm: (pago: PagoInfo) => void;
+      cliente?: Cliente;
+      // Ofrece "Tarjeta (terminal)" (POS Integrado Transbank). Hoy solo el
+      // POS de la tienda: el mesón del lavado sigue con el voucher a mano.
+      terminal?: boolean;
+    }
   | { type: "clienteInfo"; data: Cliente }
   // onGuardada: el POS la usa para dejar seleccionada la empresa que se
   // acaba de crear sin salir de la pantalla de cobro.
