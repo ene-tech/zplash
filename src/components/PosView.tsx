@@ -4,8 +4,16 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
-import { fmtCLP, isValidPatente, ivaDeBruto, netoDeBruto, normPlate, stockPorDestino } from "@/lib/helpers";
-import { registrarVentaPos } from "@/lib/serverActions";
+import {
+  fmtCLP,
+  isValidPatente,
+  ivaDeBruto,
+  montoDescuento,
+  netoDeBruto,
+  normPlate,
+  stockPorDestino,
+} from "@/lib/helpers";
+import { cotizarVentaPos, registrarVentaPos, type VentaPosInput } from "@/lib/serverActions";
 import type { LineaPos } from "@/lib/logic";
 import type { Cliente, DatosFacturacion, PagoInfo, Producto } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -41,6 +49,13 @@ export default function PosView() {
   const cobrandoRef = useRef(false);
   const [err, setErr] = useState("");
   const [devolviendo, setDevolviendo] = useState(false);
+  // Código de descuento (p. ej. el vale a favor de una devolución). Lo valida
+  // el servidor (cotizarVentaPos); acá solo se guarda lo necesario para
+  // pintar la rebaja mientras se arma el carrito. El cobro lo vuelve a
+  // validar y lo quema dentro de la transacción de la venta.
+  const [codigoDescuento, setCodigoDescuento] = useState("");
+  const [descuento, setDescuento] = useState<{ codigo: string; beneficio: string; valor: number; esPorcentaje: boolean } | null>(null);
+  const [validandoCodigo, setValidandoCodigo] = useState(false);
   const buscadorRef = useRef<HTMLInputElement>(null);
 
   const activos = useMemo(() => data.productos.filter((p) => p.activo), [data.productos]);
@@ -109,7 +124,11 @@ export default function PosView() {
   };
   const quitar = (productoId: string) => setCarrito((prev) => prev.filter((l) => l.productoId !== productoId));
 
-  const total = carrito.reduce((s, l) => s + (l.cantidad || 0) * (l.precioUnitario || 0), 0);
+  const subtotal = carrito.reduce((s, l) => s + (l.cantidad || 0) * (l.precioUnitario || 0), 0);
+  // Mismo cálculo que armarVentaPos (nunca negativo); el monto que se cobra
+  // de verdad lo confirma el servidor antes de abrir el pago.
+  const rebaja = descuento ? Math.min(subtotal, Math.max(0, montoDescuento(descuento, subtotal))) : 0;
+  const total = subtotal - rebaja;
   const unidades = carrito.reduce((s, l) => s + (l.cantidad || 0), 0);
   const empresa = data.empresas.find((e) => e.id === empresaId);
 
@@ -124,19 +143,59 @@ export default function PosView() {
         }
       : undefined;
 
-  const cobrar = async (pago: PagoInfo) => {
-    if (!pago.metodo || cobrandoRef.current) return;
+  const entradaVenta = (): VentaPosInput => ({
+    lineas: carrito.map(({ productoId, cantidad, precioUnitario }) => ({ productoId, cantidad, precioUnitario })),
+    clienteId: modoCliente === "cliente" ? cliente?.id : undefined,
+    nombre: empresa ? empresa.razonSocial : undefined,
+    datosFactura,
+    codigoDescuento: descuento?.codigo,
+  });
+
+  const quitarDescuento = () => {
+    setDescuento(null);
+    setCodigoDescuento("");
+  };
+
+  const aplicarCodigo = async () => {
+    const codigo = codigoDescuento.trim().toUpperCase();
+    if (!codigo || validandoCodigo) return;
+    if (!carrito.length) {
+      setErr("Agrega productos antes de aplicar un código");
+      return;
+    }
+    setValidandoCodigo(true);
+    setErr("");
+    try {
+      const r = await cotizarVentaPos({ ...entradaVenta(), codigoDescuento: codigo });
+      if (!r.ok) {
+        setErr(r.error);
+        return;
+      }
+      if (r.descuento) {
+        // Se guarda la regla (monto fijo o %), no el monto: así la rebaja se
+        // recalcula sola si el carrito cambia después de aplicar el código.
+        const { beneficio, valor, esPorcentaje } = r.descuento;
+        setDescuento({ codigo, beneficio, valor, esPorcentaje });
+        setCodigoDescuento(codigo);
+      }
+    } catch (error) {
+      console.error("No se pudo validar el código", error);
+      setErr("No se pudo validar el código (sin conexión)");
+    } finally {
+      setValidandoCodigo(false);
+    }
+  };
+
+  const cobrar = async (pago: PagoInfo, sinCobro = false) => {
+    if ((!pago.metodo && !sinCobro) || cobrandoRef.current) return;
     cobrandoRef.current = true;
     setCobrando(true);
     setErr("");
     try {
       const r = await registrarVentaPos({
-        lineas: carrito.map(({ productoId, cantidad, precioUnitario }) => ({ productoId, cantidad, precioUnitario })),
-        metodoPago: pago.metodo,
+        ...entradaVenta(),
+        metodoPago: sinCobro ? undefined : pago.metodo,
         voucher: pago.voucher,
-        clienteId: modoCliente === "cliente" ? cliente?.id : undefined,
-        nombre: empresa ? empresa.razonSocial : undefined,
-        datosFactura,
       });
       if (!r.ok) {
         setErr(r.error);
@@ -151,6 +210,7 @@ export default function PosView() {
         movimientosContables: r.movimiento
           ? [r.movimiento, ...actual.movimientosContables]
           : actual.movimientosContables,
+        ...(r.cupon ? { cupones: actual.cupones.map((c) => (c.id === r.cupon!.id ? r.cupon! : c)) } : {}),
       }));
       setCarrito([]);
       setDocumento("Boleta");
@@ -158,6 +218,7 @@ export default function PosView() {
       setCliente(null);
       setBuscaCliente("");
       setModoCliente("invitado");
+      quitarDescuento();
       toast.success(`Venta registrada · ${fmtCLP(r.venta.precio)}`);
       buscadorRef.current?.focus();
     } catch (error) {
@@ -171,7 +232,7 @@ export default function PosView() {
     }
   };
 
-  const abrirPago = () => {
+  const abrirPago = async () => {
     if (!carrito.length || cobrando) return;
     if (documento === "Factura" && !empresa) {
       setErr("Elige la empresa para la factura (o vuelve a Boleta)");
@@ -181,7 +242,7 @@ export default function PosView() {
       setErr("Revisa las cantidades del carrito");
       return;
     }
-    if (total <= 0) {
+    if (subtotal <= 0) {
       setErr("El total es $0: revisa los precios del carrito");
       return;
     }
@@ -190,10 +251,33 @@ export default function PosView() {
       return;
     }
     setErr("");
+    // Con código de descuento, el monto a cobrar lo confirma el servidor
+    // ANTES de pedir el pago: lo que se manda al terminal o se pide en
+    // efectivo tiene que ser exactamente lo que después se graba.
+    let monto = total;
+    if (descuento) {
+      try {
+        const r = await cotizarVentaPos(entradaVenta());
+        if (!r.ok) {
+          setErr(r.error);
+          return;
+        }
+        monto = r.total;
+      } catch (error) {
+        console.error("No se pudo confirmar el total", error);
+        setErr("No se pudo confirmar el total (sin conexión). Inténtalo de nuevo.");
+        return;
+      }
+      if (monto === 0) {
+        // El código cubre todo: no hay nada que cobrar.
+        await cobrar({}, true);
+        return;
+      }
+    }
     patchUi({
       modal: {
         type: "pago",
-        monto: total,
+        monto,
         descripcion: `Venta de productos · ${unidades} ${unidades === 1 ? "unidad" : "unidades"}`,
         onConfirm: cobrar,
       },
@@ -216,6 +300,7 @@ export default function PosView() {
               setModoCliente("invitado");
               setCliente(null);
               setBuscaCliente("");
+              setDescuento(null);
               setErr("");
             }}
           >
@@ -236,7 +321,13 @@ export default function PosView() {
                 <strong>
                   {cliente.nombre} · {cliente.patente}
                 </strong>
-                <button className="btn ghost" onClick={() => setCliente(null)}>
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    setCliente(null);
+                    setDescuento(null);
+                  }}
+                >
                   Cambiar
                 </button>
               </>
@@ -451,8 +542,48 @@ export default function PosView() {
               </div>
             </div>
           )}
+          <div className="field" style={{ minWidth: 220 }}>
+            <label>Código de descuento</label>
+            {descuento ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <strong>{descuento.codigo}</strong>
+                <span style={{ fontSize: 12, color: "var(--gray)" }}>{descuento.beneficio}</span>
+                <button className="btn ghost" onClick={quitarDescuento}>
+                  Quitar
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  placeholder="Vale o cupón…"
+                  value={codigoDescuento}
+                  onChange={(e) => setCodigoDescuento(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      aplicarCodigo();
+                    }
+                  }}
+                  style={{ maxWidth: 140 }}
+                />
+                <button
+                  className="btn ghost"
+                  disabled={!codigoDescuento.trim() || validandoCodigo}
+                  onClick={aplicarCodigo}
+                >
+                  {validandoCodigo ? "Validando…" : "Aplicar"}
+                </button>
+              </div>
+            )}
+          </div>
           <div style={{ flex: 1 }} />
           <div style={{ textAlign: "right" }}>
+            {rebaja > 0 && (
+              <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", fontSize: 12, color: "var(--gray)" }}>
+                <span style={{ textTransform: "uppercase" }}>Descuento</span>
+                <strong style={{ color: "var(--fg)" }}>−{fmtCLP(rebaja)}</strong>
+              </div>
+            )}
             {/* El precio de venta ya viene con IVA: acá se desglosa para la
                 factura (neto + IVA = total exacto, sin descuadre). */}
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", fontSize: 12, color: "var(--gray)" }}>

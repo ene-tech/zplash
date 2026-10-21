@@ -17,7 +17,12 @@ export interface LineaDevolucion {
 
 export interface DatosDevolucionPos {
   /** La venta original del POS que se está devolviendo. */
-  venta: Pick<Venta, "id" | "clienteId" | "patente" | "nombre" | "tipoDocumento" | "razonSocial" | "rut">;
+  venta: Pick<Venta, "id" | "clienteId" | "patente" | "nombre" | "tipoDocumento" | "razonSocial" | "rut"> & {
+    /** Lo que se cobró de verdad. Si es menos que la suma de las líneas, la
+     * venta llevó un código de descuento y la devolución se prorratea: si no,
+     * comprar con un vale y devolver por efectivo sacaba plata de la caja. */
+    precio?: number;
+  };
   /** Líneas de esa venta, como se vendieron (para precio y glosa). */
   itemsVenta: VentaItem[];
   /** Lo ya devuelto antes de esta vez, por producto. */
@@ -88,7 +93,13 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
     });
   }
 
-  const total = items.reduce((s, it) => s + it.cantidad * it.precioUnitario, 0); // negativo
+  const totalLista = items.reduce((s, it) => s + it.cantidad * it.precioUnitario, 0); // negativo
+  const brutoVenta = datos.itemsVenta.reduce((s, it) => s + it.cantidad * it.precioUnitario, 0);
+  const cobrado = datos.venta.precio;
+  const total =
+    cobrado !== undefined && brutoVenta > 0 && cobrado < brutoVenta
+      ? Math.round((totalLista * Math.max(0, cobrado)) / brutoVenta)
+      : totalLista;
   const unidades = items.reduce((s, it) => s + Math.abs(it.cantidad), 0);
 
   const venta: Venta = {
