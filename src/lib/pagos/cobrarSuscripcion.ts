@@ -351,7 +351,10 @@ export async function cobrarSuscripcion(
     // comentario de la función). El aviso va con el id del último intento,
     // que nunca avisó —un en_curso no dispara reglas—, así que no choca con
     // el anti-duplicado por buyOrder de las reglas.
-    if (opciones.sinCliente && transbankNoContestoDosVeces(historial)) {
+    // Solo la racha actual: dos sin respuesta de un ciclo ya pagado por otra
+    // vía no deben cortar los ciclos siguientes.
+    const racha = opciones.sinCliente ? rachaActual(historial, suscripcion.proximoCobro) : [];
+    if (opciones.sinCliente && transbankNoContestoDosVeces([...racha].reverse())) {
       await cortarReintentoAutomatico(tx, suscripcion.id);
       return { estado: "rechazada" as const, buyOrder: historial[0].id, monto: historial[0].monto, clienteId: cliente?.id ?? null, esReintento, cortado: true };
     }
@@ -362,7 +365,6 @@ export async function cobrarSuscripcion(
     // un intento que no fue del cron (ej. un reintento manual rechazado): el
     // aviso va con el id de ese último rechazo, y si ya avisó, el
     // anti-duplicado por buyOrder de las reglas lo frena.
-    const racha = opciones.sinCliente ? rachaActual(historial, suscripcion.proximoCobro) : [];
     if (opciones.sinCliente) {
       const decision = proximoReintento({ rechazos: racha, hoy: new Date() });
       if (decision.accion === "esperar") {
