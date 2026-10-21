@@ -178,7 +178,9 @@ export function cuponesVigentesDeCliente(
         (c.tipo === "vale"
           ? patenteAutorizadaParaCupon(c, p)
           : !c.patenteAsignada || normPlate(c.patenteAsignada) === p) &&
-        (normPlate(c.patenteAsignada || "") === p ||
+        // `!!p`: una ficha sin patente (comprador de la tienda) no es dueña
+        // de los códigos sin patente asignada, que son abiertos.
+        ((!!p && normPlate(c.patenteAsignada || "") === p) ||
           (c.tipo === "vale" && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)) ||
           (!!email && (c.email || "").trim().toLowerCase() === email) ||
           (!!rut && limpiarRut(c.rut) === rut))

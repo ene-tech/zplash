@@ -34,6 +34,7 @@ export default function ModalRoot() {
         patenteInicial={m.patenteInicial}
         telefonoInicial={m.telefonoInicial}
         sinPlan={m.sinPlan}
+        permitirSinPatente={m.permitirSinPatente}
         onGuardado={m.onGuardado}
       />
     );

@@ -27,7 +27,11 @@ function diaVencimiento(iso: string): Date | null {
 }
 
 export function findClient(clientes: Cliente[], plate: string): Cliente | undefined {
-  return clientes.find((c) => normPlate(c.patente) === normPlate(plate));
+  // Sin patente no hay a quién buscar: si no, "" calzaría con cualquier
+  // comprador de la tienda registrado sin auto (patente vacía).
+  const p = normPlate(plate);
+  if (!p) return undefined;
+  return clientes.find((c) => normPlate(c.patente) === p);
 }
 
 /**
@@ -430,4 +434,24 @@ export function mismaPersona(
   const email = (x: string | null) => x?.trim().toLowerCase() || "";
   if (email(a.email) && email(a.email) === email(b.email)) return true;
   return !!a.telefono && isValidTelefono(a.telefono) && a.telefono === b.telefono;
+}
+
+/**
+ * Ficha sin patente (comprador de la tienda sin auto, oct-2026): por qué no se
+ * puede guardar, o null si se puede. Se exige que alguien la pueda encontrar
+ * de nuevo (teléfono o correo) y que no lleve plan: el plan, Oneclick, los
+ * cupones y los ingresos del túnel se buscan por patente, así que un plan sin
+ * patente sería una suscripción imposible de usar o de cobrar.
+ *
+ * Compartido entre el modal (validarClienteModal) y el Server Action
+ * (upsertClientes), que es el que de verdad lo impone.
+ */
+export function rechazoClienteSinPatente(c: Pick<Cliente, "telefono" | "email" | "plan" | "vencimiento">): string | null {
+  const telefono = (c.telefono || "").trim();
+  const tieneTelefono = !!telefono && telefono !== "+569" && isValidTelefono(telefono);
+  if (!tieneTelefono && !(c.email || "").trim()) {
+    return "Sin patente, ingresa al menos un teléfono o un correo para poder encontrarlo después";
+  }
+  if (c.plan || c.vencimiento) return "Un cliente sin patente no puede tener plan";
+  return null;
 }

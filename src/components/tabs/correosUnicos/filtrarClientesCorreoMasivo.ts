@@ -68,6 +68,9 @@ export function filtrarClientesCorreoMasivo(
     }
   }
   return clientes.filter((c) => {
+    // Las campañas son por vehículo (cupón atado a la patente, {patente} en el
+    // texto): un comprador de la tienda sin auto no entra.
+    if (!c.patente) return false;
     if (f.filtroEstado !== "todos" && planStatus(c).label !== f.filtroEstado) return false;
     if (f.filtroOrigen !== "todos" && (c.origen || "LOCAL") !== f.filtroOrigen) return false;
     // Tope de días de vencido: deja adentro solo a quienes efectivamente

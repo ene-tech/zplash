@@ -43,7 +43,7 @@ export async function patentesConAutopago(): Promise<Set<string>> {
     db.select({ patente: suscripcionesOneclick.patente }).from(suscripcionesOneclick).where(eq(suscripcionesOneclick.estado, "activa")),
     db.select({ patente: clientes.patente }).from(clientes).where(isNotNull(clientes.renovacionAutoWooDesde)),
   ]);
-  return new Set([...conOneclick, ...conWoo].map((r) => r.patente));
+  return new Set([...conOneclick, ...conWoo].map((r) => r.patente).filter((p): p is string => !!p));
 }
 
 /**
@@ -165,7 +165,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
         origenTipo: "cliente",
         origenId: `${row.id}:${row.vencimiento}`,
         clienteId: row.id,
-        patente: row.patente,
+        patente: row.patente ?? undefined,
         estado: "programado",
         enviarEn: ahoraISO,
       });
@@ -290,7 +290,7 @@ export async function procesarVencimientosCorreo(): Promise<{ procesados: number
       // número que después cobra Webpay/Oneclick. Solo para mostrar — esta
       // oferta no alimenta ningún camino de cobro.
       const sinCupon = await calcularOfertasPlanDeCliente(clienteFromRow(row));
-      const cupon = await buscarCuponDescuentoPlan(row.patente);
+      const cupon = row.patente ? await buscarCuponDescuentoPlan(row.patente) : undefined;
       // El tramo de reactivación si le calza uno; si no, pagoVencido, que es el
       // mismo plan esperando que lo paguen (ver calcularOfertasPlan: las dos
       // nunca vienen juntas). Mirando solo `reactivacion`, con la config sin

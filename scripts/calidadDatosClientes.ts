@@ -16,7 +16,10 @@ import { esEmailEnviable, formatTelefono, isValidEmail, isValidPatente, isValidR
 
 export { formatTelefono, normPlate };
 
-export type Cliente = typeof clientes.$inferSelect;
+// patente "" = comprador de la tienda sin auto (en la base es NULL): quien
+// lee la tabla la normaliza con conPatenteTexto.
+export type Cliente = Omit<typeof clientes.$inferSelect, "patente"> & { patente: string };
+export const conPatenteTexto = (c: typeof clientes.$inferSelect): Cliente => ({ ...c, patente: c.patente ?? "" });
 
 export type Severidad = "alta" | "media" | "baja";
 
@@ -382,7 +385,8 @@ export function revisarCliente(c: Cliente, ahora: Date): Hallazgo[] {
   // El marcador viene en dos formas: "SIN-PATENTE-<idPedido>" del webhook y el
   // placeholder del formulario web ("INGRESA TU PATENTE") que quedó grabado
   // como patente en la migración. Ambas son fichas c-wc-*.
-  const esMarcadorWoo = /^SIN-PATENTE-/i.test(c.patente) || (c.id.startsWith("c-wc-") && !/\d/.test(normPlate(c.patente)));
+  // Sin patente (NULL) es legítimo: comprador de la tienda sin auto.
+  const esMarcadorWoo = !!c.patente && /^SIN-PATENTE-/i.test(c.patente) || (c.id.startsWith("c-wc-") && !/\d/.test(normPlate(c.patente)));
   if (esMarcadorWoo) {
     // La gravedad depende de si hay alguien esperando entrar: con el plan
     // vencido hace más de un año es una ficha histórica sobre la que no hay
@@ -397,7 +401,7 @@ export function revisarCliente(c: Cliente, ahora: Date): Hallazgo[] {
         ? "Compró por la web sin declarar patente y su plan está vigente: no lo puede escanear el operador hasta que la cargue"
         : "Compra web sin patente, con el plan ya vencido: registro histórico de la migración, sin acción posible"
     );
-  } else if (!isValidPatente(c.patente)) {
+  } else if (c.patente && !isValidPatente(c.patente)) {
     add("patente", c.patente, "patente-invalida", "alta", "No calza con el formato chileno (AB1234 o ABCD12)");
   }
 

@@ -29,7 +29,7 @@ const ClienteCard = memo(function ClienteCard({
       title={<span className="mt-1.5 ml-1 block">{c.nombre}</span>}
       subtitle={
         <>
-          <span className={`plate-tag ${plateEstadoCls(c)}`}>{c.patente}</span>{" "}
+          <span className={`plate-tag ${plateEstadoCls(c)}`}>{c.patente || "Sin auto"}</span>{" "}
           {c.patentePendiente && <IconoCambioPatentePendiente patentePendiente={c.patentePendiente} />} ·{" "}
           {c.telefono ? fmtTelefono(c.telefono) : "Sin teléfono"}
         </>

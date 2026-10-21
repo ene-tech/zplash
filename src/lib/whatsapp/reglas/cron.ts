@@ -114,7 +114,7 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
         origenTipo: "cliente",
         origenId: `${row.id}:${row.vencimiento}`,
         clienteId: row.id,
-        patente: row.patente,
+        patente: row.patente ?? undefined,
         estado: "programado",
         enviarEn: ahoraISO,
       });
@@ -161,7 +161,7 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
         origenTipo: "cupon",
         origenId: `${cupon.id}:${cupon.fechaCaducidad}`,
         clienteId: cliente.id,
-        patente: cliente.patente,
+        patente: cliente.patente ?? undefined,
         estado: "programado",
         enviarEn: ahoraISO,
       });

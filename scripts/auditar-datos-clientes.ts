@@ -41,6 +41,7 @@ import {
   type Cliente,
   type Hallazgo,
   type Severidad,
+  conPatenteTexto,
   distanciaUno,
   normPlate,
   pareceRelleno,
@@ -508,7 +509,7 @@ async function main() {
   const db = drizzle(client);
   const ahora = new Date();
 
-  const filas = await db.select().from(clientes);
+  const filas = (await db.select().from(clientes)).map(conPatenteTexto);
   const hallazgos = filas.flatMap((c) => revisarCliente(c, ahora));
 
   console.log("═".repeat(72));

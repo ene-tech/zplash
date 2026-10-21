@@ -31,6 +31,8 @@ export type ModalState =
       patenteInicial?: string;
       telefonoInicial?: string;
       sinPlan?: boolean;
+      // Alta de comprador sin auto (POS de la tienda): la patente es opcional.
+      permitirSinPatente?: boolean;
       onGuardado?: (cliente: Cliente) => void;
     }
   | { type: "confirm"; mensaje: string; onConfirm: () => void; confirmLabel?: string; danger?: boolean }

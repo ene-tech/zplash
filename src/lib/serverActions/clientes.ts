@@ -2,7 +2,15 @@
 
 import { after } from "next/server";
 import * as dataAccess from "@/lib/dataAccess";
-import { esExentoFormatoCliente, esNombreVacio, isValidPatente, isValidTelefono, normPlate, resolverPatentePendiente } from "@/lib/helpers";
+import {
+  esExentoFormatoCliente,
+  esNombreVacio,
+  isValidPatente,
+  isValidTelefono,
+  normPlate,
+  rechazoClienteSinPatente,
+  resolverPatentePendiente,
+} from "@/lib/helpers";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
 import type { Cliente, ClientePatch } from "@/types";
@@ -156,13 +164,25 @@ export async function upsertClientes(patches: ClientePatch[]): Promise<boolean> 
   // patente (ver esExentoFormatoCliente en @/lib/helpers), igual que en
   // ClientModal, pero nombre y patente no vacíos se exigen a todos porque
   // ninguna sesión puede saltarse un NOT NULL de la base.
+  //
+  // Excepción (oct-2026): la ficha SIN patente de un comprador de la tienda.
+  // Solo como alta de quien tiene el POS o el módulo "clientes" (el túnel y el
+  // operador siguen exigiendo patente), o como edición de una ficha que YA
+  // no tenía — nunca quitándole la patente a un auto. Y siempre con teléfono
+  // o correo y sin plan (ver rechazoClienteSinPatente).
   const exentoFormato = esExentoFormatoCliente(sesion.nombre);
+  const puedeAltaSinPatente = (await tieneModulo("pos")) || (await tieneModulo("clientes"));
   if (
     patches.some((patch) => {
       const anterior = porId.get(patch.id);
       const nombre = patch.nombre ?? anterior?.nombre;
       const patente = patch.patente ?? anterior?.patente;
-      return !nombre?.trim() || !patente?.trim() || (!exentoFormato && !isValidPatente(patente));
+      if (!nombre?.trim()) return true;
+      if (!patente?.trim()) {
+        const permitido = anterior ? !anterior.patente : puedeAltaSinPatente;
+        return !permitido || !!rechazoClienteSinPatente({ ...anterior, ...patch });
+      }
+      return !exentoFormato && !isValidPatente(patente);
     })
   )
     return false;

@@ -83,11 +83,16 @@ export default function PosView() {
   const clientesEncontrados = useMemo(() => {
     if (!qCliente || cliente || modoCliente !== "cliente") return [];
     const patenteBuscada = normPlate(buscaCliente);
+    // Teléfono por dígitos (se guarda como +569…, se tipea como sea) y desde
+    // 4 dígitos, para que una patente con números no traiga medio padrón.
+    const digitos = buscaCliente.replace(/\D/g, "");
     return data.clientes
       .filter(
         (c) =>
           (!!patenteBuscada && normPlate(c.patente).includes(patenteBuscada)) ||
-          c.nombre.toLowerCase().includes(qCliente)
+          c.nombre.toLowerCase().includes(qCliente) ||
+          (digitos.length >= 4 && (c.telefono || "").replace(/\D/g, "").includes(digitos)) ||
+          (qCliente.includes("@") && (c.email || "").toLowerCase().includes(qCliente))
       )
       .slice(0, 6);
   }, [data.clientes, qCliente, buscaCliente, cliente, modoCliente]);
@@ -330,7 +335,7 @@ export default function PosView() {
             (cliente ? (
               <>
                 <strong>
-                  {cliente.nombre} · {cliente.patente}
+                  {cliente.nombre} · {cliente.patente || "sin auto"}
                 </strong>
                 <button
                   className="btn ghost"
@@ -345,7 +350,7 @@ export default function PosView() {
             ) : (
               <>
                 <input
-                  placeholder="Patente o nombre…"
+                  placeholder="Patente, nombre, teléfono o correo…"
                   value={buscaCliente}
                   onChange={(e) => setBuscaCliente(e.target.value)}
                   style={{ maxWidth: 240 }}
@@ -362,6 +367,9 @@ export default function PosView() {
                         contexto: "admin",
                         // El POS no contrata planes: el alta va siempre sin plan.
                         sinPlan: true,
+                        // El que compra en la tienda puede no tener auto:
+                        // basta nombre y teléfono o correo.
+                        permitirSinPatente: true,
                         patenteInicial: isValidPatente(normPlate(buscaCliente)) ? normPlate(buscaCliente) : undefined,
                         onGuardado: (nuevo) => {
                           setCliente(nuevo);
@@ -406,8 +414,10 @@ export default function PosView() {
                       }}
                     >
                       <td>
-                        <strong>{c.patente}</strong>
-                        <div style={{ fontSize: 12, color: "var(--gray)" }}>{c.nombre}</div>
+                        <strong>{c.patente || c.nombre}</strong>
+                        <div style={{ fontSize: 12, color: "var(--gray)" }}>
+                          {c.patente ? c.nombre : `Sin auto · ${c.telefono || c.email || ""}`}
+                        </div>
                       </td>
                     </tr>
                   ))}

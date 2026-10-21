@@ -53,7 +53,7 @@ export async function buscarClientePorCodigoBajaSms(codigo: string): Promise<{ p
     .innerJoin(clientes, eq(clientes.id, mensajesSms.clienteId))
     .where(eq(mensajesSms.codigoBaja, codigo))
     .limit(1);
-  return rows[0] ? { patente: rows[0].patente, yaDeBaja: rows[0].sinComunicacionAuto } : null;
+  return rows[0] ? { patente: rows[0].patente || "", yaDeBaja: rows[0].sinComunicacionAuto } : null;
 }
 
 // Baja pedida desde el link del SMS: marca sinComunicacionAuto, el mismo
