@@ -19,7 +19,7 @@ export default function IngresosTab() {
     (ingreso: Ingreso) => {
       const ventaPareja = ventaLavadoUnicoDeIngreso(data.ventas, ingreso);
       const avisoVenta = ventaPareja
-        ? ` También se elimina la venta de Lavado único por ${fmtCLP(ventaPareja.precio)} cobrada junto con este ingreso, para que el cliente no siga apareciendo elegible para el upgrade a Promo 4 lavados.`
+        ? ` También se elimina la venta de ${ventaPareja.tipo} por ${fmtCLP(ventaPareja.precio)} cobrada junto con este ingreso, para que el cliente no siga apareciendo elegible para el upgrade a Promo 4 lavados.`
         : "";
       patchUi({
         modal: {

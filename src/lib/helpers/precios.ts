@@ -272,6 +272,23 @@ export function precioOneclickDelPlan(precios: Precios, plan: string | null | un
   return PRECIOS_DEFAULT[PLAN_ILIMITADO_LEGACY].normal;
 }
 
+/**
+ * "Solo túnel (sin aspirado)" (oct-2026): un lavado suelto por el túnel, sin
+ * el aspirado que incluye el Lavado Full Túnel, más barato que el lavado
+ * único. Se vende solo en el mesón. Esta clave es la fila de `precios` y el
+ * `Venta.tipo`. Como el lavado único, deja un Ingreso (pasa por el túnel),
+ * pero no es upgradable a Promo 4 Lavados (ver esVentaLavadoUnicoUpgradable).
+ */
+export const SOLO_TUNEL_KEY = "Solo túnel (sin aspirado)";
+export const PRECIO_SOLO_TUNEL = 6990;
+
+/** Precio del solo túnel, editable en Configuración → Lavado túnel. Sin fila
+ * vale el de siempre; con la fila en $0 queda apagado (mismo criterio que
+ * precioUpgradePack). */
+export function precioSoloTunel(precios: Precios): number {
+  return precios[SOLO_TUNEL_KEY] ? precios[SOLO_TUNEL_KEY].normal : PRECIO_SOLO_TUNEL;
+}
+
 /** Precio del uso puntual de la zona de aspirado autoservicio, sin plan ni límite de tiempo. */
 export const PRECIO_ZONA_ASPIRADO = 4990;
 
@@ -284,8 +301,8 @@ export function precioZonaAspirado(precios: Precios): number {
 }
 
 /**
- * Venta de "Lavado único" pareja de un Ingreso (ver cobrarLavadoUnico en
- * useIngresoActions): ambas filas se crean juntas en el mismo commit, pero
+ * Venta de "Lavado único" (o "Solo túnel", ver SOLO_TUNEL_KEY) pareja de un
+ * Ingreso (ver cobrarLavadoUnico en useIngresoActions): ambas filas se crean juntas en el mismo commit, pero
  * sin una FK que las ligue explícitamente — se matchean por mismo cliente y
  * fecha casi idéntica (dentro de `toleranciaMs`, la más cercana si hay más
  * de una candidata). Usada al borrar un Ingreso (ver eliminarIngreso en
@@ -303,7 +320,7 @@ export function ventaLavadoUnicoDeIngreso(
   let mejor: Venta | undefined;
   let mejorDelta = Infinity;
   for (const v of ventas) {
-    if (v.clienteId !== ingreso.clienteId || v.tipo !== "Lavado único") continue;
+    if (v.clienteId !== ingreso.clienteId || (v.tipo !== LAVADO_UNICO_KEY && v.tipo !== SOLO_TUNEL_KEY)) continue;
     const delta = Math.abs(new Date(v.fecha).getTime() - fechaIngreso);
     if (delta <= toleranciaMs && delta < mejorDelta) {
       mejor = v;

@@ -115,6 +115,8 @@ import {
   vencimientoAnclado,
   ventaLavadoUnicoDeIngreso,
   ventaLavadoWebPendiente,
+  precioSoloTunel,
+  SOLO_TUNEL_KEY,
   variacionPorcentual,
   ventaUpgradeElegible,
   visitasDesdeContratacion,
@@ -750,6 +752,19 @@ describe("precioLavadoAdicional", () => {
     const precios = { [LAVADO_ADICIONAL_KEY]: { normal: 2990, promo: 0 }, [LAVADO_UNICO_KEY]: { normal: 12990, promo: 0 } };
     expect(precioLavadoAdicional(precios)).toBe(2990);
     expect(precioLavadoUnico(precios)).toBe(12990);
+  });
+});
+
+describe("precioSoloTunel", () => {
+  it("sin fila vale 6.990; editable; en $0 queda apagado", () => {
+    expect(precioSoloTunel({})).toBe(6990);
+    expect(precioSoloTunel({ [SOLO_TUNEL_KEY]: { normal: 5990, promo: 0 } })).toBe(5990);
+    expect(precioSoloTunel({ [SOLO_TUNEL_KEY]: { normal: 0, promo: 0 } })).toBe(0);
+  });
+
+  it("su venta es pareja del ingreso (se borra con él)", () => {
+    const venta = ventaLavadoUnicoBase({ tipo: SOLO_TUNEL_KEY });
+    expect(ventaLavadoUnicoDeIngreso([venta], { clienteId: venta.clienteId, fecha: venta.fecha })).toBe(venta);
   });
 });
 

@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { entregarPromoLavados, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { PROMOS_LAVADOS, TICKETS_UPGRADE_PACK, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { PROMOS_LAVADOS, SOLO_TUNEL_KEY, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
 import { conReglaVigente } from "./reglaVigente";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -156,6 +156,46 @@ export function useIngresoActions(
     cobrarLavadoUnico(cliente);
   };
 
+  // Solo túnel, sin aspirado (ver SOLO_TUNEL_KEY): cobra y da ingreso, como
+  // el lavado único pero a su propio precio. Sin cupón, como los packs: el
+  // descuento de la patente es para el Lavado Full Túnel.
+  const cobrarSoloTunel = (cliente: Cliente) => {
+    const precio = precioSoloTunel(data.precios);
+    if (precio <= 0) return;
+    patchUi({
+      modal: {
+        type: "pago",
+        monto: precio,
+        descripcion: `Solo túnel (sin aspirado) para ${cliente.nombre} (${cliente.patente})`,
+        cliente,
+        onConfirm: async (pago: PagoInfo) => {
+          const venta: Venta = {
+            id: uidVenta(),
+            clienteId: cliente.id,
+            patente: cliente.patente,
+            nombre: cliente.nombre,
+            plan: cliente.plan || "",
+            precio,
+            tipo: SOLO_TUNEL_KEY,
+            fecha: new Date().toISOString(),
+            creadoPor: ui.perfilActual?.nombre || "",
+            metodoPago: pago.metodo,
+            voucher: pago.voucher,
+            ...pago.documento,
+          };
+          const patch = registrarIngreso(data, cliente, ui.perfilActual?.nombre);
+          const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
+          if (!ok) {
+            setGuardarErr(ERROR_GUARDADO_INGRESO);
+            return;
+          }
+          clearPlate();
+          patchUi({ operResult: null });
+        },
+      },
+    });
+  };
+
   // Pack de lavados en el mesón (Promo 2 o 5 Lavados, ver PROMOS_LAVADOS):
   // cobra, deja la Venta y entrega los tickets con el primero ya canjeado —
   // el auto entra ahora (ver entregarPromoLavados). El cupón de descuento de
@@ -261,6 +301,7 @@ export function useIngresoActions(
     registrarLavadoWeb,
     registrarPagado,
     cobrarLavadoUnico,
+    cobrarSoloTunel,
     cobrarPromoLavados,
     cobrarUpgradePack,
     usarTicket,

@@ -8,7 +8,9 @@ import {
   precioContratacion,
   precioLavadoUnico,
   precioPromoLavados,
+  precioSoloTunel,
   resolverDescuento,
+  SOLO_TUNEL_KEY,
   uid,
   cicloPlanDesde,
   type IdPromoLavados,
@@ -16,7 +18,8 @@ import {
 import { entregarPromoLavados, registrarIngreso } from "./ingresos";
 import type { AppData, Cliente, Cupon, Empresa, PagoInfo, Venta } from "@/types";
 
-export type TipoClienteRapido = "plan" | "unico" | "promo2" | "promo5";
+// "soloTunel" = Solo túnel sin aspirado (ver SOLO_TUNEL_KEY): un lavado suelto más barato.
+export type TipoClienteRapido = "plan" | "unico" | "soloTunel" | "promo2" | "promo5";
 const PROMO_DE_TIPO: Partial<Record<TipoClienteRapido, IdPromoLavados>> = {
   promo2: "promo_2_lavados",
   promo5: "promo_5_lavados",
@@ -96,7 +99,9 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
       ? precioContratacion(data.precios, plan)
       : promo
         ? precioPromoLavados(data.precios, promo)
-        : precioLavadoUnico(data.precios);
+        : d.tipoCliente === "soloTunel"
+          ? precioSoloTunel(data.precios)
+          : precioLavadoUnico(data.precios);
   let precio = precioBase;
   let cuponAplicado: Cupon | undefined;
   if (d.tipoCliente === "unico" && d.codigoCupon) {
@@ -105,13 +110,20 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
     cuponAplicado = resultado.cupon;
     precio = Math.max(0, precioBase - montoDescuento(resultado.cupon, precioBase));
   }
-  const tipoVenta = d.tipoCliente === "plan" ? "Plan nuevo" : promo ? PROMOS_LAVADOS[promo].key : "Lavado único";
+  const tipoVenta =
+    d.tipoCliente === "plan"
+      ? "Plan nuevo"
+      : promo
+        ? PROMOS_LAVADOS[promo].key
+        : d.tipoCliente === "soloTunel"
+          ? SOLO_TUNEL_KEY
+          : "Lavado único";
   const descripcion =
     d.tipoCliente === "plan"
       ? `Contratación de plan para ${d.nombre}`
       : promo
         ? `Promo ${PROMOS_LAVADOS[promo].lavados} lavados para ${d.nombre}`
-        : `Lavado único para ${d.nombre}`;
+        : `${tipoVenta} para ${d.nombre}`;
 
   // Si es Factura y el RUT no pertenece a ninguna empresa ya registrada, se
   // crea una nueva en Empresas con este cliente como persona de contacto.
@@ -173,7 +185,7 @@ export function finalizarClienteRapido(
   const datosConNuevo = { ...data, clientes: clientesConNuevo, ventas: ventasConNueva };
   const promo = IDS_PROMOS_LAVADOS.find((id) => PROMOS_LAVADOS[id].key === tipoVenta);
   const ingresoPatch: Partial<AppData> =
-    tipoVenta === "Lavado único"
+    tipoVenta === "Lavado único" || tipoVenta === SOLO_TUNEL_KEY
       ? registrarIngreso(datosConNuevo, nuevo, perfilNombre)
       : promo
         ? entregarPromoLavados(datosConNuevo, nuevo, precio, perfilNombre, promo)

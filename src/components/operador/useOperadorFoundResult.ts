@@ -25,6 +25,7 @@ import {
   precioLavadoAdicional,
   precioLavadoUnico,
   precioPromoLavados,
+  precioSoloTunel,
   precioUpgradePack,
   precioRenovacionATiempo,
   precioRenovacionLocal,
@@ -186,6 +187,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // $0 = pack apagado: su botón no se muestra (ver precioPromoLavados).
   const precioPromo2 = precioPromoLavados(data.precios, "promo_2_lavados");
   const precioPromo5 = precioPromoLavados(data.precios, "promo_5_lavados");
+  const precioSoloTunelMeson = precioSoloTunel(data.precios);
   // Upgrade a Promo 4 Lavados: pagó un lavado único dentro de la ventana y
   // sigue sin plan — mismo criterio que Mi Cuenta (ver calcularOfertasPlan).
   const lavadoUpgrade = !planVigente ? ventaUpgradeElegible(data.ventas, c.id, data.config.horasVentanaUpgradePlan) : undefined;
@@ -256,6 +258,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     ticketsPatente,
     precioPromo2,
     precioPromo5,
+    precioSoloTunel: precioSoloTunelMeson,
     upgradePack,
     ...ingreso,
     ...ficha,
@@ -263,6 +266,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     registrarPagado: conFichaCompleta(ingreso.registrarPagado),
     cobrarLavadoUnico: conFichaCompleta(ingreso.cobrarLavadoUnico),
     cobrarPromoLavados: conFichaCompleta(ingreso.cobrarPromoLavados),
+    cobrarSoloTunel: conFichaCompleta(ingreso.cobrarSoloTunel),
     cobrarUpgradePack: conFichaCompleta(ingreso.cobrarUpgradePack),
     usarTicket: conFichaCompleta(ingreso.usarTicket),
     registrarDetailing: conFichaCompleta(ingreso.registrarDetailing),

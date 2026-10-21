@@ -53,6 +53,8 @@ type Props = Pick<
   | "precioPromo2"
   | "precioPromo5"
   | "cobrarPromoLavados"
+  | "precioSoloTunel"
+  | "cobrarSoloTunel"
   | "upgradePack"
   | "cobrarUpgradePack"
   | "precioQrTarjeta"
@@ -82,7 +84,7 @@ export default function OperadorFoundOfertas(props: Props) {
   // primer cobro llega recién a su vencimiento (ver inscripcion/retorno).
   const qr = (sinPlan || props.showOffer) && props.precioQrTarjeta ? props.precioQrTarjeta : undefined;
   const sinIngreso = props.planVigente && (props.estadoIngreso === "sin_pases" || props.estadoIngreso === "bloqueado");
-  const esLavado = (el: ReactNode) => ["lavado", "lavado-extra"].includes((el as ReactElement).key as string);
+  const esLavado = (el: ReactNode) => ["lavado", "solo-tunel", "lavado-extra"].includes((el as ReactElement).key as string);
   return (
     <div className="ofertas-operador">
       {/* Ingresos ya pagados: no son venta, van antes que las opciones. */}
@@ -231,6 +233,20 @@ export default function OperadorFoundOfertas(props: Props) {
             </button>
           </div>
         )],
+        [props.precioSoloTunel, sinPlan && props.precioSoloTunel > 0 && (
+          <div key="solo-tunel" className="offer-card">
+            <div className="offer-head">
+              <h4>Solo túnel (sin aspirado)</h4>
+            </div>
+            <div className="msg">Un lavado por el túnel, sin aspirado.</div>
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioSoloTunel)}</span>
+            </div>
+            <button className="btn secondary" onClick={() => props.cobrarSoloTunel()} disabled={guardando}>
+              Cobrar Solo túnel ({fmtCLP(props.precioSoloTunel)})
+            </button>
+          </div>
+        )],
         [props.precioPromo2, sinPlan && props.precioPromo2 > 0 && (
           <div key="promo2" className="offer-card">
             <div className="offer-head">
@@ -276,11 +292,12 @@ export default function OperadorFoundOfertas(props: Props) {
         ] as [number | undefined, ReactNode][]
         )
           .filter(([, el]) => el)
-          // El lavado suelto va primero; todo lo demás son promociones, de
+          // Los lavados sueltos van primero, en el orden de la lista (Full
+          // Túnel antes que Solo túnel); todo lo demás son promociones, de
           // menor a mayor precio, bajo su propio título.
-          .sort(([a, x], [b, y]) => Number(esLavado(y)) - Number(esLavado(x)) || (a ?? 0) - (b ?? 0))
+          .sort(([a, x], [b, y]) => Number(esLavado(y)) - Number(esLavado(x)) || (esLavado(x) ? 0 : (a ?? 0) - (b ?? 0)))
           .flatMap(([, el], i, todas) =>
-            esLavado(el) && i < todas.length - 1
+            esLavado(el) && i < todas.length - 1 && !esLavado(todas[i + 1][1])
               ? [
                   el,
                   <div key="vip" className="titulo-vip">
