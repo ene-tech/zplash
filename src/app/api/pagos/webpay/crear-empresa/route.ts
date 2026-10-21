@@ -61,9 +61,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Tipo de documento inválido" }, { status: 400 });
     }
 
-    // Requerido siempre (Boleta y Factura): es lo que permite mostrarle sus
-    // tickets al comprador en Mi Cuenta (portal cliente) más adelante, sin
-    // depender del RUT (que hoy solo se pide para Factura).
+    // Requerido siempre (Boleta y Factura): aplicarPagoPackEmpresa lo graba en
+    // cupones.email de cada ticket, y con eso el comprador ve el pack en Mi
+    // Cuenta → "Mis packs de tickets" (usados/disponibles, patente y fecha de
+    // uso, vencimiento; ver cuponesDeLaCuenta en /api/cliente/mi-cuenta y
+    // PacksTicketsGestion) al entrar con este mismo correo, sin depender del
+    // RUT (que solo se pide para Factura) ni de tener patentes propias.
     const email = (body.email || "").trim().toLowerCase();
     if (!isValidEmail(email)) {
       return NextResponse.json({ error: "Ingresa un email válido" }, { status: 400 });
