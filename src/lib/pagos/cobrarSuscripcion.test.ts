@@ -263,6 +263,54 @@ describe("reintento diario tras un rechazo", () => {
   });
 });
 
+// El bucle 'en_curso' de oct-2026 (KTJB16): Transbank no contesta ni el cobro
+// ni la consulta, intento tras intento. Con dos seguidos sin respuesta el cron
+// ya no reserva otro: corta el reintento automático y avisa con el link.
+describe("Transbank no contestó dos veces seguidas", () => {
+  const precios = [{ plan: PLAN_ONECLICK_KEY, normal: 19990, promo: 0 }];
+  const cliente = [{ id: "c1", precioPlanHeredado: null, plan: PLAN_X5, aceptoX5En: "2026-09-01T00:00:00.000Z" }];
+  const sinRespuesta = (id: string, creadoEn: string) => ({ id, estado: "rechazada", responseCode: null, creadoEn, monto: 19990 });
+  const historial = [sinRespuesta("oc2", "2026-10-18T13:00:00.000Z"), sinRespuesta("oc1", "2026-10-14T13:00:00.000Z")];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updates.length = 0;
+    recuperados = [];
+    pasadasDelCiclo = 0;
+  });
+
+  it("en el cron -> no llama a Transbank, deja la suscripción sin fecha y avisa", async () => {
+    respuestas = [precios, cliente, [], historial];
+    const resultado = await cobrarSuscripcion(suscripcion, { sinCliente: true });
+    expect(resultado).toEqual({ estado: "rechazada", cortado: true });
+    expect(authorize).not.toHaveBeenCalled();
+    expect(updates).toEqual([expect.objectContaining({ proximoCobro: null })]);
+    expect(avisoCobroFallido).toHaveBeenCalled();
+  });
+
+  it("con alguien delante (operador, re-inscripción) -> se intenta igual", async () => {
+    respuestas = [precios, cliente, [], historial];
+    const { estado } = await cobrarSuscripcion(suscripcion);
+    expect(estado).toBe("aprobada");
+    expect(authorize).toHaveBeenCalled();
+  });
+
+  it("uno solo sin respuesta -> se intenta de nuevo", async () => {
+    respuestas = [precios, cliente, [], [historial[0], { ...historial[1], responseCode: -1 }]];
+    await cobrarSuscripcion(suscripcion, { sinCliente: true });
+    expect(authorize).toHaveBeenCalled();
+  });
+
+  // Un reintento manual rechazado sobre una suscripción cortada (sin fecha) no
+  // puede reagendarla para mañana: reabriría el cobro diario que se cortó.
+  it("rechazo sin fecha de cobro -> sigue sin fecha", async () => {
+    authorize.mockResolvedValueOnce({ details: [{ response_code: -1, authorization_code: "" }] });
+    respuestas = [precios, cliente, [], []];
+    await cobrarSuscripcion({ ...suscripcion, proximoCobro: null });
+    expect(updates.at(-1)!.proximoCobro).toBeNull();
+  });
+});
+
 // Al que la politica de rescate deja en su ilimitado se le cobra el precio de SU
 // plan (21.990 por default, la fila no existe en `precios`), no la fila del X5
 // — que hoy esta en 19.990 y la comparten las 208 suscripciones del cron. Y el

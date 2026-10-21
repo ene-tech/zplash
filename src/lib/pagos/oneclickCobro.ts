@@ -79,10 +79,11 @@ export type CobroRecuperado = { id: string; monto: number; authorizationCode: st
  * Resuelve los cobros que quedaron "en_curso" de un intento anterior que se
  * cortó a mitad de camino. Corre dentro de la transacción y con el advisory
  * lock de la suscripción ya tomado, así que ninguna de estas filas pertenece a
- * un intento vivo: son huérfanas. Las que Transbank rechazó quedan
- * "rechazada"; las que APROBÓ se devuelven sin tocar, para que el llamador las
- * aplique como el pago que son (ver aplicarCobroRecuperado) en vez de volver a
- * cobrar. Si Transbank no contesta, no se cobra de nuevo hasta saber (tira).
+ * un intento vivo: son huérfanas. Las que Transbank rechazó (o que no conoce
+ * pasado el plazo) quedan "rechazada" con commit propio; las que APROBÓ se
+ * devuelven sin tocar, para que el llamador las aplique como el pago que son
+ * (ver aplicarCobroRecuperado) en vez de volver a cobrar. Si Transbank no
+ * contesta y el plazo no ha pasado, no se cobra de nuevo hasta saber (tira).
  */
 export async function reconciliarCobrosEnCurso(tx: Tx, suscripcionId: string): Promise<CobroRecuperado[]> {
   const huerfanos = await tx
@@ -99,7 +100,16 @@ export async function reconciliarCobrosEnCurso(tx: Tx, suscripcionId: string): P
       recuperados.push({ id, monto, authorizationCode: detalle.authorization_code || null });
       continue;
     }
-    await tx
+    // Commit propio, fuera de la transacción del llamador (igual que
+    // reservarCobro). Dentro de ella, si el cobro que viene después tampoco
+    // obtenía respuesta de Transbank, el rollback deshacía este "rechazada"
+    // pero no la reserva nueva: los en_curso se iban acumulando y cada uno
+    // trababa la suscripción 3 días más (oct-2026: KTJB16 con 4 en_curso, plan
+    // vencido dos semanas sin cobro ni aviso). Es un hecho sobre el pasado —
+    // Transbank lo rechazó o no lo conoce pasado el plazo—, así que no tiene
+    // por qué depender de cómo termine el intento de hoy. responseCode null =
+    // Transbank nunca contestó por él (ver transbankNoContestoDosVeces).
+    await getDb()
       .update(cobrosOneclick)
       .set({ estado: "rechazada", responseCode: detalle?.response_code ?? null, authorizationCode: detalle?.authorization_code || null })
       .where(eq(cobrosOneclick.id, id));
