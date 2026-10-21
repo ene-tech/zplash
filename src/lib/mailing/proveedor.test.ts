@@ -101,7 +101,7 @@ describe("enviarCorreoTransaccional", () => {
   it("con CORREO_PROVEEDOR=ses manda por SES a la dirección normalizada y registra el MessageId", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ MessageId: "ses-123" }), { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const r = await enviarCorreoTransaccional({ to: " Cliente @Gmail.com ", subject: "Hola", html: "<p>x</p>" });
+    const r = await enviarCorreoTransaccional({ to: " Cliente@Gmail.com ", subject: "Hola", html: "<p>x</p>" });
     expect(r).toEqual({ ok: true });
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://email.us-east-1.amazonaws.com/v2/email/outbound-emails");

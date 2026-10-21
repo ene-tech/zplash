@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { emailValido, motivoEmailInvalido, normalizarEmail } from "./direcciones";
 
 describe("normalizarEmail", () => {
-  it("quita espacios al borde, internos y NBSP, y pasa a minúsculas", () => {
+  it("quita espacios al borde (NBSP y tabs incluidos) y pasa a minúsculas, sin tocar los internos", () => {
     expect(normalizarEmail("  Juan.Perez@Gmail.COM ")).toBe("juan.perez@gmail.com");
-    expect(normalizarEmail("juan perez@gmail.com")).toBe("juanperez@gmail.com");
-    expect(normalizarEmail("ana@gmail. com\t")).toBe("ana@gmail.com");
+    expect(normalizarEmail("\u00a0ana@gmail.com\t")).toBe("ana@gmail.com");
+    expect(normalizarEmail("juan perez@gmail.com")).toBe("juan perez@gmail.com");
   });
 
   it("null/undefined -> vacío", () => {
