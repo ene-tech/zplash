@@ -163,6 +163,7 @@ describe("resolverDescuentoPos", () => {
   it("sin patente no acepta códigos cuya regla es la patente", () => {
     expect(resolverDescuentoPos("ABC123", "", [cupon({ unUsoPorPatente: true })], []).ok).toBe(false);
     expect(resolverDescuentoPos("ABC123", "", [cupon({ nombreLote: "Referido - ABCD12" })], []).ok).toBe(false);
+    expect(resolverDescuentoPos("ABC123", "", [cupon({ soloClientesNuevos: true })], []).ok).toBe(false);
   });
 
   it("respeta la regla de referidos: el dueño no usa su propio código", () => {

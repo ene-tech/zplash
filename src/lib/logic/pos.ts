@@ -117,7 +117,7 @@ export function armarVentaPos(datos: DatosVentaPos): { venta: Venta; items: Vent
  * canal local, patente asignada, solo clientes nuevos, referidos), con un
  * agregado propio: la venta de tienda puede ir sin patente (invitado o
  * comprador sin auto), y hay códigos cuya regla ES la patente — "un uso por
- * patente" y los de amigo (referidos). Sin patente esa regla no se puede
+ * patente", "solo clientes nuevos" y los de amigo (referidos). Sin patente esa regla no se puede
  * aplicar, así que esos piden elegir al cliente del lavado. */
 export function resolverDescuentoPos(
   codigoCrudo: string,
@@ -127,7 +127,7 @@ export function resolverDescuentoPos(
 ): { ok: true; cupon: Cupon } | { ok: false; msg: string } {
   const codigo = codigoCrudo.trim().toUpperCase();
   const cupon = cupones.find((c) => c.codigo === codigo);
-  if (cupon && !patente && (cupon.unUsoPorPatente || referidorDeLote(cupon.nombreLote))) {
+  if (cupon && !patente && (cupon.unUsoPorPatente || cupon.soloClientesNuevos || referidorDeLote(cupon.nombreLote))) {
     return { ok: false, msg: "Este código va atado a una patente: elige al cliente del lavado para usarlo" };
   }
   return resolverDescuento(codigo, patente, cupones, clientes);
