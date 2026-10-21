@@ -4,6 +4,8 @@ import { procesarPendientesYVencimientos } from "@/lib/whatsapp/reglas";
 
 export const runtime = "nodejs";
 
+// Pese al nombre, también atiende las reglas con canal SMS y correo (ver ejecutarAccionRegla).
+
 // Disparado por el cron de Vercel (vercel.json) una vez al día, mismo patrón
 // de auth que /api/pagos/oneclick/cobrar. Procesa disparos "venta_creada" con
 // delayDias > 0 ya vencidos y evalúa reglas "plan_proximo_vencer" contra

@@ -6,8 +6,10 @@ import { timestamptz } from "./shared";
 // Templates: una fila por situación del proceso de venta/suscripción
 // (confirmación de compra, pago rechazado, vencimiento próximo, etc.) o por
 // comunicación de ofertas y servicios — mismo patrón de catálogo que
-// `servicios`. Todavía no hay envío automático de correos: esta tabla guarda
-// el contenido para cuando se conecte un proveedor de envío.
+// `servicios`. De acá toman asunto y cuerpo las reglas de correo
+// (@/lib/mailing/reglas) y los envíos masivos (@/lib/mailing/masivo), que
+// salen por Resend (@/lib/mailing/proveedor). Las reglas con canal "correo"
+// de @/lib/whatsapp/reglas usan en cambio el texto de su plantilla WhatsApp.
 export const plantillasCorreo = pgTable("plantillas_correo", {
   id: text("id").primaryKey(),
   nombre: text("nombre").notNull(),
