@@ -91,6 +91,9 @@ export function construirVariables(opts: {
   return {
     nombre: opts.cliente.nombre || "",
     patente: opts.cliente.patente || "",
+    // Link de pago del plan con la patente puesta: lo que sirve cuando el
+    // cobro automático falló o se cortó (cambiar la tarjeta no cobra solo).
+    linkPago: opts.cliente.patente ? `https://zplash.cl/pagar?item=plan&patente=${encodeURIComponent(opts.cliente.patente)}` : "https://zplash.cl/pagar?item=plan",
     plan: opts.cliente.plan || "",
     monto: opts.monto !== undefined ? fmtCLP(opts.monto) : "",
     fechaVencimiento: opts.cliente.vencimiento ? fmtFecha(opts.cliente.vencimiento) : "",
