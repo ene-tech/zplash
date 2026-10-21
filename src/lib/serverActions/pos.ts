@@ -33,6 +33,7 @@ import {
   type LineaDevolucion,
   type LineaPos,
 } from "@/lib/logic";
+import { PREFIJO_REFERIDO } from "@/lib/referidos";
 import { sesionActual, tieneAlgunModulo } from "@/lib/session";
 import type { Cupon, DatosFacturacion, MovimientoContable, Producto, Venta, VentaItem } from "@/types";
 
@@ -62,7 +63,16 @@ export type VentaPosResultado =
       /** El código de descuento ya quemado, para reflejarlo en memoria. */
       cupon?: Cupon;
     }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      /** true = falla de red/base: reintentar lo mismo puede andar. Sin la
+       * marca, el rechazo es de fondo (código ya usado, caja cerrada, cliente
+       * borrado) y reintentar igual vuelve a fallar. */
+      reintentable?: boolean;
+      /** true = lo rechazado es el código de descuento. */
+      porCodigo?: boolean;
+    };
 
 /** ÚNICO camino para registrar una venta de productos: inserta la venta, sus
  * líneas, el descuento de stock y el movimiento contable derivado en UNA
@@ -126,11 +136,15 @@ async function cuadrarBodega(
 }
 
 /** Error de validación que corta la transacción y se muestra tal cual. */
-class RechazoVenta extends Error {}
+class RechazoVenta extends Error {
+  readonly porCodigo: boolean;
+  constructor(message: string, porCodigo = false) {
+    super(message);
+    this.porCodigo = porCodigo;
+  }
+}
 
 type Sesion = NonNullable<Awaited<ReturnType<typeof sesionActual>>>;
-
-const PREFIJO_LOTE_AMIGO = "Referido - ";
 
 /** Lee productos, cliente y (si hay código) el cupón, valida todo y arma la
  * venta. Compartido entre cotizarVentaPos (solo lectura, para mostrar el
@@ -158,12 +172,12 @@ async function prepararVentaPos(db: DbOrTx, input: VentaPosInput, sesion: Sesion
     const filas = bloquear ? await consulta.for("update") : await consulta;
     // Los cupones de amigo (referidos) se cruzan contra los demás de su tipo
     // (ver rechazoCodigoReferido); solo se leen si el código es uno de esos.
-    const deAmigo = filas[0]?.nombreLote.startsWith(PREFIJO_LOTE_AMIGO)
-      ? await db.select().from(cupones).where(like(cupones.nombreLote, `${PREFIJO_LOTE_AMIGO}%`))
+    const deAmigo = filas[0]?.nombreLote.startsWith(PREFIJO_REFERIDO)
+      ? await db.select().from(cupones).where(like(cupones.nombreLote, `${PREFIJO_REFERIDO}%`))
       : [];
     const lista = [...filas, ...deAmigo.filter((c) => c.id !== filas[0]?.id)].map(dataAccess.cuponFromRow);
     const r = resolverDescuentoPos(codigo, patente, lista, cliente ? [cliente] : []);
-    if (!r.ok) throw new RechazoVenta(r.msg);
+    if (!r.ok) throw new RechazoVenta(r.msg, true);
     cupon = r.cupon;
   }
 
@@ -289,9 +303,13 @@ export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosR
       return { ...v, movimiento };
     });
   } catch (error) {
-    if (error instanceof RechazoVenta) return { ok: false, error: error.message };
+    if (error instanceof RechazoVenta) return { ok: false, error: error.message, porCodigo: error.porCodigo || undefined };
     console.error("Error registrando venta POS", error);
-    return { ok: false, error: "No se pudo guardar la venta. Revisa la conexión e inténtalo de nuevo." };
+    return {
+      ok: false,
+      error: "No se pudo guardar la venta. Revisa la conexión e inténtalo de nuevo.",
+      reintentable: true,
+    };
   }
 
   const actualizados = await db.select().from(productos).where(inArray(productos.id, resultado.ids));
@@ -343,7 +361,7 @@ export interface DevolucionPosInput {
 }
 
 export type DevolucionPosResultado =
-  | { ok: true; venta: Venta; movimiento: MovimientoContable; productos: Producto[]; vale?: Cupon }
+  | { ok: true; venta: Venta; movimiento: MovimientoContable | null; productos: Producto[]; vale?: Cupon }
   | { ok: false; error: string };
 
 /** Meses que dura el vale a favor antes de caducar. */
@@ -417,9 +435,10 @@ export async function registrarDevolucionPos(input: DevolucionPosInput): Promise
   // canjeable de verdad y quede en la ficha del cliente. Va atado a su
   // patente si la venta tenía cliente; si fue a un invitado, el código es
   // abierto (lo usa quien lo presente, que es lo que corresponde a un vale
-  // de papel).
+  // de papel). Sin monto (venta pagada entera con descuento) no hay vale:
+  // un código de $0 no le sirve a nadie.
   let vale: Cupon | undefined;
-  if (input.forma === "vale") {
+  if (input.forma === "vale" && armado.venta.precio !== 0) {
     const caduca = new Date(fecha);
     caduca.setMonth(caduca.getMonth() + MESES_VALE);
     const codigosUsados = new Set((await db.select({ codigo: cupones.codigo }).from(cupones)).map((c) => c.codigo));
@@ -460,7 +479,7 @@ export async function registrarDevolucionPos(input: DevolucionPosInput): Promise
           .set({ stock: sql`${productos.stock} + ${linea.cantidad}` })
           .where(eq(productos.id, linea.productoId));
       }
-      await tx.insert(movimientosContables).values(dataAccess.movimientoToRow(armado.movimiento));
+      if (armado.movimiento) await tx.insert(movimientosContables).values(dataAccess.movimientoToRow(armado.movimiento));
       if (vale) await tx.insert(cupones).values(dataAccess.cuponToRow(vale));
 
       if (conDetalle.length) {

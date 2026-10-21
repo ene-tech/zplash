@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { armarDevolucionPos, type DatosDevolucionPos } from "./devolucionPos";
+import { armarDevolucionPos, totalDevolucionProrrateado, type DatosDevolucionPos } from "./devolucionPos";
 import type { VentaItem } from "@/types";
 
 const item = (productoId: string, cantidad: number, precioUnitario: number): VentaItem => ({
@@ -35,10 +35,10 @@ describe("armarDevolucionPos", () => {
     expect(r.items[0].cantidad).toBe(-1);
     expect(r.items[0].precioUnitario).toBe(9990);
     // El asiento descuenta del canal de la tienda, no infla los costos.
-    expect(r.movimiento.tipo).toBe("ingreso");
-    expect(r.movimiento.monto).toBe(-9990);
-    expect(r.movimiento.categoria).toBe("Venta de Productos");
-    expect(r.movimiento.ventaId).toBe(r.venta.id);
+    expect(r.movimiento?.tipo).toBe("ingreso");
+    expect(r.movimiento?.monto).toBe(-9990);
+    expect(r.movimiento?.categoria).toBe("Venta de Productos");
+    expect(r.movimiento?.ventaId).toBe(r.venta.id);
   });
 
   it("el vale a favor no saca plata de la caja", () => {
@@ -105,18 +105,40 @@ describe("armarDevolucionPos — venta que llevó código de descuento", () => {
     const r = armarDevolucionPos({ ...base, venta: { ...base.venta, precio: 16480 } });
     if ("error" in r) throw new Error(r.error);
     expect(r.venta.precio).toBe(-4995);
-    expect(r.movimiento.monto).toBe(-4995);
+    expect(r.movimiento?.monto).toBe(-4995);
   });
 
-  it("una venta cubierta entera por un vale no devuelve plata", () => {
-    const r = armarDevolucionPos({ ...base, venta: { ...base.venta, precio: 0 } });
-    if ("error" in r) throw new Error(r.error);
-    expect(r.venta.precio === 0).toBe(true);
+  it("una venta cubierta entera por un vale no devuelve plata: solo stock, sin asiento ni medio de pago", () => {
+    for (const forma of ["efectivo", "vale"] as const) {
+      const r = armarDevolucionPos({ ...base, forma, venta: { ...base.venta, precio: 0 } });
+      if ("error" in r) throw new Error(r.error);
+      expect(Object.is(r.venta.precio, 0)).toBe(true);
+      expect(r.venta.metodoPago).toBeUndefined();
+      expect(r.venta.notas).toContain("sin monto");
+      // Las líneas igual quedan, para devolver el stock y llevar la cuenta de
+      // lo ya devuelto.
+      expect(r.items[0].cantidad).toBe(-1);
+      expect(r.movimiento).toBeNull();
+    }
   });
 
   it("sin descuento (precio igual a la lista) no cambia nada", () => {
     const r = armarDevolucionPos({ ...base, venta: { ...base.venta, precio: 32960 } });
     if ("error" in r) throw new Error(r.error);
     expect(r.venta.precio).toBe(-9990);
+  });
+});
+
+describe("totalDevolucionProrrateado", () => {
+  it("sin descuento devuelve el total de lista; con descuento, la proporción cobrada", () => {
+    expect(totalDevolucionProrrateado(-9990, 32960, 32960)).toBe(-9990);
+    expect(totalDevolucionProrrateado(-9990, 32960, undefined)).toBe(-9990);
+    expect(totalDevolucionProrrateado(-9990, 32960, 16480)).toBe(-4995);
+    // El modal lo usa con montos positivos.
+    expect(totalDevolucionProrrateado(9990, 32960, 16480)).toBe(4995);
+  });
+
+  it("venta en $0 da 0 (no -0)", () => {
+    expect(Object.is(totalDevolucionProrrateado(-9990, 32960, 0), 0)).toBe(true);
   });
 });

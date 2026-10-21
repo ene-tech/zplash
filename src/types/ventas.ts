@@ -14,6 +14,9 @@ export interface PagoInfo {
   // true si el cobro lo aprobó el terminal integrado (ver posIntegrado): si
   // después la venta no se guarda, la plata YA se cobró y hay que decirlo.
   viaTerminal?: boolean;
+  // Nº de operación del terminal (si lo informó): con él se anula el cobro
+  // cuando la venta no se puede guardar (ver anularPosIntegrado).
+  operacionTerminal?: string;
 }
 
 /** Una línea de un ticket del POS de productos (tabla venta_items).

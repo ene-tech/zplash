@@ -8,13 +8,13 @@ import {
   fmtCLP,
   isValidPatente,
   ivaDeBruto,
-  montoDescuento,
   netoDeBruto,
   normPlate,
   stockPorDestino,
 } from "@/lib/helpers";
 import { cotizarVentaPos, registrarVentaPos, type VentaPosInput } from "@/lib/serverActions";
-import type { LineaPos } from "@/lib/logic";
+import { rebajaDescuento, type LineaPos } from "@/lib/logic";
+import { anularPosIntegrado } from "@/lib/posIntegrado";
 import type { Cliente, DatosFacturacion, PagoInfo, Producto } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
@@ -48,6 +48,10 @@ export default function PosView() {
   // corta un segundo disparo es este ref.
   const cobrandoRef = useRef(false);
   const [err, setErr] = useState("");
+  // Cobro aprobado en el terminal cuya venta no se pudo guardar por un motivo
+  // que no se arregla reintentando: hay que anularlo en el terminal.
+  const [porAnular, setPorAnular] = useState<{ operacion?: string; voucher?: string } | null>(null);
+  const [anulando, setAnulando] = useState(false);
   const [devolviendo, setDevolviendo] = useState(false);
   // Código de descuento (p. ej. el vale a favor de una devolución). Lo valida
   // el servidor (cotizarVentaPos); acá solo se guarda lo necesario para
@@ -86,15 +90,23 @@ export default function PosView() {
     // Teléfono por dígitos (se guarda como +569…, se tipea como sea) y desde
     // 4 dígitos, para que una patente con números no traiga medio padrón.
     const digitos = buscaCliente.replace(/\D/g, "");
+    // Prioridad de la coincidencia (menor = antes): patente, nombre, y recién
+    // después teléfono o correo. Se ordena ANTES de cortar a 6: si no, una
+    // patente con 4+ dígitos ("AB1234") podía llenar la lista con teléfonos
+    // que contienen esos números y tapar al dueño de la patente.
+    const prioridad = (c: Cliente): number => {
+      if (patenteBuscada && normPlate(c.patente).includes(patenteBuscada)) return 0;
+      if (c.nombre.toLowerCase().includes(qCliente)) return 1;
+      if (digitos.length >= 4 && (c.telefono || "").replace(/\D/g, "").includes(digitos)) return 2;
+      if (qCliente.includes("@") && (c.email || "").toLowerCase().includes(qCliente)) return 2;
+      return -1;
+    };
     return data.clientes
-      .filter(
-        (c) =>
-          (!!patenteBuscada && normPlate(c.patente).includes(patenteBuscada)) ||
-          c.nombre.toLowerCase().includes(qCliente) ||
-          (digitos.length >= 4 && (c.telefono || "").replace(/\D/g, "").includes(digitos)) ||
-          (qCliente.includes("@") && (c.email || "").toLowerCase().includes(qCliente))
-      )
-      .slice(0, 6);
+      .map((c) => ({ c, p: prioridad(c) }))
+      .filter((x) => x.p >= 0)
+      .sort((a, b) => a.p - b.p)
+      .slice(0, 6)
+      .map((x) => x.c);
   }, [data.clientes, qCliente, buscaCliente, cliente, modoCliente]);
 
   const agregar = (p: Producto) => {
@@ -130,9 +142,9 @@ export default function PosView() {
   const quitar = (productoId: string) => setCarrito((prev) => prev.filter((l) => l.productoId !== productoId));
 
   const subtotal = carrito.reduce((s, l) => s + (l.cantidad || 0) * (l.precioUnitario || 0), 0);
-  // Mismo cálculo que armarVentaPos (nunca negativo); el monto que se cobra
-  // de verdad lo confirma el servidor antes de abrir el pago.
-  const rebaja = descuento ? Math.min(subtotal, Math.max(0, montoDescuento(descuento, subtotal))) : 0;
+  // Mismo cálculo que armarVentaPos; el monto que se cobra de verdad lo
+  // confirma el servidor antes de abrir el pago.
+  const rebaja = rebajaDescuento(descuento, subtotal);
   const total = subtotal - rebaja;
   const unidades = carrito.reduce((s, l) => s + (l.cantidad || 0), 0);
   const empresa = data.empresas.find((e) => e.id === empresaId);
@@ -196,6 +208,7 @@ export default function PosView() {
     cobrandoRef.current = true;
     setCobrando(true);
     setErr("");
+    setPorAnular(null);
     try {
       const r = await registrarVentaPos({
         ...entradaVenta(),
@@ -203,13 +216,31 @@ export default function PosView() {
         voucher: pago.voucher,
       });
       if (!r.ok) {
-        // El terminal ya cobró: la venta tiene que quedar sí o sí. Reintentar
-        // Cobrar con Tarjeta (manual) y el mismo voucher no vuelve a cobrar.
+        if (!pago.viaTerminal) {
+          setErr(r.error);
+          return;
+        }
+        if (r.reintentable) {
+          // Falla de red/base: la misma venta puede entrar al reintentar.
+          // Cobrar con Tarjeta (manual) y el mismo voucher no vuelve a cobrar.
+          setErr(
+            `El terminal APROBÓ el cobro (${pago.voucher}) pero la venta no se guardó: ${r.error} Vuelve a Cobrar con Tarjeta (manual) anotando ese voucher, sin pasar la tarjeta de nuevo.`
+          );
+          return;
+        }
+        // Rechazo de fondo (código ya usado en otra caja, caja cerrada,
+        // cliente borrado): reintentar igual vuelve a fallar, y quitar el
+        // código cambia el total, que ya no es lo cobrado. Lo único que sirve
+        // es anular el cobro y volver a cobrar con la venta corregida.
+        const siguiente = r.porCodigo
+          ? "Anula el cobro en el terminal, quita el código y vuelve a cobrar el total nuevo."
+          : "Anula el cobro en el terminal; la venta no se puede registrar así.";
         setErr(
-          pago.viaTerminal
-            ? `El terminal APROBÓ el cobro (${pago.voucher}) pero la venta no se guardó: ${r.error} Vuelve a Cobrar con Tarjeta (manual) anotando ese voucher, sin pasar la tarjeta de nuevo.`
-            : r.error
+          `El terminal APROBÓ el cobro (${pago.voucher}) pero la venta no se pudo registrar: ${r.error} ${siguiente}${
+            pago.operacionTerminal ? ` Nº de operación para anular: ${pago.operacionTerminal}.` : ""
+          }`
         );
+        setPorAnular({ operacion: pago.operacionTerminal, voucher: pago.voucher });
         return;
       }
       // La transacción ya quedó en la base: acá solo se funde el resultado en
@@ -244,6 +275,23 @@ export default function PosView() {
     } finally {
       cobrandoRef.current = false;
       setCobrando(false);
+    }
+  };
+
+  const anularEnTerminal = async () => {
+    if (!porAnular?.operacion || anulando) return;
+    setAnulando(true);
+    try {
+      const r = await anularPosIntegrado(porAnular.operacion);
+      if (!r.ok) {
+        setErr(`No se pudo anular la operación ${porAnular.operacion}: ${r.error}`);
+        return;
+      }
+      toast.success(`Cobro anulado en el terminal (op ${porAnular.operacion})`);
+      setPorAnular(null);
+      setErr("");
+    } finally {
+      setAnulando(false);
     }
   };
 
@@ -623,6 +671,11 @@ export default function PosView() {
           </button>
         </div>
         {err && <p className="err">{err}</p>}
+        {porAnular?.operacion && (
+          <button className="btn" disabled={anulando} onClick={anularEnTerminal}>
+            {anulando ? "Anulando…" : `Anular en el terminal (op ${porAnular.operacion})`}
+          </button>
+        )}
       </div>
     </>
   );
