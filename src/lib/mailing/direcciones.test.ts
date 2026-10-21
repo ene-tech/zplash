@@ -49,8 +49,10 @@ describe("emailValido / motivoEmailInvalido", () => {
     expect(motivoEmailInvalido(email)).toContain(fragmento);
   });
 
-  it("una dirección con espacios internos queda válida después de normalizar", () => {
-    expect(emailValido("Juan Perez@gmail.com")).toBe(false);
-    expect(emailValido(normalizarEmail("Juan Perez@gmail.com"))).toBe(true);
+  // "juan perez@" puede ser juan.perez@ o juan_perez@: adivinar le manda el
+  // correo a otra persona, así que no se manda.
+  it("una dirección con espacios internos sigue sin mandarse después de normalizar", () => {
+    expect(motivoEmailInvalido(normalizarEmail("Juan Perez@gmail.com"))).toContain("espacios");
+    expect(motivoEmailInvalido(normalizarEmail("ana@gmail. com"))).toContain("espacios");
   });
 });
