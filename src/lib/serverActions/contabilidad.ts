@@ -22,17 +22,19 @@ export async function upsertMovimientosContables(rows: MovimientoContable[]): Pr
   const derivadoDeVenta = rows.every((r) => !!r.ventaId);
   // El asiento con que se cuadra la caja al cerrar el día lo inscribe quien
   // hace el arqueo (ver ArqueoDia): tiene el módulo "arqueo", pero no
-  // necesariamente "contabilidad". El permiso alcanza solo a esa fila — su id
-  // lo fija idAjusteCierre, así que no sirve para colar ningún otro movimiento.
+  // necesariamente "contabilidad". El permiso alcanza solo a esas filas — su
+  // id lleva el prefijo de idAjusteCierre — y por ese camino solo se insertan
+  // asientos nuevos: un id que ya existe no se pisa (ver insertarAjustesCierre).
   const ajusteDeCierre = rows.length > 0 && rows.every((r) => esAjusteCierre(r.id) && !r.ventaId);
-  const permitido = derivadoDeVenta
-    ? await tieneAlgunModulo(MODULOS_CREAN_VENTAS)
-    : (await tieneModulo("contabilidad")) || (ajusteDeCierre && (await tieneModulo("arqueo")));
+  const conContabilidad = !derivadoDeVenta && (await tieneModulo("contabilidad"));
+  const soloArqueo = !derivadoDeVenta && !conContabilidad && ajusteDeCierre && (await tieneModulo("arqueo"));
+  const permitido = derivadoDeVenta ? await tieneAlgunModulo(MODULOS_CREAN_VENTAS) : conContabilidad || soloArqueo;
   if (!permitido) return false;
   // Mismo criterio que upsertVentas: en un día ya cerrado solo pasa el upsert
   // que no cambia ningún monto/estado/método (ver soloCambiosSinPlata) — es
   // el caso del movimiento derivado que se rearma en cada commit de su venta.
   if (await dataAccess.edicionMovimientosEnDiaCerrado(rows)) return false;
+  if (soloArqueo) return dataAccess.insertarAjustesCierre(rows);
   return dataAccess.upsertMovimientosContables(rows);
 }
 

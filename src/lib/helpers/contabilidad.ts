@@ -102,13 +102,13 @@ export const CATEGORIA_AJUSTE_CIERRE = "Ajuste de cierre de caja";
 
 const PREFIJO_AJUSTE_CIERRE = "mc-ajuste-cierre-";
 
-/** Id determinístico del asiento de ajuste de ingreso monetario de un día
- * ("YYYY-MM-DD"). Determinístico a propósito: como upsertMovimientosContables
- * hace upsert por id, hay un solo asiento de ajuste por día —volver a
- * inscribirlo reemplaza el anterior en vez de acumular ajustes sueltos— y
- * reintentar un cierre que falló no duplica la fila. */
+/** Id nuevo para un asiento de ajuste de ingreso monetario del día
+ * ("YYYY-MM-DD"). Un día puede tener varios asientos (unos suman, otros
+ * restan) y cada uno es una fila propia: inscribir otro no pisa a los
+ * anteriores. Hasta oct-2026 el id era solo prefijo + día (un asiento por
+ * día); esos siguen reconociéndose con esAjusteCierre/esAjusteCierreDelDia. */
 export function idAjusteCierre(dia: string): string {
-  return PREFIJO_AJUSTE_CIERRE + dia;
+  return `${PREFIJO_AJUSTE_CIERRE}${dia}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /** true si ese id es el de un asiento de ajuste de cierre (ver
@@ -116,6 +116,13 @@ export function idAjusteCierre(dia: string): string {
  * inscriba quien cierra la caja aunque no tenga el módulo "contabilidad". */
 export function esAjusteCierre(id: string): boolean {
   return id.startsWith(PREFIJO_AJUSTE_CIERRE);
+}
+
+/** true si ese id es un asiento de ajuste de cierre de ese día — tanto el
+ * formato viejo (prefijo + día) como el actual (prefijo + día + "-" + único). */
+export function esAjusteCierreDelDia(id: string, dia: string): boolean {
+  const base = PREFIJO_AJUSTE_CIERRE + dia;
+  return id === base || id.startsWith(base + "-");
 }
 
 /** Id determinístico para el MovimientoContable derivado de una Venta: como

@@ -30,6 +30,7 @@ import {
   esServicioTunelLibre,
   esTarjetaWeb,
   esAjusteCierre,
+  esAjusteCierreDelDia,
   esVentaAutomatica,
   esVentaNuevaWeb,
   ventaPlanReciente,
@@ -2204,14 +2205,23 @@ describe("esVentaAutomatica (qué se puede corregir en el arqueo)", () => {
 });
 
 describe("asiento de ajuste del cierre de caja", () => {
-  it("da un id por día, y solo ese id pasa como asiento de ajuste", () => {
-    expect(idAjusteCierre("2026-08-18")).toBe("mc-ajuste-cierre-2026-08-18");
-    // Determinístico: volver a inscribir el ajuste del mismo día reemplaza al
-    // anterior en vez de acumular ajustes sueltos.
-    expect(idAjusteCierre("2026-08-18")).toBe(idAjusteCierre("2026-08-18"));
-    expect(esAjusteCierre(idAjusteCierre("2026-08-18"))).toBe(true);
+  it("da un id nuevo a cada asiento, y solo esos ids pasan como asiento de ajuste", () => {
+    const a = idAjusteCierre("2026-08-18");
+    expect(a.startsWith("mc-ajuste-cierre-2026-08-18-")).toBe(true);
+    // Varios asientos en el mismo día: ninguno pisa al anterior.
+    const ids = new Set(Array.from({ length: 50 }, () => idAjusteCierre("2026-08-18")));
+    expect(ids.size).toBe(50);
+    expect(esAjusteCierre(a)).toBe(true);
     expect(esAjusteCierre("mc123456789")).toBe(false);
     expect(esAjusteCierre("mc-venta-v123")).toBe(false);
+  });
+
+  it("reconoce los asientos del día, con el id viejo (uno por día) y el nuevo", () => {
+    expect(esAjusteCierreDelDia("mc-ajuste-cierre-2026-08-18", "2026-08-18")).toBe(true);
+    expect(esAjusteCierreDelDia(idAjusteCierre("2026-08-18"), "2026-08-18")).toBe(true);
+    expect(esAjusteCierreDelDia(idAjusteCierre("2026-08-18"), "2026-08-19")).toBe(false);
+    expect(esAjusteCierreDelDia("mc-ajuste-cierre-2026-08-180", "2026-08-18")).toBe(false);
+    expect(esAjusteCierreDelDia("mc-venta-v123", "2026-08-18")).toBe(false);
   });
 
   it("deja el ajuste de ingreso a túnel y el total real en el texto que se firma", () => {

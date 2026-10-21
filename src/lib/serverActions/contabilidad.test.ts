@@ -12,9 +12,11 @@ vi.mock("@/lib/session", () => ({
 }));
 
 const mockUpsertMovimientosContables = vi.fn();
+const mockInsertarAjustesCierre = vi.fn();
 const mockEdicionEnDiaCerrado = vi.fn();
 vi.mock("@/lib/dataAccess", () => ({
   upsertMovimientosContables: (rows: unknown[]) => mockUpsertMovimientosContables(rows),
+  insertarAjustesCierre: (rows: unknown[]) => mockInsertarAjustesCierre(rows),
   edicionMovimientosEnDiaCerrado: (rows: unknown[]) => mockEdicionEnDiaCerrado(rows),
 }));
 
@@ -37,6 +39,8 @@ beforeEach(() => {
   mockTieneAlgunModulo.mockResolvedValue(true);
   mockUpsertMovimientosContables.mockReset();
   mockUpsertMovimientosContables.mockResolvedValue(true);
+  mockInsertarAjustesCierre.mockReset();
+  mockInsertarAjustesCierre.mockResolvedValue(true);
   mockEdicionEnDiaCerrado.mockReset();
   mockEdicionEnDiaCerrado.mockResolvedValue(false);
 });
@@ -77,7 +81,7 @@ describe("upsertMovimientosContables", () => {
     expect(mockUpsertMovimientosContables).not.toHaveBeenCalled();
   });
 
-  it("deja inscribir el asiento de ajuste del cierre con el módulo arqueo, sin contabilidad", async () => {
+  it("deja inscribir el asiento de ajuste del cierre con el módulo arqueo, sin contabilidad, solo como inserción", async () => {
     mockTieneModulo.mockImplementation(async (m: string) => m === "arqueo");
     mockTieneSesionValida.mockResolvedValue(true);
 
@@ -85,7 +89,21 @@ describe("upsertMovimientosContables", () => {
     const ok = await upsertMovimientosContables([movimiento({ id: idAjusteCierre("2026-08-18"), ventaId: undefined })]);
 
     expect(ok).toBe(true);
+    // Inserta sin pisar: con solo "arqueo" no se puede reescribir un asiento ya inscrito.
+    expect(mockInsertarAjustesCierre).toHaveBeenCalled();
+    expect(mockUpsertMovimientosContables).not.toHaveBeenCalled();
+  });
+
+  it("con contabilidad el asiento de ajuste sigue siendo un upsert normal", async () => {
+    mockTieneModulo.mockImplementation(async (m: string) => m === "contabilidad");
+    mockTieneSesionValida.mockResolvedValue(true);
+
+    const { upsertMovimientosContables } = await import("./contabilidad");
+    const ok = await upsertMovimientosContables([movimiento({ id: idAjusteCierre("2026-08-18"), ventaId: undefined })]);
+
+    expect(ok).toBe(true);
     expect(mockUpsertMovimientosContables).toHaveBeenCalled();
+    expect(mockInsertarAjustesCierre).not.toHaveBeenCalled();
   });
 
   it("el módulo arqueo NO sirve para colar otro movimiento manual junto al asiento de ajuste", async () => {
