@@ -7,15 +7,18 @@
 // " ana@gmail.com "), mayúsculas, tildes y puntos colgando. Con Resend un rebote
 // es cosmético; con SES la tasa de rebote sobre ~5% pone la cuenta en revisión
 // y sobre ~10% la suspende. Así que: lo que se puede arreglar sin adivinar
-// (espacios, mayúsculas) se arregla, y lo que no se manda.
+// (espacios en los bordes, mayúsculas) se arregla, y lo que no se manda.
+// Un espacio en medio ("juan perez@") NO se quita: puede ser juan.perez@ o
+// juan_perez@, y juanperez@ es de otra persona.
 //
 // Lo que NO se intenta: corregir dominios ("gmial.com"), quitar puntos
 // sobrantes o tildes. Eso es adivinar la dirección del cliente, y un error ahí
 // le manda su correo a otra persona.
 
-/** trim + sin espacios internos (incluye NBSP y tabs) + minúsculas. */
+/** trim (incluye NBSP y tabs) + minúsculas. Los espacios internos quedan y
+ * motivoEmailInvalido los rechaza. */
 export function normalizarEmail(email: string | null | undefined): string {
-  return (email || "").replace(/\s+/g, "").toLowerCase();
+  return (email || "").trim().toLowerCase();
 }
 
 // atext de RFC 5322 (sin comillas: una parte local entre comillas no aparece
@@ -31,6 +34,7 @@ const NO_ASCII = /[^\x20-\x7e]/;
  */
 export function motivoEmailInvalido(email: string): string | null {
   if (!email) return "dirección vacía";
+  if (/\s/.test(email)) return "tiene espacios en medio de la dirección";
   const arrobas = email.split("@").length - 1;
   if (arrobas === 0) return "falta la @";
   if (arrobas > 1) return "tiene más de una @";

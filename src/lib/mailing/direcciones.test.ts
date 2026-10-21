@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { emailValido, motivoEmailInvalido, normalizarEmail } from "./direcciones";
 
 describe("normalizarEmail", () => {
-  it("quita espacios al borde, internos y NBSP, y pasa a minúsculas", () => {
+  it("quita espacios al borde (NBSP y tabs incluidos) y pasa a minúsculas, sin tocar los internos", () => {
     expect(normalizarEmail("  Juan.Perez@Gmail.COM ")).toBe("juan.perez@gmail.com");
-    expect(normalizarEmail("juan perez@gmail.com")).toBe("juanperez@gmail.com");
-    expect(normalizarEmail("ana@gmail. com\t")).toBe("ana@gmail.com");
+    expect(normalizarEmail("\u00a0ana@gmail.com\t")).toBe("ana@gmail.com");
+    expect(normalizarEmail("juan perez@gmail.com")).toBe("juan perez@gmail.com");
   });
 
   it("null/undefined -> vacío", () => {
@@ -49,8 +49,10 @@ describe("emailValido / motivoEmailInvalido", () => {
     expect(motivoEmailInvalido(email)).toContain(fragmento);
   });
 
-  it("una dirección con espacios internos queda válida después de normalizar", () => {
-    expect(emailValido("Juan Perez@gmail.com")).toBe(false);
-    expect(emailValido(normalizarEmail("Juan Perez@gmail.com"))).toBe(true);
+  // "juan perez@" puede ser juan.perez@ o juan_perez@: adivinar le manda el
+  // correo a otra persona, así que no se manda.
+  it("una dirección con espacios internos sigue sin mandarse después de normalizar", () => {
+    expect(motivoEmailInvalido(normalizarEmail("Juan Perez@gmail.com"))).toContain("espacios");
+    expect(motivoEmailInvalido(normalizarEmail("ana@gmail. com"))).toContain("espacios");
   });
 });
