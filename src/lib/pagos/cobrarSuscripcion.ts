@@ -10,7 +10,7 @@ import type { Precios } from "@/types";
 import { aplicarPagoAprobado, visitasPeriodoActual } from "./aplicarPagoAprobado";
 import { buscarCuponDescuentoPlan } from "./cuponPlan";
 import { autorizarCobro, reconciliarCobrosEnCurso, reservarCobro, type CobroRecuperado } from "./oneclickCobro";
-import { transbankNoContestoDosVeces, type IntentoCobro } from "./politicaReintento";
+import { proximoReintento, rachaActual, transbankNoContestoDosVeces, type IntentoCobro } from "./politicaReintento";
 
 /** Próximo ciclo mensual a partir de una fecha base, saltando meses ya
  * vencidos (ej. si el cron no corrió por 2 meses) hasta caer en el futuro.
@@ -66,6 +66,8 @@ type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 /** Cuántos intentos hacia atrás se leen para decidir. Holgado: una racha
  * completa del cron son ~10 intentos, más los manuales. */
 const HISTORIAL_INTENTOS = 40;
+
+type ResultadoCobro = { estado: "aprobada" | "rechazada" | "pendiente_validacion"; cortado?: boolean };
 
 /** El cron deja de intentar esta racha: sin `proximoCobro` no la vuelve a
  * tomar mientras el plan siga vencido. No cancela la suscripción ni toca la
@@ -128,16 +130,19 @@ export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOne
  * tarjeta — misma función, sin distinguir quién la llamó.
  *
  * Si el cobro sale, `proximoCobro` avanza al próximo ciclo. Si falla (rechazo
- * de la tarjeta o error hablando con Transbank) se reintenta solo al día
- * siguiente, todos los días, hasta que salga, el cliente pague por otra vía
- * (el cron lo reagenda al ver el plan vigente) o se suspenda la suscripción.
- * El aviso de cobro fallido sale solo en el primer rechazo de la racha: con
- * reintento diario, avisar en cada intento sería un WhatsApp/correo por día.
+ * de la tarjeta o error hablando con Transbank) la fecha se queda donde
+ * estaba y el cron lo reintenta según el código de rechazo (ver
+ * proximoReintento): los días que no toca devuelve "en_espera" sin llamar a
+ * Transbank. Cuando la política se agota (-11 en el acto, -10 tras su único
+ * reintento, el resto pasado el día 21, o dos seguidos sin respuesta de
+ * Transbank) se corta el reintento automático (ver cortarReintentoAutomatico)
+ * y sale el aviso de cobro fallido para que el cliente pague por el link;
+ * devuelve `cortado: true`. Si el cliente paga por otra vía antes, el cron ve
+ * el plan vigente y lo reagenda.
  *
- * Excepción, solo en el cron: si Transbank no contestó por los dos últimos
- * intentos (ver transbankNoContestoDosVeces) no se reserva otro. Se corta el
- * reintento automático (ver cortarReintentoAutomatico) y sale el aviso de
- * cobro fallido para que el cliente pague por el link. Devuelve `cortado`.
+ * El aviso de cobro fallido sale en el primer rechazo de la racha y en el
+ * corte, no en cada reintento. La política es solo del cron: con alguien
+ * delante (operador, Mi Cuenta, primer cobro) se cobra cuando lo aprietan.
  *
  * "pendiente_validacion" es el tercer resultado: no se cobró nada porque el
  * cliente sigue en el ilimitado viejo, no ha aceptado pasar al X5 (ver
@@ -145,7 +150,16 @@ export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOne
  * cambiaría el producto. Al que usa poco se le mantiene el plan y SÍ se le
  * cobra (ver el candado más abajo). No es un rechazo de la tarjeta — no se
  * llegó a llamar a Transbank — así que no dispara los avisos de cobro fallido.
+ *
+ * "en_espera" solo lo puede devolver el cron (`sinCliente`): de ahí las dos
+ * firmas, para que los tres llamadores con alguien delante no tengan que
+ * manejar un resultado que nunca les llega.
  */
+export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick, opciones?: { sinCliente?: false }): Promise<ResultadoCobro>;
+export async function cobrarSuscripcion(
+  suscripcion: SuscripcionOneclick,
+  opciones: { sinCliente?: boolean }
+): Promise<ResultadoCobro | { estado: "en_espera"; cortado?: undefined }>;
 export async function cobrarSuscripcion(
   suscripcion: SuscripcionOneclick,
   /**
@@ -162,7 +176,7 @@ export async function cobrarSuscripcion(
    * mucho pasaría por uno de bajo uso.
    */
   opciones: { sinCliente?: boolean } = {}
-): Promise<{ estado: "aprobada" | "rechazada" | "pendiente_validacion"; cortado?: boolean }> {
+): Promise<ResultadoCobro | { estado: "en_espera"; cortado?: undefined }> {
   const tbkUser = suscripcion.tbkUser;
   if (!tbkUser) {
     throw new Error("Suscripción sin tbkUser, no se puede cobrar");
@@ -342,6 +356,25 @@ export async function cobrarSuscripcion(
       return { estado: "rechazada" as const, buyOrder: historial[0].id, monto: historial[0].monto, clienteId: cliente?.id ?? null, esReintento, cortado: true };
     }
 
+    // Política de reintento por código de rechazo, solo en el cron. "esperar"
+    // no escribe nada: la fecha de cobro sigue vencida y el cron la vuelve a
+    // mirar mañana. "cortar" acá es el caso en que la racha ya se agotó con
+    // un intento que no fue del cron (ej. un reintento manual rechazado): el
+    // aviso va con el id de ese último rechazo, y si ya avisó, el
+    // anti-duplicado por buyOrder de las reglas lo frena.
+    const racha = opciones.sinCliente ? rachaActual(historial, suscripcion.proximoCobro) : [];
+    if (opciones.sinCliente) {
+      const decision = proximoReintento({ rechazos: racha, hoy: new Date() });
+      if (decision.accion === "esperar") {
+        return { estado: "en_espera" as const, buyOrder: "", monto: 0, clienteId: cliente?.id ?? null, esReintento, cortado: false };
+      }
+      if (decision.accion === "cortar") {
+        const ultimo = racha[racha.length - 1];
+        await cortarReintentoAutomatico(tx, suscripcion.id);
+        return { estado: "rechazada" as const, buyOrder: ultimo.id, monto: ultimo.monto, clienteId: cliente?.id ?? null, esReintento, cortado: true };
+      }
+    }
+
     // Reserva con commit propio, fuera de esta transacción (ver reservarCobro).
     await reservarCobro({ id: buyOrder, suscripcionId: suscripcion.id, cicloYm, monto });
 
@@ -405,10 +438,23 @@ export async function cobrarSuscripcion(
       .set({ estado, responseCode, authorizationCode, ventaId })
       .where(eq(cobrosOneclick.id, buyOrder));
 
+    // ¿Este rechazo agota la política? Se decide ahora, con él incluido, para
+    // mandar el link hoy y no mañana (-11 en el acto, el del día 21...).
+    const cortado =
+      estado === "rechazada" &&
+      !!opciones.sinCliente &&
+      proximoReintento({
+        rechazos: [...racha, { id: buyOrder, estado, responseCode, creadoEn: new Date().toISOString(), monto }],
+        hoy: new Date(),
+      }).accion === "cortar";
+
     await tx
       .update(suscripcionesOneclick)
       .set({
-        proximoCobro: estado === "aprobada" ? proximoCicloISO(suscripcion.proximoCobro) : proximoReintentoISO(suscripcion.proximoCobro),
+        // Cortado = null, igual que cortarReintentoAutomatico (va en el mismo
+        // update para no escribir la fila dos veces).
+        proximoCobro:
+          estado === "aprobada" ? proximoCicloISO(suscripcion.proximoCobro) : cortado ? null : proximoReintentoISO(suscripcion.proximoCobro),
         actualizadoEn: new Date().toISOString(),
         // Si venía pausada por el candado y este cobro igual salió (política de
         // rescate: no le cambia el plan), la pausa ya no describe nada — no se
@@ -421,7 +467,7 @@ export async function cobrarSuscripcion(
       })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
 
-    return { estado, buyOrder, monto, clienteId: cliente?.id ?? null, esReintento, cortado: false };
+    return { estado, buyOrder, monto, clienteId: cliente?.id ?? null, esReintento, cortado };
   });
 
   // Fuera de la transacción/lock a propósito (avisar por WhatsApp no debe
@@ -471,5 +517,6 @@ export async function cobrarSuscripcion(
     );
   }
 
+  if (resultado.estado === "en_espera") return { estado: "en_espera" };
   return { estado: resultado.estado, ...(resultado.cortado ? { cortado: true } : {}) };
 }

@@ -108,9 +108,11 @@ export async function GET(request: NextRequest) {
     try {
       // sinCliente: este es el único camino de cobro sin nadie mirando una
       // pantalla, y por eso el único donde rige la política de rescate (ver
-      // planTrasRenovacionSinCliente).
-      const { estado } = await cobrarSuscripcion(suscripcion, { sinCliente: true });
-      resultados.push({ suscripcionId: suscripcion.id, patente: suscripcion.patente, estado });
+      // planTrasRenovacionSinCliente), y donde rige la política de reintento
+      // por código de rechazo (ver proximoReintento): "en_espera" = hoy no le
+      // tocaba reintento; "cortada" = se agotó y se le mandó el link de pago.
+      const { estado, cortado } = await cobrarSuscripcion(suscripcion, { sinCliente: true });
+      resultados.push({ suscripcionId: suscripcion.id, patente: suscripcion.patente, estado: cortado ? "cortada" : estado });
     } catch (error) {
       console.error("Error cobrando suscripción Oneclick", suscripcion.id, error);
       resultados.push({ suscripcionId: suscripcion.id, patente: suscripcion.patente, error: "error" });

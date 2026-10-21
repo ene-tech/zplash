@@ -296,7 +296,8 @@ describe("Transbank no contestó dos veces seguidas", () => {
   });
 
   it("uno solo sin respuesta -> se intenta de nuevo", async () => {
-    respuestas = [precios, cliente, [], [historial[0], { ...historial[1], responseCode: -1 }]];
+    const haceDias = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
+    respuestas = [precios, cliente, [], [sinRespuesta("oc2", haceDias(1)), { ...sinRespuesta("oc1", haceDias(2)), responseCode: -1 }]];
     await cobrarSuscripcion(suscripcion, { sinCliente: true });
     expect(authorize).toHaveBeenCalled();
   });
@@ -308,6 +309,88 @@ describe("Transbank no contestó dos veces seguidas", () => {
     respuestas = [precios, cliente, [], []];
     await cobrarSuscripcion({ ...suscripcion, proximoCobro: null });
     expect(updates.at(-1)!.proximoCobro).toBeNull();
+  });
+});
+
+// La política de reintento por código (la tabla completa está en
+// politicaReintento.test.ts): acá se fija que cobrarSuscripcion la aplique solo
+// en el cron, que "esperar" no toque nada y que el corte deje la suscripción
+// sin fecha y mande el aviso.
+describe("política de reintento en el cron", () => {
+  const precios = [{ plan: PLAN_ONECLICK_KEY, normal: 19990, promo: 0 }];
+  const cliente = [{ id: "c1", precioPlanHeredado: null, plan: PLAN_X5, aceptoX5En: "2026-09-01T00:00:00.000Z" }];
+  const haceDias = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
+  // Historial del más nuevo al más viejo, como lo devuelve la consulta.
+  const rechazosEn = (codigo: number, diasAtras: number[]) =>
+    diasAtras.map((d) => ({ id: `oc${d}`, estado: "rechazada", responseCode: codigo, creadoEn: haceDias(d), monto: 19990 }));
+  const rechazarCon = (codigo: number) => authorize.mockResolvedValueOnce({ details: [{ response_code: codigo, authorization_code: "" }] });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updates.length = 0;
+    recuperados = [];
+    pasadasDelCiclo = 0;
+  });
+
+  it("día 4 de una racha de -3 -> en_espera: no llama a Transbank ni escribe nada", async () => {
+    respuestas = [precios, cliente, [], rechazosEn(-3, [1, 2, 3, 4])];
+    const resultado = await cobrarSuscripcion(suscripcion, { sinCliente: true });
+    expect(resultado).toEqual({ estado: "en_espera" });
+    expect(authorize).not.toHaveBeenCalled();
+    expect(updates).toEqual([]);
+    expect(avisoCobroFallido).not.toHaveBeenCalled();
+  });
+
+  it("la misma racha con el operador delante -> cobra igual", async () => {
+    respuestas = [precios, cliente, [], rechazosEn(-3, [1, 2, 3, 4])];
+    const { estado } = await cobrarSuscripcion(suscripcion);
+    expect(estado).toBe("aprobada");
+  });
+
+  it("primer rechazo -3 -> conserva la fecha y avisa una vez", async () => {
+    rechazarCon(-3);
+    respuestas = [precios, cliente, [], []];
+    const resultado = await cobrarSuscripcion(suscripcion, { sinCliente: true });
+    expect(resultado).toEqual({ estado: "rechazada" });
+    expect(updates.at(-1)!.proximoCobro).toBe(suscripcion.proximoCobro);
+    expect(avisoCobroFallido).toHaveBeenCalledTimes(1);
+  });
+
+  it("primer rechazo -11 -> corta en el acto y avisa", async () => {
+    rechazarCon(-11);
+    respuestas = [precios, cliente, [], []];
+    const resultado = await cobrarSuscripcion(suscripcion, { sinCliente: true });
+    expect(resultado).toEqual({ estado: "rechazada", cortado: true });
+    expect(updates.at(-1)!.proximoCobro).toBeNull();
+    expect(avisoCobroFallido).toHaveBeenCalledTimes(1);
+  });
+
+  it("-10 que vuelve a fallar a los 4 días -> corta y avisa (aunque ya avisó el primero)", async () => {
+    rechazarCon(-10);
+    respuestas = [precios, cliente, [], rechazosEn(-10, [4])];
+    const resultado = await cobrarSuscripcion(suscripcion, { sinCliente: true });
+    expect(resultado).toEqual({ estado: "rechazada", cortado: true });
+    expect(updates.at(-1)!.proximoCobro).toBeNull();
+    expect(avisoCobroFallido).toHaveBeenCalled();
+  });
+
+  it("falla el intento del día 21 -> corta y avisa", async () => {
+    rechazarCon(-6);
+    respuestas = [precios, cliente, [], rechazosEn(-6, [3, 6, 9, 12, 15, 18, 19, 20, 21])];
+    const resultado = await cobrarSuscripcion(suscripcion, { sinCliente: true });
+    expect(resultado).toEqual({ estado: "rechazada", cortado: true });
+    expect(updates.at(-1)!.proximoCobro).toBeNull();
+    expect(avisoCobroFallido).toHaveBeenCalled();
+  });
+
+  // La racha ya se agotó con un intento que no fue del cron (un reintento
+  // manual el día 21): el cron corta sin volver a llamar a Transbank.
+  it("racha ya agotada -> corta sin cobrar", async () => {
+    respuestas = [precios, cliente, [], rechazosEn(-3, [0, 3, 6, 9, 12, 15, 18, 19, 20, 21])];
+    const resultado = await cobrarSuscripcion(suscripcion, { sinCliente: true });
+    expect(resultado).toEqual({ estado: "rechazada", cortado: true });
+    expect(authorize).not.toHaveBeenCalled();
+    expect(updates).toEqual([expect.objectContaining({ proximoCobro: null })]);
   });
 });
 
