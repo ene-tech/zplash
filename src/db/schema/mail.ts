@@ -61,3 +61,19 @@ export const correosAutomaticos = pgTable(
   },
   (t) => [index("correos_automaticos_creado_en_idx").on(t.creadoEn), index("correos_automaticos_cliente_id_idx").on(t.clienteId)]
 );
+
+// Lista de supresión del correo automático: direcciones a las que
+// enviarCorreoTransaccional (@/lib/mailing/proveedor) NO manda, sin importar
+// el proveedor. Se llena sola desde el webhook de SES
+// (src/app/api/correo/ses/notificaciones) con rebotes permanentes y quejas
+// de spam; "manual" queda para cargar a mano a quien pida no recibir más.
+// Con SES esto no es opcional: seguir mandándole a una dirección que rebotó
+// o que marcó spam sube las tasas que AWS mira para suspender la cuenta.
+// `email` va normalizado (ver normalizarEmail en @/lib/mailing/direcciones).
+export const correosSuprimidos = pgTable("correos_suprimidos", {
+  email: text("email").primaryKey(),
+  // "rebote" | "queja" | "manual" (check en el SQL).
+  motivo: text("motivo").notNull(),
+  detalle: text("detalle"),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+});
