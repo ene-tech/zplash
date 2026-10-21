@@ -29,6 +29,8 @@ interface SdkPos {
   autoconnect(): Promise<string | boolean>;
   loadKeys(): Promise<unknown>;
   doSale(amount: number, ticket: string, callback?: (status: { responseMessage?: string }) => void): Promise<RespuestaPos>;
+  /** Anulación de una venta del mismo día por su nº de operación. */
+  refund(operationId: string): Promise<{ responseCode?: number; responseMessage?: string | null }>;
 }
 
 let puertoAbierto: string | null = null;
@@ -82,7 +84,7 @@ export async function ventaPosIntegrado(
   monto: number,
   ticket: string,
   onEstado?: (mensaje: string) => void
-): Promise<{ aprobada: true; voucher: string } | { aprobada: false; error: string }> {
+): Promise<{ aprobada: true; voucher: string; operacion?: string } | { aprobada: false; error: string }> {
   try {
     const POS = await sdk();
     const r = await POS.doSale(Math.round(monto), ticket.slice(0, 20), (s) => {
@@ -97,7 +99,11 @@ export async function ventaPosIntegrado(
       r.last4Digits != null ? `****${r.last4Digits}` : null,
       r.cardBrand || null,
     ].filter(Boolean);
-    return { aprobada: true, voucher: partes.join(" · ") || "aprobada (sin detalle)" };
+    return {
+      aprobada: true,
+      voucher: partes.join(" · ") || "aprobada (sin detalle)",
+      operacion: r.operationNumber != null ? String(r.operationNumber) : undefined,
+    };
   } catch (error) {
     console.error("Error cobrando en el POS Integrado", error);
     puertoAbierto = null;
@@ -107,6 +113,32 @@ export async function ventaPosIntegrado(
       aprobada: false,
       error:
         "El terminal no respondió. Mira su pantalla: si dice APROBADA, cobra con Tarjeta (manual) anotando el voucher; si no, reintenta.",
+    };
+  }
+}
+
+/** Anula en el terminal una venta aprobada hoy, por su nº de operación (el
+ * "op" del voucher). Se usa cuando el terminal cobró pero la venta no se pudo
+ * guardar por un motivo que no se arregla reintentando: la plata vuelve a la
+ * tarjeta del cliente y se cobra de nuevo con la venta corregida. */
+export async function anularPosIntegrado(operacion: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    if (!posIntegradoConectado()) {
+      const c = await conectarPosIntegrado();
+      if (!c.ok) return { ok: false, error: c.error };
+    }
+    const POS = await sdk();
+    const r = await POS.refund(operacion);
+    if (r?.responseCode !== 0) {
+      return { ok: false, error: r?.responseMessage || "El terminal rechazó la anulación" };
+    }
+    return { ok: true };
+  } catch (error) {
+    console.error("Error anulando en el POS Integrado", error);
+    puertoAbierto = null;
+    return {
+      ok: false,
+      error: "El terminal no respondió a la anulación. Mira su pantalla; si no dice ANULADA, anúlala desde el menú del terminal.",
     };
   }
 }

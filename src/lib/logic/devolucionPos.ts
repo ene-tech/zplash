@@ -40,7 +40,23 @@ export interface DatosDevolucionPos {
 export interface DevolucionArmada {
   venta: Venta;
   items: VentaItem[];
-  movimiento: MovimientoContable;
+  /** null si la devolución es sin monto (venta pagada entera con descuento). */
+  movimiento: MovimientoContable | null;
+}
+
+/** Lo que se devuelve por las líneas marcadas (`totalLista`, en negativo o
+ * positivo, a precio de lista). Si la venta llevó un código de descuento
+ * (`cobrado` < `brutoVenta`), se devuelve la proporción de lo cobrado y no el
+ * precio de lista: si no, comprar con un vale y devolver por efectivo sacaba
+ * plata de la caja. La usan armarDevolucionPos y el modal de devolución. */
+export function totalDevolucionProrrateado(totalLista: number, brutoVenta: number, cobrado: number | undefined): number {
+  const total =
+    cobrado !== undefined && brutoVenta > 0 && cobrado < brutoVenta
+      ? Math.round((totalLista * Math.max(0, cobrado)) / brutoVenta)
+      : totalLista;
+  // Math.round de un negativo chico da -0: se normaliza para que "sin monto"
+  // se compare y se grabe como 0.
+  return total === 0 ? 0 : total;
 }
 
 /** Arma el contra-asiento de una devolución de productos: una Venta de tipo
@@ -95,11 +111,11 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
 
   const totalLista = items.reduce((s, it) => s + it.cantidad * it.precioUnitario, 0); // negativo
   const brutoVenta = datos.itemsVenta.reduce((s, it) => s + it.cantidad * it.precioUnitario, 0);
-  const cobrado = datos.venta.precio;
-  const total =
-    cobrado !== undefined && brutoVenta > 0 && cobrado < brutoVenta
-      ? Math.round((totalLista * Math.max(0, cobrado)) / brutoVenta)
-      : totalLista;
+  const total = totalDevolucionProrrateado(totalLista, brutoVenta, datos.venta.precio);
+  // Venta pagada entera con un código (vale, cupón): lo que vuelve es solo
+  // stock. No hay plata que devolver ni vale que emitir, así que la
+  // devolución queda registrada sin monto, sin medio de pago y sin asiento.
+  const sinMonto = total === 0;
   const unidades = items.reduce((s, it) => s + Math.abs(it.cantidad), 0);
 
   const venta: Venta = {
@@ -114,14 +130,16 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
     creadoPor: datos.creadoPor,
     // El vale a favor no saca plata de la caja: no lleva medio de pago, para
     // que el arqueo del día no espere menos efectivo del que hay.
-    metodoPago: datos.forma === "vale" ? undefined : datos.forma,
+    metodoPago: datos.forma === "vale" || sinMonto ? undefined : datos.forma,
     cantidadItems: unidades,
-    notas: `Devolución de ${unidades} ${unidades === 1 ? "unidad" : "unidades"} · ${glosaForma(datos.forma)} · ${datos.motivo.trim()}`,
+    notas: `Devolución de ${unidades} ${unidades === 1 ? "unidad" : "unidades"} · ${sinMonto ? "sin monto (se pagó con descuento)" : glosaForma(datos.forma)} · ${datos.motivo.trim()}`,
     estadoPago: "pagado",
     tipoDocumento: datos.venta.tipoDocumento,
     razonSocial: datos.venta.razonSocial,
     rut: datos.venta.rut,
   };
+
+  if (sinMonto) return { venta, items, movimiento: null };
 
   const movimiento: MovimientoContable = {
     id: `mc-venta-${ventaId}`,

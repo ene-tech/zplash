@@ -30,6 +30,16 @@ export interface DatosVentaPos {
   datosFactura?: DatosFacturacion;
 }
 
+/** Cuánto rebaja un código de descuento sobre el subtotal del carrito: nunca
+ * negativo ni más que el subtotal. La usan armarVentaPos (lo que se graba) y
+ * el POS (lo que se pinta mientras se arma el carrito), para que no diverjan. */
+export function rebajaDescuento(
+  descuento: Pick<Cupon, "valor" | "esPorcentaje"> | null | undefined,
+  bruto: number
+): number {
+  return descuento ? Math.min(bruto, Math.max(0, montoDescuento(descuento, bruto))) : 0;
+}
+
 /** Arma la Venta y sus líneas a partir del carrito. Pura (sin DB ni reloj)
  * para poder testearla; la escritura transaccional vive en
  * registrarVentaPos (@/lib/serverActions/pos). Devuelve un error legible si
@@ -62,7 +72,7 @@ export function armarVentaPos(datos: DatosVentaPos): { venta: Venta; items: Vent
   // Nunca total negativo: un vale de $10.000 contra $6.000 de productos deja
   // la venta en $0 y el saldo se pierde (mismo criterio que precioConCupon en
   // el mesón; un vale es de un solo uso).
-  const rebaja = datos.descuento ? Math.min(bruto, Math.max(0, montoDescuento(datos.descuento, bruto))) : 0;
+  const rebaja = rebajaDescuento(datos.descuento, bruto);
   const precio = bruto - rebaja;
   // El método llega del navegador: se valida contra la lista (y no solo por
   // el tipo, que en runtime no existe). Con $0 no hay nada que cobrar.
@@ -117,8 +127,13 @@ export function armarVentaPos(datos: DatosVentaPos): { venta: Venta; items: Vent
  * canal local, patente asignada, solo clientes nuevos, referidos), con un
  * agregado propio: la venta de tienda puede ir sin patente (invitado o
  * comprador sin auto), y hay códigos cuya regla ES la patente — "un uso por
- * patente", "solo clientes nuevos" y los de amigo (referidos). Sin patente esa regla no se puede
- * aplicar, así que esos piden elegir al cliente del lavado. */
+ * patente" y los de amigo (referidos). Sin patente esa regla no se puede
+ * aplicar, así que esos piden elegir al cliente del lavado.
+ *
+ * Los de "solo clientes nuevos" se rechazan siempre: sin patente no hay cómo
+ * comprobarlo, y con cliente elegido ese cliente ya existe, así que en la
+ * tienda nunca podrían pasar. Se dice de entrada en vez de pedir un cliente
+ * que después igual los rechaza. */
 export function resolverDescuentoPos(
   codigoCrudo: string,
   patente: string,
@@ -127,7 +142,13 @@ export function resolverDescuentoPos(
 ): { ok: true; cupon: Cupon } | { ok: false; msg: string } {
   const codigo = codigoCrudo.trim().toUpperCase();
   const cupon = cupones.find((c) => c.codigo === codigo);
-  if (cupon && !patente && (cupon.unUsoPorPatente || cupon.soloClientesNuevos || referidorDeLote(cupon.nombreLote))) {
+  if (cupon?.soloClientesNuevos) {
+    return {
+      ok: false,
+      msg: "Este código es solo para clientes nuevos del lavado y se usa en el mesón, no en la tienda",
+    };
+  }
+  if (cupon && !patente && (cupon.unUsoPorPatente || referidorDeLote(cupon.nombreLote))) {
     return { ok: false, msg: "Este código va atado a una patente: elige al cliente del lavado para usarlo" };
   }
   return resolverDescuento(codigo, patente, cupones, clientes);

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP, fmtFecha, TIPO_VENTA_PRODUCTOS } from "@/lib/helpers";
 import { lineasDeVenta, registrarDevolucionPos } from "@/lib/serverActions";
+import { totalDevolucionProrrateado } from "@/lib/logic";
 import type { Venta, VentaItem } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -86,10 +87,10 @@ export default function DevolucionPosModal({ onCerrar }: { onCerrar: () => void 
   // descuento, se devuelve la proporción de lo cobrado, no el precio de lista.
   const totalLista = lineas.reduce((s, l) => s + l.cantidad * l.precioUnitario, 0);
   const brutoVenta = (items || []).reduce((s, it) => s + it.cantidad * it.precioUnitario, 0);
-  const totalDevolver =
-    venta && brutoVenta > 0 && venta.precio < brutoVenta
-      ? Math.round((totalLista * Math.max(0, venta.precio)) / brutoVenta)
-      : totalLista;
+  const totalDevolver = venta ? totalDevolucionProrrateado(totalLista, brutoVenta, venta.precio) : 0;
+  // Venta pagada entera con un código: solo vuelve el stock (ver
+  // armarDevolucionPos), así que la forma de devolver no aplica.
+  const sinMonto = lineas.length > 0 && totalDevolver === 0;
 
   const confirmar = async () => {
     if (!venta || guardando) return;
@@ -110,7 +111,7 @@ export default function DevolucionPosModal({ onCerrar }: { onCerrar: () => void 
       aplicarLocal((actual) => ({
         ventas: [r.venta, ...actual.ventas],
         productos: actual.productos.map((p) => productosPorId.get(p.id) || p),
-        movimientosContables: [r.movimiento, ...actual.movimientosContables],
+        movimientosContables: r.movimiento ? [r.movimiento, ...actual.movimientosContables] : actual.movimientosContables,
         cupones: r.vale ? [r.vale, ...actual.cupones] : actual.cupones,
       }));
       if (r.vale) {
@@ -120,7 +121,11 @@ export default function DevolucionPosModal({ onCerrar }: { onCerrar: () => void 
         toast.success(`Vale a favor emitido · ${fmtCLP(r.vale.valor)}`);
         return;
       }
-      toast.success(`Devolución registrada · ${fmtCLP(Math.abs(r.venta.precio))}`);
+      toast.success(
+        r.venta.precio === 0
+          ? "Devolución registrada · solo stock (se había pagado con descuento)"
+          : `Devolución registrada · ${fmtCLP(Math.abs(r.venta.precio))}`
+      );
       onCerrar();
     } catch (error) {
       console.error("No se pudo registrar la devolución", error);
@@ -256,16 +261,23 @@ export default function DevolucionPosModal({ onCerrar }: { onCerrar: () => void 
               />
             </div>
 
-            <div className="field">
-              <Label htmlFor="dev-forma">Cómo se le devuelve</Label>
-              <select id="dev-forma" value={forma} onChange={(e) => setForma(e.target.value as typeof forma)}>
-                {FORMAS.map((f) => (
-                  <option key={f.valor} value={f.valor}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {sinMonto ? (
+              <p style={{ fontSize: 12, color: "var(--gray)" }}>
+                Esta venta se pagó entera con un código de descuento: no hay plata ni vale que devolver. Solo vuelve el
+                stock y la devolución queda registrada sin monto.
+              </p>
+            ) : (
+              <div className="field">
+                <Label htmlFor="dev-forma">Cómo se le devuelve</Label>
+                <select id="dev-forma" value={forma} onChange={(e) => setForma(e.target.value as typeof forma)}>
+                  {FORMAS.map((f) => (
+                    <option key={f.valor} value={f.valor}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div style={{ textAlign: "right", fontSize: 20, fontWeight: 700 }}>A devolver: {fmtCLP(totalDevolver)}</div>
             {/* Lo que vuelve con detalle no se puede vender hasta que alguien

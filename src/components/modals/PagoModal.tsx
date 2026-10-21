@@ -110,7 +110,13 @@ export default function PagoModal({
         setErr(r.error);
         return;
       }
-      onConfirm({ metodo: "tarjeta", voucher: r.voucher, viaTerminal: true, ...(doc && { documento: doc }) });
+      onConfirm({
+        metodo: "tarjeta",
+        voucher: r.voucher,
+        viaTerminal: true,
+        operacionTerminal: r.operacion,
+        ...(doc && { documento: doc }),
+      });
       patchUi({ modal: null });
     } finally {
       setCobrandoTerminal(false);

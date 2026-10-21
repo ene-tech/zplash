@@ -12,7 +12,7 @@
 
 import { conOrigen } from "@/lib/helpers/utm";
 
-const PREFIJO_REFERIDO = "Referido - ";
+export const PREFIJO_REFERIDO = "Referido - ";
 const PREFIJO_PREMIO = "Premio referido - ";
 
 /** Plantilla del WhatsApp "te ganaste tu premio" que manda /api/referidos/premiar. */
