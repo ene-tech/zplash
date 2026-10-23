@@ -64,3 +64,8 @@ clientes-*
 # Cualquier otro distDir de next dev (NEXT_DIST_DIR): si no está ignorado,
 # Tailwind escanea su cache binaria y rompe globals.css con clases basura.
 /.next-*/
+
+# Listas de campañas y volcados con patentes, ids o datos crudos de clientes
+scripts/campana-*.json
+scripts/historial-*.json
+scripts/meta-ads/
