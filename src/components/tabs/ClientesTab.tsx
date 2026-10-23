@@ -161,7 +161,7 @@ export default function ClientesTab() {
     <div>
       <div className="toolbar">
         <input
-          placeholder="Buscar por nombre o patente..."
+          placeholder="Buscar por nombre, patente o celular..."
           value={ui.search || ""}
           onChange={(e) => patchUi({ search: e.target.value })}
         />

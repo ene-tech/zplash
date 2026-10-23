@@ -75,6 +75,18 @@ describe("filtrarYOrdenarClientes", () => {
     ]);
   });
 
+  it("busca por celular con o sin formato, desde 4 dígitos", () => {
+    const clientes = [
+      cliente({ id: "ana", patente: "AB1234", telefono: "+56912345678" }),
+      cliente({ id: "beto", patente: "CD5678", telefono: "+56987654321" }),
+    ];
+    const ids = (search: string) => filtrarYOrdenarClientes(clientes, { ...base, search }).map((c) => c.id);
+    expect(ids("+569 -1234 5678")).toEqual(["ana"]);
+    expect(ids("912345678")).toEqual(["ana"]);
+    expect(ids("5678")).toEqual(["beto", "ana"]); // patente CD5678 primero, después el celular de Ana
+    expect(ids("567")).toEqual(["beto"]); // con 3 dígitos no se mira el teléfono
+  });
+
   it("combina los filtros de estado, origen y rango de pasadas", () => {
     const clientes = [
       cliente({ id: "web", origen: "WEB", visitas: 5, vencimiento: enDias(10) }),

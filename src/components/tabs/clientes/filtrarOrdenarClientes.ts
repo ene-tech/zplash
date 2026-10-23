@@ -20,9 +20,24 @@ function coincideNombre(c: Cliente, q: string): boolean {
   return q.length > 0 && c.nombre.toLowerCase().includes(q);
 }
 
+// Búsqueda por celular: solo cuando lo tipeado es puro número (se aceptan
+// espacios, "+", "-" y paréntesis, para poder pegar "+569 -1234 5678" tal
+// como lo muestra fmtTelefono) y trae al menos 4 dígitos — con menos,
+// cualquier par de números calza con media base. Se comparan solo dígitos
+// porque en la base el teléfono va como "+569XXXXXXXX".
+function digitosTelefono(search: string): string {
+  if (!/^[\d\s+()-]+$/.test(search.trim())) return "";
+  const digitos = search.replace(/\D/g, "");
+  return digitos.length >= 4 ? digitos : "";
+}
+
+function coincideTelefono(c: Cliente, qTelefono: string): boolean {
+  return qTelefono.length > 0 && (c.telefono || "").replace(/\D/g, "").includes(qTelefono);
+}
+
 // Rango de relevancia: todo lo que coincide por patente se ordena antes que
-// lo que solo coincide por nombre, ya que patente es el campo de búsqueda
-// más específico (identifica un único vehículo/cliente). `q`/`qPatente` se
+// lo que solo coincide por nombre o teléfono, ya que patente es el campo de
+// búsqueda más específico (identifica un único vehículo/cliente). `q`/`qPatente` se
 // reciben ya normalizados: normalizar la query acá adentro significaba
 // rehacerlo una vez por cliente.
 function relevancia(c: Cliente, q: string, qPatente: string): number {
@@ -76,7 +91,10 @@ export function filtrarYOrdenarClientes(
   const { search, filtroEstado, filtroOrigen = "todos", filtroSuscripcion = "todas", filtroPlan = "todos", suscripciones, pasadasDesde, pasadasHasta, orden } = opts;
   const qPatente = normPlate(search);
   const qNombre = search.toLowerCase().trim();
-  let filtered = clientes.filter((c) => !search || coincidePatente(c, qPatente) || coincideNombre(c, qNombre));
+  const qTelefono = digitosTelefono(search);
+  let filtered = clientes.filter(
+    (c) => !search || coincidePatente(c, qPatente) || coincideNombre(c, qNombre) || coincideTelefono(c, qTelefono)
+  );
   if (filtroEstado !== "todos") {
     filtered = filtered.filter((c) => planStatus(c).label === filtroEstado);
   }
