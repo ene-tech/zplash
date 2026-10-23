@@ -33,6 +33,7 @@ import {
   ventaLavadoWebPendiente,
   ventaUpgradeElegible,
   visitasPeriodoPlan,
+  yaIngresoHoy,
 } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { useFichaClienteActions } from "./useFichaClienteActions";
@@ -188,6 +189,9 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const precioPromo2 = precioPromoLavados(data.precios, "promo_2_lavados");
   const precioPromo5 = precioPromoLavados(data.precios, "promo_5_lavados");
   const precioSoloTunelMeson = precioSoloTunel(data.precios);
+  // Ya pasó hoy (p. ej. con un cupón y le ofrecen un pack en el aspirado): el
+  // pack no canjea ningún ticket ahora (ver entregarPromoLavados).
+  const yaPasoHoy = yaIngresoHoy(data.ingresos, c.id);
   // Upgrade a Promo 4 Lavados: pagó un lavado único dentro de la ventana y
   // sigue sin plan — mismo criterio que Mi Cuenta (ver calcularOfertasPlan).
   const lavadoUpgrade = !planVigente ? ventaUpgradeElegible(data.ventas, c.id, data.config.horasVentanaUpgradePlan) : undefined;
@@ -258,6 +262,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     ticketsPatente,
     precioPromo2,
     precioPromo5,
+    yaPasoHoy,
     precioSoloTunel: precioSoloTunelMeson,
     upgradePack,
     ...ingreso,

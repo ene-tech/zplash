@@ -198,16 +198,20 @@ export function useIngresoActions(
 
   // Pack de lavados en el mesón (Promo 2 o 5 Lavados, ver PROMOS_LAVADOS):
   // cobra, deja la Venta y entrega los tickets con el primero ya canjeado —
-  // el auto entra ahora (ver entregarPromoLavados). El cupón de descuento de
+  // el auto entra ahora (ver entregarPromoLavados), salvo que ya haya pasado
+  // hoy: ahí se lleva todos los tickets sin usar. El cupón de descuento de
   // la patente no se le resta: ya es una promoción.
   const cobrarPromoLavados = (cliente: Cliente, promo: IdPromoLavados) => {
     const precio = precioPromoLavados(data.precios, promo);
     if (precio <= 0) return;
+    const yaPasoHoy = yaIngresoHoy(data.ingresos, cliente.id);
     patchUi({
       modal: {
         type: "pago",
         monto: precio,
-        descripcion: `Promo ${PROMOS_LAVADOS[promo].lavados} lavados para ${cliente.nombre} (${cliente.patente})`,
+        descripcion:
+          `Promo ${PROMOS_LAVADOS[promo].lavados} lavados para ${cliente.nombre} (${cliente.patente})` +
+          (yaPasoHoy ? " — ya pasó hoy, se lleva todos para después" : ""),
         cliente,
         onConfirm: async (pago: PagoInfo) => {
           const venta: Venta = {
@@ -224,7 +228,7 @@ export function useIngresoActions(
             voucher: pago.voucher,
             ...pago.documento,
           };
-          const patch = entregarPromoLavados(data, cliente, precio, ui.perfilActual?.nombre, promo);
+          const patch = entregarPromoLavados(data, cliente, precio, ui.perfilActual?.nombre, promo, yaPasoHoy);
           const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);

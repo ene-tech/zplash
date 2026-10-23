@@ -52,6 +52,7 @@ type Props = Pick<
   | "cobrarLavadoUnico"
   | "precioPromo2"
   | "precioPromo5"
+  | "yaPasoHoy"
   | "cobrarPromoLavados"
   | "precioSoloTunel"
   | "cobrarSoloTunel"
@@ -252,7 +253,11 @@ export default function OperadorFoundOfertas(props: Props) {
             <div className="offer-head">
               <h4>Promo 2 lavados</h4>
             </div>
-            <div className="msg">Pasa ahora y le queda 1 lavado para después.</div>
+            <div className="msg">
+              {props.yaPasoHoy
+                ? "Ya pasó hoy: se lleva los 2 lavados para después."
+                : "Pasa ahora y le queda 1 lavado para después."}
+            </div>
             <div className="price-row">
               <span className="new">{fmtCLP(props.precioPromo2)}</span>
             </div>
@@ -266,7 +271,11 @@ export default function OperadorFoundOfertas(props: Props) {
             <div className="offer-head">
               <h4>Promo 4 lavados</h4>
             </div>
-            <div className="msg">Pasa ahora y le quedan 3 lavados para los próximos 30 días. Sin plan ni renovación.</div>
+            <div className="msg">
+              {props.yaPasoHoy
+                ? "Ya pasó hoy: se lleva los 4 lavados para los próximos 30 días. Sin plan ni renovación."
+                : "Pasa ahora y le quedan 3 lavados para los próximos 30 días. Sin plan ni renovación."}
+            </div>
             <div className="price-row">
               <span className="new">{fmtCLP(props.precioPromo5)}</span>
             </div>
