@@ -9,7 +9,17 @@
 -- No toca la lectura pública de los archivos (las URLs que ya están guardadas
 -- siguen funcionando) ni el bucket privado camara-fila.
 
+-- 23-oct-2026: en producción las políticas no se llamaban como abajo sino
+-- "anon full access <bucket>" (FOR ALL: leer la lista, subir, pisar y
+-- BORRAR). Los primeros cuatro drop no encontraban nada. El bucket
+-- comprobantes-gastos es público, así que sus URLs se siguen viendo sin
+-- política; la app sube y arma la URL con el service role.
+drop policy if exists "anon full access comprobantes-gastos" on storage.objects;
+drop policy if exists "anon full access banners-servicios" on storage.objects;
 drop policy if exists "anon insert comprobantes-gastos" on storage.objects;
 drop policy if exists "anon update comprobantes-gastos" on storage.objects;
 drop policy if exists "anon insert banners-servicios" on storage.objects;
 drop policy if exists "anon update banners-servicios" on storage.objects;
+
+-- Después: 0 filas.
+select policyname from pg_policies where schemaname = 'storage' and 'anon' = any(roles);
