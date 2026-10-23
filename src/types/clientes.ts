@@ -47,6 +47,8 @@ export interface Cliente extends DatosFacturacion {
   // cliente fuera de toda plantilla automática (reglas de WhatsApp y de
   // correo). Se marca desde la ficha del cliente en el Operador.
   sinComunicacionAuto?: boolean;
+  // Ver nonGrato en db/schema/clientes.ts — true bloquea ingreso y cobros.
+  nonGrato?: boolean;
   origen?: "WEB" | "LOCAL";
   visitas?: number;
   ultimaVisita?: string;

@@ -27,6 +27,25 @@ export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: 
   const r = useOperadorFoundResult(cliente, clearPlate, { nombreRef, vehiculoRef, telefonoRef, emailRef });
   const { c } = r;
 
+  // Cliente non grato (ver nonGrato en @/db/schema/clientes): ni ofertas ni
+  // botones de ingreso o cobro, solo el aviso.
+  if (c.nonGrato) {
+    return (
+      <div className="result-card found">
+        <div className="result-head">
+          <h3>{esNombreVacio(c.nombre) ? c.patente : c.nombre}</h3>
+          <span className="status-pill bad">Non grato</span>
+        </div>
+        <div className="err" style={{ marginTop: 12, fontSize: 16 }}>
+          Cliente non grato: no puede pasar. No se le da ingreso ni se le cobra ningún lavado.
+        </div>
+        <DetailList className="mt-3">
+          <DetailRow label="Patente" value={c.patente} valueClassName="plate-tag" />
+        </DetailList>
+      </div>
+    );
+  }
+
   return (
     <>
       {r.registroIncompleto && (

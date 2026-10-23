@@ -93,6 +93,7 @@ CREATE TABLE "clientes" (
 	"renovacion_auto_woo_desde" timestamp with time zone,
 	"precio_plan_heredado" integer,
 	"sin_comunicacion_auto" boolean DEFAULT false NOT NULL,
+	"non_grato" boolean DEFAULT false NOT NULL,
 	"origen" text DEFAULT 'LOCAL' NOT NULL,
 	"visitas" integer DEFAULT 0 NOT NULL,
 	"ultima_visita" timestamp with time zone,

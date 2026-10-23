@@ -182,10 +182,14 @@ export async function cobrarSuscripcion(
         // (ver visitasPeriodoActual).
         fechaContratacion: clientes.fechaContratacion,
         vencimiento: clientes.vencimiento,
+        nonGrato: clientes.nonGrato,
       })
       .from(clientes)
       .where(eq(clientes.patente, suscripcion.patente))
       .limit(1);
+    // Cliente non grato (ver nonGrato en @/db/schema/clientes): no se le cobra
+    // por ningún camino. Antes de autorizarCobro: nunca se llama a Transbank.
+    if (cliente?.nonGrato) throw new Error("Cliente non grato, no se le cobra");
 
     // Pasadas del ciclo que se está renovando, SOLO en el cobro automático
     // (ver `opciones.sinCliente`). null = hay alguien delante, así que rige la

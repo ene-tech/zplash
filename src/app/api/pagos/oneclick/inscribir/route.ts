@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { perfiles, suscripcionesOneclick } from "@/db/schema";
-import { conservaTarjetaAlReinscribir, isValidEmail, isValidPatente, MARCA_SOLO_TARJETA, normPlate, uid } from "@/lib/helpers";
+import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
+import { conservaTarjetaAlReinscribir, isValidEmail, isValidPatente, MARCA_SOLO_TARJETA, MENSAJE_PAGO_NON_GRATO, normPlate, uid } from "@/lib/helpers";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { oneclickInscription } from "@/lib/transbank";
 
@@ -40,6 +41,12 @@ export async function POST(request: NextRequest) {
     // debe cobrar de inmediato como sí hace el flujo normal de /pagar — ver
     // el comentario en /inscripcion/retorno/route.ts.
     const estadoPendiente = body.soloGuardar ? "pendiente_solo_tarjeta" : "pendiente";
+
+    // Cliente non grato (ver nonGrato en @/db/schema/clientes): no inscribe
+    // tarjeta, que sería la puerta a un cobro.
+    if ((await buscarClientePorPatente(patente))?.nonGrato) {
+      return NextResponse.json({ error: MENSAJE_PAGO_NON_GRATO }, { status: 403 });
+    }
 
     const db = getDb();
 

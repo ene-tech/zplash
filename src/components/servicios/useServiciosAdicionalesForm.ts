@@ -156,8 +156,12 @@ export function useServiciosAdicionalesForm(refs: FormRefs) {
       setErr(PATENTE_FORMATO_MSG);
       return;
     }
-    setErr("");
     const cliente = findClient(data.clientes, patente);
+    if (cliente?.nonGrato) {
+      setErr("Cliente non grato: no se le puede vender ni dar ingreso");
+      return;
+    }
+    setErr("");
     setPatenteBuscada(patente);
     setTipoDoc(cliente?.tipoDocumento === "Factura" ? "Factura" : "Boleta");
     resetFormulario();

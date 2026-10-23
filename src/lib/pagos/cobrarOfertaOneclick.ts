@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, suscripcionesOneclick } from "@/db/schema";
-import { mesActualKey, precioConCupon, requiereValidacionX5 } from "@/lib/helpers";
+import { MENSAJE_PAGO_NON_GRATO, mesActualKey, precioConCupon, requiereValidacionX5 } from "@/lib/helpers";
 import { aplicarPagoAprobado } from "./aplicarPagoAprobado";
 import { buscarCuponDescuentoPlan } from "./cuponPlan";
 import { aplicarCobroRecuperado, inicioCicloCobrado, proximoCicloISO } from "./cobrarSuscripcion";
@@ -50,10 +50,11 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
   // Transbank a propósito: rechazar después del cargo dejaría al cliente
   // pagado y sin plan.
   const [cliente] = await db
-    .select({ plan: clientes.plan, aceptoX5En: clientes.aceptoX5En })
+    .select({ plan: clientes.plan, aceptoX5En: clientes.aceptoX5En, nonGrato: clientes.nonGrato })
     .from(clientes)
     .where(eq(clientes.patente, patente))
     .limit(1);
+  if (cliente?.nonGrato) throw new Error(MENSAJE_PAGO_NON_GRATO);
   if (cliente && requiereValidacionX5(cliente)) {
     throw new Error("Antes de cobrar tienes que aceptar el paso al Plan X5 en tu cuenta");
   }

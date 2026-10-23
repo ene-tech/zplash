@@ -80,6 +80,12 @@ export const clientes = pgTable("clientes", {
   // queda mudo por un camino de escritura que no conozca el campo. Los envíos
   // manuales (código desde la ficha, chat, ticket de reactivación) siguen.
   sinComunicacionAuto: boolean("sin_comunicacion_auto").notNull().default(false),
+  // true = cliente non grato: no se le da ingreso ni se le cobra nada. El
+  // mesón muestra el aviso en vez de las opciones de lavado (ver
+  // OperadorFoundResult), Servicios Adicionales no lo deja seguir, y por la
+  // web no puede pagar (webpay/crear, oneclick/inscribir) ni se le cobra la
+  // tarjeta inscrita (cobrarSuscripcion). Se marca desde la ficha del cliente.
+  nonGrato: boolean("non_grato").notNull().default(false),
   origen: text("origen").notNull().default("LOCAL"),
   visitas: integer("visitas").notNull().default(0),
   ultimaVisita: timestamptz("ultima_visita"),
