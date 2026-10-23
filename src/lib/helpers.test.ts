@@ -1776,6 +1776,13 @@ describe("ventaUpgradeElegible", () => {
     const nuevo = ventaLavadoUnicoBase({ id: "v4", fecha: "2026-01-05T11:30:00.000Z" });
     expect(ventaUpgradeElegible([lavado, mesón, nuevo], "c1", 24, ahora)).toBe(nuevo);
   });
+
+  it("un lavado pagado con cupón de descuento no califica, aunque haya uno anterior sin cupón", () => {
+    const anterior = ventaLavadoUnicoBase({ fecha: "2026-01-05T09:00:00.000Z" });
+    const conCupon = ventaLavadoUnicoBase({ id: "v2", fecha: "2026-01-05T10:00:00.000Z", viaCupon: true, cuponCodigo: "X" });
+    expect(ventaUpgradeElegible([conCupon], "c1", 24, ahora)).toBeUndefined();
+    expect(ventaUpgradeElegible([anterior, conCupon], "c1", 24, ahora)).toBeUndefined();
+  });
 });
 
 describe("cuponesUpgradePack", () => {

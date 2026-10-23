@@ -759,7 +759,9 @@ export function esVentaLavadoUnicoUpgradable(venta: Pick<Venta, "tipo" | "canjea
  * Lavados: el más reciente, si fue hace menos de `horasVentana` (ver
  * ConfigGlobal.horasVentanaUpgradePlan) y si no se completó ya — el upgrade
  * va una vez por lavado, y después de pagarlo la venta del upgrade queda más
- * nueva que el lavado.
+ * nueva que el lavado. Un lavado pagado con cupón de descuento no da
+ * derecho al upgrade (desde oct-2026, un lavado con descuento o con ticket no
+ * suma a otras promociones; los de ticket ni siquiera generan venta).
  */
 export function ventaUpgradeElegible(
   ventas: Venta[],
@@ -771,7 +773,7 @@ export function ventaUpgradeElegible(
   const ultima = delCliente
     .filter(esVentaLavadoUnicoUpgradable)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
-  if (!ultima) return undefined;
+  if (!ultima || ultima.viaCupon) return undefined;
   const desde = new Date(ultima.fecha).getTime();
   if (ahora.getTime() - desde > horasVentana * 3600 * 1000) return undefined;
   if (delCliente.some((v) => v.tipo.startsWith(UPGRADE_PACK_KEY) && new Date(v.fecha).getTime() >= desde)) return undefined;

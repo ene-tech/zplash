@@ -6,13 +6,20 @@ import { saltarInvitacionReferidos } from "@/lib/referidos";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
 
+// Desde oct-2026 un lavado pagado con cupón de descuento o con ticket no suma
+// a otras promociones: las reglas que regalan un código (de descuento o de
+// referido) no salen por él, tenga o no la regla condicionExcluirConCupon.
+function reglaRegalaCupon(regla: ReglaWhatsapp): boolean {
+  return regla.accion !== "mensaje_simple";
+}
+
 function coincideVenta(regla: ReglaWhatsapp, venta: Venta): boolean {
   if (regla.condicionTipoVenta && regla.condicionTipoVenta !== venta.tipo) return false;
   if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(venta.plan)) return false;
   // Ej. no mandar la oferta "contrata tu plan" de un "Lavado único" a quien
   // ya pagó ese lavado con un cupón de descuento (ver comentario en
   // @/db/schema/whatsapp).
-  if (regla.condicionExcluirConCupon && venta.viaCupon) return false;
+  if ((regla.condicionExcluirConCupon || reglaRegalaCupon(regla)) && venta.viaCupon) return false;
   return true;
 }
 
@@ -108,6 +115,8 @@ export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promis
 
     for (const regla of reglas) {
       if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(cliente.plan)) continue;
+      // En un Ingreso, viaCupon = entró canjeando un ticket.
+      if (ingreso.viaCupon && reglaRegalaCupon(regla)) continue;
       if (saltarInvitacionReferidos(regla.plantillaWhatsappId, cliente.creadoEn)) continue;
       const disparo = await registrarDisparoReglaWhatsapp({
         id: uid(),
@@ -127,6 +136,9 @@ export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promis
 
     for (const regla of reglasPrimerIngresoMes) {
       if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(cliente.plan)) continue;
+      // Sin disparo registrado: el código sale en la próxima visita del mes
+      // que no sea con ticket.
+      if (ingreso.viaCupon && reglaRegalaCupon(regla)) continue;
       // Sin disparo registrado: el mes sigue "sin primer ingreso" para esta
       // regla y la invitación sale en su próxima visita después de la pausa.
       if (saltarInvitacionReferidos(regla.plantillaWhatsappId, cliente.creadoEn)) continue;
