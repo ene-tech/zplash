@@ -121,7 +121,7 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
     contraparte: venta.nombre,
     monto: total,
     estado: "pagado",
-    metodoPago: venta.metodoPago,
+    metodoPago: datos.forma === "vale" ? undefined : datos.forma,
     creadoEn: datos.fecha,
     creadoPor: datos.creadoPor,
     ventaId,

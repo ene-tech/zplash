@@ -37,7 +37,12 @@ export interface Venta extends DatosFacturacion {
   tipo: string;
   fecha: string;
   creadoPor?: string;
-  metodoPago?: "efectivo" | "tarjeta" | "transferencia";
+  // "orden_compra": venta a empresa contra una orden de compra, que se cobra
+  // después — nace con estadoPago "pendiente" (ver esCuentaPorCobrar).
+  metodoPago?: "efectivo" | "tarjeta" | "transferencia" | "orden_compra";
+  // N° de la orden de compra (campo "Referencia" de Venta Empresa): sale en
+  // la factura a continuación del producto, para saber de qué OC nace.
+  ordenCompra?: string;
   voucher?: string;
   horaEntrega?: string;
   fechaEntrega?: string;

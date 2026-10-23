@@ -41,6 +41,15 @@ export const TIPO_VENTA_PRODUCTOS = "Venta de productos";
 
 export const TIPO_VENTA_REEMBOLSO = "Reembolso";
 
+/** Venta vendida a plazo que todavía no se cobra: una transferencia "por
+ * pagar" o una orden de compra pendiente. Es la fila "Cuentas x Cobrar" del
+ * Cierre y lo que lista la pestaña Cuentas por Cobrar junto a los ingresos
+ * contables pendientes. El resto de lo pendiente (abonos del mesón) es "Por
+ * pagar", no una cuenta por cobrar. */
+export function esCuentaPorCobrar(v: { metodoPago?: string; estadoPago?: string }): boolean {
+  return v.estadoPago === "pendiente" && (v.metodoPago === "transferencia" || v.metodoPago === "orden_compra");
+}
+
 /** El contra-asiento lleva el id de la venta que anula detrás de este prefijo
  * (ver idVentaReembolso en @/lib/pagos/reembolsarVenta) — es lo único que lo
  * ata a su original cuando la venta web no traía cliente en la ficha. */

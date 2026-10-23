@@ -404,6 +404,7 @@ function etiquetaTipo(tipo: string): string {
 }
 
 function etiquetaMetodo(metodoPago?: string): string {
+  if (metodoPago === "orden_compra") return "Orden de compra";
   return METODOS_PAGO.find((m) => m.value === metodoPago)?.label || metodoPago || "Sin especificar";
 }
 

@@ -76,7 +76,7 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
       },
       Detalle: ventas.map((v, i) => ({
         NroLinDet: i + 1,
-        NmbItem: [v.tipo, v.patente].filter(Boolean).join(" - ").slice(0, 80),
+        NmbItem: nombreItem(v).slice(0, 80),
         DscItem: v.fecha.slice(0, 10),
         QtyItem: 1,
         PrcItem: v.precio,
@@ -84,6 +84,15 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
       })),
     },
   };
+}
+
+/** Nombre de la línea en la factura. Una venta contra orden de compra lleva el
+ * producto (el nombre del lote: "10 lavados") seguido de su referencia, para
+ * que la factura diga de qué OC nace. */
+function nombreItem(v: Venta): string {
+  if (!v.ordenCompra) return [v.tipo, v.patente].filter(Boolean).join(" - ");
+  const producto = v.nombre.replace(/^Venta Empresa · /, "") || v.tipo;
+  return `${producto} Referencia: ${v.ordenCompra}`;
 }
 
 /** Emite la factura y devuelve el folio asignado por el SII. */
