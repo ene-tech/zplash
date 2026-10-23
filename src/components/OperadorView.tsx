@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useApp } from "@/context/AppContext";
 import { normPlate, todayStr } from "@/lib/helpers";
 import Topbar from "@/components/Topbar";
@@ -11,7 +11,12 @@ import { useOperadorScanPanel } from "@/components/operador/useOperadorScanPanel
 export default function OperadorView() {
   const { data, ui, patchUi, logout, loadingHistorial } = useApp();
   const hoy = todayStr();
-  const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
+  // Memo: esta vista se re-renderiza con cada patchUi y con el reloj de 30 s
+  // del panel, y recorrer los miles de ingresos cada vez trababa el mesón.
+  const ingresosHoy = useMemo(
+    () => data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length,
+    [data.ingresos, hoy]
+  );
   const plateInputRef = useRef<HTMLInputElement>(null);
   const fotoPatenteRef = useRef<HTMLInputElement>(null);
   const codigoCuponRef = useRef<HTMLInputElement>(null);

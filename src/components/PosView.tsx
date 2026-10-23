@@ -52,10 +52,6 @@ export default function PosView() {
   // acá lo que de verdad hay en el mesón, eso se ve antes de cobrar en vez de
   // aparecer después como un número raro en Inventario.
   const bodega = useMemo(() => data.destinosInventario.find((d) => d.esBodega), [data.destinosInventario]);
-  const stockEnBodega = (p: Producto) =>
-    bodega
-      ? stockPorDestino(p, data.destinosInventario, data.movimientosInventario).get(bodega.id) ?? p.stock
-      : p.stock;
   const q = busqueda.trim().toLowerCase();
   const resultados = useMemo(() => {
     if (!q) return [];
@@ -63,6 +59,17 @@ export default function PosView() {
       .filter((p) => p.codigo.includes(q) || p.sku.toLowerCase().includes(q) || p.detalle.toLowerCase().includes(q))
       .slice(0, 12);
   }, [activos, q]);
+  // stockPorDestino recorre todos los movimientos de inventario: se calcula
+  // una vez por resultado de búsqueda, no dos veces por fila en cada render.
+  const stockResultados = useMemo(() => {
+    const porProducto = new Map<string, number>();
+    if (!bodega) return porProducto;
+    for (const p of resultados) {
+      porProducto.set(p.id, stockPorDestino(p, data.destinosInventario, data.movimientosInventario).get(bodega.id) ?? p.stock);
+    }
+    return porProducto;
+  }, [resultados, bodega, data.destinosInventario, data.movimientosInventario]);
+  const stockEnBodega = (p: Producto) => stockResultados.get(p.id) ?? p.stock;
 
   const qCliente = buscaCliente.trim().toLowerCase();
   const clientesEncontrados = useMemo(() => {

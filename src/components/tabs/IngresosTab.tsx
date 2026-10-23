@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { TRAMO_LISTA, useListaPorTramos } from "@/hooks/useListaPorTramos";
 import { eliminarIngreso } from "@/lib/logic";
 import { fmtCLP, fmtFecha, fmtHora, inRange, normPlate, puedeBorrarIngreso, tipoIngreso, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
 import type { Ingreso } from "@/types";
@@ -41,14 +42,17 @@ export default function IngresosTab() {
   // cada tecla del buscador (mismo problema que ClientesTab, ver
   // ./clientes/ClienteRow) — acá además se combina con IngresoRow memoizado
   // para que las filas que siguen calzando con el filtro no se vuelvan a
-  // renderizar.
-  const filtered = useMemo(
-    () =>
-      data.ingresos
-        .filter((i) => !desde || !hasta || inRange(i.fecha, desde, hasta))
-        .filter((i) => !search || i.nombre.toLowerCase().includes(search.toLowerCase()) || normPlate(i.patente).includes(normPlate(search))),
-    [data.ingresos, desde, hasta, search]
-  );
+  // renderizar. Búsqueda diferida y filas por tramos, igual que ClientesTab:
+  // en los celulares del mesón las 4000+ filas de una vez trababan la tabla.
+  const searchDiferido = useDeferredValue(search);
+  const filtered = useMemo(() => {
+    const texto = searchDiferido.toLowerCase();
+    const patente = normPlate(searchDiferido);
+    return data.ingresos
+      .filter((i) => !desde || !hasta || inRange(i.fecha, desde, hasta))
+      .filter((i) => !texto || i.nombre.toLowerCase().includes(texto) || normPlate(i.patente).includes(patente));
+  }, [data.ingresos, desde, hasta, searchDiferido]);
+  const { visibles, restantes, mostrarMas } = useListaPorTramos(filtered);
 
   const exportarExcel = () => {
     import("xlsx").then((XLSX) => {
@@ -169,10 +173,15 @@ export default function IngresosTab() {
               </td>
             </tr>
           ) : (
-            filtered.map((i) => <IngresoRow key={i.id} ingreso={i} puedeBorrar={puedeBorrar} onBorrar={borrarIngreso} />)
+            visibles.map((i) => <IngresoRow key={i.id} ingreso={i} puedeBorrar={puedeBorrar} onBorrar={borrarIngreso} />)
           )}
         </tbody>
       </table>
+      {restantes > 0 && (
+        <button className="btn ghost" style={{ marginTop: 12 }} onClick={mostrarMas}>
+          Mostrar {Math.min(restantes, TRAMO_LISTA)} más (quedan {restantes.toLocaleString("es-CL")})
+        </button>
+      )}
     </div>
   );
 }

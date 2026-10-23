@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type RefObject } from "react";
+import { useMemo, useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
 import { puedeIngresarTunelDetailing } from "@/lib/agenda";
 import {
@@ -62,6 +62,14 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const [guardarErr, setGuardarErr] = useState("");
 
   const c = cliente;
+  // Las pasadas y compras de ESTE cliente, filtradas una vez por commit: todos
+  // los cálculos de abajo filtran igual por clienteId, pero el hook corre en
+  // cada re-render del mesón (cada tecla, cada patchUi, el reloj de 30 s) y
+  // recorrer ~10 veces todos los ingresos y ventas de la base trababa la
+  // pantalla. No se memoiza el resultado de cada cálculo porque varios dependen
+  // de la hora (bloqueo de reingreso, ventana del upgrade).
+  const ingresosCliente = useMemo(() => data.ingresos.filter((i) => i.clienteId === c.id), [data.ingresos, c.id]);
+  const ventasCliente = useMemo(() => data.ventas.filter((v) => v.clienteId === c.id), [data.ventas, c.id]);
   const exentoValidacion = esExentoValidacionRegistroOperador(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
   const registroIncompleto =
     esNombreVacio(c.nombre) || (!exentoValidacion && (!c.telefono || !isValidTelefono(c.telefono) || !c.email));
@@ -75,7 +83,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // Promoción de renovación anticipada del canal Web, escalonada por cuántas
   // veces pasó en su período (ver precioRenovacionLocal): se le avisa para que
   // la tome en su cuenta antes de que se le venza.
-  const visitasPeriodo = visitasPeriodoPlan(data.ingresos, c);
+  const visitasPeriodo = visitasPeriodoPlan(ingresosCliente, c);
   const pPromoWeb = precioRenovacionLocal(data.config, data.precios, c.plan || PLANES[0], visitasPeriodo, "WEB");
   const showRenovacionSoloWeb = showOffer && pPromoWeb !== undefined && pPromoWeb < pNormal;
   const planVigente = st.cls !== "bad";
@@ -85,12 +93,12 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // registrado sin cobrar de nuevo (ver esExentoBloqueoReingreso).
   const exentoBloqueoReingreso = esExentoBloqueoReingreso(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
   const horasBloqueoReingreso = data.config.horasBloqueoReingresoPlan;
-  const estadoIngresoBruto = estadoReingresoPlan(data.ingresos, c.id, new Date(), horasBloqueoReingreso);
+  const estadoIngresoBruto = estadoReingresoPlan(ingresosCliente, c.id, new Date(), horasBloqueoReingreso);
   // Pasadas que le quedan en el ciclo (null = plan sin tope, o sea el
   // ilimitado viejo y los que no tienen plan — ver pasesIncluidos). Agotadas,
   // pesa más que el bloqueo por horas: da lo mismo cuándo pasó la última vez
   // si ya no le quedan.
-  const pasesQueQuedan = pasesRestantes(data.ingresos, c);
+  const pasesQueQuedan = pasesRestantes(ingresosCliente, c);
   const estadoIngreso: EstadoReingresoPlan =
     pasesQueQuedan === 0 && estadoIngresoBruto !== "garantia"
       ? "sin_pases"
@@ -121,7 +129,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // precioRenovacionCliente). El cupón se resta acá, igual que lo hace
   // /api/pagos/webpay/crear sobre el ítem de plan.
   const ofertaWeb = cuponDescuentoSoloWeb
-    ? calcularOfertasPlan(c, data.ventas, data.ingresos, data.config, data.precios)
+    ? calcularOfertasPlan(c, ventasCliente, ingresosCliente, data.config, data.precios)
     : undefined;
   const precioPlanWeb =
     ofertaWeb && cuponDescuentoSoloWeb
@@ -141,7 +149,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // se le cobra el mensual recién al vencer.
   const qrMensual = precioConHeredado(precioPlanOneclick(data.precios), c);
   const qrPromo = !planVigente
-    ? promoPrimerCobroOneclick(calcularOfertasPlan(c, data.ventas, data.ingresos, data.config, data.precios))
+    ? promoPrimerCobroOneclick(calcularOfertasPlan(c, ventasCliente, ingresosCliente, data.config, data.precios))
     : undefined;
   const qrPrimer = precioConCupon(qrPromo?.monto ?? qrMensual, cuponWeb);
   const precioQrTarjeta = { primerCobro: qrPrimer > 0 ? qrPrimer : qrMensual, mensual: qrMensual };
@@ -179,7 +187,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // Lavado único comprado por adelantado desde /pagar y todavía sin canjear
   // físicamente (ver ventaLavadoWebPendiente) — mismo patrón que
   // citaDetailingPendiente, pero para una compra suelta en vez de una Cita.
-  const lavadoWebPendiente = ventaLavadoWebPendiente(data.ventas, c.id);
+  const lavadoWebPendiente = ventaLavadoWebPendiente(ventasCliente, c.id);
 
   // Tickets que esta patente puede canjear sin código — los de la Promo 2
   // Lavados y los de un Pack de Tickets con flota (ver
@@ -191,10 +199,10 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const precioSoloTunelMeson = precioSoloTunel(data.precios);
   // Ya pasó hoy (p. ej. con un cupón y le ofrecen un pack en el aspirado): el
   // pack no canjea ningún ticket ahora (ver entregarPromoLavados).
-  const yaPasoHoy = yaIngresoHoy(data.ingresos, c.id);
+  const yaPasoHoy = yaIngresoHoy(ingresosCliente, c.id);
   // Upgrade a Promo 4 Lavados: pagó un lavado único dentro de la ventana y
   // sigue sin plan — mismo criterio que Mi Cuenta (ver calcularOfertasPlan).
-  const lavadoUpgrade = !planVigente ? ventaUpgradeElegible(data.ventas, c.id, data.config.horasVentanaUpgradePlan) : undefined;
+  const lavadoUpgrade = !planVigente ? ventaUpgradeElegible(ventasCliente, c.id, data.config.horasVentanaUpgradePlan) : undefined;
   const precioUpgrade = precioUpgradePack(data.precios);
   const upgradePack = lavadoUpgrade && precioUpgrade > 0 ? { precio: precioUpgrade, lavado: lavadoUpgrade } : undefined;
 

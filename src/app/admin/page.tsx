@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { AppProvider, useApp } from "@/context/AppContext";
@@ -25,6 +26,37 @@ const ServiciosAdicionalesView = dynamic(() => import("@/components/ServiciosAdi
 const WebSettingsView = dynamic(() => import("@/components/WebSettingsView"));
 const ModalRoot = dynamic(() => import("@/components/modals/ModalRoot"));
 
+// ZplashApp lee data y ui (por `loading` y `ui.view`), así que se re-renderiza
+// con cada commit y cada patchUi. Las vistas no reciben props: con memo, ese
+// re-render de la raíz no baja a ellas, y cada una se re-renderiza solo por
+// los contextos que lee ella misma. Ayuda a las que usan useAppData/useAppUi y
+// a ModalRoot; las que llaman useApp() igual despiertan con todo, y por eso
+// sus cálculos pesados van memoizados (ver diagnóstico de lag del mesón, oct-2026).
+const Vista = memo(function Vista({ view }: { view: string }) {
+  return (
+    <>
+      {view === "login" && <LoginScreen />}
+      {view === "operador" && <OperadorView />}
+      {view === "admin" && <AdminView />}
+      {view === "hub" && <HubView />}
+      {view === "contabilidad" && <ContabilidadView />}
+      {view === "servicios" && <ServiciosAdicionalesView />}
+      {view === "web_settings" && <WebSettingsView />}
+      {view === "inventario" && <InventarioView />}
+      {view === "fabricacion" && <FabricacionView />}
+      {view === "pos" && <PosView />}
+      {view === "mantencion" && <MantencionView />}
+      {view === "estanques" && <EstanquesView />}
+      {view === "funcionario" && <FuncionarioView />}
+      {view === "equipo" && <EquipoView />}
+      {view === "mensajes" && <MensajesView />}
+      {view === "correo" && <CorreoView />}
+      {view === "libro" && <LibroView />}
+      <ModalRoot />
+    </>
+  );
+});
+
 function ZplashApp() {
   const { ui, loading, storageReady, storageChecked } = useApp();
 
@@ -44,28 +76,7 @@ function ZplashApp() {
     );
   }
 
-  return (
-    <>
-      {ui.view === "login" && <LoginScreen />}
-      {ui.view === "operador" && <OperadorView />}
-      {ui.view === "admin" && <AdminView />}
-      {ui.view === "hub" && <HubView />}
-      {ui.view === "contabilidad" && <ContabilidadView />}
-      {ui.view === "servicios" && <ServiciosAdicionalesView />}
-      {ui.view === "web_settings" && <WebSettingsView />}
-      {ui.view === "inventario" && <InventarioView />}
-      {ui.view === "fabricacion" && <FabricacionView />}
-      {ui.view === "pos" && <PosView />}
-      {ui.view === "mantencion" && <MantencionView />}
-      {ui.view === "estanques" && <EstanquesView />}
-      {ui.view === "funcionario" && <FuncionarioView />}
-      {ui.view === "equipo" && <EquipoView />}
-      {ui.view === "mensajes" && <MensajesView />}
-      {ui.view === "correo" && <CorreoView />}
-      {ui.view === "libro" && <LibroView />}
-      <ModalRoot />
-    </>
-  );
+  return <Vista view={ui.view} />;
 }
 
 export default function Home() {
