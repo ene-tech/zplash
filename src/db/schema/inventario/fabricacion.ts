@@ -14,6 +14,10 @@ import { proveedores } from "./proveedores";
 export const materiasPrimas = pgTable("materias_primas", {
   id: text("id").primaryKey(),
   nombre: text("nombre").notNull(),
+  // materia_prima | insumo | mano_obra (ver TipoMateriaPrima). La mano de obra
+  // no tiene stock ni lotes: solo `costo_mano_obra` por unidad.
+  tipo: text("tipo").notNull().default("materia_prima"),
+  costoManoObra: numeric("costo_mano_obra", { mode: "number" }),
   unidad: text("unidad").notNull().default("L"),
   // Cuánto trae el envase de compra, en `unidad` (bidón de 5 L = 5; caja de
   // 100 frascos = 100). Solo sirve para cargar compras por envase.
@@ -122,6 +126,9 @@ export const recepcionesFabrica = pgTable("recepciones_fabrica", {
   totalMateriasFabrica: numeric("total_materias_fabrica", { mode: "number" }).notNull().default(0),
   // Costo FIFO de lo nuestro que se consumió (ya pagado al comprarlo).
   totalPropias: numeric("total_propias", { mode: "number" }).notNull().default(0),
+  // true = la fabricamos nosotros (pestaña Fabricación): todo sale de lo
+  // nuestro, sin fábrica, maquila ni egreso.
+  propia: boolean("propia").notNull().default(false),
   // Sin FK, igual que movimientos_contables.venta_id.
   movimientoContableId: text("movimiento_contable_id"),
   notas: text("notas"),

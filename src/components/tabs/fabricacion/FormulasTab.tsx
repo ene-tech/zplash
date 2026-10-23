@@ -354,7 +354,7 @@ function PresentacionDialog({ pres, onClose, datos, recargar }: { pres: Presenta
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>Envases y otros por unidad (frasco, atomizador, etiqueta…)</Label>
+            <Label>Insumos y mano de obra por unidad (frasco, atomizador, etiqueta, horas…)</Label>
             <FilasComponentes filas={filas} setFilas={setFilas} materias={materias} sufijo={unidad} agregar="+ Envase" />
           </div>
           <label className="flex items-center gap-2 text-sm">

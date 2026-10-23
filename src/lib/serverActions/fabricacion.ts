@@ -39,6 +39,7 @@ import type {
   Presentacion,
   Producto,
   RecepcionFabrica,
+  TipoMateriaPrima,
   TipoMovimientoMateriaPrima,
 } from "@/types";
 
@@ -67,6 +68,8 @@ function materiaPrimaFromRow(m: typeof materiasPrimas.$inferSelect): MateriaPrim
   return {
     id: m.id,
     nombre: m.nombre,
+    tipo: (m.tipo as TipoMateriaPrima) || "materia_prima",
+    costoManoObra: m.costoManoObra ?? undefined,
     unidad: m.unidad,
     formatoCompra: m.formatoCompra ?? undefined,
     precioFabrica: m.precioFabrica ?? undefined,
@@ -137,6 +140,7 @@ export async function cargarFabricacion(): Promise<DatosFabricacion | { error: s
         totalMaquila: r.totalMaquila,
         totalMateriasFabrica: r.totalMateriasFabrica,
         totalPropias: r.totalPropias,
+        propia: r.propia,
         movimientoContableId: r.movimientoContableId || undefined,
         notas: r.notas || undefined,
         creadoPor: r.creadoPor || undefined,
@@ -197,12 +201,19 @@ export async function guardarMateriaPrima(
   if (stock && stock.existente > stock.anterior && !(stock.costoUnitario !== undefined && stock.costoUnitario >= 0)) {
     return { ok: false, error: "Indica el costo neto del stock que agregas" };
   }
+  if (!["materia_prima", "insumo", "mano_obra"].includes(mp.tipo)) return { ok: false, error: "Tipo inválido" };
+  const manoObra = mp.tipo === "mano_obra";
+  if (manoObra && !(mp.costoManoObra !== undefined && mp.costoManoObra >= 0)) return { ok: false, error: "Indica el costo neto de la mano de obra" };
+  if (manoObra && stock) return { ok: false, error: "La mano de obra no tiene stock" };
   const id = mp.id || uid();
+  // La mano de obra no lleva formato, precio de fábrica ni mínimo: no tiene stock.
   const campos = {
     nombre,
+    tipo: mp.tipo,
+    costoManoObra: manoObra ? mp.costoManoObra! : null,
     unidad: mp.unidad.trim() || "L",
-    formatoCompra: mp.formatoCompra ?? null,
-    precioFabrica: mp.precioFabrica ?? null,
+    formatoCompra: manoObra ? null : (mp.formatoCompra ?? null),
+    precioFabrica: manoObra ? null : (mp.precioFabrica ?? null),
     stockMin: Math.max(0, mp.stockMin || 0),
     activa: mp.activa,
   };
@@ -216,6 +227,9 @@ export async function guardarMateriaPrima(
       // Con stock, la unidad no cambia: los lotes y su costo quedarían leídos en otra unidad.
       if (actual && actual.stock !== 0 && actual.unidad !== campos.unidad) {
         throw new OperacionInvalida("No se puede cambiar la unidad mientras tenga stock: primero déjalo en 0 con un ajuste");
+      }
+      if (actual && actual.stock !== 0 && manoObra) {
+        throw new OperacionInvalida("Tiene stock: para pasarla a mano de obra, primero déjalo en 0 con un ajuste");
       }
       if (stock && actual && redondearCantidad(actual.stock) !== redondearCantidad(stock.anterior)) {
         throw new OperacionInvalida("El stock cambió mientras editabas (otra compra o recepción). Cierra, revisa el stock nuevo y vuelve a intentar");
@@ -268,6 +282,7 @@ async function moverStockTx(
   const fecha = new Date().toISOString();
   const [mp] = await tx.select().from(materiasPrimas).where(eq(materiasPrimas.id, materiaPrimaId)).for("update");
   if (!mp) throw new OperacionInvalida("La materia prima ya no existe");
+  if (mp.tipo === "mano_obra") throw new OperacionInvalida("La mano de obra no tiene stock");
   if (cantidad > 0) {
     let costo = costoUnitario;
     if (costo === undefined) {
@@ -429,6 +444,9 @@ export async function eliminarPresentacion(id: string): Promise<Resultado> {
 }
 
 export interface RecepcionFabricaInput {
+  /** La fabricamos nosotros (pestaña Fabricación): sin fábrica, maquila ni
+   * egreso, y todo tiene que alcanzar con lo nuestro. */
+  propia?: boolean;
   proveedorId?: string;
   numeroDocumento?: string;
   notas?: string;
@@ -469,13 +487,17 @@ async function leerParaRecepcion(tx: Tx, presentacionIds: string[]) {
 /** ÚNICO camino para recibir producto de la fábrica, en UNA transacción:
  * sube el stock de cada producto/insumo, consume lo nuestro FIFO de los
  * lotes, cobra a precio de fábrica lo que faltó (bloquea si la fábrica no lo
- * pone), y crea un egreso por pagar con maquila + materias de la fábrica + IVA. */
+ * pone), y crea un egreso por pagar con maquila + materias de la fábrica + IVA.
+ * Con `propia` es lo que fabricamos nosotros: mismo camino, sin fábrica, así
+ * que no hay maquila ni egreso y bloquea si no alcanza con lo nuestro. */
 export async function registrarRecepcionFabrica(
   input: RecepcionFabricaInput
 ): Promise<Resultado<{ recepcion: RecepcionFabrica; productos: Producto[]; insumos: Insumo[]; movimiento: MovimientoContable | null }>> {
   const sesion = await sesionActual();
   if (!sesion?.modulos.includes("fabricacion")) return SIN_ACCESO;
-  if (!input.lineas.length) return { ok: false, error: "Agrega al menos una presentación recibida" };
+  if (!input.lineas.length) return { ok: false, error: "Agrega al menos una presentación" };
+  const propia = !!input.propia;
+  if (propia) input = { propia, notas: input.notas, lineas: input.lineas };
 
   const db = getDb();
   const fecha = new Date().toISOString();
@@ -485,11 +507,12 @@ export async function registrarRecepcionFabrica(
   try {
     const resultado = await db.transaction(async (tx) => {
       const datos = await leerParaRecepcion(tx, presentacionIds);
-      const calc = calcularRecepcion(input.lineas, datos.presentaciones, datos.formulas, datos.materias, datos.lotes, datos.destinos);
+      const calc = calcularRecepcion(input.lineas, datos.presentaciones, datos.formulas, datos.materias, datos.lotes, datos.destinos, propia);
       if ("error" in calc) throw new OperacionInvalida(calc.error);
       if (calc.faltantes.length) {
         throw new OperacionInvalida(
-          "Falta materia prima que la fábrica no pone: " + calc.faltantes.map((f) => `${f.nombre} (faltan ${f.falta} ${f.unidad})`).join("; ")
+          (propia ? "No alcanza la materia prima: " : "Falta materia prima que la fábrica no pone: ") +
+            calc.faltantes.map((f) => `${f.nombre} (faltan ${f.falta} ${f.unidad})`).join("; ")
         );
       }
 
@@ -526,6 +549,7 @@ export async function registrarRecepcionFabrica(
         totalMaquila: calc.totalMaquila,
         totalMateriasFabrica: calc.totalMateriasFabrica,
         totalPropias: calc.totalPropias,
+        propia,
         movimientoContableId: movimiento?.id ?? null,
         notas: input.notas?.trim() || null,
         creadoPor: sesion.nombre,
@@ -560,7 +584,7 @@ export async function registrarRecepcionFabrica(
           cantidad: -c.cantidad,
           costoUnitario: c.costoUnitario,
           recepcionId,
-          notas: detalle,
+          notas: propia ? `Fabricación: ${detalle}` : detalle,
           creadoPor: sesion.nombre,
         });
       }
@@ -574,6 +598,7 @@ export async function registrarRecepcionFabrica(
         totalMaquila: calc.totalMaquila,
         totalMateriasFabrica: calc.totalMateriasFabrica,
         totalPropias: calc.totalPropias,
+        propia,
         movimientoContableId: movimiento?.id,
         notas: input.notas?.trim() || undefined,
         creadoPor: sesion.nombre,
@@ -590,6 +615,6 @@ export async function registrarRecepcionFabrica(
   } catch (error) {
     if (error instanceof OperacionInvalida) return { ok: false, error: error.message };
     console.error("Error registrando recepción de fábrica", error);
-    return { ok: false, error: "No se pudo guardar la recepción. Revisa la conexión e inténtalo de nuevo." };
+    return { ok: false, error: `No se pudo guardar la ${propia ? "fabricación" : "recepción"}. Revisa la conexión e inténtalo de nuevo.` };
   }
 }

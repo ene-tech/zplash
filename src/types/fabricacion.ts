@@ -3,9 +3,18 @@
 // mezcla (20 L, 500 ml…) que suma stock a un Producto del POS o a un Insumo.
 // Las materias primas son mixtas: primero se usa lo nuestro (lotes, costo
 // FIFO) y lo que falta lo pone la fábrica a `precioFabrica`.
+/** Materia prima (fragancia, alcohol…) e insumo (frascos, etiquetas…) se
+ * comportan igual, con stock y lotes FIFO; la separación es para ordenar.
+ * La mano de obra es inagotable: sin stock ni lotes, solo un costo por
+ * unidad (hora o unidad producida) que suma a lo nuestro. */
+export type TipoMateriaPrima = "materia_prima" | "insumo" | "mano_obra";
+
 export interface MateriaPrima {
   id: string;
   nombre: string;
+  tipo: TipoMateriaPrima;
+  /** Solo mano de obra: costo neto por `unidad`. */
+  costoManoObra?: number;
   unidad: string;
   /** Cuánto trae el envase en que se compra, en `unidad` (un bidón de
    * 5.000 ml = 5 L; una caja de 100 frascos = 100 un). Opcional. */
@@ -81,6 +90,8 @@ export interface RecepcionFabrica {
   totalMaquila: number;
   totalMateriasFabrica: number;
   totalPropias: number;
+  /** La fabricamos nosotros: sin fábrica, maquila ni egreso. */
+  propia: boolean;
   movimientoContableId?: string;
   notas?: string;
   creadoPor?: string;

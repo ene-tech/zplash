@@ -6,15 +6,17 @@ import Topbar from "@/components/Topbar";
 import MateriasPrimasTab from "@/components/tabs/fabricacion/MateriasPrimasTab";
 import FormulasTab from "@/components/tabs/fabricacion/FormulasTab";
 import RecepcionesFabricaTab from "@/components/tabs/fabricacion/RecepcionesFabricaTab";
+import FabricarTab from "@/components/tabs/fabricacion/FabricarTab";
 import ProductosTerminadosTab from "@/components/tabs/fabricacion/ProductosTerminadosTab";
 import { cargarFabricacion } from "@/lib/serverActions";
 import type { DatosFabricacion } from "@/types";
-import { FlaskConical, ListOrdered, PackageCheck, Sheet } from "lucide-react";
+import { Factory, FlaskConical, ListOrdered, PackageCheck, Sheet } from "lucide-react";
 
 const TABS = [
   { id: "recepciones", label: "Recepciones", icon: PackageCheck },
-  { id: "materias", label: "Materias primas", icon: FlaskConical },
+  { id: "materias", label: "Materias Primas, Insumos y Mano de Obra", icon: FlaskConical },
   { id: "formulas", label: "Fórmulas", icon: ListOrdered },
+  { id: "fabricar", label: "Fabricación", icon: Factory },
   { id: "terminados", label: "Productos terminados", icon: Sheet },
 ] as const;
 
@@ -54,7 +56,15 @@ export default function FabricacionView() {
         <div className="sidebar-layout">
           <div className="tabs-sidebar">
             {TABS.map((t) => (
-              <div key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)} title={t.label}>
+              // whiteSpace inline: "Materias Primas, Insumos y Mano de Obra" no cabe en una línea del
+              // menú lateral, y el nowrap de .tab (CSS global sin capa) le gana a una clase de Tailwind.
+              <div
+                key={t.id}
+                className={`tab ${tab === t.id ? "active" : ""}`}
+                style={{ whiteSpace: "normal" }}
+                onClick={() => setTab(t.id)}
+                title={t.label}
+              >
                 <t.icon />
                 <span className="tab-label">{t.label}</span>
               </div>
@@ -69,6 +79,7 @@ export default function FabricacionView() {
                 {tab === "recepciones" && <RecepcionesFabricaTab datos={datos} recargar={recargar} />}
                 {tab === "materias" && <MateriasPrimasTab datos={datos} recargar={recargar} />}
                 {tab === "formulas" && <FormulasTab datos={datos} recargar={recargar} />}
+                {tab === "fabricar" && <FabricarTab datos={datos} recargar={recargar} />}
                 {tab === "terminados" && <ProductosTerminadosTab datos={datos} recargar={recargar} />}
               </>
             )}

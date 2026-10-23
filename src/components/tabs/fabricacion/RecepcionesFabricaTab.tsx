@@ -44,6 +44,8 @@ export default function RecepcionesFabricaTab({ datos, recargar }: FabricacionTa
     }))
     .sort((a, b) => compararCategoria(a.grupo, b.grupo) || a.label.localeCompare(b.label));
   const proveedorNombre = (id?: string) => data.proveedores.find((p) => p.id === id)?.nombre || "-";
+  // Lo que fabricamos nosotros se ve en la pestaña Fabricación.
+  const anteriores = datos.recepciones.filter((r) => !r.propia);
 
   const completas = filas.filter((f) => f.presentacionId && parseDecimal(f.unidades) > 0);
   const calc = completas.length
@@ -197,11 +199,11 @@ export default function RecepcionesFabricaTab({ datos, recargar }: FabricacionTa
 
       <div>
         <h3 className="mb-2 font-semibold">Recepciones anteriores</h3>
-        {datos.recepciones.length === 0 ? (
+        {anteriores.length === 0 ? (
           <div className="empty">Todavía no hay recepciones</div>
         ) : (
           <div className="grid gap-2">
-            {datos.recepciones.map((r) => (
+            {anteriores.map((r) => (
               <div key={r.id} className="rounded-lg border border-border bg-card p-3 text-sm">
                 <div className="flex flex-wrap justify-between gap-2">
                   <strong>

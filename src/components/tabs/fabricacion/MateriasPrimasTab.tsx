@@ -6,7 +6,7 @@ import PriceInput from "@/components/PriceInput";
 import { useAppUi } from "@/context/AppContext";
 import { fmtCLP, fmtFecha } from "@/lib/helpers";
 import { eliminarMateriaPrima, guardarMateriaPrima, moverStockMateriaPrima } from "@/lib/serverActions";
-import type { MateriaPrima } from "@/types";
+import type { MateriaPrima, TipoMateriaPrima } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,14 @@ import SelectFab from "./SelectFab";
 import { aTexto, esNumero, fmtCantidad, fmtFormatoCompra, parseDecimal, unidadFormato, type FabricacionTabProps } from "./shared";
 import { redondearCantidad } from "@/lib/logic";
 
-const NUEVA: MateriaPrima = { id: "", nombre: "", unidad: "L", stock: 0, stockMin: 0, activa: true };
+const NUEVA: MateriaPrima = { id: "", nombre: "", tipo: "materia_prima", unidad: "L", stock: 0, stockMin: 0, activa: true };
+
+const TIPOS: { value: TipoMateriaPrima; label: string; plural: string }[] = [
+  { value: "materia_prima", label: "Materia prima", plural: "Materias primas" },
+  { value: "insumo", label: "Insumo", plural: "Insumos" },
+  { value: "mano_obra", label: "Mano de obra", plural: "Mano de obra" },
+];
+const etiquetaTipo = (t: TipoMateriaPrima) => TIPOS.find((x) => x.value === t)?.label ?? t;
 const INPUT_PRECIO = "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
 
 export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabProps) {
@@ -27,11 +34,15 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
   const [moviendo, setMoviendo] = useState<{ mp: MateriaPrima; tipo: "compra" | "ajuste" } | null>(null);
   const [historial, setHistorial] = useState<MateriaPrima | null>(null);
   const [q, setQ] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState<TipoMateriaPrima | "todos">("todos");
 
-  const lista = datos.materiasPrimas.filter((m) => !q || m.nombre.toLowerCase().includes(q.trim().toLowerCase()));
+  const lista = datos.materiasPrimas
+    .filter((m) => filtroTipo === "todos" || m.tipo === filtroTipo)
+    .filter((m) => !q || m.nombre.toLowerCase().includes(q.trim().toLowerCase()))
+    .sort((a, b) => TIPOS.findIndex((t) => t.value === a.tipo) - TIPOS.findIndex((t) => t.value === b.tipo) || a.nombre.localeCompare(b.nombre));
   const loteActual = (id: string) => datos.lotes.find((l) => l.materiaPrimaId === id && l.restante > 0);
   const bajoMinimo = datos.materiasPrimas.filter((m) => m.activa && m.stockMin > 0 && m.stock < m.stockMin).length;
-  const sinOrigen = datos.materiasPrimas.filter((m) => m.activa && m.stock <= 0 && m.precioFabrica === undefined).length;
+  const sinOrigen = datos.materiasPrimas.filter((m) => m.activa && m.tipo !== "mano_obra" && m.stock <= 0 && m.precioFabrica === undefined).length;
   const valorizado = datos.lotes.reduce((s, l) => s + l.restante * l.costoUnitario, 0);
 
   const eliminar = (m: MateriaPrima) => {
@@ -67,14 +78,21 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
       </div>
 
       <div className="toolbar">
-        <input placeholder="Buscar materia prima..." value={q} onChange={(e) => setQ(e.target.value)} />
-        <button className="btn" onClick={() => setEditando(NUEVA)}>
-          + Nueva materia prima
+        <input placeholder="Buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="flex flex-wrap gap-1">
+          {([{ value: "todos", plural: "Todos" }, ...TIPOS] as const).map((t) => (
+            <button key={t.value} className={`btn ${filtroTipo === t.value ? "" : "ghost"}`} onClick={() => setFiltroTipo(t.value)}>
+              {t.plural}
+            </button>
+          ))}
+        </div>
+        <button className="btn" onClick={() => setEditando({ ...NUEVA, tipo: filtroTipo === "todos" ? "materia_prima" : filtroTipo, unidad: filtroTipo === "mano_obra" ? "hr" : filtroTipo === "insumo" ? "un" : "L" })}>
+          + Nuevo
         </button>
       </div>
       <p className="mb-3 text-sm text-muted-foreground">
         Al producir se usa primero lo nuestro (del lote más antiguo). Lo que falte lo pone la fábrica a su precio; si la fábrica no la pone, la
-        recepción se bloquea.
+        recepción se bloquea. La mano de obra no tiene stock: nunca falta y suma su costo por unidad.
       </p>
 
       <div className="table-scroll">
@@ -94,33 +112,57 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
             {lista.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7}>
-                  <div className="empty">Todavía no hay materias primas</div>
+                  <div className="empty">No hay nada que coincida</div>
                 </TableCell>
               </TableRow>
             ) : (
               lista.map((m) => {
                 const lote = loteActual(m.id);
+                const manoObra = m.tipo === "mano_obra";
                 return (
                   <TableRow key={m.id} className={m.activa ? undefined : "opacity-50"}>
-                    <TableCell>{m.nombre}</TableCell>
+                    <TableCell>
+                      <div>{m.nombre}</div>
+                      <div className="text-xs text-muted-foreground">{etiquetaTipo(m.tipo)}</div>
+                    </TableCell>
                     <TableCell>{m.formatoCompra ? fmtFormatoCompra(m.formatoCompra, m.unidad) : <span className="text-muted-foreground">-</span>}</TableCell>
                     <TableCell style={m.stockMin > 0 && m.stock < m.stockMin ? { color: "var(--red)", fontWeight: 600 } : undefined}>
-                      {fmtCantidad(m.stock)} {m.unidad}
+                      {manoObra ? <span className="text-muted-foreground">Sin stock (inagotable)</span> : `${fmtCantidad(m.stock)} ${m.unidad}`}
                     </TableCell>
-                    <TableCell>{lote ? `${fmtCLP(lote.costoUnitario)} / ${m.unidad}` : "-"}</TableCell>
-                    <TableCell>{m.precioFabrica !== undefined ? `${fmtCLP(m.precioFabrica)} / ${m.unidad}` : <span className="text-muted-foreground">No la pone</span>}</TableCell>
-                    <TableCell>{m.stockMin ? `${fmtCantidad(m.stockMin)} ${m.unidad}` : "-"}</TableCell>
+                    <TableCell>
+                      {manoObra
+                        ? m.costoManoObra !== undefined
+                          ? `${fmtCLP(m.costoManoObra)} / ${m.unidad}`
+                          : "-"
+                        : lote
+                          ? `${fmtCLP(lote.costoUnitario)} / ${m.unidad}`
+                          : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {manoObra ? (
+                        <span className="text-muted-foreground">-</span>
+                      ) : m.precioFabrica !== undefined ? (
+                        `${fmtCLP(m.precioFabrica)} / ${m.unidad}`
+                      ) : (
+                        <span className="text-muted-foreground">No la pone</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{!manoObra && m.stockMin ? `${fmtCantidad(m.stockMin)} ${m.unidad}` : "-"}</TableCell>
                     <TableCell className="sticky right-0 z-10 bg-background">
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon-sm" title="Registrar compra" aria-label="Registrar compra" onClick={() => setMoviendo({ mp: m, tipo: "compra" })}>
-                          <ShoppingCart />
-                        </Button>
-                        <Button variant="ghost" size="icon-sm" title="Ajuste por conteo" aria-label="Ajuste por conteo" onClick={() => setMoviendo({ mp: m, tipo: "ajuste" })}>
-                          <ArrowDownUp />
-                        </Button>
-                        <Button variant="ghost" size="icon-sm" title="Lotes e historial" aria-label="Lotes e historial" onClick={() => setHistorial(m)}>
-                          <History />
-                        </Button>
+                        {!manoObra && (
+                          <>
+                            <Button variant="ghost" size="icon-sm" title="Registrar compra" aria-label="Registrar compra" onClick={() => setMoviendo({ mp: m, tipo: "compra" })}>
+                              <ShoppingCart />
+                            </Button>
+                            <Button variant="ghost" size="icon-sm" title="Ajuste por conteo" aria-label="Ajuste por conteo" onClick={() => setMoviendo({ mp: m, tipo: "ajuste" })}>
+                              <ArrowDownUp />
+                            </Button>
+                            <Button variant="ghost" size="icon-sm" title="Lotes e historial" aria-label="Lotes e historial" onClick={() => setHistorial(m)}>
+                              <History />
+                            </Button>
+                          </>
+                        )}
                         <Button variant="ghost" size="icon-sm" title="Editar" aria-label="Editar" onClick={() => setEditando(m)}>
                           <Pencil />
                         </Button>
@@ -208,10 +250,16 @@ const MEDIDAS = [
   { value: "kg", label: "Sólido (kilos)" },
   { value: "un", label: "Unidades (frascos, etiquetas, sprayers…)" },
 ];
+const MEDIDAS_MANO_OBRA = [
+  { value: "hr", label: "Horas" },
+  { value: "un", label: "Por unidad producida" },
+];
 
 function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClose: () => void; recargar: () => Promise<void> }) {
   const [form, setForm] = useState({
     nombre: mp.nombre,
+    tipo: mp.tipo,
+    costoManoObra: mp.costoManoObra !== undefined ? String(mp.costoManoObra) : "",
     unidad: mp.unidad,
     // El formato se escribe en ml / g / un (ver unidadFormato), se guarda en L / kg / un.
     formato: mp.formatoCompra ? aTexto(redondearCantidad(mp.formatoCompra * unidadFormato(mp.unidad).factor)) : "",
@@ -233,10 +281,30 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
   const stockValido = esNumero(form.stock) && parseDecimal(form.stock) >= 0;
   const stockNuevo = parseDecimal(form.stock);
   const sube = stockTocado && stockValido && stockNuevo > mp.stock + 1e-9;
-  // Con stock cargado no se cambia la unidad: los lotes quedarían en la anterior.
+  // Con stock cargado no se cambia la unidad ni se pasa a mano de obra: los lotes quedarían colgando.
   const unidadFija = mp.stock > 0;
+  const manoObra = form.tipo === "mano_obra";
 
   const guardar = async () => {
+    if (manoObra) {
+      if (form.costoManoObra === "") return toast.error("Indica el costo neto de la mano de obra");
+      setGuardando(true);
+      const r = await guardarMateriaPrima({
+        ...mp,
+        nombre: form.nombre,
+        tipo: "mano_obra",
+        costoManoObra: Number(form.costoManoObra) || 0,
+        unidad: form.unidad,
+        formatoCompra: undefined,
+        precioFabrica: undefined,
+        stockMin: 0,
+        activa: form.activa,
+      });
+      setGuardando(false);
+      if (!r.ok) return toast.error(r.error);
+      await recargar();
+      return onClose();
+    }
     if (!formatoValido) return toast.error("El formato de compra tiene que ser un número mayor a 0 (o déjalo vacío)");
     if (stockTocado && !stockValido) return toast.error("El stock existente tiene que ser un número (0 o más)");
     if (sube && form.costoStock === "") return toast.error("Indica el costo neto del stock que agregas");
@@ -246,6 +314,8 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
       {
         ...mp,
         nombre: form.nombre,
+        tipo: form.tipo,
+        costoManoObra: undefined,
         unidad: form.unidad,
         formatoCompra,
         precioFabrica: form.laPone ? Number(form.precio) || 0 : undefined,
@@ -264,7 +334,9 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{mp.id ? "Editar materia prima" : "Nueva materia prima"}</DialogTitle>
+          <DialogTitle>
+            {mp.id ? "Editar" : "Nuevo"} · {etiquetaTipo(form.tipo)}
+          </DialogTitle>
         </DialogHeader>
         <div className="grid max-h-[70vh] gap-3 overflow-y-auto pr-1">
           <div className="grid gap-1.5">
@@ -272,71 +344,107 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
             <Input id="mp-nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} autoFocus />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="mp-unidad">¿Cómo se mide?</Label>
-            {unidadFija ? (
-              <div className="text-sm text-muted-foreground">
-                {MEDIDAS.find((m) => m.value === form.unidad)?.label ?? form.unidad} · no se puede cambiar mientras tenga stock
-              </div>
-            ) : (
-              <SelectFab
-                id="mp-unidad"
-                value={form.unidad}
-                // El formato está escrito en la unidad anterior (ml, g, un): se limpia para no reinterpretarlo.
-                onChange={(v) => setForm({ ...form, unidad: v, formato: v === form.unidad ? form.formato : "" })}
-                opciones={MEDIDAS}
-              />
-            )}
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="mp-formato">Formato de compra ({uf.sufijo} por envase)</Label>
-            <Input
-              id="mp-formato"
-              inputMode="decimal"
-              value={form.formato}
-              onChange={(e) => setForm({ ...form, formato: e.target.value })}
-              placeholder={form.unidad === "un" ? "Ej: 100 (caja de 100)" : form.unidad === "kg" ? "Ej: 25000 (saco de 25 kg)" : "Ej: 5000 (bidón de 5 L)"}
+            <Label htmlFor="mp-tipo">Tipo</Label>
+            <SelectFab
+              id="mp-tipo"
+              value={form.tipo}
+              onChange={(v) => {
+                const tipo = v as TipoMateriaPrima;
+                if (tipo === "mano_obra" && unidadFija) return void toast.error("Tiene stock: para pasarla a mano de obra, primero déjalo en 0 con un ajuste");
+                // Al entrar o salir de mano de obra cambia el juego de unidades posibles.
+                const cambiaUnidades = (tipo === "mano_obra") !== manoObra;
+                setForm({ ...form, tipo, unidad: cambiaUnidades ? (tipo === "mano_obra" ? "hr" : "L") : form.unidad, formato: cambiaUnidades ? "" : form.formato });
+              }}
+              opciones={TIPOS.map((t) => ({ value: t.value, label: t.label }))}
             />
-            <span className="text-xs text-muted-foreground">Opcional. Con formato, las compras se cargan por envase y el sistema calcula el costo por {form.unidad}.</span>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="mp-stock">Stock existente ({form.unidad})</Label>
-              <Input id="mp-stock" inputMode="decimal" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-              {formatoCompra && stockNuevo > 0 && (
-                <span className="text-xs text-muted-foreground">= {fmtCantidad(Math.round((stockNuevo / formatoCompra) * 100) / 100)} envases</span>
-              )}
-            </div>
-            {sube && (
-              <div className="grid gap-1.5">
-                <Label>Costo neto por {formatoCompra ? `envase (${fmtFormatoCompra(formatoCompra, form.unidad)})` : form.unidad}</Label>
-                <PriceInput value={form.costoStock} onChange={(v) => setForm({ ...form, costoStock: v })} className={INPUT_PRECIO} />
+          {manoObra ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="mp-unidad">Se cobra por</Label>
+                  <SelectFab id="mp-unidad" value={form.unidad} onChange={(v) => setForm({ ...form, unidad: v })} opciones={MEDIDAS_MANO_OBRA} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Costo neto por {form.unidad === "hr" ? "hora" : "unidad"}</Label>
+                  <PriceInput value={form.costoManoObra} onChange={(v) => setForm({ ...form, costoManoObra: v })} className={INPUT_PRECIO} />
+                </div>
               </div>
-            )}
-          </div>
-          {mp.id && stockTocado && stockValido && stockNuevo !== mp.stock && (
-            <p className="text-xs text-muted-foreground">
-              {sube
-                ? `Entran ${fmtCantidad(stockNuevo - mp.stock)} ${form.unidad} como un lote nuevo con este costo.`
-                : `Salen ${fmtCantidad(mp.stock - stockNuevo)} ${form.unidad} de los lotes más antiguos (FIFO).`}{" "}
-              Queda en el historial como ajuste.
-            </p>
-          )}
+              <p className="text-xs text-muted-foreground">
+                La mano de obra no tiene stock: nunca falta. Agrégala a una presentación (cantidad por unidad, ej. 0,05 horas) y su costo suma
+                al costo del producto.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="grid gap-1.5">
+                <Label htmlFor="mp-unidad">¿Cómo se mide?</Label>
+                {unidadFija ? (
+                  <div className="text-sm text-muted-foreground">
+                    {MEDIDAS.find((m) => m.value === form.unidad)?.label ?? form.unidad} · no se puede cambiar mientras tenga stock
+                  </div>
+                ) : (
+                  <SelectFab
+                    id="mp-unidad"
+                    value={form.unidad}
+                    // El formato está escrito en la unidad anterior (ml, g, un): se limpia para no reinterpretarlo.
+                    onChange={(v) => setForm({ ...form, unidad: v, formato: v === form.unidad ? form.formato : "" })}
+                    opciones={MEDIDAS}
+                  />
+                )}
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="mp-formato">Formato de compra ({uf.sufijo} por envase)</Label>
+                <Input
+                  id="mp-formato"
+                  inputMode="decimal"
+                  value={form.formato}
+                  onChange={(e) => setForm({ ...form, formato: e.target.value })}
+                  placeholder={form.unidad === "un" ? "Ej: 100 (caja de 100)" : form.unidad === "kg" ? "Ej: 25000 (saco de 25 kg)" : "Ej: 5000 (bidón de 5 L)"}
+                />
+                <span className="text-xs text-muted-foreground">Opcional. Con formato, las compras se cargan por envase y el sistema calcula el costo por {form.unidad}.</span>
+              </div>
 
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={form.laPone} onCheckedChange={(c) => setForm({ ...form, laPone: c === true })} />
-            La fábrica la puede poner cuando no alcanza lo nuestro
-          </label>
-          {form.laPone && (
-            <div className="grid gap-1.5">
-              <Label>Precio neto de la fábrica por {form.unidad}</Label>
-              <PriceInput value={form.precio} onChange={(v) => setForm({ ...form, precio: v })} className={INPUT_PRECIO} />
-            </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="mp-stock">Stock existente ({form.unidad})</Label>
+                  <Input id="mp-stock" inputMode="decimal" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+                  {formatoCompra && stockNuevo > 0 && (
+                    <span className="text-xs text-muted-foreground">= {fmtCantidad(Math.round((stockNuevo / formatoCompra) * 100) / 100)} envases</span>
+                  )}
+                </div>
+                {sube && (
+                  <div className="grid gap-1.5">
+                    <Label>Costo neto por {formatoCompra ? `envase (${fmtFormatoCompra(formatoCompra, form.unidad)})` : form.unidad}</Label>
+                    <PriceInput value={form.costoStock} onChange={(v) => setForm({ ...form, costoStock: v })} className={INPUT_PRECIO} />
+                  </div>
+                )}
+              </div>
+              {mp.id && stockTocado && stockValido && stockNuevo !== mp.stock && (
+                <p className="text-xs text-muted-foreground">
+                  {sube
+                    ? `Entran ${fmtCantidad(stockNuevo - mp.stock)} ${form.unidad} como un lote nuevo con este costo.`
+                    : `Salen ${fmtCantidad(mp.stock - stockNuevo)} ${form.unidad} de los lotes más antiguos (FIFO).`}{" "}
+                  Queda en el historial como ajuste.
+                </p>
+              )}
+
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={form.laPone} onCheckedChange={(c) => setForm({ ...form, laPone: c === true })} />
+                La fábrica la puede poner cuando no alcanza lo nuestro
+              </label>
+              {form.laPone && (
+                <div className="grid gap-1.5">
+                  <Label>Precio neto de la fábrica por {form.unidad}</Label>
+                  <PriceInput value={form.precio} onChange={(v) => setForm({ ...form, precio: v })} className={INPUT_PRECIO} />
+                </div>
+              )}
+              <div className="grid gap-1.5">
+                <Label htmlFor="mp-min">Avisar cuando nuestro stock baje de ({form.unidad})</Label>
+                <Input id="mp-min" inputMode="decimal" value={form.minimo} onChange={(e) => setForm({ ...form, minimo: e.target.value })} placeholder="0 = sin aviso" />
+              </div>
+            </>
           )}
-          <div className="grid gap-1.5">
-            <Label htmlFor="mp-min">Avisar cuando nuestro stock baje de ({form.unidad})</Label>
-            <Input id="mp-min" inputMode="decimal" value={form.minimo} onChange={(e) => setForm({ ...form, minimo: e.target.value })} placeholder="0 = sin aviso" />
-          </div>
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={form.activa} onCheckedChange={(c) => setForm({ ...form, activa: c === true })} />
             Activa

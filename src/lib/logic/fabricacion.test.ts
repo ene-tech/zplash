@@ -2,7 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { Formula, LoteMateriaPrima, MateriaPrima, Presentacion } from "@/types";
 import { calcularRecepcion, compararCategoria, consumirFifo, costoEstimadoPorUnidad, filasProductosTerminados, totalesConIva, validarFormula, validarPresentacion } from "./fabricacion";
 
-const mp = (id: string, precioFabrica?: number, unidad = "L"): MateriaPrima => ({ id, nombre: id, unidad, precioFabrica, stock: 0, stockMin: 0, activa: true });
+const mp = (id: string, precioFabrica?: number, unidad = "L"): MateriaPrima => ({
+  id,
+  nombre: id,
+  tipo: "materia_prima",
+  unidad,
+  precioFabrica,
+  stock: 0,
+  stockMin: 0,
+  activa: true,
+});
 const lote = (id: string, materiaPrimaId: string, restante: number, costoUnitario: number): LoteMateriaPrima => ({
   id,
   materiaPrimaId,
@@ -77,6 +86,19 @@ describe("calcularRecepcion", () => {
     expect(r.faltantes).toEqual([{ materiaPrimaId: "fragancia", nombre: "fragancia", unidad: "L", falta: 1.05 }]);
   });
 
+  it("fabricación propia: sin maquila ni fábrica, lo que no alcanza es faltante", () => {
+    const r = calcularRecepcion([{ presentacionId: "p120", unidades: 10 }], pres, formulas, materias, lotes, destinos, true);
+    if ("error" in r) throw new Error(r.error);
+    expect(r.totalMaquila).toBe(0);
+    expect(r.totalMateriasFabrica).toBe(0);
+    // El alcohol tiene precio de fábrica, pero acá no hay fábrica: faltan 0,4 L.
+    expect(r.faltantes).toEqual([{ materiaPrimaId: "alcohol", nombre: "alcohol", unidad: "L", falta: 0.4 }]);
+    const ok = calcularRecepcion([{ presentacionId: "p120", unidades: 5 }], pres, formulas, materias, lotes, destinos, true);
+    if ("error" in ok) throw new Error(ok.error);
+    expect(ok.faltantes).toEqual([]);
+    expect(ok.totalMaquila).toBe(0);
+  });
+
   it("pide unidades enteras para productos y rechaza 0", () => {
     expect(calcularRecepcion([{ presentacionId: "p120", unidades: 1.5 }], pres, formulas, materias, lotes, destinos)).toHaveProperty("error");
     expect(calcularRecepcion([{ presentacionId: "p20l", unidades: 0 }], pres, formulas, materias, lotes, destinos)).toHaveProperty("error");
@@ -145,19 +167,26 @@ describe("filasProductosTerminados", () => {
     const [f] = filasProductosTerminados({ ...base, recepciones: [] });
     // mezcla: 0,01 L × 20.000 + 0,09 L × 2.500 = 425; frasco 170; maquila 200
     expect(f).toMatchObject({ nombre: "Fragancia 100 ml", categoria: "Tienda ZUPER", mezcla: 425, envases: 170, maquila: 200, costo: 795, stock: 7 });
-    expect(f).toMatchObject({ precioVenta: 3990, precioNeto: 3353, margen: 2558, margenPct: 76.3 });
+    expect(f).toMatchObject({ precioVenta: 4748, precioNeto: 3990, margen: 3195, margenPct: 80.1 });
   });
 
   it("toma el costo real de la recepción más nueva y deja los insumos sin precio de venta", () => {
     const recepciones = [
-      { id: "r2", fecha: "2026-10-05", totalMaquila: 0, totalMateriasFabrica: 0, totalPropias: 0, lineas: [{ presentacionId: "p120", nombre: "x", unidades: 10, maquila: 2000, materiasFabrica: 1000, propias: 5000 }] },
-      { id: "r1", fecha: "2026-10-01", totalMaquila: 0, totalMateriasFabrica: 0, totalPropias: 0, lineas: [{ presentacionId: "p120", nombre: "x", unidades: 1, maquila: 1, materiasFabrica: 1, propias: 1 }] },
+      { id: "r2", fecha: "2026-10-05", totalMaquila: 0, totalMateriasFabrica: 0, totalPropias: 0, propia: false, lineas: [{ presentacionId: "p120", nombre: "x", unidades: 10, maquila: 2000, materiasFabrica: 1000, propias: 5000 }] },
+      { id: "r1", fecha: "2026-10-01", totalMaquila: 0, totalMateriasFabrica: 0, totalPropias: 0, propia: false, lineas: [{ presentacionId: "p120", nombre: "x", unidades: 1, maquila: 1, materiasFabrica: 1, propias: 1 }] },
     ];
     const filas = filasProductosTerminados({ ...base, recepciones });
     expect(filas.find((f) => f.presentacionId === "p120")).toMatchObject({ ultimoCostoReal: 800, ultimaRecepcion: "2026-10-05" });
     const insumo = filas.find((f) => f.presentacionId === "p20l")!;
     expect(insumo.destino).toBe("insumo");
     expect(insumo.precioVenta).toBeUndefined();
+  });
+
+  it("marca el stock compartido cuando dos presentaciones suman al mismo producto", () => {
+    const otra = { ...pres.find((p) => p.id === "p120")!, id: "p120b" };
+    const filas = filasProductosTerminados({ ...base, presentaciones: [...pres, otra], recepciones: [] });
+    expect(filas.filter((f) => f.nombre === "Fragancia 100 ml").map((f) => f.stockCompartidoCon)).toEqual([1, 1]);
+    expect(filas.find((f) => f.presentacionId === "p20l")!.stockCompartidoCon).toBe(0);
   });
 });
 
@@ -181,7 +210,7 @@ describe("costo estimado y planilla: casos del review", () => {
       insumos: [],
     });
     expect(f.sinPrecio).toBe(true);
-    expect(f.precioNeto).toBe(3353);
+    expect(f.precioNeto).toBe(3990);
     expect(f.margen).toBeUndefined();
     expect(f.margenPct).toBeUndefined();
   });
@@ -194,6 +223,7 @@ describe("costo estimado y planilla: casos del review", () => {
         totalMaquila: 0,
         totalMateriasFabrica: 0,
         totalPropias: 0,
+        propia: false,
         lineas: [
           { presentacionId: "p120", nombre: "x", unidades: 1, maquila: 1000, materiasFabrica: 0, propias: 0 },
           { presentacionId: "p120", nombre: "x", unidades: 99, maquila: 50000, materiasFabrica: 0, propias: 0 },
@@ -214,5 +244,26 @@ describe("costo estimado y planilla: casos del review", () => {
 
   it("ordena categorías con Sin categoría al final", () => {
     expect(["Sin categoría", "Tienda", "Insumos"].sort(compararCategoria)).toEqual(["Insumos", "Tienda", "Sin categoría"]);
+  });
+});
+
+describe("mano de obra", () => {
+  const manoObra: MateriaPrima = { ...mp("envasado", undefined, "hr"), tipo: "mano_obra", costoManoObra: 6000 };
+  const presMO: Presentacion = { ...pres[0], componentes: [{ id: "mo", materiaPrimaId: "envasado", cantidadPorUnidad: 0.05 }] };
+
+  it("es inagotable: suma su costo a lo nuestro sin lotes ni faltante", () => {
+    const r = calcularRecepcion([{ presentacionId: "p120", unidades: 10 }], [presMO], formulas, [...materias, manoObra], [lote("f", "fragancia", 1, 20000)], destinos);
+    if ("error" in r) throw new Error(r.error);
+    expect(r.faltantes).toEqual([]);
+    // 10 × 0,05 h = 0,5 h × 6.000 = 3.000 (+ fragancia 0,1 L × 20.000 = 2.000)
+    expect(r.totalPropias).toBe(5000);
+    expect(r.consumos.some((c) => c.materiaPrimaId === "envasado")).toBe(false);
+    expect(r.usos.find((u) => u.materiaPrimaId === "envasado")).toEqual({ materiaPrimaId: "envasado", propia: 0.5, fabrica: 0 });
+  });
+
+  it("entra al costo estimado por unidad", () => {
+    const c = costoEstimadoPorUnidad(presMO, formulas[0], [...materias, manoObra], [lote("f", "fragancia", 1, 20000)]);
+    // fragancia 200 + alcohol 225 (fábrica) + mano de obra 300
+    expect(c).toMatchObject({ mezcla: 425, envases: 300, sinPrecio: false });
   });
 });

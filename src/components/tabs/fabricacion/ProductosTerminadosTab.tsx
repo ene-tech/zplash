@@ -60,13 +60,14 @@ export default function ProductosTerminadosTab({ datos }: FabricacionTabProps) {
         Formato: fmtFormato(f.mlPorUnidad),
         Tipo: f.destino === "tienda" ? "Tienda" : "Insumo",
         Stock: f.stock,
+        "Stock compartido": f.stockCompartidoCon ? `Sí, con ${f.stockCompartidoCon} presentación(es) más: no sumar` : "",
         "Mezcla (neto)": f.mezcla,
         "Envases (neto)": f.envases,
         "Maquila (neto)": f.maquila,
         "Costo unitario (neto)": f.costo,
         "Falta costo de alguna materia prima": f.sinPrecio ? "Sí" : "",
         "Último costo real (neto)": f.ultimoCostoReal ?? "",
-        "Última recepción": f.ultimaRecepcion ? fmtFecha(f.ultimaRecepcion) : "",
+        "Última recepción o fabricación": f.ultimaRecepcion ? fmtFecha(f.ultimaRecepcion) : "",
         "Precio venta (IVA incl.)": f.precioVenta ?? "",
         "Precio venta neto": f.precioNeto ?? "",
         "Margen $": f.margen ?? "",
@@ -168,7 +169,13 @@ export default function ProductosTerminadosTab({ datos }: FabricacionTabProps) {
                         </div>
                       </TableCell>
                       <TableCell>{fmtFormato(f.mlPorUnidad)}</TableCell>
-                      <TableCell className="text-right">{fmtCantidad(f.stock)}</TableCell>
+                      <TableCell
+                        className="text-right"
+                        title={f.stockCompartidoCon ? `Es el mismo stock de ${f.stockCompartidoCon} presentación(es) más que suman al mismo producto: no sumarlo dos veces` : undefined}
+                      >
+                        {fmtCantidad(f.stock)}
+                        {f.stockCompartidoCon > 0 && <span className="text-muted-foreground"> (compartido)</span>}
+                      </TableCell>
                       <TableCell className="text-right">{fmtCLP(f.mezcla)}</TableCell>
                       <TableCell className="text-right">{fmtCLP(f.envases)}</TableCell>
                       <TableCell className="text-right">{fmtCLP(f.maquila)}</TableCell>
@@ -176,7 +183,7 @@ export default function ProductosTerminadosTab({ datos }: FabricacionTabProps) {
                         {fmtCLP(f.costo)}
                         {f.sinPrecio && <span className="text-destructive"> *</span>}
                       </TableCell>
-                      <TableCell className="text-right" title={f.ultimaRecepcion ? `Recepción del ${fmtFecha(f.ultimaRecepcion)}` : undefined}>
+                      <TableCell className="text-right" title={f.ultimaRecepcion ? `Recepción o fabricación del ${fmtFecha(f.ultimaRecepcion)}` : undefined}>
                         {f.ultimoCostoReal !== undefined ? fmtCLP(f.ultimoCostoReal) : "-"}
                       </TableCell>
                       <TableCell className="text-right">{f.precioVenta !== undefined ? fmtCLP(f.precioVenta) : "-"}</TableCell>
