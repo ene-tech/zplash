@@ -512,6 +512,10 @@ h4,
   margin: 0 auto;
   width: 100%;
 }
+/* Pantallas internas (admin, operador, POS…): usan todo el ancho del monitor */
+.topbar ~ .content {
+  max-width: none;
+}
 
 /* ---------- OPERADOR ---------- */
 .scan-panel {
