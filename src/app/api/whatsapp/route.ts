@@ -1,13 +1,13 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { buscarOCrearConversacion, insertarMensaje, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente, registrarGastoAgenteWhatsapp, vaciarTelefonoSinWhatsapp } from "@/lib/dataAccess";
+import { buscarOCrearConversacion, insertarMensaje, marcarAnuncioOrigen, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente, registrarGastoAgenteWhatsapp, vaciarTelefonoSinWhatsapp } from "@/lib/dataAccess";
 import { ENVIADO_POR_AGENTE, opcionDeTexto, uid } from "@/lib/helpers";
 import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
 import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
 import { claveAnthropic, costoUsd, MODELO, responderConAgente } from "@/lib/whatsapp/agente";
 import { responderMensaje } from "@/lib/whatsapp/router";
-import type { EstadoMensajeWhatsapp } from "@/types";
+import type { EstadoMensajeWhatsapp, ReferralAnuncioWhatsapp } from "@/types";
 
 export const runtime = "nodejs";
 // El agente con IA tarda unos segundos por mensaje y corre en after(), que
@@ -52,6 +52,9 @@ type MetaMensaje = {
   audio?: MetaMedia;
   video?: MetaMedia;
   document?: MetaMedia;
+  // Solo en el primer mensaje de alguien que llega desde un anuncio
+  // Click-to-WhatsApp (ver anuncioOrigen en @/db/schema/whatsapp).
+  referral?: ReferralAnuncioWhatsapp;
 };
 type MetaMedia = { id?: string; caption?: string };
 
@@ -135,6 +138,9 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
     tipo: "texto",
     whatsappMessageId: msg.id,
   });
+  // Sin la columna (SQL sin pegar) no se corta la respuesta al cliente.
+  if (msg.referral?.source_type === "ad")
+    await marcarAnuncioOrigen(conversacion.id, msg.referral).catch((e) => console.error("No se pudo guardar el anuncio de origen", e));
 
   // Un pulgar arriba o un sticker no es una pregunta: contestarlos disparaba
   // el menú completo de vuelta (19 reacciones y 5 stickers entre jun y ago

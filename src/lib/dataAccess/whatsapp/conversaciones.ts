@@ -1,10 +1,10 @@
 import "server-only";
 
-import { and, desc, eq, gt, isNotNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, conversacionesWhatsapp, mensajesWhatsapp } from "@/db/schema";
 import { ENVIADO_POR_AGENTE, uid } from "@/lib/helpers";
-import type { ConversacionWhatsapp, DireccionMensajeWhatsapp, EstadoMensajeWhatsapp, FlowStateWhatsapp, MensajeWhatsapp, TipoMensajeWhatsapp } from "@/types";
+import type { ConversacionWhatsapp, DireccionMensajeWhatsapp, EstadoMensajeWhatsapp, FlowStateWhatsapp, MensajeWhatsapp, ReferralAnuncioWhatsapp, TipoMensajeWhatsapp } from "@/types";
 
 type ConversacionRow = typeof conversacionesWhatsapp.$inferSelect;
 type MensajeRow = typeof mensajesWhatsapp.$inferSelect;
@@ -70,6 +70,17 @@ export async function buscarOCrearConversacion(telefono: string, nombreContacto?
   };
   await db.insert(conversacionesWhatsapp).values(nueva);
   return conversacionFromRow(nueva as ConversacionRow);
+}
+
+// Guarda el anuncio solo si la conversación todavía no tenía uno (ver
+// anuncioOrigen en @/db/schema/whatsapp): el where evita pisar el primero.
+// Si era cliente de antes se sabe al consultar, comparando anuncio_origen_en
+// con la primera venta del cliente.
+export async function marcarAnuncioOrigen(conversacionId: string, referral: ReferralAnuncioWhatsapp): Promise<void> {
+  await getDb()
+    .update(conversacionesWhatsapp)
+    .set({ anuncioOrigen: referral, anuncioOrigenEn: new Date().toISOString() })
+    .where(and(eq(conversacionesWhatsapp.id, conversacionId), isNull(conversacionesWhatsapp.anuncioOrigen)));
 }
 
 // `null` limpia el flujo (lo completó, lo canceló, o escribió "hola"/"menu"

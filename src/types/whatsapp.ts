@@ -17,6 +17,19 @@ export interface FlowStateWhatsapp {
   opinionId?: string;
 }
 
+// El `referral` que manda Meta en el primer mensaje de alguien que tocó un
+// anuncio Click-to-WhatsApp. `source_id` es el id del anuncio (cruza con
+// scripts/meta-ads-campanas.mts); `ctwa_clid` identifica el clic.
+export interface ReferralAnuncioWhatsapp {
+  source_url?: string;
+  source_id?: string;
+  source_type?: string;
+  headline?: string;
+  body?: string;
+  media_type?: string;
+  ctwa_clid?: string;
+}
+
 // Hilo de conversación con un número de WhatsApp — ver comentario en
 // @/db/schema/whatsapp sobre el enlace opcional a Cliente.
 export interface ConversacionWhatsapp {

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, index, integer, jsonb, numeric, pgTable, text, unique } from "drizzle-orm/pg-core";
-import type { FlowStateWhatsapp } from "@/types";
+import type { FlowStateWhatsapp, ReferralAnuncioWhatsapp } from "@/types";
 import { clientes } from "./clientes";
 import { cupones } from "./cupones";
 import { timestamptz } from "./shared";
@@ -23,6 +23,13 @@ export const conversacionesWhatsapp = pgTable("conversaciones_whatsapp", {
   // por su texto), esta columna es la única excepción, acotada a flujos que
   // piden varios datos en mensajes sucesivos.
   flowState: jsonb("flow_state").$type<FlowStateWhatsapp>(),
+  // El primer anuncio de Meta (Click-to-WhatsApp) desde el que escribió este
+  // número: el `referral` que trae el webhook en ese mensaje, tal cual. Es la
+  // única forma de saber qué clientes trajeron los anuncios — la API de
+  // reportes de Meta da números, no personas. Solo el primero: un cliente que
+  // ya escribía y después toca un anuncio no lo "trajo" el anuncio.
+  anuncioOrigen: jsonb("anuncio_origen").$type<ReferralAnuncioWhatsapp>(),
+  anuncioOrigenEn: timestamptz("anuncio_origen_en"),
   ultimoMensajeEn: timestamptz("ultimo_mensaje_en").notNull().defaultNow(),
   noLeidos: integer("no_leidos").notNull().default(0),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
