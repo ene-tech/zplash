@@ -1,5 +1,4 @@
 import { fmtCLP, montoDescuento, resolverDescuento, TIPO_VENTA_PRODUCTOS } from "@/lib/helpers";
-import { referidorDeLote } from "@/lib/referidos";
 import type { Cliente, Cupon, DatosFacturacion, Venta, VentaItem } from "@/types";
 
 const METODOS_POS = ["efectivo", "tarjeta", "transferencia"] as const;
@@ -122,18 +121,18 @@ export function armarVentaPos(datos: DatosVentaPos): { venta: Venta; items: Vent
   return { venta, items };
 }
 
-/** Valida un código de descuento tipeado en el POS de la tienda. Mismas
- * reglas que el mesón del lavado (resolverDescuento: tipo, usado, vigencia,
- * canal local, patente asignada, solo clientes nuevos, referidos), con un
- * agregado propio: la venta de tienda puede ir sin patente (invitado o
- * comprador sin auto), y hay códigos cuya regla ES la patente — "un uso por
- * patente" y los de amigo (referidos). Sin patente esa regla no se puede
- * aplicar, así que esos piden elegir al cliente del lavado.
- *
- * Los de "solo clientes nuevos" se rechazan siempre: sin patente no hay cómo
- * comprobarlo, y con cliente elegido ese cliente ya existe, así que en la
- * tienda nunca podrían pasar. Se dice de entrada en vez de pedir un cliente
- * que después igual los rechaza. */
+/** Lote de los vales a favor que emite una devolución de la tienda
+ * (registrarDevolucionPos): `Devolución <fecha>`. */
+export const PREFIJO_VALE_TIENDA = "Devolución ";
+
+/** Valida un código de descuento tipeado en el POS de la tienda. Solo pasan
+ * los vales a favor de una devolución de la tienda: los cupones del lavado
+ * (campañas, referidos, bienvenida) valen para una pasada por el túnel y se
+ * usan en el mesón (decisión del 23-oct-2026). Así una campaña con códigos
+ * abiertos no se gasta en productos ni ensucia su medición, y un código de
+ * amigo quemado en la tienda no le dispara el premio al que lo compartió.
+ * Para el vale valen las mismas reglas que en el mesón (resolverDescuento:
+ * usado, vigencia, canal local y patente asignada). */
 export function resolverDescuentoPos(
   codigoCrudo: string,
   patente: string,
@@ -142,14 +141,8 @@ export function resolverDescuentoPos(
 ): { ok: true; cupon: Cupon } | { ok: false; msg: string } {
   const codigo = codigoCrudo.trim().toUpperCase();
   const cupon = cupones.find((c) => c.codigo === codigo);
-  if (cupon?.soloClientesNuevos) {
-    return {
-      ok: false,
-      msg: "Este código es solo para clientes nuevos del lavado y se usa en el mesón, no en la tienda",
-    };
-  }
-  if (cupon && !patente && (cupon.unUsoPorPatente || referidorDeLote(cupon.nombreLote))) {
-    return { ok: false, msg: "Este código va atado a una patente: elige al cliente del lavado para usarlo" };
+  if (cupon && !cupon.nombreLote.startsWith(PREFIJO_VALE_TIENDA)) {
+    return { ok: false, msg: "Este código es para el lavado del túnel y se usa en el mesón, no en la tienda" };
   }
   return resolverDescuento(codigo, patente, cupones, clientes);
 }

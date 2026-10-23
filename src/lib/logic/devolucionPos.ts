@@ -62,7 +62,7 @@ export function totalDevolucionProrrateado(totalLista: number, brutoVenta: numbe
 /** Arma el contra-asiento de una devolución de productos: una Venta de tipo
  * "Reembolso" con precio NEGATIVO y fecha de HOY (no la de la venta
  * original), sus líneas en negativo, y el movimiento contable que la
- * descuenta del canal de la tienda.
+ * descuenta del canal de la tienda (salvo el vale a favor, ver abajo).
  *
  * Pura (sin DB ni reloj) para poder testearla; la escritura transaccional
  * —que además devuelve el stock— vive en registrarDevolucionPos. Valida
@@ -138,7 +138,11 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
     rut: datos.venta.rut,
   };
 
-  if (sinMonto) return { venta, items, movimiento: null };
+  // El vale a favor tampoco lleva asiento: la plata se queda en el negocio y
+  // la venta se completa cuando el vale se canjea. Esa compra se graba neta
+  // del vale (armarVentaPos), así que restar aquí descontaba la venta dos
+  // veces del EERR: vender 10.000, devolver con vale y comprar con él daba 0.
+  if (sinMonto || datos.forma === "vale") return { venta, items, movimiento: null };
 
   const movimiento: MovimientoContable = {
     id: `mc-venta-${ventaId}`,

@@ -16,6 +16,9 @@ where r.tipo_evento = 'cobro_fallido';
 create table if not exists _backup_plantillas_cobro_fallido_2026_10_21 as
 select p.* from plantillas_correo p
 where p.id in (select plantilla_correo_id from reglas_correo where tipo_evento = 'cobro_fallido');
+-- Que la llave pública no pueda leer el respaldo (igual que correos_suprimidos).
+alter table _backup_plantillas_cobro_fallido_2026_10_21 enable row level security;
+revoke all on table _backup_plantillas_cobro_fallido_2026_10_21 from anon, authenticated;
 
 -- 1) El cambio.
 update plantillas_correo

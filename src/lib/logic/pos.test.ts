@@ -130,7 +130,7 @@ describe("resolverDescuentoPos", () => {
   const cupon = (extra: Partial<Cupon>): Cupon => ({
     id: "c1",
     codigo: "ABC123",
-    nombreLote: "Devolución",
+    nombreLote: "Devolución 21-oct",
     valor: 2000,
     numeroLote: 1,
     totalLote: 1,
@@ -160,23 +160,12 @@ describe("resolverDescuentoPos", () => {
     expect(resolverDescuentoPos("ABC123", "", [cupon({ tipo: "vale" })], []).ok).toBe(false);
   });
 
-  it("sin patente no acepta códigos cuya regla es la patente", () => {
-    expect(resolverDescuentoPos("ABC123", "", [cupon({ unUsoPorPatente: true })], []).ok).toBe(false);
-    expect(resolverDescuentoPos("ABC123", "", [cupon({ nombreLote: "Referido - ABCD12" })], []).ok).toBe(false);
-  });
-
-  it("los de solo clientes nuevos se rechazan siempre, con o sin cliente, avisando que van en el mesón", () => {
-    const msg = "Este código es solo para clientes nuevos del lavado y se usa en el mesón, no en la tienda";
-    expect(resolverDescuentoPos("ABC123", "", [cupon({ soloClientesNuevos: true })], [])).toEqual({ ok: false, msg });
-    expect(resolverDescuentoPos("ABC123", "ABCD12", [cupon({ soloClientesNuevos: true })], [])).toEqual({
-      ok: false,
-      msg,
-    });
-  });
-
-  it("respeta la regla de referidos: el dueño no usa su propio código", () => {
-    const r = resolverDescuentoPos("ABC123", "ABCD12", [cupon({ nombreLote: "Referido - ABCD12" })], []);
-    expect(r.ok).toBe(false);
+  it("los cupones del lavado se rechazan siempre, con o sin cliente, avisando que van en el mesón", () => {
+    const msg = "Este código es para el lavado del túnel y se usa en el mesón, no en la tienda";
+    for (const nombreLote of ["Campaña lluvia oct-2026", "Referido - ABCD12", "Premio referido - XYZ789", "Bienvenida"]) {
+      expect(resolverDescuentoPos("ABC123", "", [cupon({ nombreLote })], [])).toEqual({ ok: false, msg });
+      expect(resolverDescuentoPos("ABC123", "ABCD12", [cupon({ nombreLote })], [])).toEqual({ ok: false, msg });
+    }
   });
 });
 

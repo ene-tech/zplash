@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes } from "@/db/schema";
 import { aplicarVariables, fmtCLP, isValidEmail, isValidPatente, normPlate, normalizarTextoBot, OPINION_NOTA_BUENA, opcionDeTexto, uid } from "@/lib/helpers";
@@ -102,8 +102,14 @@ async function existeClienteConPatente(patente: string): Promise<boolean> {
   return !!fila;
 }
 
+// Cliente del lavado: el comprador de la tienda sin auto sigue siendo nuevo
+// para el túnel y puede pedir el descuento de bienvenida.
 async function existeClienteConTelefono(telefono: string): Promise<boolean> {
-  const [fila] = await getDb().select({ id: clientes.id }).from(clientes).where(eq(clientes.telefono, telefono)).limit(1);
+  const [fila] = await getDb()
+    .select({ id: clientes.id })
+    .from(clientes)
+    .where(and(eq(clientes.telefono, telefono), isNotNull(clientes.patente)))
+    .limit(1);
   return !!fila;
 }
 

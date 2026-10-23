@@ -51,7 +51,13 @@ export async function buscarOCrearConversacion(telefono: string, nombreContacto?
     return conversacionFromRow(existente);
   }
 
-  const [cliente] = await db.select({ id: clientes.id }).from(clientes).where(eq(clientes.telefono, telefono)).limit(1);
+  // Solo fichas del lavado: un comprador de la tienda sin auto puede tener el
+  // mismo teléfono, y atar la conversación a esa ficha deja al bot sin plan.
+  const [cliente] = await db
+    .select({ id: clientes.id })
+    .from(clientes)
+    .where(and(eq(clientes.telefono, telefono), isNotNull(clientes.patente)))
+    .limit(1);
   const ahora = new Date().toISOString();
   const nueva = {
     id: uid(),

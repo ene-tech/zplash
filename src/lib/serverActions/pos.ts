@@ -29,11 +29,11 @@ import {
 import {
   armarDevolucionPos,
   armarVentaPos,
+  PREFIJO_VALE_TIENDA,
   resolverDescuentoPos,
   type LineaDevolucion,
   type LineaPos,
 } from "@/lib/logic";
-import { PREFIJO_REFERIDO } from "@/lib/referidos";
 import { sesionActual, tieneAlgunModulo } from "@/lib/session";
 import type { Cupon, DatosFacturacion, MovimientoContable, Producto, Venta, VentaItem } from "@/types";
 
@@ -170,13 +170,7 @@ async function prepararVentaPos(db: DbOrTx, input: VentaPosInput, sesion: Sesion
   if (codigo) {
     const consulta = db.select().from(cupones).where(eq(cupones.codigo, codigo)).limit(1);
     const filas = bloquear ? await consulta.for("update") : await consulta;
-    // Los cupones de amigo (referidos) se cruzan contra los demás de su tipo
-    // (ver rechazoCodigoReferido); solo se leen si el código es uno de esos.
-    const deAmigo = filas[0]?.nombreLote.startsWith(PREFIJO_REFERIDO)
-      ? await db.select().from(cupones).where(like(cupones.nombreLote, `${PREFIJO_REFERIDO}%`))
-      : [];
-    const lista = [...filas, ...deAmigo.filter((c) => c.id !== filas[0]?.id)].map(dataAccess.cuponFromRow);
-    const r = resolverDescuentoPos(codigo, patente, lista, cliente ? [cliente] : []);
+    const r = resolverDescuentoPos(codigo, patente, filas.map(dataAccess.cuponFromRow), cliente ? [cliente] : []);
     if (!r.ok) throw new RechazoVenta(r.msg, true);
     cupon = r.cupon;
   }
@@ -445,7 +439,7 @@ export async function registrarDevolucionPos(input: DevolucionPosInput): Promise
     vale = {
       id: uid(),
       codigo: generarCodigoCupon(codigosUsados),
-      nombreLote: `Devolución ${fechaCorta(fecha)}`,
+      nombreLote: `${PREFIJO_VALE_TIENDA}${fechaCorta(fecha)}`,
       valor: Math.abs(armado.venta.precio),
       numeroLote: 1,
       totalLote: 1,
