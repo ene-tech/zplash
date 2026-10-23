@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import PriceInput from "@/components/PriceInput";
-import { fmtCLP, generarCodigoProducto, margenProducto, uid } from "@/lib/helpers";
+import { brutoDeNeto, fmtCLP, generarCodigoProducto, margenProducto, uid } from "@/lib/helpers";
 import type { Producto } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -157,13 +157,13 @@ export default function ProductoModal({ data: prod }: { data: Producto | null })
             <PriceInput value={valorCompra} onChange={setValorCompra} />
           </div>
           <div className="grid gap-1.5">
-            <Label>Valor de Venta</Label>
+            <Label>Valor de Venta (neto, sin IVA)</Label>
             <PriceInput value={valorVenta} onChange={setValorVenta} />
             {(() => {
               const margen = margenProducto({ valorCompra: Number(valorCompra) || 0, valorVenta: Number(valorVenta) || 0 });
               return margen ? (
                 <p className="text-xs text-muted-foreground">
-                  Margen: {fmtCLP(margen.unitario)} ({margen.pct.toFixed(1)}%) — venta neta (sin IVA) menos costo de compra
+                  Se cobra {fmtCLP(brutoDeNeto(Number(valorVenta) || 0))} con IVA. Margen: {fmtCLP(margen.unitario)} ({margen.pct.toFixed(1)}%) — venta neta (sin IVA) menos costo de compra
                 </p>
               ) : null;
             })()}

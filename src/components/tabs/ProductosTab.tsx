@@ -120,7 +120,7 @@ export default function ProductosTab() {
               <TableHead className="max-w-[180px]">Detalle</TableHead>
               <TableHead>Categoría</TableHead>
               <TableHead>Valor Compra</TableHead>
-              <TableHead>Valor Venta</TableHead>
+              <TableHead>Venta neta</TableHead>
               <TableHead>Margen</TableHead>
               <TableHead>Margen %</TableHead>
               <TableHead>Stock</TableHead>

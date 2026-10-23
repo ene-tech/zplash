@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import Topbar from "@/components/Topbar";
 import {
+  brutoDeNeto,
   fmtCLP,
   isValidPatente,
   ivaDeBruto,
@@ -123,7 +124,7 @@ export default function PosView() {
       if (existente) {
         return prev.map((l) => (l.productoId === p.id ? { ...l, cantidad: l.cantidad + 1 } : l));
       }
-      return [...prev, { productoId: p.id, sku: p.sku, detalle: p.detalle, cantidad: 1, precioUnitario: p.valorVenta }];
+      return [...prev, { productoId: p.id, sku: p.sku, detalle: p.detalle, cantidad: 1, precioUnitario: brutoDeNeto(p.valorVenta) }];
     });
     setBusqueda("");
     buscadorRef.current?.focus();
@@ -507,7 +508,7 @@ export default function PosView() {
                         <strong>{p.sku}</strong>
                         <div style={{ fontSize: 12, color: "var(--gray)" }}>{p.detalle}</div>
                       </td>
-                      <td style={{ width: 110 }}>{fmtCLP(p.valorVenta)}</td>
+                      <td style={{ width: 110 }}>{fmtCLP(brutoDeNeto(p.valorVenta))}</td>
                       <td style={{ width: 110, color: stockEnBodega(p) < p.stockMin ? "var(--red)" : "var(--gray)" }}>
                         {stockEnBodega(p)} en bodega
                       </td>
@@ -660,8 +661,8 @@ export default function PosView() {
                 <strong style={{ color: "var(--fg)" }}>−{fmtCLP(rebaja)}</strong>
               </div>
             )}
-            {/* El precio de venta ya viene con IVA: acá se desglosa para la
-                factura (neto + IVA = total exacto, sin descuadre). */}
+            {/* El carrito ya va con IVA (ficha neta × 1,19): acá se desglosa
+                para la factura (neto + IVA = total exacto, sin descuadre). */}
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", fontSize: 12, color: "var(--gray)" }}>
               <span style={{ textTransform: "uppercase" }}>Total neto</span>
               <strong style={{ color: "var(--fg)" }}>{fmtCLP(netoDeBruto(total))}</strong>

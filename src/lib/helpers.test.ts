@@ -70,6 +70,7 @@ import {
   ivaDeBruto,
   mesDesplazado,
   netoDeBruto,
+  brutoDeNeto,
   mesesEntre,
   mesKey,
   montoDescuento,
@@ -2139,11 +2140,11 @@ describe("buscarProveedorPorRut", () => {
 });
 
 describe("margenProducto", () => {
-  it("calcula margen neto desde el precio bruto, igual que la planilla del proveedor", () => {
-    // Aromatizador Piña Colada: costo neto 1490, venta pública 2490 (IVA incl.)
+  it("calcula margen neto: la ficha guarda la venta neta (sin IVA)", () => {
+    // Aromatizador Piña Colada: costo neto 1490, venta neta 2490
     const margen = margenProducto({ valorCompra: 1490, valorVenta: 2490 })!;
-    expect(margen.unitario).toBe(602);
-    expect(margen.pct).toBeCloseTo(28.8, 1);
+    expect(margen.unitario).toBe(1000);
+    expect(margen.pct).toBeCloseTo(40.2, 1);
   });
 
   it("devuelve null si el producto no tiene precio de venta asignado", () => {
@@ -2616,5 +2617,11 @@ describe("neto e IVA de un monto bruto", () => {
     }
     expect(netoDeBruto(11900)).toBe(10000);
     expect(ivaDeBruto(11900)).toBe(1900);
+  });
+
+  it("brutoDeNeto: la ficha neta se cobra × 1,19 redondeado al peso", () => {
+    expect(brutoDeNeto(10000)).toBe(11900);
+    expect(brutoDeNeto(2490)).toBe(2963);
+    expect(brutoDeNeto(0)).toBe(0);
   });
 });
