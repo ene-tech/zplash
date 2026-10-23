@@ -93,6 +93,10 @@ export async function emitirFacturaDeVentas(ventaIds: string[]): Promise<Resulta
   const clientes = await clientesDe(candidatas);
   const receptores = candidatas.map((v) => receptorDe(v, clientes));
   const receptor = receptores[0];
+  // Comuna y ciudad solo existen en la ficha de Empresas.
+  const empresa = receptor.rut ? await empresaPorRut(receptor.rut) : null;
+  receptor.comuna = empresa?.comuna;
+  receptor.ciudad = empresa?.ciudad;
   const falta = [!receptor.rut && "RUT", !receptor.razonSocial && "razón social", !receptor.giro && "giro", !receptor.direccion?.trim() && "dirección"].filter(Boolean);
   if (falta.length) return { ok: false, error: `Faltan datos de facturación: ${falta.join(", ")}` };
   if (receptores.some((r) => formatRut(r.rut) !== formatRut(receptor.rut))) return { ok: false, error: "Las ventas son de RUTs distintos" };

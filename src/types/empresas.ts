@@ -8,6 +8,8 @@ export interface Empresa {
   rut: string;
   giro?: string;
   direccion?: string;
+  comuna?: string;
+  ciudad?: string;
   telefono?: string;
   contactoClienteId?: string;
   contactoNombre?: string;

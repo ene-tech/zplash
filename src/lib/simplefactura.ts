@@ -13,6 +13,8 @@ export interface ReceptorFactura {
   razonSocial: string;
   giro: string;
   direccion?: string;
+  comuna?: string;
+  ciudad?: string;
   email?: string;
 }
 
@@ -53,10 +55,11 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
   const total = ventas.reduce((s, v) => s + v.precio, 0);
   const neto = Math.round(total / 1.19);
   const pagada = ventas.every((v) => !v.estadoPago || v.estadoPago === "pagado");
-  // No hay campo comuna en la ficha: se toma lo que venga después de la
-  // última coma de la dirección ("Av. X 123, Las Condes"). Sin coma, el SII
+  // Comuna y ciudad salen de la ficha de la empresa. Sin empresa registrada
+  // (compra web, cliente con factura) se toma lo que venga después de la
+  // última coma de la dirección ("Av. X 123, Las Condes"); sin coma, el SII
   // igual exige comuna: se usa la del local, donde están casi todos.
-  const comuna = (receptor.direccion?.includes(",") && receptor.direccion.split(",").pop()!.trim()) || "Temuco";
+  const comuna = receptor.comuna?.trim() || (receptor.direccion?.includes(",") && receptor.direccion.split(",").pop()!.trim()) || "Temuco";
   return {
     Documento: {
       Encabezado: {
@@ -69,7 +72,7 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
           DirRecep: receptor.direccion?.slice(0, 70),
           CmnaRecep: comuna.slice(0, 20),
           // Sin esto el PDF imprime "Sin ciudad". Casi todos los clientes son de Temuco.
-          CiudadRecep: "Temuco",
+          CiudadRecep: (receptor.ciudad?.trim() || "Temuco").slice(0, 20),
           CorreoRecep: receptor.email,
         },
         Totales: { MntNeto: neto, TasaIVA: 19, IVA: total - neto, MntTotal: total },

@@ -35,6 +35,12 @@ describe("armarFactura", () => {
     expect(doc.Detalle[0].NmbItem).toBe("10 lavados Referencia: 4500123");
   });
 
+  it("usa comuna y ciudad de la empresa antes que la dirección", () => {
+    const { Receptor } = armarFactura([venta(1000)], { ...receptor, comuna: "Providencia", ciudad: "Santiago" }, "2026-10-03", "1-9").Documento.Encabezado;
+    expect(Receptor.CmnaRecep).toBe("Providencia");
+    expect(Receptor.CiudadRecep).toBe("Santiago");
+  });
+
   it("emisor y receptor llevan ciudad Temuco", () => {
     const { Emisor, Receptor } = armarFactura([venta(1000)], receptor, "2026-10-03", "1-9").Documento.Encabezado;
     expect(Emisor.CiudadOrigen).toBe("Temuco");

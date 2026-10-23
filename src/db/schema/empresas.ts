@@ -12,6 +12,8 @@ export const empresas = pgTable("empresas", {
   rut: text("rut").notNull().unique(),
   giro: text("giro"),
   direccion: text("direccion"),
+  comuna: text("comuna"),
+  ciudad: text("ciudad"),
   telefono: text("telefono"),
   contactoClienteId: text("contacto_cliente_id").references(() => clientes.id, { onDelete: "set null" }),
   contactoNombre: text("contacto_nombre"),

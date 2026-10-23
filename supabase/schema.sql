@@ -36,6 +36,8 @@ create table if not exists empresas (
   rut text not null unique,
   giro text,
   direccion text,
+  comuna text,
+  ciudad text,
   telefono text,
   contacto_cliente_id text,
   contacto_nombre text,

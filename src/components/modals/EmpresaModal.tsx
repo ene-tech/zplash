@@ -20,6 +20,8 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
   const rutRef = useRef<HTMLInputElement>(null);
   const giroRef = useRef<HTMLInputElement>(null);
   const direccionRef = useRef<HTMLInputElement>(null);
+  const comunaRef = useRef<HTMLInputElement>(null);
+  const ciudadRef = useRef<HTMLInputElement>(null);
   const telefonoRef = useRef<HTMLInputElement>(null);
   const [contacto, setContacto] = useState(emp.contactoClienteId || SIN_CONTACTO);
   const [err, setErr] = useState("");
@@ -62,14 +64,11 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
     const rutRaw = rutRef.current?.value.trim() || "";
     const giro = giroRef.current?.value.trim() || "";
     const direccion = direccionRef.current?.value.trim() || "";
+    const comuna = comunaRef.current?.value.trim() || "";
+    const ciudad = ciudadRef.current?.value.trim() || "";
     const telefonoRaw = telefonoRef.current?.value.trim() || "";
-    if (!razonSocial || !rutRaw || !giro || !direccion || !telefonoRaw || contacto === SIN_CONTACTO) {
+    if (!razonSocial || !rutRaw || !giro || !direccion || !comuna || !ciudad || !telefonoRaw || contacto === SIN_CONTACTO) {
       setErr("Todos los campos son obligatorios");
-      return;
-    }
-    // La factura saca la comuna de lo que va después de la última coma.
-    if (!direccion.includes(",") || !direccion.split(",").pop()!.trim()) {
-      setErr("La dirección debe incluir la comuna después de una coma (ej: Prieto Norte 71, Temuco)");
       return;
     }
     if (!isValidRut(rutRaw)) {
@@ -96,6 +95,8 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
         rut,
         giro,
         direccion,
+        comuna,
+        ciudad,
         telefono,
         contactoClienteId,
         contactoNombre,
@@ -108,6 +109,8 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
         rut,
         giro,
         direccion,
+        comuna,
+        ciudad,
         telefono,
         contactoClienteId,
         contactoNombre,
@@ -149,7 +152,17 @@ export default function EmpresaModal({ data: e, onGuardada }: { data: Empresa | 
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="emp-direccion">Dirección</Label>
-            <Input id="emp-direccion" ref={direccionRef} defaultValue={emp.direccion || ""} placeholder="Prieto Norte 71, Temuco" />
+            <Input id="emp-direccion" ref={direccionRef} defaultValue={emp.direccion || ""} placeholder="Prieto Norte 71" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="emp-comuna">Comuna</Label>
+              <Input id="emp-comuna" ref={comunaRef} defaultValue={emp.comuna || ""} placeholder="Temuco" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="emp-ciudad">Ciudad</Label>
+              <Input id="emp-ciudad" ref={ciudadRef} defaultValue={emp.ciudad || ""} placeholder="Temuco" />
+            </div>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="emp-telefono">Teléfono</Label>
