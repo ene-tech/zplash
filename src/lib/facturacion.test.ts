@@ -70,6 +70,19 @@ describe("emitirFacturasAutomaticas", () => {
     expect(idsEmitidos()).toEqual([["w"]]);
   });
 
+  it("del mesón (soloFicha) ignora los datos de factura que trae la fila y usa los de la ficha", async () => {
+    const inventada = { tipoDocumento: "Factura", rut: "99.999.999-9", razonSocial: "AJENA", giro: "X", direccion: "Calle 2, Temuco", email: "yo@malo.cl" } as const;
+    // Cliente con Boleta en su ficha: la fila no lo convierte en factura.
+    db.ventas = [venta("m", { clienteId: "c2", ...inventada }), venta("sin-cliente", { clienteId: "", ...inventada })];
+    await emitirFacturasAutomaticas(["m", "sin-cliente"], { soloFicha: true });
+    expect(emitirFactura).not.toHaveBeenCalled();
+    // Cliente con Factura en su ficha: sale a SU RUT, no al de la fila.
+    db.ventas = [venta("f", { ...inventada })];
+    await emitirFacturasAutomaticas(["f"], { soloFicha: true });
+    const receptor = (emitirFactura.mock.calls as unknown as [Venta[], { rut: string }][])[0][1];
+    expect(receptor.rut).toBe("76.535.951-1");
+  });
+
   it("una venta que ya no existe (transacción revertida) no se factura", async () => {
     await emitirFacturasAutomaticas(["fantasma"]);
     expect(emitirFactura).not.toHaveBeenCalled();

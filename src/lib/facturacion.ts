@@ -26,10 +26,18 @@ async function clientesDe(ventas: Venta[]): Promise<Map<string, Cliente>> {
   return new Map((await getClientesByIds(ventas.map((v) => v.clienteId).filter(Boolean))).map((c) => [c.id, c]));
 }
 
+/** `soloFicha`: el receptor sale SIEMPRE de la ficha del cliente, nunca de la
+ * venta. Lo usa la factura automática de las ventas del mesón, cuyas filas
+ * arma el navegador: con los datos de la venta, un POST directo podía emitir
+ * una factura real a un RUT ajeno y mandarse el PDF a su propio correo. */
+export interface OpcionesFactura {
+  soloFicha?: boolean;
+}
+
 // Compra web: los datos de facturación vienen en la venta. Cliente con
 // Factura en su ficha (mesón): vienen del cliente.
-function receptorDe(v: Venta, clientes: Map<string, Cliente>): ReceptorFactura {
-  const fuente = v.rut ? v : clientes.get(v.clienteId);
+function receptorDe(v: Venta, clientes: Map<string, Cliente>, { soloFicha }: OpcionesFactura = {}): ReceptorFactura {
+  const fuente = v.rut && !soloFicha ? v : clientes.get(v.clienteId);
   return {
     rut: fuente?.rut || "",
     razonSocial: fuente?.razonSocial || "",
@@ -42,13 +50,13 @@ function receptorDe(v: Venta, clientes: Map<string, Cliente>): ReceptorFactura {
 // Manda el PDF de la factura al correo del contacto de la empresa (Empresas →
 // persona de contacto). Si la empresa no está registrada o su contacto no
 // tiene correo, cae al correo de la compra web o de la ficha del cliente.
-export async function mandarFacturaPorCorreo(folio: number, ventas: Venta[]): Promise<ResultadoCorreoFactura> {
+export async function mandarFacturaPorCorreo(folio: number, ventas: Venta[], { soloFicha }: OpcionesFactura = {}): Promise<ResultadoCorreoFactura> {
   const clientes = await clientesDe(ventas);
   const v0 = ventas[0];
-  const rut = v0.rut || clientes.get(v0.clienteId)?.rut;
+  const rut = (!soloFicha && v0.rut) || clientes.get(v0.clienteId)?.rut;
   const empresa = rut ? await empresaPorRut(rut) : null;
   const contacto = empresa?.contactoClienteId ? (await getClientesByIds([empresa.contactoClienteId]))[0] : undefined;
-  const email = [contacto?.email, v0.email, clientes.get(v0.clienteId)?.email].find((e) => esEmailEnviable(e))?.trim();
+  const email = [contacto?.email, soloFicha ? undefined : v0.email, clientes.get(v0.clienteId)?.email].find((e) => esEmailEnviable(e))?.trim();
   if (!email) return { ok: false, error: "la empresa no tiene correo de contacto" };
 
   let pdf: Buffer;
@@ -58,7 +66,7 @@ export async function mandarFacturaPorCorreo(folio: number, ventas: Venta[]): Pr
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
   const total = ventas.reduce((s, v) => s + v.precio, 0);
-  const razonSocial = empresa?.razonSocial || v0.razonSocial || clientes.get(v0.clienteId)?.razonSocial || "";
+  const razonSocial = empresa?.razonSocial || (!soloFicha && v0.razonSocial) || clientes.get(v0.clienteId)?.razonSocial || "";
   const html = envolverHtmlBase(
     `<p style="margin:0 0 16px;">Hola${razonSocial ? ` <strong>${escapeHtml(razonSocial)}</strong>` : ""},</p>` +
       `<p style="margin:0 0 16px;">Adjuntamos la factura electrónica N° <strong>${folio}</strong> por ${fmtCLP(total)}.</p>` +
@@ -84,14 +92,14 @@ export async function reenviarFactura(folio: number): Promise<ResultadoCorreoFac
 // Emite UNA factura electrónica por todas las ventas pedidas (deben ser del
 // mismo RUT), las deja marcadas como emitidas y la manda por correo. Montos y
 // receptor se leen de la base, nunca del navegador.
-export async function emitirFacturaDeVentas(ventaIds: string[]): Promise<ResultadoFactura> {
+export async function emitirFacturaDeVentas(ventaIds: string[], opciones: OpcionesFactura = {}): Promise<ResultadoFactura> {
   // Las ya emitidas se saltan (re-emitirlas duplicaría la factura ante el SII),
   // pero no traban al resto del grupo.
   const candidatas = (await ventasPorIds(ventaIds)).filter((v) => v.precio > 0 && !v.facturaEmitida);
   if (!candidatas.length) return { ok: false, error: "No hay ventas con monto pendientes de factura" };
 
   const clientes = await clientesDe(candidatas);
-  const receptores = candidatas.map((v) => receptorDe(v, clientes));
+  const receptores = candidatas.map((v) => receptorDe(v, clientes, opciones));
   const receptor = receptores[0];
   // Comuna y ciudad solo existen en la ficha de Empresas.
   const empresa = receptor.rut ? await empresaPorRut(receptor.rut) : null;
@@ -126,7 +134,7 @@ export async function emitirFacturaDeVentas(ventaIds: string[]): Promise<Resulta
     return { ok: false, error: `Se emitió la factura N° ${folio} pero no se pudo guardar su folio en la base.` };
   }
   // La factura ya quedó emitida: un fallo del correo solo se avisa.
-  return { ok: true, folio, correo: await mandarFacturaPorCorreo(folio, ventas) };
+  return { ok: true, folio, correo: await mandarFacturaPorCorreo(folio, ventas, opciones) };
 }
 
 // Factura automática al vender: la llaman insertVentas (mesón) y, para lo
@@ -138,28 +146,33 @@ export async function emitirFacturaDeVentas(ventaIds: string[]): Promise<Resulta
 // de cobrarse, y queda pendiente en el cierre como siempre. Si faltan datos o
 // SimpleFactura la rechaza, también queda pendiente en el cierre; si no se
 // sabe si salió, queda emitida sin folio para revisarla a mano.
-export async function emitirFacturasAutomaticas(ventaIds: string[]): Promise<void> {
+export async function emitirFacturasAutomaticas(ventaIds: string[], opciones: OpcionesFactura = {}): Promise<void> {
   const nuevas = await ventasPorIds(ventaIds);
   const conMonto = nuevas.filter((v) => v.precio > 0 && !v.facturaEmitida && (!v.estadoPago || v.estadoPago === "pagado"));
   if (!conMonto.length) return;
   const clientes = await clientesDe(conMonto);
   const grupos = new Map<string, string[]>();
   for (const v of conMonto) {
-    const pideFactura = v.tipoDocumento === "Factura" || (!v.tipoDocumento && clientes.get(v.clienteId)?.tipoDocumento === "Factura");
+    const fichaPideFactura = clientes.get(v.clienteId)?.tipoDocumento === "Factura";
+    // Con soloFicha la venta solo puede pedir MENOS (una Boleta elegida en el
+    // mesón), nunca convertir en factura a un cliente que no la tiene.
+    const pideFactura = opciones.soloFicha
+      ? fichaPideFactura && v.tipoDocumento !== "Boleta"
+      : v.tipoDocumento === "Factura" || (!v.tipoDocumento && fichaPideFactura);
     if (!pideFactura) continue;
-    const rut = receptorDe(v, clientes).rut;
+    const rut = receptorDe(v, clientes, opciones).rut;
     if (!rut) continue;
     const key = formatRut(rut);
     grupos.set(key, [...(grupos.get(key) || []), v.id]);
   }
   for (const [rut, ids] of grupos) {
-    let r = await emitirFacturaDeVentas(ids);
+    let r = await emitirFacturaDeVentas(ids, opciones);
     // Lo transitorio (token, 429) falló antes de mandar la factura: se puede
     // reintentar sin riesgo de duplicarla.
     for (const espera of REINTENTOS_FACTURA_MS) {
       if (r.ok || r.motivo !== "transitorio") break;
       await new Promise((ok) => setTimeout(ok, espera));
-      r = await emitirFacturaDeVentas(ids);
+      r = await emitirFacturaDeVentas(ids, opciones);
     }
     if (!r.ok) console.error("Factura automática no emitida", rut, ids, r.motivo, r.error);
     else if (!r.correo.ok) console.error("Factura automática emitida sin correo", r.folio, r.correo.error);

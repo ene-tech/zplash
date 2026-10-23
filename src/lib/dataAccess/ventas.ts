@@ -213,7 +213,14 @@ export async function insertVentas(rows: Venta[]): Promise<boolean> {
     // guardó.
     after(() => evaluarReglasPorVenta(rows).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta", error)));
     after(() => evaluarReglasCorreoPorVenta(rows).catch((error) => console.error("Error evaluando reglas de correo por venta", error)));
-    after(() => emitirFacturasAutomaticas(rows.map((v) => v.id)).catch((error) => console.error("Error emitiendo factura automática", error)));
+    // Factura automática del mesón: el receptor sale de la ficha, no de la
+    // fila (la arma el navegador). Las automáticas (Webpay, Oneclick, Pack
+    // Empresa) se facturan desde su propio camino de servidor, con los datos
+    // que ese camino validó; aquí se saltan.
+    const delMeson = rows.filter((v) => !esVentaAutomatica(v)).map((v) => v.id);
+    if (delMeson.length) {
+      after(() => emitirFacturasAutomaticas(delMeson, { soloFicha: true }).catch((error) => console.error("Error emitiendo factura automática", error)));
+    }
     return true;
   } catch (error) {
     console.error("Error guardando ventas", error);
