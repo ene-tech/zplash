@@ -155,10 +155,13 @@ export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOne
  * firmas, para que los tres llamadores con alguien delante no tengan que
  * manejar un resultado que nunca les llega.
  */
-export async function cobrarSuscripcion(suscripcion: SuscripcionOneclick, opciones?: { sinCliente?: false }): Promise<ResultadoCobro>;
 export async function cobrarSuscripcion(
   suscripcion: SuscripcionOneclick,
-  opciones: { sinCliente?: boolean }
+  opciones?: { sinCliente?: false; reiniciarCiclo?: boolean }
+): Promise<ResultadoCobro>;
+export async function cobrarSuscripcion(
+  suscripcion: SuscripcionOneclick,
+  opciones: { sinCliente?: boolean; reiniciarCiclo?: boolean }
 ): Promise<ResultadoCobro | { estado: "en_espera"; cortado?: undefined }>;
 export async function cobrarSuscripcion(
   suscripcion: SuscripcionOneclick,
@@ -174,8 +177,15 @@ export async function cobrarSuscripcion(
    * Además miden mal: el ciclo todavía está corriendo cuando aprietan, así
    * que contar sus pasadas daría un número parcial y un cliente que lava
    * mucho pasaría por uno de bajo uso.
+   *
+   * `reiniciarCiclo` lo pone el retorno de inscripción cuando la tarjeta venía
+   * "suspendida" (Suspender/Cancelar desde la ficha, o pausada por el cliente):
+   * eso fue una baja, así que volver a contratar arranca el plan el día que se
+   * paga y no en el aniversario de la contratación vieja (ver
+   * AplicarPagoParams.reiniciarCiclo). Con el plan todavía vigente no cambia
+   * nada: se apila igual que siempre, para no quitarle días ya pagados.
    */
-  opciones: { sinCliente?: boolean } = {}
+  opciones: { sinCliente?: boolean; reiniciarCiclo?: boolean } = {}
 ): Promise<ResultadoCobro | { estado: "en_espera"; cortado?: undefined }> {
   const tbkUser = suscripcion.tbkUser;
   if (!tbkUser) {
@@ -424,6 +434,7 @@ export async function cobrarSuscripcion(
               // rescate en vez de migrar a ciegas al X5. undefined en los
               // tres caminos con el cliente delante.
               pasadasDelCicloSinCliente: pasadasDelCiclo ?? undefined,
+              reiniciarCiclo: opciones.reiniciarCiclo,
             },
             tx2
           );

@@ -1,8 +1,10 @@
 import "server-only";
 import { eq, sql } from "drizzle-orm";
+import { after } from "next/server";
 import { getDb, type DbOrTx } from "@/db";
 import { clientes, config, cupones, empresas, movimientosContables, pagosWebpayItems, ventas } from "@/db/schema";
 import { movimientoToRow } from "@/lib/dataAccess";
+import { emitirFacturasAutomaticas } from "@/lib/facturacion";
 import { generarCodigoCupon, movimientoContableDesdeVenta, uid } from "@/lib/helpers";
 
 type PagoWebpayItemRow = typeof pagosWebpayItems.$inferSelect;
@@ -140,5 +142,9 @@ export async function aplicarPagoPackEmpresa(
         creadoPor: p.creadoPor,
       });
     }
+    // Factura automática. after(): esto corre dentro de la transacción del
+    // retorno de Webpay; para cuando after() corre ya resolvió, y
+    // emitirFacturasAutomaticas relee la venta (si se revirtió, no hace nada).
+    after(() => emitirFacturasAutomaticas([p.ventaId]).catch((error) => console.error("Error emitiendo factura automática (Pack Empresa)", error)));
   }
 }

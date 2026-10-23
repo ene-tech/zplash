@@ -6,7 +6,7 @@ import { liberarVentasFactura, marcarFacturaEmitida, reservarVentasFactura, vent
 import { diaCaja, esEmailEnviable, fmtCLP, formatRut } from "@/lib/helpers";
 import { envolverHtmlBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
-import { emitirFactura, pdfFactura, type ReceptorFactura } from "@/lib/simplefactura";
+import { emitirFactura, ErrorFactura, pdfFactura, type MotivoFalloFactura, type ReceptorFactura } from "@/lib/simplefactura";
 import type { Cliente, Venta } from "@/types";
 
 // Emisión de facturas (SimpleFactura) y su envío por correo. Sin chequeo de
@@ -14,7 +14,7 @@ import type { Cliente, Venta } from "@/types";
 // y las Server Actions de @/lib/serverActions/facturacion, que sí chequean.
 
 export type ResultadoCorreoFactura = { ok: true; email: string } | { ok: false; error: string };
-export type ResultadoFactura = { ok: true; folio: number; correo: ResultadoCorreoFactura } | { ok: false; error: string };
+export type ResultadoFactura = { ok: true; folio: number; correo: ResultadoCorreoFactura } | { ok: false; error: string; motivo?: MotivoFalloFactura };
 
 const ASUNTO_FACTURA = "Factura Lavado de Autos - Zplash";
 
@@ -105,8 +105,17 @@ export async function emitirFacturaDeVentas(ventaIds: string[]): Promise<Resulta
   try {
     folio = await emitirFactura(ventas, receptor, diaCaja(new Date().toISOString()));
   } catch (e) {
+    const motivo: MotivoFalloFactura = e instanceof ErrorFactura ? e.motivo : "incierto";
+    const error = e instanceof Error ? e.message : String(e);
+    if (motivo === "incierto") {
+      // Sin liberar: el folio pudo asignarse y liberar la reserva dejaría
+      // emitirla otra vez. Quedan emitidas sin folio (Facturas las muestra
+      // así) hasta revisarlas en SimpleFactura.
+      console.error("Factura sin confirmar: revisar en SimpleFactura", ventas.map((v) => v.id), error);
+      return { ok: false, motivo, error: `${error}. No se sabe si la factura alcanzó a emitirse: revísela en SimpleFactura antes de volver a intentarlo.` };
+    }
     await liberarVentasFactura(ventas.map((v) => v.id));
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    return { ok: false, motivo, error };
   }
   if (!(await marcarFacturaEmitida(ventas.map((v) => v.id), folio))) {
     // Quedan marcadas emitidas (por la reserva) pero sin folio en la base.
@@ -123,7 +132,8 @@ export async function emitirFacturaDeVentas(ventaIds: string[]): Promise<Resulta
 // Una factura por RUT dentro de la tanda (un carrito del mesón sale en una
 // sola). Solo ventas pagadas: una "por pagar" o con abono puede anularse antes
 // de cobrarse, y queda pendiente en el cierre como siempre. Si faltan datos o
-// SimpleFactura falla, también queda pendiente en el cierre.
+// SimpleFactura la rechaza, también queda pendiente en el cierre; si no se
+// sabe si salió, queda emitida sin folio para revisarla a mano.
 export async function emitirFacturasAutomaticas(ventaIds: string[]): Promise<void> {
   const nuevas = await ventasPorIds(ventaIds);
   const conMonto = nuevas.filter((v) => v.precio > 0 && !v.facturaEmitida && (!v.estadoPago || v.estadoPago === "pagado"));
@@ -139,8 +149,17 @@ export async function emitirFacturasAutomaticas(ventaIds: string[]): Promise<voi
     grupos.set(key, [...(grupos.get(key) || []), v.id]);
   }
   for (const [rut, ids] of grupos) {
-    const r = await emitirFacturaDeVentas(ids);
-    if (!r.ok) console.error("Factura automática no emitida", rut, ids, r.error);
+    let r = await emitirFacturaDeVentas(ids);
+    // Lo transitorio (token, 429) falló antes de mandar la factura: se puede
+    // reintentar sin riesgo de duplicarla.
+    for (const espera of REINTENTOS_FACTURA_MS) {
+      if (r.ok || r.motivo !== "transitorio") break;
+      await new Promise((ok) => setTimeout(ok, espera));
+      r = await emitirFacturaDeVentas(ids);
+    }
+    if (!r.ok) console.error("Factura automática no emitida", rut, ids, r.motivo, r.error);
     else if (!r.correo.ok) console.error("Factura automática emitida sin correo", r.folio, r.correo.error);
   }
 }
+
+const REINTENTOS_FACTURA_MS = [3_000, 10_000];

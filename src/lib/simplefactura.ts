@@ -95,24 +95,52 @@ function nombreItem(v: Venta): string {
   return `${producto} Referencia: ${v.ordenCompra}`;
 }
 
-/** Emite la factura y devuelve el folio asignado por el SII. */
+/** Por qué no salió una factura, para saber si se puede volver a intentar:
+ * - "rechazo": SimpleFactura contestó que no (datos, folios). No hay factura.
+ * - "transitorio": falló antes de mandar la factura (token, 429). No hay factura.
+ * - "incierto": la factura se mandó y no hubo respuesta legible (timeout, red,
+ *   5xx). El SII pudo haberle asignado folio: reintentar puede duplicarla. */
+export type MotivoFalloFactura = "rechazo" | "transitorio" | "incierto";
+export class ErrorFactura extends Error {
+  constructor(message: string, readonly motivo: MotivoFalloFactura) {
+    super(message);
+  }
+}
+
+const TIMEOUT_EMISION_MS = 30_000;
+
+/** Emite la factura y devuelve el folio asignado por el SII. Falla con ErrorFactura. */
 export async function emitirFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: string): Promise<number> {
   const rutEmisor = process.env.SIMPLEFACTURA_RUT_EMISOR;
   if (!rutEmisor || !process.env.SIMPLEFACTURA_EMAIL || !process.env.SIMPLEFACTURA_PASSWORD) {
-    throw new Error("Falta configurar SimpleFactura (SIMPLEFACTURA_EMAIL, SIMPLEFACTURA_PASSWORD, SIMPLEFACTURA_RUT_EMISOR)");
+    throw new ErrorFactura("Falta configurar SimpleFactura (SIMPLEFACTURA_EMAIL, SIMPLEFACTURA_PASSWORD, SIMPLEFACTURA_RUT_EMISOR)", "rechazo");
   }
   const sucursal = (process.env.SIMPLEFACTURA_SUCURSAL || "Casa Matriz").replace(/ /g, "_");
-  const res = await fetch(`${API}/invoiceV2/${encodeURIComponent(sucursal)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
-    body: JSON.stringify(armarFactura(ventas, receptor, fecha, rutEmisor)),
-  });
+  let bearer: string;
+  try {
+    bearer = await token();
+  } catch (e) {
+    throw new ErrorFactura(e instanceof Error ? e.message : String(e), "transitorio");
+  }
+  let res: Response;
+  try {
+    res = await fetch(`${API}/invoiceV2/${encodeURIComponent(sucursal)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${bearer}` },
+      body: JSON.stringify(armarFactura(ventas, receptor, fecha, rutEmisor)),
+      signal: AbortSignal.timeout(TIMEOUT_EMISION_MS),
+    });
+  } catch (e) {
+    throw new ErrorFactura(`SimpleFactura no respondió: ${e instanceof Error ? e.message : String(e)}`, "incierto");
+  }
   const json = await res.json().catch(() => null);
   const folio = json?.data?.folio;
-  if (!res.ok || typeof folio !== "number") {
-    throw new Error(json?.errors?.join("; ") || json?.message || `SimpleFactura respondió ${res.status}`);
-  }
-  return folio;
+  if (res.ok && typeof folio === "number") return folio;
+  const mensaje = json?.errors?.join("; ") || json?.message || `SimpleFactura respondió ${res.status}`;
+  if (res.status === 429) throw new ErrorFactura(mensaje, "transitorio");
+  // 4xx con error legible = rechazo; un 2xx sin folio, un 5xx o una respuesta
+  // ilegible no dicen si el folio se asignó.
+  throw new ErrorFactura(mensaje, res.status >= 400 && res.status < 500 && json ? "rechazo" : "incierto");
 }
 
 /** PDF de una factura ya emitida, para mandarla por correo. ambiente: 1 =

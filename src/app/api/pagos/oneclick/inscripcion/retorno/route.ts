@@ -199,7 +199,10 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   try {
     const { estado } = promo
       ? await cobrarOfertaOneclick(suscripcion.patente, promo.tipo, promo.monto)
-      : await cobrarSuscripcion(activada);
+      : // Suspendida = el cobro automático se dio de baja (ver
+        // cobrarSuscripcion, opción reiniciarCiclo): la recontratación parte
+        // hoy, no en el aniversario del plan que se suspendió.
+        await cobrarSuscripcion(activada, { reiniciarCiclo: suscripcion.estado === "suspendida" });
     if (estado === "aprobada" && suscripcion.operadorQr) {
       // Venta que acaba de dejar este primer cobro: se le anota el operador
       // del QR para el ranking de ventas. Aparte y sin frenar nada, igual que

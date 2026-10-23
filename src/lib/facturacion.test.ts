@@ -3,6 +3,14 @@ import type { Cliente, Venta } from "@/types";
 
 const db = vi.hoisted(() => ({ ventas: [] as Venta[], clientes: [] as Cliente[], reservadas: new Set<string>() }));
 const emitirFactura = vi.hoisted(() => vi.fn(async () => 123));
+const ErrorFactura = vi.hoisted(
+  () =>
+    class extends Error {
+      constructor(message: string, readonly motivo: string) {
+        super(message);
+      }
+    }
+);
 
 vi.mock("@/lib/dataAccess/ventas", () => ({
   ventasPorIds: async (ids: string[]) => db.ventas.filter((v) => ids.includes(v.id)),
@@ -16,7 +24,7 @@ vi.mock("@/lib/dataAccess/clientes", () => ({
   getClientesByIds: async (ids: string[]) => db.clientes.filter((c) => ids.includes(c.id)),
 }));
 vi.mock("@/lib/dataAccess/empresas", () => ({ empresaPorRut: async () => null }));
-vi.mock("@/lib/simplefactura", () => ({ emitirFactura, pdfFactura: async () => Buffer.from("%PDF") }));
+vi.mock("@/lib/simplefactura", () => ({ emitirFactura, ErrorFactura, pdfFactura: async () => Buffer.from("%PDF") }));
 vi.mock("@/lib/mailing/proveedor", () => ({ enviarCorreoTransaccional: async () => ({ ok: true }) }));
 vi.mock("@/lib/mailing/plantillaBase", () => ({ envolverHtmlBase: (s: string) => s }));
 
@@ -76,10 +84,39 @@ describe("emitirFacturaDeVentas", () => {
     expect([r1.ok, r2.ok].sort()).toEqual([false, true]);
   });
 
-  it("si SimpleFactura falla, la venta vuelve a quedar pendiente", async () => {
+  it("si SimpleFactura la rechaza, la venta vuelve a quedar pendiente", async () => {
     db.ventas = [venta("a")];
-    emitirFactura.mockRejectedValueOnce(new Error("caído"));
+    emitirFactura.mockRejectedValueOnce(new ErrorFactura("sin folios", "rechazo"));
     expect((await emitirFacturaDeVentas(["a"])).ok).toBe(false);
     expect(db.reservadas.has("a")).toBe(false);
+  });
+
+  it("si no se sabe si salió (timeout), la venta sigue reservada para no duplicarla", async () => {
+    db.ventas = [venta("a")];
+    emitirFactura.mockRejectedValueOnce(new ErrorFactura("no respondió", "incierto"));
+    const r = await emitirFacturaDeVentas(["a"]);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.motivo).toBe("incierto");
+    expect(db.reservadas.has("a")).toBe(true);
+  });
+});
+
+describe("reintento de la factura automática", () => {
+  it("reintenta lo transitorio y emite al segundo intento", async () => {
+    vi.useFakeTimers();
+    db.ventas = [venta("a")];
+    emitirFactura.mockRejectedValueOnce(new ErrorFactura("sin token", "transitorio"));
+    const p = emitirFacturasAutomaticas(["a"]);
+    await vi.runAllTimersAsync();
+    await p;
+    vi.useRealTimers();
+    expect(emitirFactura).toHaveBeenCalledTimes(2);
+  });
+
+  it("no reintenta un resultado incierto", async () => {
+    db.ventas = [venta("a")];
+    emitirFactura.mockRejectedValueOnce(new ErrorFactura("timeout", "incierto"));
+    await emitirFacturasAutomaticas(["a"]);
+    expect(emitirFactura).toHaveBeenCalledTimes(1);
   });
 });

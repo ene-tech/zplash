@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { getDb } from "@/db";
 import { cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
 import { MINUTOS_BLOQUEO_PLAN_DUPLICADO, TIPOS_VENTA_PLAN, esVentaAutomatica } from "@/lib/helpers";
+import { emitirFacturasAutomaticas } from "@/lib/facturacion";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Venta } from "@/types";
@@ -212,6 +213,7 @@ export async function insertVentas(rows: Venta[]): Promise<boolean> {
     // guardó.
     after(() => evaluarReglasPorVenta(rows).catch((error) => console.error("Error evaluando reglas de WhatsApp por venta", error)));
     after(() => evaluarReglasCorreoPorVenta(rows).catch((error) => console.error("Error evaluando reglas de correo por venta", error)));
+    after(() => emitirFacturasAutomaticas(rows.map((v) => v.id)).catch((error) => console.error("Error emitiendo factura automática", error)));
     return true;
   } catch (error) {
     console.error("Error guardando ventas", error);

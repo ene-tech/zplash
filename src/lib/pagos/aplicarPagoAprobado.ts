@@ -23,6 +23,7 @@ import {
   enPlazoDePagoPlan,
   vencimientoPorDefectoISO,
 } from "@/lib/helpers";
+import { emitirFacturasAutomaticas } from "@/lib/facturacion";
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { evaluarReglasPorCambioPatente, evaluarReglasPorVenta } from "@/lib/whatsapp/reglas";
 import type { Cliente, Venta } from "@/types";
@@ -75,7 +76,8 @@ interface AplicarPagoParams {
   // se extiende (o inicia) el ciclo mensual como cualquier renovación web.
   tipoVentaNuevo: string;
   tipoVentaExistente: string;
-  // true solo en la reactivación promocional de un plan vencido: el ciclo
+  // true en la reactivación promocional de un plan vencido y en la
+  // recontratación tras suspender el cobro automático (ver cobrarSuscripcion): el ciclo
   // arranca de nuevo hoy y el cliente recibe el mes completo que le anuncia la
   // tarjeta ("precio promocional solo por este primer mes"), en vez de saltar
   // al próximo aniversario de su contratación —que puede caer en dos días—.
@@ -144,6 +146,7 @@ export async function evaluarReglasSiLaVentaPersistio(
           console.error("Error evaluando reglas de WhatsApp por cambio de patente (pago externo)", error)
         )
       : null,
+    emitirFacturasAutomaticas([venta.id]).catch((error) => console.error("Error emitiendo factura automática (pago externo)", error)),
   ]);
   return true;
 }
