@@ -99,10 +99,12 @@ export default function StatsTab() {
         montoPor9990={r.montoPor9990}
         montoTickets={r.montoTickets}
         montoLimpiezas={r.montoLimpiezas}
+        montoOtros={r.montoOtros}
         pctMontoPlanes={r.pctMontoPlanes}
         pctMonto9990={r.pctMonto9990}
         pctMontoTickets={r.pctMontoTickets}
         pctMontoLimpiezas={r.pctMontoLimpiezas}
+        pctMontoOtros={r.pctMontoOtros}
         pasadasTunel={r.pasadasTunel}
         valorPromedioPasadaTunel={r.valorPromedioPasadaTunel}
       />

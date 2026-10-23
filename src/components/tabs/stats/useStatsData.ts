@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { patentesConOneclickActiva } from "@/lib/serverActions";
-import { IDS_PROMOS_LAVADOS, PROMOS_LAVADOS, TIPOS_VENTA_PLAN, UPGRADE_PACK_KEY, inRange, normPlate, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
-import type { Cliente } from "@/types";
+import { GLOSA_LAVADO_WEB, IDS_PROMOS_LAVADOS, LAVADO_UNICO_WEB_KEY, PROMOS_LAVADOS, SOLO_TUNEL_KEY, TIPOS_VENTA_PLAN, UPGRADE_PACK_KEY, inRange, normPlate, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
+import type { AppData, Cliente } from "@/types";
+import { calcularFilasVentaCierre } from "../cierre/filasVenta";
 
 // Calcula todos los datos derivados del dashboard de Estadísticas: el
 // resumen global (planes vigentes/vencidos), el resumen del período
@@ -12,17 +13,6 @@ import type { Cliente } from "@/types";
 // de planes (promedio de pasadas, distribución, ranking top/bottom 10).
 export function useStatsData() {
   const { data, ui, patchUi } = useApp();
-  const hoy = todayStr();
-  const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
-  const vencidosList = data.clientes.filter((c) => planStatus(c).label === "Vencido");
-  const vencidos = vencidosList.length;
-  const vencidosWeb = vencidosList.filter((c) => c.origen === "WEB").length;
-  const vencidosLocal = vencidos - vencidosWeb;
-  const sinPlan = data.clientes.filter((c) => planStatus(c).label === "Sin plan").length;
-  const porVencer = data.clientes.filter((c) => planStatus(c).cls === "warn").length;
-  const vigentes = data.clientes.filter((c) => planStatus(c).cls !== "bad");
-  const vigentesWeb = vigentes.filter((c) => c.origen === "WEB").length;
-  const vigentesLocal = vigentes.length - vigentesWeb;
 
   // Vigentes con renovación automática: Oneclick activa o suscripción Woo viva
   // (los dos "ok" de estadoRenovacion). Oneclick no viaja en AppData, se pide
@@ -37,26 +27,51 @@ export function useStatsData() {
       cancelado = true;
     };
   }, []);
+
+  const desde = ui.statsDesde || primerDiaMesActualYMD();
+  const hasta = ui.statsHasta || todayYMD();
+  const hoy = todayStr();
+  // Todo el dashboard recorre clientes, ingresos, ventas y cupones completos:
+  // sin memo eso se repetía con cualquier patchUi (abrir un modal, tipear en
+  // otro lado), no solo al cambiar los datos o el período.
+  const stats = useMemo(
+    () => calcularStats(data, desde, hasta, patentesOneclick, hoy),
+    [data, desde, hasta, patentesOneclick, hoy]
+  );
+  return { data, patchUi, ...stats };
+}
+
+function calcularStats(data: AppData, desde: string, hasta: string, patentesOneclick: Set<string> | null, hoy: string) {
+  const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
+  const vencidosList = data.clientes.filter((c) => planStatus(c).label === "Vencido");
+  const vencidos = vencidosList.length;
+  const vencidosWeb = vencidosList.filter((c) => c.origen === "WEB").length;
+  const vencidosLocal = vencidos - vencidosWeb;
+  const sinPlan = data.clientes.filter((c) => planStatus(c).label === "Sin plan").length;
+  const porVencer = data.clientes.filter((c) => planStatus(c).cls === "warn").length;
+  const vigentes = data.clientes.filter((c) => planStatus(c).cls !== "bad");
+  const vigentesWeb = vigentes.filter((c) => c.origen === "WEB").length;
+  const vigentesLocal = vigentes.length - vigentesWeb;
+
   const vigentesRenovacionAuto = patentesOneclick
     ? vigentes.filter((c) => patentesOneclick.has(normPlate(c.patente)) || !!c.renovacionAutoWooDesde).length
     : null;
 
   // --- Resumen por período (fechas seleccionables) ---
-  const desde = ui.statsDesde || primerDiaMesActualYMD();
-  const hasta = ui.statsHasta || todayYMD();
-
   const cuponPorCodigo = new Map(data.cupones.map((c) => [c.codigo, c]));
   const cuponValor = (cuponCodigo: string | undefined) => (cuponCodigo && cuponPorCodigo.get(cuponCodigo)?.valor) || 0;
 
   // Las garantías (relavado gratis por reclamo) no se consideran en este resumen. Los ingresos con
   // glosa propia (p. ej. "Servicio de Detailing" de un detailing, ya cobrado como servicio adicional) sí
-  // se cuentan, pero en su propio bucket: no son plan, ni $9.990, ni ticket.
+  // se cuentan, pero en su propio bucket: no son plan, ni lavado único, ni ticket. El canje de un
+  // lavado único pagado online también lleva glosa, pero es una pasada de lavado único.
   const ingresosPeriodo = data.ingresos.filter((i) => inRange(i.fecha, desde, hasta) && !i.esGarantia);
+  const esLavadoWeb = (i: (typeof ingresosPeriodo)[number]) => i.glosa === GLOSA_LAVADO_WEB;
   const conPlan = ingresosPeriodo.filter((i) => !i.viaCupon && !i.glosa && i.planEstadoAlIngreso !== "bad");
-  const por9990 = ingresosPeriodo.filter((i) => !i.viaCupon && !i.glosa && i.planEstadoAlIngreso === "bad");
+  const por9990 = ingresosPeriodo.filter((i) => !i.viaCupon && ((!i.glosa && i.planEstadoAlIngreso === "bad") || esLavadoWeb(i)));
   const ticketGratis = ingresosPeriodo.filter((i) => i.viaCupon && cuponValor(i.cuponCodigo) === 0);
   const ticketPagado = ingresosPeriodo.filter((i) => i.viaCupon && cuponValor(i.cuponCodigo) > 0);
-  const limpiezasCompletas = ingresosPeriodo.filter((i) => !i.viaCupon && i.glosa);
+  const limpiezasCompletas = ingresosPeriodo.filter((i) => !i.viaCupon && i.glosa && !esLavadoWeb(i));
 
   const totalPeriodo = ingresosPeriodo.length;
   const pct = (n: number) => (totalPeriodo ? ((n / totalPeriodo) * 100).toFixed(1) : "0.0") + "%";
@@ -65,30 +80,47 @@ export function useStatsData() {
   const pct9990 = pct(por9990.length);
   const pctLimpiezas = pct(limpiezasCompletas.length);
 
-  // Monto vendido por categoría en el período. "Planes" no se calcula desde
-  // conPlan (esos lavados van incluidos en un plan ya pagado antes, sin venta
-  // asociada): se calcula desde data.ventas, sumando las ventas de
-  // contratación/renovación de plan del período. $9.990 usa el precio fijo de
-  // lavado único. Ticket gratis siempre aporta $0 (por eso no se suma aparte).
-  // Limpiezas completas se vende en Servicios Adicionales, así que su monto
-  // se busca en la Venta ligada por citaId, no en el Ingreso.
-  const montoPlanes = data.ventas
-    .filter((v) => TIPOS_VENTA_PLAN.has(v.tipo) && inRange(v.fecha, desde, hasta))
-    .reduce((s, v) => s + (v.precio || 0), 0);
-  const montoPor9990 = por9990.length * 9990;
-  const montoTickets = ticketPagado.reduce((s, i) => s + cuponValor(i.cuponCodigo), 0);
-  const ventaPorCitaId = new Map(data.ventas.filter((v) => v.citaId).map((v) => [v.citaId, v]));
-  const montoLimpiezas = limpiezasCompletas.reduce((s, i) => s + (i.citaId ? ventaPorCitaId.get(i.citaId)?.precio || 0 : 0), 0);
-  const montoTotalPeriodo = montoPlanes + montoPor9990 + montoTickets + montoLimpiezas;
+  // Monto vendido por categoría en el período: las mismas ventas que suman en
+  // el Total de "Detalle de venta" del Cierre de Caja (ver
+  // calcularFilasVentaCierre), repartidas por tipo, así el total cuadra con el
+  // Cierre. Es lo cobrado en el período, no el valor de las pasadas: un plan
+  // o un pack suma el día que se vendió, no cuando se usa (ticket gratis
+  // nunca aporta), y el lavado único suma lo que se cobró de verdad (Solo
+  // túnel, precio editado, web), no $9.990 fijo. Lo que no es túnel ni
+  // servicio adicional (tienda, venta puntual, reembolsos, ingresos del
+  // módulo Contabilidad) va a "Otros".
+  const cierre = calcularFilasVentaCierre(data.ventas, data.clientes, data.movimientosContables, desde, hasta);
+  const tiposLavadoUnico = new Set(["Lavado único", LAVADO_UNICO_WEB_KEY, SOLO_TUNEL_KEY, `${SOLO_TUNEL_KEY} (Web)`]);
+  const tiposPacks = new Set(["Cupón Venta Empresa", UPGRADE_PACK_KEY]);
+  for (const id of IDS_PROMOS_LAVADOS) {
+    tiposPacks.add(PROMOS_LAVADOS[id].key);
+    tiposPacks.add(`${PROMOS_LAVADOS[id].key} (Web)`);
+  }
+  let montoPlanes = 0;
+  let montoPor9990 = 0;
+  let montoTickets = 0;
+  let montoLimpiezas = 0;
+  for (const v of cierre.ventasEnTotal) {
+    const precio = v.precio || 0;
+    // El tipo va antes que esServicioAdicional: un lavado único comprado
+    // por el checkout web puede venir marcado como servicio adicional.
+    if (TIPOS_VENTA_PLAN.has(v.tipo)) montoPlanes += precio;
+    else if (tiposLavadoUnico.has(v.tipo)) montoPor9990 += precio;
+    else if (tiposPacks.has(v.tipo)) montoTickets += precio;
+    else if (v.esServicioAdicional) montoLimpiezas += precio;
+  }
+  const montoTotalPeriodo = cierre.totalMontoVentas;
+  const montoOtros = montoTotalPeriodo - montoPlanes - montoPor9990 - montoTickets - montoLimpiezas;
   const pctMonto = (n: number) => (montoTotalPeriodo ? ((n / montoTotalPeriodo) * 100).toFixed(1) : "0.0") + "%";
   const pctMontoPlanes = pctMonto(montoPlanes);
   const pctMonto9990 = pctMonto(montoPor9990);
   const pctMontoTickets = pctMonto(montoTickets);
   const pctMontoLimpiezas = pctMonto(montoLimpiezas);
+  const pctMontoOtros = pctMonto(montoOtros);
 
-  // Valor promedio de una pasada por el túnel: lo vendido en planes, $9.990 y
-  // tickets dividido por las pasadas de esos tres tipos (tickets gratis
-  // incluidos, aportan $0). Quedan fuera las limpiezas completas y el POS.
+  // Valor promedio de una pasada por el túnel: lo vendido en planes, lavado
+  // único y packs dividido por las pasadas de esos tres tipos (tickets gratis
+  // incluidos, aportan $0). Quedan fuera los servicios adicionales y "Otros".
   const pasadasTunel = conPlan.length + por9990.length + ticketGratis.length + ticketPagado.length;
   const valorPromedioPasadaTunel = pasadasTunel ? (montoPlanes + montoPor9990 + montoTickets) / pasadasTunel : 0;
 
@@ -219,8 +251,6 @@ export function useStatsData() {
     .sort((a, b) => b.cantidad - a.cantidad || ordenNombre(a, b));
 
   return {
-    data,
-    patchUi,
     ingresosHoy,
     vencidos,
     vencidosWeb,
@@ -246,11 +276,13 @@ export function useStatsData() {
     montoPor9990,
     montoTickets,
     montoLimpiezas,
+    montoOtros,
     montoTotalPeriodo,
     pctMontoPlanes,
     pctMonto9990,
     pctMontoTickets,
     pctMontoLimpiezas,
+    pctMontoOtros,
     pasadasTunel,
     valorPromedioPasadaTunel,
     promedioLavadosDiariosPeriodo,

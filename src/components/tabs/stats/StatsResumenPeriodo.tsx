@@ -23,17 +23,19 @@ type Props = Pick<
   | "montoPor9990"
   | "montoTickets"
   | "montoLimpiezas"
+  | "montoOtros"
   | "pctMontoPlanes"
   | "pctMonto9990"
   | "pctMontoTickets"
   | "pctMontoLimpiezas"
+  | "pctMontoOtros"
   | "pasadasTunel"
   | "valorPromedioPasadaTunel"
 >;
 
-// Selector de período + el resumen de ingresos de ese período, mostrado dos
-// veces: por cantidad (con su % sobre el total de ingresos) y por monto
-// vendido (con su % sobre el monto total).
+// Selector de período + el resumen de ese período, mostrado dos veces: por
+// pasadas (con su % sobre el total de ingresos) y por monto vendido (con su %
+// sobre el monto total, que es el mismo Total del Cierre de Caja).
 export function StatsResumenPeriodo(p: Props) {
   return (
     <>
@@ -70,7 +72,7 @@ export function StatsResumenPeriodo(p: Props) {
         </div>
         <div className="stat-card ok">
           <div className="num">{fmtCLP(p.valorPromedioPasadaTunel)}</div>
-          <div className="lbl">Valor promedio por pasada de túnel ({p.pasadasTunel} pasadas, sin limpiezas ni POS)</div>
+          <div className="lbl">Valor promedio por pasada de túnel ({p.pasadasTunel} pasadas, sin servicios adicionales ni tienda)</div>
         </div>
         <div className="stat-card">
           <div className="num">{p.conPlan.length}</div>
@@ -78,7 +80,7 @@ export function StatsResumenPeriodo(p: Props) {
         </div>
         <div className="stat-card">
           <div className="num">{p.por9990.length}</div>
-          <div className="lbl">Autos por {fmtCLP(9990)}</div>
+          <div className="lbl">Autos con lavado único</div>
         </div>
         <div className="stat-card">
           <div className="num">{p.ticketGratis.length}</div>
@@ -94,47 +96,35 @@ export function StatsResumenPeriodo(p: Props) {
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Distribución de ingresos por tipo</h3>
+      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Distribución de pasadas por tipo</h3>
       <div className="stat-grid">
         <div className="stat-card">
           <div className="num">
             {p.conPlan.length} · {p.pctPlanes}
           </div>
           <div className="lbl">Planes</div>
-          <div className="lbl" style={{ marginTop: 4 }}>
-            {fmtCLP(p.montoPlanes)}
-          </div>
         </div>
         <div className="stat-card">
           <div className="num">
             {p.por9990.length} · {p.pct9990}
           </div>
-          <div className="lbl">{fmtCLP(9990)}</div>
-          <div className="lbl" style={{ marginTop: 4 }}>
-            {fmtCLP(p.montoPor9990)}
-          </div>
+          <div className="lbl">Lavado único</div>
         </div>
         <div className="stat-card">
           <div className="num">
             {p.ticketGratis.length + p.ticketPagado.length} · {p.pctTickets}
           </div>
           <div className="lbl">Tickets</div>
-          <div className="lbl" style={{ marginTop: 4 }}>
-            {fmtCLP(p.montoTickets)}
-          </div>
         </div>
         <div className="stat-card">
           <div className="num">
             {p.limpiezasCompletas.length} · {p.pctLimpiezas}
           </div>
           <div className="lbl">Limpiezas completas</div>
-          <div className="lbl" style={{ marginTop: 4 }}>
-            {fmtCLP(p.montoLimpiezas)}
-          </div>
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Distribución de ingresos por tipo (monto)</h3>
+      <h3 style={{ fontSize: 16, color: "var(--gold)", margin: "24px 0 10px" }}>Monto vendido por tipo (igual que el Cierre de Caja)</h3>
       <div className="stat-grid">
         <div className="stat-card">
           <div className="num">{fmtCLP(p.montoPlanes)}</div>
@@ -145,23 +135,30 @@ export function StatsResumenPeriodo(p: Props) {
         </div>
         <div className="stat-card">
           <div className="num">{fmtCLP(p.montoPor9990)}</div>
-          <div className="lbl">{fmtCLP(9990)}</div>
+          <div className="lbl">Lavado único y solo túnel</div>
           <div className="lbl" style={{ marginTop: 4 }}>
             {p.pctMonto9990}
           </div>
         </div>
         <div className="stat-card">
           <div className="num">{fmtCLP(p.montoTickets)}</div>
-          <div className="lbl">Tickets</div>
+          <div className="lbl">Packs de lavados y cupones empresa</div>
           <div className="lbl" style={{ marginTop: 4 }}>
             {p.pctMontoTickets}
           </div>
         </div>
         <div className="stat-card">
           <div className="num">{fmtCLP(p.montoLimpiezas)}</div>
-          <div className="lbl">Limpiezas completas</div>
+          <div className="lbl">Servicios adicionales</div>
           <div className="lbl" style={{ marginTop: 4 }}>
             {p.pctMontoLimpiezas}
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="num">{fmtCLP(p.montoOtros)}</div>
+          <div className="lbl">Otros (tienda, venta puntual, reembolsos, Contabilidad)</div>
+          <div className="lbl" style={{ marginTop: 4 }}>
+            {p.pctMontoOtros}
           </div>
         </div>
       </div>
