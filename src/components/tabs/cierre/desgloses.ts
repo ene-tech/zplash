@@ -1,4 +1,4 @@
-import { esTarjetaWeb } from "@/lib/helpers";
+import { esCuentaPorCobrar, esTarjetaWeb } from "@/lib/helpers";
 import type { MovimientoContable, Venta } from "@/types";
 
 // Desglosa un grupo de ventas de "Venta nueva web" por tipo de producto
@@ -32,8 +32,9 @@ export function desglosePagoVentas(items: Venta[]) {
   const tarjetaTransbank = items.filter((v) => v.metodoPago === "tarjeta" && esTarjetaWeb(v.creadoPor));
   const tarjetaGetnet = items.filter((v) => v.metodoPago === "tarjeta" && !esTarjetaWeb(v.creadoPor));
   const transferencia = items.filter((v) => v.metodoPago === "transferencia" && v.estadoPago !== "pendiente");
-  const cuentasPorCobrar = items.filter((v) => v.metodoPago === "transferencia" && v.estadoPago === "pendiente");
-  const porPagar = items.filter((v) => v.estadoPago === "pendiente" && v.metodoPago !== "transferencia");
+  const ordenCompraPagada = items.filter((v) => v.metodoPago === "orden_compra" && v.estadoPago !== "pendiente");
+  const cuentasPorCobrar = items.filter(esCuentaPorCobrar);
+  const porPagar = items.filter((v) => v.estadoPago === "pendiente" && !esCuentaPorCobrar(v));
   return [
     { metodo: "Efectivo", cantidad: efectivo.length, monto: efectivo.reduce((s, v) => s + cobrado(v), 0) },
     { metodo: "Tarjetas Transbank", cantidad: tarjetaTransbank.length, monto: tarjetaTransbank.reduce((s, v) => s + cobrado(v), 0) },
@@ -42,6 +43,11 @@ export function desglosePagoVentas(items: Venta[]) {
       metodo: "Transferencia bancaria",
       cantidad: transferencia.length,
       monto: transferencia.reduce((s, v) => s + cobrado(v), 0),
+    },
+    {
+      metodo: "Orden de compra (pagada)",
+      cantidad: ordenCompraPagada.length,
+      monto: ordenCompraPagada.reduce((s, v) => s + cobrado(v), 0),
     },
     {
       metodo: "Cuentas x Cobrar",

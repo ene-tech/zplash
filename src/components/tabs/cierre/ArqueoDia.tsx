@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import PriceInput from "@/components/PriceInput";
 import { cerrarCaja } from "@/lib/serverActions";
 import {
   CATEGORIA_AJUSTE_CIERRE,
+  esAjusteCierreDelDia,
   fmtCLP,
   fmtFecha,
   fmtHora,
@@ -56,6 +57,12 @@ export function ArqueoDia(p: Props) {
   const [ajusteMonto, setAjusteMonto] = useState("");
   const [ajusteMetodo, setAjusteMetodo] = useState("efectivo");
   const [ajusteMotivo, setAjusteMotivo] = useState("");
+  // Id del asiento en curso: se fija al primer intento y se reusa si hay que
+  // reintentar, para que un guardado que llegó a la base aunque la pantalla
+  // lo diera por fallido no quede inscrito dos veces (el servidor no pisa un
+  // id existente, ver insertarAjustesCierre). Va atado al contenido: si se
+  // cambia monto, medio o motivo es otro asiento. Se libera al guardar bien.
+  const ajustePendiente = useRef<{ id: string; firma: string } | null>(null);
   // Asiento de ajuste de ingreso a túnel (se guarda junto con el cierre).
   const [ajusteAutos, setAjusteAutos] = useState("");
   const [ajusteAutosMotivo, setAjusteAutosMotivo] = useState("");
@@ -66,13 +73,15 @@ export function ArqueoDia(p: Props) {
   const efectivoEsperado = p.metodosPago.find((m) => m.metodo === "Efectivo")?.monto || 0;
   const contado = efectivoContado === "" ? undefined : Number(efectivoContado);
   const diferencia = contado === undefined ? null : contado - efectivoEsperado;
-  const idAjuste = idAjusteCierre(p.dia);
-  const ajusteInscrito = data.movimientosContables.find((m) => m.id === idAjuste);
+  const ajustesInscritos = data.movimientosContables
+    .filter((m) => esAjusteCierreDelDia(m.id, p.dia))
+    .sort((a, b) => (a.creadoEn || "").localeCompare(b.creadoEn || ""));
+  const totalAjustes = ajustesInscritos.reduce((s, m) => s + m.monto, 0);
   const autosAjuste = Math.trunc(Number(ajusteAutos || "0")) || 0;
 
-  // El asiento de ajuste monetario es un movimiento contable de ingreso con
-  // id determinístico por día (ver idAjusteCierre): vuelve a inscribirse
-  // encima del anterior en vez de acumular ajustes sueltos, y desde que se
+  // Cada asiento de ajuste monetario es un movimiento contable de ingreso
+  // propio (id nuevo, ver idAjusteCierre): un día puede tener varios, unos
+  // que suman y otros que restan, y ninguno pisa al anterior. Desde que se
   // guarda entra solo en los totales y medios de pago del día (useCierreData
   // ya lee los ingresos contables manuales del período), así que la caja
   // queda cuadrada sin tocar ninguna venta.
@@ -88,8 +97,10 @@ export function ArqueoDia(p: Props) {
       return;
     }
     const monto = ajusteResta ? -magnitud : magnitud;
+    const firma = JSON.stringify([p.dia, monto, ajusteMetodo, motivo]);
+    if (ajustePendiente.current?.firma !== firma) ajustePendiente.current = { id: idAjusteCierre(p.dia), firma };
     const ajuste: MovimientoContable = {
-      id: idAjuste,
+      id: ajustePendiente.current.id,
       tipo: "ingreso",
       fecha: fechaEnElDia(p.dia),
       descripcion: `${CATEGORIA_AJUSTE_CIERRE} ${p.dia} – ${motivo}`,
@@ -103,13 +114,14 @@ export function ArqueoDia(p: Props) {
     };
     setInscribiendo(true);
     const ok = await commit({
-      movimientosContables: [ajuste, ...data.movimientosContables.filter((m) => m.id !== idAjuste)],
+      movimientosContables: [ajuste, ...data.movimientosContables.filter((m) => m.id !== ajuste.id)],
     });
     setInscribiendo(false);
     if (!ok) {
       setErr("No se pudo inscribir el asiento de ajuste. Revisa la conexión e inténtalo de nuevo.");
       return;
     }
+    ajustePendiente.current = null;
     setErr("");
     setAjusteMonto("");
     setAjusteMotivo("");
@@ -273,14 +285,26 @@ export function ArqueoDia(p: Props) {
       <h4 style={{ fontSize: 14, color: "var(--gold)", margin: "18px 0 4px" }}>Asiento de ajuste de ingreso monetario</h4>
       <p style={{ fontSize: 12, color: "var(--gray)", marginBottom: 10 }}>
         Plata que entró y no quedó registrada (suma) o que quedó registrada de más (resta). Se inscribe como ingreso en
-        Contabilidad con la fecha del día, y desde ahí entra en los totales y medios de pago de esta pantalla. Hay un solo asiento
-        de ajuste por día: volver a inscribirlo reemplaza al anterior.
+        Contabilidad con la fecha del día, y desde ahí entra en los totales y medios de pago de esta pantalla. Puedes inscribir
+        varios asientos en el día: cada uno queda registrado por separado con su motivo.
       </p>
-      {ajusteInscrito && (
-        <p style={{ fontSize: 13, marginBottom: 10 }}>
-          Asiento inscrito: <strong>{fmtCLP(ajusteInscrito.monto)}</strong> · {etiquetaMetodo(ajusteInscrito.metodoPago)} ·{" "}
-          {ajusteInscrito.notas} <span style={{ color: "var(--gray)" }}>({ajusteInscrito.creadoPor})</span>
-        </p>
+      {ajustesInscritos.length > 0 && (
+        <div style={{ fontSize: 13, marginBottom: 10 }}>
+          <div style={{ marginBottom: 4 }}>
+            Asientos inscritos ({ajustesInscritos.length}) · total <strong>{fmtCLP(totalAjustes)}</strong>
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {ajustesInscritos.map((a) => (
+              <li key={a.id}>
+                <strong>{fmtCLP(a.monto)}</strong> · {etiquetaMetodo(a.metodoPago)} · {a.notas}{" "}
+                <span style={{ color: "var(--gray)" }}>
+                  ({a.creadoPor}
+                  {a.creadoEn ? `, ${fmtHora(a.creadoEn)}` : ""})
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div className="field" style={{ maxWidth: 190 }}>
@@ -314,7 +338,7 @@ export function ArqueoDia(p: Props) {
         </div>
         <div className="field">
           <button className="btn secondary" disabled={inscribiendo} onClick={inscribirAjuste}>
-            {inscribiendo ? "Inscribiendo…" : ajusteInscrito ? "Reemplazar asiento" : "Inscribir asiento"}
+            {inscribiendo ? "Inscribiendo…" : ajustesInscritos.length > 0 ? "Inscribir otro asiento" : "Inscribir asiento"}
           </button>
         </div>
       </div>
@@ -322,8 +346,8 @@ export function ArqueoDia(p: Props) {
       {p.movimientosManualesDia.length > 0 && (
         <p style={{ fontSize: 12, color: "var(--gray)", margin: "4px 0 14px" }}>
           El día incluye {p.movimientosManualesDia.length} ingreso(s) cargado(s) a mano en Contabilidad por{" "}
-          {fmtCLP(p.movimientosManualesDia.reduce((s, m) => s + m.monto, 0))} — el asiento de ajuste, si lo inscribiste, va
-          incluido ahí y ya suma en los totales de arriba.
+          {fmtCLP(p.movimientosManualesDia.reduce((s, m) => s + m.monto, 0))} — los asientos de ajuste, si inscribiste alguno, van
+          incluidos ahí y ya suman en los totales de arriba.
         </p>
       )}
 
@@ -380,6 +404,7 @@ function etiquetaTipo(tipo: string): string {
 }
 
 function etiquetaMetodo(metodoPago?: string): string {
+  if (metodoPago === "orden_compra") return "Orden de compra";
   return METODOS_PAGO.find((m) => m.value === metodoPago)?.label || metodoPago || "Sin especificar";
 }
 

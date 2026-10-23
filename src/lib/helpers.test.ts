@@ -30,6 +30,7 @@ import {
   esServicioTunelLibre,
   esTarjetaWeb,
   esAjusteCierre,
+  esAjusteCierreDelDia,
   esVentaAutomatica,
   esVentaNuevaWeb,
   ventaPlanReciente,
@@ -114,6 +115,8 @@ import {
   vencimientoAnclado,
   ventaLavadoUnicoDeIngreso,
   ventaLavadoWebPendiente,
+  precioSoloTunel,
+  SOLO_TUNEL_KEY,
   variacionPorcentual,
   ventaUpgradeElegible,
   visitasDesdeContratacion,
@@ -749,6 +752,19 @@ describe("precioLavadoAdicional", () => {
     const precios = { [LAVADO_ADICIONAL_KEY]: { normal: 2990, promo: 0 }, [LAVADO_UNICO_KEY]: { normal: 12990, promo: 0 } };
     expect(precioLavadoAdicional(precios)).toBe(2990);
     expect(precioLavadoUnico(precios)).toBe(12990);
+  });
+});
+
+describe("precioSoloTunel", () => {
+  it("sin fila vale 6.990; editable; en $0 queda apagado", () => {
+    expect(precioSoloTunel({})).toBe(6990);
+    expect(precioSoloTunel({ [SOLO_TUNEL_KEY]: { normal: 5990, promo: 0 } })).toBe(5990);
+    expect(precioSoloTunel({ [SOLO_TUNEL_KEY]: { normal: 0, promo: 0 } })).toBe(0);
+  });
+
+  it("su venta es pareja del ingreso (se borra con él)", () => {
+    const venta = ventaLavadoUnicoBase({ tipo: SOLO_TUNEL_KEY });
+    expect(ventaLavadoUnicoDeIngreso([venta], { clienteId: venta.clienteId, fecha: venta.fecha })).toBe(venta);
   });
 });
 
@@ -1760,6 +1776,13 @@ describe("ventaUpgradeElegible", () => {
     const nuevo = ventaLavadoUnicoBase({ id: "v4", fecha: "2026-01-05T11:30:00.000Z" });
     expect(ventaUpgradeElegible([lavado, mesón, nuevo], "c1", 24, ahora)).toBe(nuevo);
   });
+
+  it("un lavado pagado con cupón de descuento no califica, aunque haya uno anterior sin cupón", () => {
+    const anterior = ventaLavadoUnicoBase({ fecha: "2026-01-05T09:00:00.000Z" });
+    const conCupon = ventaLavadoUnicoBase({ id: "v2", fecha: "2026-01-05T10:00:00.000Z", viaCupon: true, cuponCodigo: "X" });
+    expect(ventaUpgradeElegible([conCupon], "c1", 24, ahora)).toBeUndefined();
+    expect(ventaUpgradeElegible([anterior, conCupon], "c1", 24, ahora)).toBeUndefined();
+  });
 });
 
 describe("cuponesUpgradePack", () => {
@@ -2204,14 +2227,23 @@ describe("esVentaAutomatica (qué se puede corregir en el arqueo)", () => {
 });
 
 describe("asiento de ajuste del cierre de caja", () => {
-  it("da un id por día, y solo ese id pasa como asiento de ajuste", () => {
-    expect(idAjusteCierre("2026-08-18")).toBe("mc-ajuste-cierre-2026-08-18");
-    // Determinístico: volver a inscribir el ajuste del mismo día reemplaza al
-    // anterior en vez de acumular ajustes sueltos.
-    expect(idAjusteCierre("2026-08-18")).toBe(idAjusteCierre("2026-08-18"));
-    expect(esAjusteCierre(idAjusteCierre("2026-08-18"))).toBe(true);
+  it("da un id nuevo a cada asiento, y solo esos ids pasan como asiento de ajuste", () => {
+    const a = idAjusteCierre("2026-08-18");
+    expect(a.startsWith("mc-ajuste-cierre-2026-08-18-")).toBe(true);
+    // Varios asientos en el mismo día: ninguno pisa al anterior.
+    const ids = new Set(Array.from({ length: 50 }, () => idAjusteCierre("2026-08-18")));
+    expect(ids.size).toBe(50);
+    expect(esAjusteCierre(a)).toBe(true);
     expect(esAjusteCierre("mc123456789")).toBe(false);
     expect(esAjusteCierre("mc-venta-v123")).toBe(false);
+  });
+
+  it("reconoce los asientos del día, con el id viejo (uno por día) y el nuevo", () => {
+    expect(esAjusteCierreDelDia("mc-ajuste-cierre-2026-08-18", "2026-08-18")).toBe(true);
+    expect(esAjusteCierreDelDia(idAjusteCierre("2026-08-18"), "2026-08-18")).toBe(true);
+    expect(esAjusteCierreDelDia(idAjusteCierre("2026-08-18"), "2026-08-19")).toBe(false);
+    expect(esAjusteCierreDelDia("mc-ajuste-cierre-2026-08-180", "2026-08-18")).toBe(false);
+    expect(esAjusteCierreDelDia("mc-venta-v123", "2026-08-18")).toBe(false);
   });
 
   it("deja el ajuste de ingreso a túnel y el total real en el texto que se firma", () => {

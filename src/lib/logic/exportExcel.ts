@@ -32,6 +32,7 @@ function metodoPagoLabel(v: Venta): string {
   if (v.metodoPago === "efectivo") return "Efectivo";
   if (v.metodoPago === "tarjeta") return esTarjetaWeb(v.creadoPor) ? "Tarjetas Transbank" : "Tarjetas GETNET";
   if (v.metodoPago === "transferencia") return "Transferencia bancaria";
+  if (v.metodoPago === "orden_compra") return "Orden de compra";
   return "-";
 }
 

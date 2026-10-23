@@ -63,6 +63,15 @@ export default function OperadorNotFoundResult({
         >
           Lavado Full Túnel ({fmtCLP(r.precioConDescuento ?? r.precioBaseLavado)})
         </button>
+        {r.precioSoloTunel > 0 && (
+          <button
+            className={r.tipoLavado === "soloTunel" ? "btn" : "btn secondary"}
+            style={{ marginTop: 0, flex: "1 1 160px" }}
+            onClick={() => r.setTipoLavado("soloTunel")}
+          >
+            Solo túnel, sin aspirado ({fmtCLP(r.precioSoloTunel)})
+          </button>
+        )}
         {r.precioPromo2 > 0 && (
           <button
             className={r.tipoLavado === "promo2" ? "btn" : "btn secondary"}

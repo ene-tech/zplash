@@ -71,6 +71,21 @@ export async function upsertMovimientosContables(rows: MovimientoContable[]): Pr
   }
 }
 
+/** Inserta asientos de ajuste de cierre sin pisar nunca uno existente: si el
+ * id ya está en la base no lo toca (on conflict do nothing). Así un reintento
+ * del mismo asiento no lo duplica, y quien entra solo con el módulo "arqueo"
+ * no puede reescribir el monto de un asiento ya inscrito. */
+export async function insertarAjustesCierre(rows: MovimientoContable[]): Promise<boolean> {
+  if (!rows.length) return true;
+  try {
+    await getDb().insert(movimientosContables).values(rows.map(movimientoToRow)).onConflictDoNothing({ target: movimientosContables.id });
+    return true;
+  } catch (error) {
+    console.error("Error inscribiendo asientos de ajuste de cierre", error);
+    return false;
+  }
+}
+
 /** true si TODAS esas filas son movimientos generados automáticamente desde
  * una Venta (tienen ventaId) — lo que decide qué permiso exige borrarlas, ver
  * deleteMovimientosContables en @/lib/serverActions. Se mira en la base y no

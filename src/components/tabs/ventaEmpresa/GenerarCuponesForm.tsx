@@ -167,7 +167,31 @@ export default function GenerarCuponesForm({
             >
               Transferencia bancaria
             </button>
+            <button
+              type="button"
+              className={p.metodoPago === "orden_compra" ? "btn" : "btn ghost"}
+              style={{ flex: 1, marginTop: 0 }}
+              onClick={() => {
+                p.setMetodoPago("orden_compra");
+                p.setEstadoTransferencia(null);
+              }}
+            >
+              Orden de compra
+            </button>
           </div>
+          {p.metodoPago === "orden_compra" && (
+            <div className="field" style={{ marginTop: 10 }}>
+              <label>Referencia</label>
+              <input
+                placeholder="N° de la orden de compra"
+                value={p.numeroOrdenCompra}
+                onChange={(e) => p.setNumeroOrdenCompra(e.target.value)}
+              />
+              <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 12, marginTop: 6 }}>
+                Sale en la factura a continuación del producto (“10 lavados Referencia: 4500123”). La venta queda como cuenta por cobrar hasta que la marques pagada en Cuentas por Cobrar.
+              </div>
+            </div>
+          )}
           {p.metodoPago === "transferencia" && (
             <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
               <button

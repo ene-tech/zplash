@@ -161,6 +161,10 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       setCuponErr({ msg: `La patente ${patente} no está registrada: completa los datos del cliente para canjear el cupón`, ok: false });
       return;
     }
+    if (cliente.nonGrato) {
+      setCuponErr({ msg: "Cliente non grato: no puede pasar, ni con ticket", ok: false });
+      return;
+    }
     await registrarCanje(cupon, cliente, data.clientes);
   };
 

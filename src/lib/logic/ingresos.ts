@@ -26,12 +26,17 @@ import {
 // canje de ticket (ver registrarIngresoCupon). La Venta la arma quien llama:
 // los datos de boleta/factura cambian entre cliente encontrado y registro
 // rápido.
+//
+// `yaPasoHoy`: el auto ya pasó hoy (p. ej. con un cupón, y el pack se lo
+// venden después en la zona de aspirado). Entonces no se registra Ingreso ni
+// se canjea ningún ticket: se lleva todos los lavados del pack para después.
 export function entregarPromoLavados(
   data: AppData,
   cliente: Cliente,
   precio: number,
   operadorActual: string | null | undefined,
-  promo: IdPromoLavados
+  promo: IdPromoLavados,
+  yaPasoHoy = false
 ): Partial<AppData> {
   const nuevos = cuponesPromoLavados({
     promo,
@@ -42,6 +47,7 @@ export function entregarPromoLavados(
     creadoPor: operadorActual || "",
     idBase: "cup" + Date.now(),
   });
+  if (yaPasoHoy) return { cupones: [...nuevos, ...data.cupones] };
   return registrarIngresoCupon({ ...data, cupones: [...nuevos, ...data.cupones] }, cliente, nuevos[0], operadorActual);
 }
 

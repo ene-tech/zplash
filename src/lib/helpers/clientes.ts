@@ -2,6 +2,10 @@ import type { Cliente, ClientePatch, Ingreso, PlanStatus } from "@/types";
 import { ahoraEnSantiago, diaEnSantiago, sumarMesesFecha } from "./fechas";
 import { formatTelefono, isValidTelefono, normPlate } from "./validadores";
 
+// Lo que ve en la web el cliente non grato (ver nonGrato en
+// @/db/schema/clientes) al intentar pagar o inscribir su tarjeta.
+export const MENSAJE_PAGO_NON_GRATO = "No podemos procesar este pago. Comunícate con el local.";
+
 export const DIAS_AVISO_VENCIMIENTO = 7;
 
 /**

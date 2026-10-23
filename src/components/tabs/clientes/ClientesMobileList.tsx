@@ -87,7 +87,7 @@ export function ClientesMobileList({
   onEliminar: (c: Cliente) => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
+    <div className="flex flex-col gap-2 [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
       {clientes.length === 0 ? (
         <div className="empty">No hay clientes que coincidan</div>
       ) : (

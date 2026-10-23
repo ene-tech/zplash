@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useApp } from "@/context/AppContext";
+import { useEsEscritorio } from "@/hooks/useEsEscritorio";
+import { TRAMO_LISTA, useListaPorTramos } from "@/hooks/useListaPorTramos";
 import { normPlate } from "@/lib/helpers";
 import { listarSuscripcionesOneclick } from "@/lib/serverActions";
 import type { Cliente } from "@/types";
@@ -81,11 +83,13 @@ export default function ClientesTab() {
   // Sin memo, esto recorría y ordenaba los 2000+ clientes desde cero en cada
   // tecla del buscador (y en cualquier otro render de este tab por una razón
   // ajena a la búsqueda) — con miles de filas es el costo dominante de cada
-  // tecla tipeada.
+  // tecla tipeada. Con el valor diferido, el input muestra la tecla al tiro y
+  // el filtro corre después, interrumpible si llega otra tecla.
+  const searchDiferido = useDeferredValue(search);
   const filtered = useMemo(
     () =>
       filtrarYOrdenarClientes(data.clientes, {
-        search,
+        search: searchDiferido,
         filtroEstado,
         filtroOrigen,
         filtroSuscripcion,
@@ -95,8 +99,10 @@ export default function ClientesTab() {
         pasadasHasta,
         orden,
       }),
-    [data.clientes, search, filtroEstado, filtroOrigen, filtroSuscripcion, filtroPlan, suscripciones, pasadasDesde, pasadasHasta, orden]
+    [data.clientes, searchDiferido, filtroEstado, filtroOrigen, filtroSuscripcion, filtroPlan, suscripciones, pasadasDesde, pasadasHasta, orden]
   );
+  const esEscritorio = useEsEscritorio();
+  const { visibles, restantes, mostrarMas } = useListaPorTramos(filtered);
 
   // Un value por plan presente en la base; "-" agrupa a los sin plan (mismo
   // fallback que muestra la columna).
@@ -237,8 +243,16 @@ export default function ClientesTab() {
           : `${total.toLocaleString("es-CL")} ${total === 1 ? "cliente" : "clientes"}`}
       </div>
 
-      <ClientesMobileList clientes={filtered} suscripciones={suscripciones} onInfo={abrirInfo} onEditar={abrirEditar} onEliminar={eliminar} />
-      <ClientesTable clientes={filtered} suscripciones={suscripciones} onSortHeader={sortHeader} flecha={flecha} onInfo={abrirInfo} onEditar={abrirEditar} onEliminar={eliminar} />
+      {esEscritorio ? (
+        <ClientesTable clientes={visibles} suscripciones={suscripciones} onSortHeader={sortHeader} flecha={flecha} onInfo={abrirInfo} onEditar={abrirEditar} onEliminar={eliminar} />
+      ) : (
+        <ClientesMobileList clientes={visibles} suscripciones={suscripciones} onInfo={abrirInfo} onEditar={abrirEditar} onEliminar={eliminar} />
+      )}
+      {restantes > 0 && (
+        <button className="btn ghost" style={{ marginTop: 12 }} onClick={mostrarMas}>
+          Mostrar {Math.min(restantes, TRAMO_LISTA)} más (quedan {restantes.toLocaleString("es-CL")})
+        </button>
+      )}
     </div>
   );
 }

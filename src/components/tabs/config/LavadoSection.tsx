@@ -11,7 +11,9 @@ import {
   PROMO_2_LAVADOS_KEY,
   PROMO_5_LAVADOS_KEY,
   PROMOS_LAVADOS,
+  SOLO_TUNEL_KEY,
   precioLavadoAdicional,
+  precioSoloTunel,
   precioLavadoUnico,
   precioPromo2Lavados,
   precioPromoLavados,
@@ -24,6 +26,7 @@ export default function LavadoSection() {
   const { data, commit } = useAppData();
   const [lavadoUnicoVal, setLavadoUnicoVal] = useState(() => String(precioLavadoUnico(data.precios)));
   const [lavadoAdicionalVal, setLavadoAdicionalVal] = useState(() => String(precioLavadoAdicional(data.precios)));
+  const [soloTunelVal, setSoloTunelVal] = useState(() => String(precioSoloTunel(data.precios)));
   const [promo2Val, setPromo2Val] = useState(() => String(precioPromo2Lavados(data.precios)));
   const [promo5Val, setPromo5Val] = useState(() => String(precioPromoLavados(data.precios, "promo_5_lavados")));
   const [guardando, setGuardando] = useState(false);
@@ -36,6 +39,7 @@ export default function LavadoSection() {
         ...data.precios,
         [LAVADO_UNICO_KEY]: { normal: Number(lavadoUnicoVal) || 0, promo: 0 },
         [LAVADO_ADICIONAL_KEY]: { normal: Number(lavadoAdicionalVal) || 0, promo: 0 },
+        [SOLO_TUNEL_KEY]: { normal: Number(soloTunelVal) || 0, promo: 0 },
         [PROMO_2_LAVADOS_KEY]: { normal: Number(promo2Val) || 0, promo: 0 },
         [PROMO_5_LAVADOS_KEY]: { normal: Number(promo5Val) || 0, promo: 0 },
       },
@@ -53,6 +57,10 @@ export default function LavadoSection() {
       <div className="field" style={{ margin: 0 }}>
         <label>Precio lavado adicional (plan vigente, pasadas agotadas)</label>
         <PriceInput value={lavadoAdicionalVal} onChange={setLavadoAdicionalVal} />
+      </div>
+      <div className="field" style={{ margin: 0 }}>
+        <label>Precio solo túnel, sin aspirado (mesón) — $0 lo apaga</label>
+        <PriceInput value={soloTunelVal} onChange={setSoloTunelVal} />
       </div>
       {/* Promo 2 Lavados (ver PROMO_2_LAVADOS_KEY): mismo precio en el mesón y
           en /pagar. $0 la apaga en los dos canales. */}

@@ -2,24 +2,48 @@
 
 import { useMemo, useState } from "react";
 import { useAppData } from "@/context/AppContext";
-import { fmtCLP } from "@/lib/helpers";
-import type { MovimientoContable, PagoInfo } from "@/types";
+import { esCuentaPorCobrar, fmtCLP } from "@/lib/helpers";
+import type { MovimientoContable, PagoInfo, Venta } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { MobileRecordCard, MobileRecordMeta, MobileRecordAvatar } from "@/components/MobileRecordCard";
 import { HandCoins } from "lucide-react";
 
+type Fila = {
+  id: string;
+  fecha: string;
+  descripcion: string;
+  categoria?: string;
+  contraparte?: string;
+  monto: number;
+  origen: { tipo: "movimiento"; m: MovimientoContable } | { tipo: "venta"; v: Venta };
+};
+
 // Resumen de Cuentas por Cobrar: no es una tabla propia, se deriva de los
 // movimientos de tipo "ingreso" con estado "pendiente" (ver Ingresos y
-// MovimientoContableTab), igual que Cuentas por Pagar se deriva de egresos.
+// MovimientoContableTab), igual que Cuentas por Pagar se deriva de egresos,
+// más las ventas a plazo sin cobrar (orden de compra o transferencia por
+// pagar de un lote B2B, ver esCuentaPorCobrar) — las mismas que el Cierre
+// cuenta en su fila "Cuentas x Cobrar".
 export default function CuentasPorCobrarTab() {
   const { data, commit, patchUi } = useAppData();
   const [busqueda, setBusqueda] = useState("");
 
   const items = useMemo(() => {
     const q = busqueda.toLowerCase().trim();
-    return data.movimientosContables
+    const desdeMovimientos: Fila[] = data.movimientosContables
       .filter((m) => m.tipo === "ingreso" && m.estado === "pendiente")
+      .map((m) => ({ ...m, origen: { tipo: "movimiento", m } }));
+    const desdeVentas: Fila[] = data.ventas.filter(esCuentaPorCobrar).map((v) => ({
+      id: v.id,
+      fecha: v.fecha,
+      descripcion: v.ordenCompra ? `${v.nombre} · OC ${v.ordenCompra}` : v.nombre,
+      categoria: v.metodoPago === "orden_compra" ? "Orden de compra" : "Transferencia por pagar",
+      contraparte: v.razonSocial || v.rut || undefined,
+      monto: v.precio,
+      origen: { tipo: "venta", v },
+    }));
+    return [...desdeMovimientos, ...desdeVentas]
       .filter((m) => {
         if (!q) return true;
         return (
@@ -29,11 +53,29 @@ export default function CuentasPorCobrarTab() {
         );
       })
       .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [data.movimientosContables, busqueda]);
+  }, [data.movimientosContables, data.ventas, busqueda]);
 
   const total = items.reduce((s, m) => s + m.monto, 0);
 
-  const marcarPagado = (m: MovimientoContable) => {
+  const marcarPagado = (fila: Fila) => {
+    if (fila.origen.tipo === "venta") {
+      const venta = fila.origen.v;
+      // Solo cambia el estado: el medio de pago de un lote de Venta Empresa no
+      // se puede reclasificar (ver reclasificaVentaAutomatica), así que una
+      // orden de compra cobrada sigue diciendo "orden de compra".
+      patchUi({
+        modal: {
+          type: "confirm",
+          mensaje: `¿Marcar como pagada "${venta.nombre}" por ${fmtCLP(venta.precio)}?`,
+          confirmLabel: "Marcar pagada",
+          danger: false,
+          onConfirm: () =>
+            commit({ ventas: data.ventas.map((x) => (x.id === venta.id ? { ...x, estadoPago: "pagado" } : x)) }),
+        },
+      });
+      return;
+    }
+    const m = fila.origen.m;
     patchUi({
       modal: {
         type: "pago",

@@ -29,6 +29,12 @@ describe("armarFactura", () => {
     expect(doc.Encabezado.Receptor.CmnaRecep).toBe("Temuco");
   });
 
+  it("una venta con orden de compra lleva la referencia a continuación del producto", () => {
+    const oc = venta(1000, { tipo: "Cupón Venta Empresa", patente: "", nombre: "Venta Empresa · 10 lavados", ordenCompra: "4500123" });
+    const doc = armarFactura([oc], receptor, "2026-10-03", "1-9").Documento;
+    expect(doc.Detalle[0].NmbItem).toBe("10 lavados Referencia: 4500123");
+  });
+
   it("emisor y receptor llevan ciudad Temuco", () => {
     const { Emisor, Receptor } = armarFactura([venta(1000)], receptor, "2026-10-03", "1-9").Documento.Encabezado;
     expect(Emisor.CiudadOrigen).toBe("Temuco");

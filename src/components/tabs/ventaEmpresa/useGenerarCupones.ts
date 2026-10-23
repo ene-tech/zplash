@@ -30,7 +30,8 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
   const [valorTexto, setValorTexto] = useState("");
   const [tipoDoc, setTipoDoc] = useState<"Boleta" | "Factura">("Boleta");
   const [hayValor, setHayValor] = useState(false);
-  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
+  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | "orden_compra" | null>(null);
+  const [numeroOrdenCompra, setNumeroOrdenCompra] = useState("");
   const [estadoTransferencia, setEstadoTransferencia] = useState<"pagado" | "pendiente" | null>(null);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [patentesAbierto, setPatentesAbierto] = useState(true);
@@ -83,6 +84,11 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
     }
     if (valorTotal > 0 && !metodoPago) {
       setErr({ msg: "Selecciona la forma de pago", ok: false });
+      return null;
+    }
+    const ordenCompra = metodoPago === "orden_compra" ? numeroOrdenCompra.trim() : "";
+    if (valorTotal > 0 && metodoPago === "orden_compra" && !ordenCompra) {
+      setErr({ msg: "Ingresa la referencia (N° de la orden de compra)", ok: false });
       return null;
     }
     if (valorTotal > 0 && metodoPago === "transferencia" && !estadoTransferencia) {
@@ -157,7 +163,11 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
         direccion,
         giro,
         metodoPago: metodoPago || undefined,
-        estadoPago: metodoPago === "transferencia" ? estadoTransferencia || undefined : "pagado",
+        // La orden de compra se factura ahora y se cobra después: queda en
+        // Cuentas por Cobrar hasta que alguien la marque pagada.
+        estadoPago:
+          metodoPago === "orden_compra" ? "pendiente" : metodoPago === "transferencia" ? estadoTransferencia || undefined : "pagado",
+        ordenCompra: ordenCompra || undefined,
       };
       ventas = [venta, ...ventas];
     }
@@ -208,6 +218,7 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
     setTipoDoc("Boleta");
     setHayValor(false);
     setMetodoPago(null);
+    setNumeroOrdenCompra("");
     setEstadoTransferencia(null);
     return nuevos;
   };
@@ -221,6 +232,8 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
     setHayValor,
     metodoPago,
     setMetodoPago,
+    numeroOrdenCompra,
+    setNumeroOrdenCompra,
     estadoTransferencia,
     setEstadoTransferencia,
     err,

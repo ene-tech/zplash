@@ -12,6 +12,7 @@ import {
   isValidEmail,
   isValidPatente,
   isValidRut,
+  MENSAJE_PAGO_NON_GRATO,
   normPlate,
   precioLavadoUnicoWeb,
   precioPromoLavados,
@@ -151,6 +152,10 @@ export async function POST(request: NextRequest) {
     const cantidadPlanes = body.items.filter((i) => TIPOS_PLAN.has(i.tipo as TipoPago)).length;
     if (cantidadPlanes > 1) {
       return NextResponse.json({ error: "Solo se puede pagar un plan por transacción" }, { status: 400 });
+    }
+    // Cliente non grato (ver nonGrato en @/db/schema/clientes): no compra nada.
+    if ((await buscarClientePorPatente(patente))?.nonGrato) {
+      return NextResponse.json({ error: MENSAJE_PAGO_NON_GRATO }, { status: 403 });
     }
 
     // Se busca al cliente para respetarle su precio heredado al renovar (ver

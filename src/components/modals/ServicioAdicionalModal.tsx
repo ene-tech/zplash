@@ -40,7 +40,7 @@ export default function ServicioAdicionalModal({ data: v }: { data: Venta }) {
   const [precioTexto, setPrecioTexto] = useState(String(v.precio || 0));
   const [estadoPago, setEstadoPago] = useState<"pagado" | "abono50" | "pendiente">(v.estadoPago || "pendiente");
   const [montoAbonoTexto, setMontoAbonoTexto] = useState(String(v.montoCobrado ?? 0));
-  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | "">(v.metodoPago || "");
+  const [metodoPago, setMetodoPago] = useState<"efectivo" | "tarjeta" | "transferencia" | "">(v.metodoPago === "orden_compra" ? "" : v.metodoPago || "");
   const [fechaEntrega, setFechaEntrega] = useState(v.fechaEntrega || "");
   const [horaEntrega, setHoraEntrega] = useState(v.horaEntrega || "");
   const [err, setErr] = useState("");

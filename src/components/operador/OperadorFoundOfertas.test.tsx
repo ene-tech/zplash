@@ -55,6 +55,22 @@ describe("OperadorFoundOfertas — orden", () => {
   });
 });
 
+// Caso SPRH85 (oct-2026): pasó con un cupón y en el aspirado le ofrecen el
+// pack. No puede decirle "pasa ahora": ya pasó, y se lleva todos los lavados.
+describe("OperadorFoundOfertas — pack al que ya pasó hoy", () => {
+  it("dice que se lleva todos los lavados para después", () => {
+    const html = render({ planVigente: false, precioPromo2: 12990, precioPromo5: 24990, yaPasoHoy: true });
+    expect(html).not.toContain("Pasa ahora");
+    expect(html).toContain("se lleva los 4 lavados para los próximos 30 días");
+    expect(html).toContain("se lleva los 2 lavados para después");
+  });
+
+  it("si no ha pasado, el primero es el de ahora", () => {
+    const html = render({ planVigente: false, precioPromo5: 24990 });
+    expect(html).toContain("Pasa ahora y le quedan 3 lavados");
+  });
+});
+
 describe("OperadorFoundOfertas — plan solo por la web", () => {
   it("al que tiene el plan vigente y lo paga en el mesón le muestra el QR, no un botón de renovar", () => {
     const html = render({

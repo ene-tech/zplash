@@ -9,6 +9,8 @@ import { StatsResumenPeriodo } from "@/components/tabs/stats/StatsResumenPeriodo
 import { StatsPacksLavados } from "@/components/tabs/stats/StatsPacksLavados";
 import { StatsUsoPlanes } from "@/components/tabs/stats/StatsUsoPlanes";
 import { StatsVentasQr } from "@/components/tabs/stats/StatsVentasQr";
+import { StatsTicketsCampanas } from "@/components/tabs/stats/StatsTicketsCampanas";
+import { ticketsYCampanas } from "@/components/tabs/stats/ticketsYCampanas";
 
 export default function StatsTab() {
   // Mismo motivo que en CierreTab: se llama siempre, aunque ventas/ingresos
@@ -106,6 +108,8 @@ export default function StatsTab() {
       />
 
       <StatsPacksLavados packsLavados={r.packsLavados} upgradesPack={r.upgradesPack} />
+
+      <StatsTicketsCampanas {...ticketsYCampanas(r.data.cupones, r.desde, r.hasta)} />
 
       <StatsVentasQr
         ventasQrCantidad={r.ventasQrCantidad}

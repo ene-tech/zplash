@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useAppData } from "@/context/AppContext";
 import { fmtCLP, tipoIngreso, todayStr, ventaLavadoUnicoDeIngreso } from "@/lib/helpers";
 import type { Ingreso } from "@/types/ingresos";
@@ -18,22 +19,30 @@ function etiqueta(i: Ingreso, ventas: Venta[]): { label: string; cls: "ok" | "wa
   return { label: fmtCLP(venta.precio), cls: "bad" };
 }
 
+// useMemo: el filtro de todos los ingresos más la búsqueda de la venta de cada
+// fila (20 × todas las ventas) corren una vez por commit o cambio de día, no
+// en cada tecla. Sin memo() a propósito: el re-render del padre (su reloj de
+// 30 s) es lo que recalcula `hoy` y cambia la lista pasada la medianoche.
 export default function TodayLog() {
   const { data } = useAppData();
   const hoy = todayStr();
-  const list = data.ingresos
-    .filter((i) => new Date(i.fecha).toDateString() === hoy)
-    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-    .slice(0, 20);
+  const filas = useMemo(
+    () =>
+      data.ingresos
+        .filter((i) => new Date(i.fecha).toDateString() === hoy)
+        .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+        .slice(0, 20)
+        .map((i) => ({ i, tipo: etiqueta(i, data.ventas) })),
+    [data.ingresos, data.ventas, hoy]
+  );
 
-  if (list.length === 0) {
+  if (filas.length === 0) {
     return <div className="empty">Aún no hay ingresos registrados hoy</div>;
   }
 
   return (
     <>
-      {list.map((i) => {
-        const tipo = etiqueta(i, data.ventas);
+      {filas.map(({ i, tipo }) => {
         return (
           <div className="log-row" key={i.id}>
             <span className="plate">{i.patente}</span>

@@ -363,6 +363,10 @@ export async function aplicarPagoAprobado(
     esServicioAdicional: p.esServicioAdicional,
     cantidadItems: 1,
     creadoPor: p.creadoPor,
+    // Sin esto las reglas que excluyen ventas con cupón no veían el
+    // descuento de las compras web.
+    viaCupon: !!p.cuponCodigo,
+    cuponCodigo: p.cuponCodigo || undefined,
   };
   // after() en vez de un `.catch()` suelto: garantiza que Vercel mantenga la
   // función viva hasta que termine el envío (ver mismo fix en dataAccess/

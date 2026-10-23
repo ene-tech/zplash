@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       plan: clientes.plan,
       aceptoX5En: clientes.aceptoX5En,
       vencimiento: clientes.vencimiento,
+      nonGrato: clientes.nonGrato,
     })
     .from(suscripcionesOneclick)
     .leftJoin(clientes, eq(clientes.patente, suscripcionesOneclick.patente))
@@ -66,7 +67,13 @@ export async function GET(request: NextRequest) {
     .orderBy(asc(suscripcionesOneclick.proximoCobro));
 
   const resultados: { suscripcionId: string; patente: string; estado?: string; error?: string }[] = [];
-  for (const { suscripcion, ...cliente } of filas) {
+  for (const { suscripcion, nonGrato, ...cliente } of filas) {
+    // Cliente non grato: no se le cobra. La suscripción queda como está y se
+    // vuelve a cobrar sola si le sacan la marca.
+    if (nonGrato) {
+      resultados.push({ suscripcionId: suscripcion.id, patente: suscripcion.patente, estado: "non_grato" });
+      continue;
+    }
     // Candado del paso al X5 (ver cobrarSuscripcion): al cliente del ilimitado
     // viejo que no aceptó el cambio no se le cobra, y su suscripción queda
     // pausada. Se revisa de nuevo cada día porque el candado se levanta por

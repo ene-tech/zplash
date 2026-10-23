@@ -20,6 +20,9 @@ export const ventas = pgTable(
     // suscripcionesOneclick.operadorQr). creadoPor no sirve: ahí va el canal.
     operadorQr: text("operador_qr"),
     metodoPago: text("metodo_pago"),
+    // N° de la orden de compra de una venta con metodoPago "orden_compra":
+    // la factura lo escribe a continuación del producto (ver nombreItem).
+    ordenCompra: text("orden_compra"),
     voucher: text("voucher"),
     horaEntrega: text("hora_entrega"),
     fechaEntrega: text("fecha_entrega"),

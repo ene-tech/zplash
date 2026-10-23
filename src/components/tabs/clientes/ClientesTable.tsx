@@ -22,7 +22,7 @@ export function ClientesTable({
   onEliminar: (c: Cliente) => void;
 }) {
   return (
-    <div className="table-scroll hidden md:block">
+    <div className="table-scroll">
       <Table>
         <TableHeader>
           <TableRow>

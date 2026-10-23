@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import { esTarjetaWeb, esVentaNuevaWeb, inRange, normPlate, TIPO_VENTA_REEMBOLSO, todayYMD } from "@/lib/helpers";
+import { esCuentaPorCobrar, esTarjetaWeb, esVentaNuevaWeb, inRange, normPlate, TIPO_VENTA_REEMBOLSO, todayYMD } from "@/lib/helpers";
 import { sigueDocumentoDeFicha, ventasAFacturarPorCliente } from "@/lib/logic";
 import { emitirFacturaVentas } from "@/lib/serverActions";
 import { PRODUCTOS_CIERRE } from "./productos";
@@ -188,8 +188,12 @@ export function useCierreData() {
     const tarjetaTransbankItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "tarjeta" && esTarjetaWeb(v.creadoPor));
     const tarjetaGetnetItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "tarjeta" && !esTarjetaWeb(v.creadoPor));
     const transferenciaItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "transferencia" && v.estadoPago !== "pendiente");
-    const cuentasPorCobrarItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "transferencia" && v.estadoPago === "pendiente");
-    const porPagarItems = ventasPeriodoConDinero.filter((v) => v.estadoPago === "pendiente" && v.metodoPago !== "transferencia");
+    // Una orden de compra ya cobrada sigue con su medio de pago original (el
+    // lote de Venta Empresa no se puede reclasificar, ver
+    // reclasificaVentaAutomatica): tiene fila propia en vez de perderse.
+    const ordenCompraPagadaItems = ventasPeriodoConDinero.filter((v) => v.metodoPago === "orden_compra" && v.estadoPago !== "pendiente");
+    const cuentasPorCobrarItems = ventasPeriodoConDinero.filter(esCuentaPorCobrar);
+    const porPagarItems = ventasPeriodoConDinero.filter((v) => v.estadoPago === "pendiente" && !esCuentaPorCobrar(v));
 
     // "Ingreso por Módulo Contabilidad" (arriba) se suma al Total de "Detalle
     // de venta" completo, pagado o pendiente — antes esta tabla de "Métodos de
@@ -230,6 +234,15 @@ export function useCierreData() {
           transferenciaItems.reduce((s, v) => s + cobrado(v), 0) +
           contablesPorMetodo("transferencia").reduce((s, m) => s + m.monto, 0),
       },
+      ...(ordenCompraPagadaItems.length
+        ? [
+            {
+              metodo: "Orden de compra (pagada)",
+              cantidad: ordenCompraPagadaItems.length,
+              monto: ordenCompraPagadaItems.reduce((s, v) => s + cobrado(v), 0),
+            },
+          ]
+        : []),
       {
         metodo: "Cuentas x Cobrar",
         cantidad: cuentasPorCobrarItems.length + contablesPendientes.length,

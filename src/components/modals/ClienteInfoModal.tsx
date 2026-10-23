@@ -540,6 +540,25 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           </span>
         </label>
 
+        {/* Ver nonGrato en @/db/schema/clientes: marcado, el mesón no lo deja
+            pasar ni le cobra, y por la web tampoco puede pagar. */}
+        <label className="-mt-3 flex items-start gap-2 text-sm">
+          <Checkbox
+            className="mt-0.5"
+            checked={!!cliente.nonGrato}
+            onCheckedChange={(marcado) =>
+              commit({ clientes: appData.clientes.map((x) => (x.id === c.id ? { ...x, nonGrato: marcado === true } : x)) })
+            }
+          />
+          <span>
+            <span className={`font-medium ${cliente.nonGrato ? "text-destructive" : ""}`}>Cliente non grato</span>
+            <span className="block text-xs text-muted-foreground">
+              Marcado, este cliente no puede pasar: el mesón no le da ingreso ni le cobra lavados, y por la web no puede pagar ni se
+              le cobra la renovación automática.
+            </span>
+          </span>
+        </label>
+
         {/* También se muestra sin fila Oneclick cuando el cliente arrastra una
             suscripción de WooCommerce (ver renovacionAutoWooDesde): ahí el cobro
             automático vive allá y es el que hay que poder cortar desde acá. */}
