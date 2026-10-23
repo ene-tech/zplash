@@ -158,7 +158,7 @@ export default function ProductoModal({ data: prod }: { data: Producto | null })
           </div>
           <div className="grid gap-1.5">
             <Label>Valor de Venta (neto, sin IVA)</Label>
-            <PriceInput value={valorVenta} onChange={setValorVenta} />
+            <PriceInput value={valorVenta} onChange={setValorVenta} decimales />
             {(() => {
               const margen = margenProducto({ valorCompra: Number(valorCompra) || 0, valorVenta: Number(valorVenta) || 0 });
               return margen ? (
