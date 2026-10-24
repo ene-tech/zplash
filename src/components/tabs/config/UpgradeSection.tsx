@@ -3,7 +3,15 @@
 import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useAppData } from "@/context/AppContext";
-import { PROMOS_LAVADOS, TICKETS_UPGRADE_PACK, UPGRADE_PACK_KEY, precioUpgradePack } from "@/lib/helpers";
+import {
+  PROMOS_LAVADOS,
+  TICKETS_UPGRADE_DESCUENTO,
+  TICKETS_UPGRADE_PACK,
+  UPGRADE_DESCUENTO_KEY,
+  UPGRADE_PACK_KEY,
+  precioUpgradeDescuento,
+  precioUpgradePack,
+} from "@/lib/helpers";
 import { ArrowUpCircle } from "lucide-react";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
@@ -14,6 +22,7 @@ import SaveBar from "./SaveBar";
 export default function UpgradeSection() {
   const { data, commit } = useAppData();
   const [precioVal, setPrecioVal] = useState(() => String(precioUpgradePack(data.precios)));
+  const [precioDescuentoVal, setPrecioDescuentoVal] = useState(() => String(precioUpgradeDescuento(data.precios)));
   const [horasVentanaVal, setHorasVentanaVal] = useState(() => String(data.config.horasVentanaUpgradePlan));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
@@ -23,7 +32,11 @@ export default function UpgradeSection() {
     setGuardando(true);
     const ok = await commit({
       config: { ...data.config, horasVentanaUpgradePlan },
-      precios: { ...data.precios, [UPGRADE_PACK_KEY]: { normal: Number(precioVal) || 0, promo: 0 } },
+      precios: {
+        ...data.precios,
+        [UPGRADE_PACK_KEY]: { normal: Number(precioVal) || 0, promo: 0 },
+        [UPGRADE_DESCUENTO_KEY]: { normal: Number(precioDescuentoVal) || 0, promo: 0 },
+      },
     });
     setGuardando(false);
     setMsg({ texto: ok ? "Cambio guardado correctamente" : "No se pudo guardar (sin conexión). Intenta de nuevo.", ok });
@@ -38,6 +51,13 @@ export default function UpgradeSection() {
       <div className="field" style={{ margin: 0 }}>
         <label>Precio adicional — $0 la apaga</label>
         <PriceInput value={precioVal} onChange={setPrecioVal} />
+      </div>
+      <div className="field" style={{ margin: 0 }}>
+        <label>
+          Si el lavado fue con cupón de descuento (solo mesón): precio por {TICKETS_UPGRADE_DESCUENTO} lavados más — $0 la
+          apaga
+        </label>
+        <PriceInput value={precioDescuentoVal} onChange={setPrecioDescuentoVal} />
       </div>
       <div className="field" style={{ margin: 0 }}>
         <label>Horas disponibles para el upgrade (usa múltiplos de 24 para días, ej: 48 = 2 días)</label>

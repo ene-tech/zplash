@@ -27,11 +27,13 @@ import {
   precioPromoLavados,
   precioSoloTunel,
   precioUpgradePack,
+  precioUpgradeDescuento,
   precioRenovacionATiempo,
   precioRenovacionLocal,
   ticketsVigentesDePatente,
   ventaLavadoWebPendiente,
   ventaUpgradeElegible,
+  ventaUpgradeDescuentoElegible,
   visitasPeriodoPlan,
   yaIngresoHoy,
 } from "@/lib/helpers";
@@ -205,6 +207,14 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   const lavadoUpgrade = !planVigente ? ventaUpgradeElegible(ventasCliente, c.id, data.config.horasVentanaUpgradePlan) : undefined;
   const precioUpgrade = precioUpgradePack(data.precios);
   const upgradePack = lavadoUpgrade && precioUpgrade > 0 ? { precio: precioUpgrade, lavado: lavadoUpgrade } : undefined;
+  // Si ese lavado fue con cupón, en vez del anterior: 2 lavados más (ver
+  // UPGRADE_DESCUENTO_KEY). Solo mesón.
+  const lavadoUpgradeDescuento = !planVigente
+    ? ventaUpgradeDescuentoElegible(ventasCliente, c.id, data.config.horasVentanaUpgradePlan)
+    : undefined;
+  const precioUpgradeDesc = precioUpgradeDescuento(data.precios);
+  const upgradeDescuento =
+    lavadoUpgradeDescuento && precioUpgradeDesc > 0 ? { precio: precioUpgradeDesc, lavado: lavadoUpgradeDescuento } : undefined;
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
@@ -273,6 +283,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     yaPasoHoy,
     precioSoloTunel: precioSoloTunelMeson,
     upgradePack,
+    upgradeDescuento,
     ...ingreso,
     ...ficha,
     registrar: conFichaCompleta(ingreso.registrar),
@@ -281,6 +292,7 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
     cobrarPromoLavados: conFichaCompleta(ingreso.cobrarPromoLavados),
     cobrarSoloTunel: conFichaCompleta(ingreso.cobrarSoloTunel),
     cobrarUpgradePack: conFichaCompleta(ingreso.cobrarUpgradePack),
+    cobrarUpgradeDescuento: conFichaCompleta(ingreso.cobrarUpgradeDescuento),
     usarTicket: conFichaCompleta(ingreso.usarTicket),
     registrarDetailing: conFichaCompleta(ingreso.registrarDetailing),
     registrarLavadoWeb: conFichaCompleta(ingreso.registrarLavadoWeb),

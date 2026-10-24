@@ -1,8 +1,8 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { entregarPromoLavados, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { PROMOS_LAVADOS, SOLO_TUNEL_KEY, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { entregarPromoLavados, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
+import { PROMOS_LAVADOS, SOLO_TUNEL_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
 import { conReglaVigente } from "./reglaVigente";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -279,6 +279,43 @@ export function useIngresoActions(
     });
   };
 
+  // Upgrade del lavado con descuento (ver UPGRADE_DESCUENTO_KEY): el mismo
+  // cobro que cobrarUpgradePack, pero deja una Promo 2 Lavados entera.
+  const cobrarUpgradeDescuento = (cliente: Cliente, upgrade: { precio: number; lavado: Venta }) => {
+    patchUi({
+      modal: {
+        type: "pago",
+        monto: upgrade.precio,
+        descripcion: `${TICKETS_UPGRADE_DESCUENTO} lavados más (lavado con descuento) para ${cliente.nombre} (${cliente.patente})`,
+        cliente,
+        onConfirm: async (pago: PagoInfo) => {
+          const venta: Venta = {
+            id: uidVenta(),
+            clienteId: cliente.id,
+            patente: cliente.patente,
+            nombre: cliente.nombre,
+            plan: cliente.plan || "",
+            precio: upgrade.precio,
+            tipo: UPGRADE_DESCUENTO_KEY,
+            fecha: new Date().toISOString(),
+            creadoPor: ui.perfilActual?.nombre || "",
+            metodoPago: pago.metodo,
+            voucher: pago.voucher,
+            ...pago.documento,
+          };
+          const patch = entregarUpgradeDescuento(data, cliente, upgrade.lavado, upgrade.precio, ui.perfilActual?.nombre);
+          const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
+          if (!ok) {
+            setGuardarErr(ERROR_GUARDADO_INGRESO);
+            return;
+          }
+          clearPlate();
+          patchUi({ operResult: null });
+        },
+      },
+    });
+  };
+
   // Canje sin código de un ticket que autoriza a esta patente (Promo 2
   // Lavados, Pack de Tickets con flota — ver ticketsVigentesDePatente): el
   // mismo registro que el canje por código del panel (registrarIngresoCupon).
@@ -308,6 +345,7 @@ export function useIngresoActions(
     cobrarSoloTunel,
     cobrarPromoLavados,
     cobrarUpgradePack,
+    cobrarUpgradeDescuento,
     usarTicket,
   };
 }

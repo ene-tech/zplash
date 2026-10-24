@@ -98,6 +98,8 @@ import {
   cuponesPromoLavados,
   cuponesUpgradePack,
   PRECIO_UPGRADE_PACK,
+  cuponesUpgradeDescuento,
+  UPGRADE_DESCUENTO_KEY,
   UPGRADE_PACK_KEY,
   KEYS_PROMOS_LAVADOS,
   PROMO_5_LAVADOS_KEY,
@@ -121,6 +123,7 @@ import {
   variacionPorcentual,
   ventaUpgradeElegible,
   visitasDesdeContratacion,
+  ventaUpgradeDescuentoElegible,
   visitasPeriodoPlan,
   visitasUltimos30Dias,
   visitasUltimoPeriodoVencido,
@@ -1787,6 +1790,45 @@ describe("ventaUpgradeElegible", () => {
 });
 
 describe("cuponesUpgradePack", () => {
+describe("ventaUpgradeDescuentoElegible", () => {
+  const ahora = new Date("2026-01-05T12:00:00.000Z");
+
+  it("solo califica el lavado pagado con cupón, dentro de la ventana", () => {
+    const sinCupon = ventaLavadoUnicoBase({ fecha: "2026-01-05T10:00:00.000Z" });
+    const conCupon = ventaLavadoUnicoBase({ id: "v2", fecha: "2026-01-05T10:00:00.000Z", viaCupon: true, cuponCodigo: "X" });
+    const viejo = ventaLavadoUnicoBase({ id: "v3", fecha: "2026-01-01T10:00:00.000Z", viaCupon: true, cuponCodigo: "X" });
+    expect(ventaUpgradeDescuentoElegible([sinCupon], "c1", 24, ahora)).toBeUndefined();
+    expect(ventaUpgradeDescuentoElegible([conCupon], "c1", 24, ahora)).toBe(conCupon);
+    expect(ventaUpgradeDescuentoElegible([viejo], "c1", 24, ahora)).toBeUndefined();
+  });
+
+  it("va una vez por lavado", () => {
+    const conCupon = ventaLavadoUnicoBase({ fecha: "2026-01-05T10:00:00.000Z", viaCupon: true, cuponCodigo: "X" });
+    const upgrade = ventaLavadoUnicoBase({ id: "v2", tipo: UPGRADE_DESCUENTO_KEY, fecha: "2026-01-05T11:00:00.000Z" });
+    expect(ventaUpgradeDescuentoElegible([conCupon, upgrade], "c1", 24, ahora)).toBeUndefined();
+  });
+});
+
+describe("cuponesUpgradeDescuento", () => {
+  it("emite una Promo 2 Lavados entera, con la vigencia contada desde el lavado", () => {
+    const tickets = cuponesUpgradeDescuento({
+      lavado: { fecha: "2026-01-05T10:00:00.000Z" },
+      precio: 9990,
+      patente: "ab1234",
+      existentes: new Set(),
+      creadoPor: "Op",
+      idBase: "cup1",
+      ahora: new Date("2026-01-06T10:00:00.000Z"),
+    });
+    expect(tickets.map((t) => [t.nombreLote, t.numeroLote, t.totalLote])).toEqual([
+      [PROMO_2_LAVADOS_KEY, 1, 2],
+      [PROMO_2_LAVADOS_KEY, 2, 2],
+    ]);
+    expect(tickets[0].fechaCaducidad).toBe("2026-02-04T10:00:00.000Z");
+    expect(tickets[0].patentesAutorizadas).toEqual(["AB1234"]);
+  });
+});
+
   it("emite los tickets 2 a 4 de la Promo 4 Lavados, con la vigencia contada desde el lavado", () => {
     const lavado = { precio: 9990, fecha: "2026-01-05T10:00:00.000Z" };
     const tickets = cuponesUpgradePack({

@@ -744,6 +744,22 @@ export function precioUpgradePack(precios: Precios): number {
 }
 
 /**
+ * Upgrade del lavado con descuento (oct-2026): el que pagó su lavado único
+ * con cupón no entra al upgrade a Promo 4 Lavados, pero en el mesón se le
+ * ofrece este otro — paga el adicional y se lleva una Promo 2 Lavados entera
+ * para esa patente, vigente 30 días desde ese lavado (ver
+ * ventaUpgradeDescuentoElegible). Solo mesón: no hay variante " (Web)".
+ */
+export const UPGRADE_DESCUENTO_KEY = "Upgrade a Promo 2 Lavados (Descuento)";
+export const PRECIO_UPGRADE_DESCUENTO = 9990;
+export const TICKETS_UPGRADE_DESCUENTO = PROMOS_LAVADOS.promo_2_lavados.lavados;
+
+/** Mismo criterio que precioUpgradePack: sin fila vale el de siempre, $0 lo apaga. */
+export function precioUpgradeDescuento(precios: Precios): number {
+  return precios[UPGRADE_DESCUENTO_KEY] ? precios[UPGRADE_DESCUENTO_KEY].normal : PRECIO_UPGRADE_DESCUENTO;
+}
+
+/**
  * ¿Esta venta es el "Lavado único" del que puede nacer el upgrade? El
  * presencial, o el comprado por /pagar ya canjeado en el túnel (`canjeadaEn`,
  * ver registrarIngresoLavadoWeb): uno sin canjear sigue siendo un vale
@@ -761,7 +777,8 @@ export function esVentaLavadoUnicoUpgradable(venta: Pick<Venta, "tipo" | "canjea
  * va una vez por lavado, y después de pagarlo la venta del upgrade queda más
  * nueva que el lavado. Un lavado pagado con cupón de descuento no da
  * derecho al upgrade (desde oct-2026, un lavado con descuento o con ticket no
- * suma a otras promociones; los de ticket ni siquiera generan venta).
+ * suma a otras promociones; los de ticket ni siquiera generan venta) — ese
+ * tiene el suyo, ver ventaUpgradeDescuentoElegible.
  */
 export function ventaUpgradeElegible(
   ventas: Venta[],
@@ -769,14 +786,33 @@ export function ventaUpgradeElegible(
   horasVentana: number,
   ahora: Date = new Date()
 ): Venta | undefined {
+  const ultima = ultimoLavadoSinUpgrade(ventas, clienteId, horasVentana, ahora);
+  return ultima && !ultima.viaCupon ? ultima : undefined;
+}
+
+/** El lavado único pagado con cupón que todavía se puede completar con el
+ * upgrade del lavado con descuento (ver UPGRADE_DESCUENTO_KEY): misma
+ * ventana y misma regla de una vez por lavado que ventaUpgradeElegible. */
+export function ventaUpgradeDescuentoElegible(
+  ventas: Venta[],
+  clienteId: string,
+  horasVentana: number,
+  ahora: Date = new Date()
+): Venta | undefined {
+  const ultima = ultimoLavadoSinUpgrade(ventas, clienteId, horasVentana, ahora);
+  return ultima?.viaCupon ? ultima : undefined;
+}
+
+function ultimoLavadoSinUpgrade(ventas: Venta[], clienteId: string, horasVentana: number, ahora: Date): Venta | undefined {
   const delCliente = ventas.filter((v) => v.clienteId === clienteId);
   const ultima = delCliente
     .filter(esVentaLavadoUnicoUpgradable)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
-  if (!ultima || ultima.viaCupon) return undefined;
+  if (!ultima) return undefined;
   const desde = new Date(ultima.fecha).getTime();
   if (ahora.getTime() - desde > horasVentana * 3600 * 1000) return undefined;
-  if (delCliente.some((v) => v.tipo.startsWith(UPGRADE_PACK_KEY) && new Date(v.fecha).getTime() >= desde)) return undefined;
+  const esUpgrade = (tipo: string) => tipo.startsWith(UPGRADE_PACK_KEY) || tipo === UPGRADE_DESCUENTO_KEY;
+  if (delCliente.some((v) => esUpgrade(v.tipo) && new Date(v.fecha).getTime() >= desde)) return undefined;
   return ultima;
 }
 

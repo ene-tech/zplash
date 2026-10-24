@@ -296,6 +296,18 @@ export function cuponesUpgradePack(
   });
 }
 
+/** Los tickets del upgrade del lavado con descuento (ver
+ * UPGRADE_DESCUENTO_KEY): una Promo 2 Lavados entera por el adicional, con la
+ * vigencia contada desde el lavado con cupón (`lavado`). */
+export function cuponesUpgradeDescuento(
+  p: Omit<Parameters<typeof cuponesPromoLavados>[0], "promo" | "yaCanjeados" | "vigenciaDesde"> & {
+    lavado: Pick<Venta, "fecha">;
+  }
+): Cupon[] {
+  const { lavado, ...resto } = p;
+  return cuponesPromoLavados({ ...resto, promo: "promo_2_lavados", vigenciaDesde: new Date(lavado.fecha) });
+}
+
 /** Tickets ("vale") que esta patente puede canjear ahora mismo sin código:
  * vivos y con la patente en su lista autorizada — los de la Promo 2 Lavados y
  * los de un Pack de Tickets con flota. Un lote abierto (sin patentes) no

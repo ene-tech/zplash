@@ -3,7 +3,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
-import { PASES_INCLUIDOS_X5, PLANES, TICKETS_UPGRADE_PACK, fmtCLP, fmtFecha } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, fmtCLP, fmtFecha } from "@/lib/helpers";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
 // Lo que el operador tiene que contarle al cliente que todavía anda con el
@@ -58,6 +58,8 @@ type Props = Pick<
   | "cobrarSoloTunel"
   | "upgradePack"
   | "cobrarUpgradePack"
+  | "upgradeDescuento"
+  | "cobrarUpgradeDescuento"
   | "precioQrTarjeta"
   | "perfilId"
 >;
@@ -149,6 +151,28 @@ export default function OperadorFoundOfertas(props: Props) {
           </div>
           <button className="btn secondary" onClick={() => props.cobrarUpgradePack(props.upgradePack!)} disabled={guardando}>
             Cobrar {TICKETS_UPGRADE_PACK} lavados más (+{fmtCLP(props.upgradePack.precio)})
+          </button>
+        </div>
+      )}
+      {props.upgradeDescuento && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <h4>{TICKETS_UPGRADE_DESCUENTO} lavados más por {fmtCLP(props.upgradeDescuento.precio)}</h4>
+          </div>
+          <div className="msg">
+            {c.nombre} pagó un lavado con descuento el {fmtFecha(props.upgradeDescuento.lavado.fecha)}. Con{" "}
+            {fmtCLP(props.upgradeDescuento.precio)} más se lleva {TICKETS_UPGRADE_DESCUENTO} lavados para esta patente, a
+            usar en 30 días desde ese lavado.
+          </div>
+          <div className="price-row">
+            <span className="new">+{fmtCLP(props.upgradeDescuento.precio)}</span>
+          </div>
+          <button
+            className="btn secondary"
+            onClick={() => props.cobrarUpgradeDescuento(props.upgradeDescuento!)}
+            disabled={guardando}
+          >
+            Cobrar {TICKETS_UPGRADE_DESCUENTO} lavados más (+{fmtCLP(props.upgradeDescuento.precio)})
           </button>
         </div>
       )}

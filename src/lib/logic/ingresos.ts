@@ -8,6 +8,7 @@ import {
   type IdPromoLavados,
   cuponesPromoLavados,
   cuponesUpgradePack,
+  cuponesUpgradeDescuento,
   enPlazoDePagoPlan,
   finCicloPlan,
   ilimitadoHastaAlRenovar,
@@ -63,6 +64,28 @@ export function entregarUpgradePack(
   operadorActual: string | null | undefined
 ): Partial<AppData> {
   const nuevos = cuponesUpgradePack({
+    lavado,
+    precio,
+    patente: cliente.patente,
+    email: cliente.email,
+    existentes: new Set(data.cupones.map((c) => c.codigo)),
+    creadoPor: operadorActual || "",
+    idBase: "cup" + Date.now(),
+  });
+  return { cupones: [...nuevos, ...data.cupones] };
+}
+
+// Upgrade del lavado con descuento (ver UPGRADE_DESCUENTO_KEY): los 2 tickets
+// para el que pagó su lavado con cupón (`lavado`, ver
+// ventaUpgradeDescuentoElegible). Igual que entregarUpgradePack, sin Ingreso.
+export function entregarUpgradeDescuento(
+  data: AppData,
+  cliente: Cliente,
+  lavado: Venta,
+  precio: number,
+  operadorActual: string | null | undefined
+): Partial<AppData> {
+  const nuevos = cuponesUpgradeDescuento({
     lavado,
     precio,
     patente: cliente.patente,
