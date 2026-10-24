@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { patentesConOneclickActiva } from "@/lib/serverActions";
-import { GLOSA_LAVADO_WEB, IDS_PROMOS_LAVADOS, LAVADO_UNICO_WEB_KEY, PROMOS_LAVADOS, SOLO_TUNEL_KEY, TIPOS_VENTA_PLAN, UPGRADE_PACK_KEY, inRange, normPlate, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
+import { GLOSA_LAVADO_WEB, IDS_PROMOS_LAVADOS, LAVADO_UNICO_WEB_KEY, PROMOS_LAVADOS, SOLO_TUNEL_KEY, TIPOS_VENTA_PLAN, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, inRange, normPlate, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
 import type { AppData, Cliente } from "@/types";
 import { calcularFilasVentaCierre } from "../cierre/filasVenta";
 
@@ -91,7 +91,7 @@ function calcularStats(data: AppData, desde: string, hasta: string, patentesOnec
   // módulo Contabilidad) va a "Otros".
   const cierre = calcularFilasVentaCierre(data.ventas, data.clientes, data.movimientosContables, desde, hasta);
   const tiposLavadoUnico = new Set(["Lavado único", LAVADO_UNICO_WEB_KEY, SOLO_TUNEL_KEY, `${SOLO_TUNEL_KEY} (Web)`]);
-  const tiposPacks = new Set(["Cupón Venta Empresa", UPGRADE_PACK_KEY]);
+  const tiposPacks = new Set(["Cupón Venta Empresa", UPGRADE_PACK_KEY, UPGRADE_DESCUENTO_KEY]);
   for (const id of IDS_PROMOS_LAVADOS) {
     tiposPacks.add(PROMOS_LAVADOS[id].key);
     tiposPacks.add(`${PROMOS_LAVADOS[id].key} (Web)`);
