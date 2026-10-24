@@ -49,6 +49,9 @@ export type ModalState =
       // Ofrece "Tarjeta (terminal)" (POS Integrado Transbank). Hoy solo el
       // POS de la tienda: el mesón del lavado sigue con el voucher a mano.
       terminal?: boolean;
+      // El cobro solo marca pagado un movimiento ya existente (cuentas por
+      // cobrar), así que no lo frena una caja cerrada (ver PagoModal).
+      sinVenta?: boolean;
     }
   | { type: "clienteInfo"; data: Cliente }
   // onGuardada: el POS la usa para dejar seleccionada la empresa que se

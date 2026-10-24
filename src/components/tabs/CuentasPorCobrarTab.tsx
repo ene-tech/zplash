@@ -81,6 +81,7 @@ export default function CuentasPorCobrarTab() {
         type: "pago",
         monto: m.monto,
         descripcion: m.descripcion,
+        sinVenta: true,
         onConfirm: (pago: PagoInfo) => {
           // fechaPago = el día que entró la plata, que no es el día de la venta
           // cuando se vendió a plazo — es lo que el Flujo de Caja usa para

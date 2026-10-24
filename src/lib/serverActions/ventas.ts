@@ -2,7 +2,7 @@
 
 import * as dataAccess from "@/lib/dataAccess";
 import { MODULOS_CREAN_VENTAS, MODULOS_EDITAN_VENTAS, puedeCerrarCaja } from "@/lib/helpers";
-import { sesionActual, tieneAlgunModulo } from "@/lib/session";
+import { sesionActual, tieneAlgunModulo, tieneSesionValida } from "@/lib/session";
 import type { Venta } from "@/types";
 
 // No hay un módulo "ventas" en la UI: registrar una venta es parte del flujo
@@ -25,6 +25,18 @@ export async function hayVentaPlanDuplicada(rows: Venta[]): Promise<boolean> {
   // tienes por qué poder sondear qué ventas de plan tiene un cliente.
   if (!(await tieneAlgunModulo(MODULOS_CREAN_VENTAS))) return false;
   return dataAccess.duplicaVentaPlanReciente(rows);
+}
+
+// El guard de día cerrado de insertVentas/insertIngresos, expuesto aparte por
+// la misma razón que hayVentaPlanDuplicada: los tickets (cupones) y la ficha
+// se escriben ANTES que la venta y no miran el cierre, así que rechazar recién
+// en insertVentas dejaba los tickets del upgrade grabados sin su venta — y el
+// operador, viendo "no se pudo guardar", cobraba de nuevo y emitía otro lote
+// (RHWJ87 y CLFZ26, 24-oct-2026, vendidos después del cierre de las 17:18).
+// También lo usa PagoModal para avisar antes de que se pase la tarjeta.
+export async function hayAltaEnDiaCerrado(fechas: string[]): Promise<boolean> {
+  if (!(await tieneSesionValida())) return false;
+  return dataAccess.altaEnDiaCerrado(fechas);
 }
 
 export async function insertVentas(rows: Venta[]): Promise<boolean> {

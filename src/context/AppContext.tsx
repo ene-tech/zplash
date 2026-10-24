@@ -14,7 +14,7 @@ import {
   recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
-import { hayVentaPlanDuplicada, insertAuditoria, loadCore, loadHistorial, loadPerfilesLogin } from "@/lib/serverActions";
+import { hayAltaEnDiaCerrado, hayVentaPlanDuplicada, insertAuditoria, loadCore, loadHistorial, loadPerfilesLogin } from "@/lib/serverActions";
 import { diffPorId } from "./commit/shared";
 import {
   commitAlertasMantencion,
@@ -378,8 +378,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // por clientesOk de más abajo, y sobre el mismo diff que después manda
     // commitVentas.
     const ventasNuevas = patch.ventas ? diffPorId(previous.ventas, patch.ventas).cambiados : [];
-    if (ventasNuevas.length && (await hayVentaPlanDuplicada(ventasNuevas))) {
-      console.error("Venta de plan duplicada (otra máquina ya la registró): se aborta el commit completo");
+    // Mismo criterio para el día con la caja cerrada: insertVentas/
+    // insertIngresos lo rechazan, pero cupones y clientes van antes y no lo
+    // miran (ver hayAltaEnDiaCerrado). Solo altas: editar una venta de un día
+    // cerrado tiene sus propias reglas en upsertVentas.
+    const altas = <T extends { id: string; fecha: string }>(previos: T[], siguientes: T[] | undefined) => {
+      if (!siguientes) return [];
+      const prevIds = new Set(previos.map((x) => x.id));
+      return diffPorId(previos, siguientes).cambiados.filter((x) => !prevIds.has(x.id)).map((x) => x.fecha);
+    };
+    const fechasAltas = [...altas(previous.ventas, patch.ventas), ...altas(previous.ingresos, patch.ingresos)];
+    const [ventaDuplicada, diaCerrado] = await Promise.all([
+      ventasNuevas.length ? hayVentaPlanDuplicada(ventasNuevas) : false,
+      // Sin red no se frena acá: insertVentas/insertIngresos lo vuelven a mirar.
+      fechasAltas.length ? hayAltaEnDiaCerrado(fechasAltas).catch(() => false) : false,
+    ]);
+    if (ventaDuplicada || diaCerrado) {
+      console.error(
+        ventaDuplicada
+          ? "Venta de plan duplicada (otra máquina ya la registró): se aborta el commit completo"
+          : "Venta o ingreso nuevo en un día con la caja cerrada: se aborta el commit completo"
+      );
       dataRef.current = previous;
       setData(previous);
       return false;

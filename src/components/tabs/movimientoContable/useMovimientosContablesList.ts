@@ -68,6 +68,7 @@ export function useMovimientosContablesList(tipo: MovimientoContable["tipo"]) {
         type: "pago",
         monto: m.monto,
         descripcion: m.descripcion,
+        sinVenta: true,
         onConfirm: (pago: PagoInfo) => {
           // Ver fechaEfectiva: sin fechaPago el Flujo de Caja tendría que
           // asumir que la plata entró el día de la venta.

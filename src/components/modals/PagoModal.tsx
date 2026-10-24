@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppData } from "@/context/AppContext";
+import { hayAltaEnDiaCerrado } from "@/lib/serverActions";
 import DatosTransferencia from "@/components/DatosTransferencia";
 import { fmtCLP } from "@/lib/helpers";
 import { conectarPosIntegrado, posIntegradoConectado, ventaPosIntegrado } from "@/lib/posIntegrado";
@@ -18,12 +19,14 @@ export default function PagoModal({
   onConfirm,
   cliente,
   terminal,
+  sinVenta,
 }: {
   monto: number;
   descripcion: string;
   onConfirm: (pago: PagoInfo) => void;
   cliente?: Cliente;
   terminal?: boolean;
+  sinVenta?: boolean;
 }) {
   const { data, patchUi } = useAppData();
   const [metodo, setMetodo] = useState<"efectivo" | "tarjeta" | "transferencia" | null>(null);
@@ -41,6 +44,22 @@ export default function PagoModal({
   const fichaConFactura = cliente?.tipoDocumento === "Factura" && !!cliente.rut;
   const [documento, setDocumento] = useState<"Boleta" | "Factura" | null>(fichaConFactura ? "Factura" : null);
   const [empresaId, setEmpresaId] = useState(fichaConFactura ? FICHA : "");
+
+  // El cierre lo hace Administración desde otra máquina y el mesón no se
+  // entera (carga cierresCaja al entrar), así que se pregunta al servidor al
+  // abrir: si no, el operador pasa la tarjeta, el guardado falla y reintenta
+  // (ver hayAltaEnDiaCerrado). Sin red queda en false: el guardado decide.
+  const [cajaCerrada, setCajaCerrada] = useState(false);
+  useEffect(() => {
+    if (sinVenta) return;
+    let vigente = true;
+    hayAltaEnDiaCerrado([new Date().toISOString()])
+      .then((cerrada) => vigente && setCajaCerrada(cerrada))
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+  }, [sinVenta]);
 
   const cerrar = () => {
     if (!cobrandoTerminal) patchUi({ modal: null });
@@ -73,6 +92,7 @@ export default function PagoModal({
   };
 
   const confirmar = () => {
+    if (cajaCerrada) return;
     if (!metodo) {
       setErr("Selecciona una forma de pago");
       return;
@@ -90,7 +110,7 @@ export default function PagoModal({
   // no está o el terminal rechaza, el modal sigue abierto y el cajero puede
   // reintentar o elegir "Tarjeta (manual)" como siempre.
   const cobrarEnTerminal = async () => {
-    if (cobrandoTerminal) return;
+    if (cobrandoTerminal || cajaCerrada) return;
     const doc = documentoElegido();
     if (doc === null) return;
     setCobrandoTerminal(true);
@@ -132,6 +152,11 @@ export default function PagoModal({
         </DialogHeader>
 
         <div className="grid gap-3">
+          {cajaCerrada && (
+            <p className="rounded-md bg-destructive/10 p-3 text-sm font-medium text-destructive">
+              La caja de hoy ya está cerrada: esta venta no se puede guardar. No cobres; pídele a Administración que reabra el cierre del día.
+            </p>
+          )}
           <p className="text-sm">{descripcion}</p>
           <p className="text-2xl font-bold text-primary">{fmtCLP(monto)}</p>
           <div className="flex flex-wrap gap-2.5">
@@ -144,7 +169,7 @@ export default function PagoModal({
               Efectivo
             </Button>
             {terminal && (
-              <Button variant="outline" className="flex-1" disabled={cobrandoTerminal} onClick={cobrarEnTerminal}>
+              <Button variant="outline" className="flex-1" disabled={cobrandoTerminal || cajaCerrada} onClick={cobrarEnTerminal}>
                 {cobrandoTerminal ? "Esperando el terminal…" : "Tarjeta (terminal)"}
               </Button>
             )}
@@ -227,7 +252,7 @@ export default function PagoModal({
           <Button variant="ghost" disabled={cobrandoTerminal} onClick={cerrar}>
             Cancelar
           </Button>
-          <Button disabled={cobrandoTerminal} onClick={confirmar}>
+          <Button disabled={cobrandoTerminal || cajaCerrada} onClick={confirmar}>
             Confirmar
           </Button>
         </DialogFooter>
