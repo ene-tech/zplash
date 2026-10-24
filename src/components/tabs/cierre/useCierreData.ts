@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import { esCuentaPorCobrar, esTarjetaWeb, inRange, normPlate, todayYMD } from "@/lib/helpers";
+import { esCuentaPorCobrar, esEmailEnviable, esTarjetaWeb, formatRut, inRange, normPlate, todayYMD } from "@/lib/helpers";
 import { sigueDocumentoDeFicha, ventasAFacturarPorCliente } from "@/lib/logic";
 import { emitirFacturaVentas } from "@/lib/serverActions";
 import { calcularFilasVentaCierre } from "./filasVenta";
@@ -20,7 +20,7 @@ export function useCierreData() {
   const { data, ui, patchUi, commit } = useApp();
   const desde = ui.cierreDesde || todayYMD();
   const hasta = ui.cierreHasta || todayYMD();
-  const { ingresos, clientes, ventas, movimientosContables } = data;
+  const { ingresos, clientes, ventas, movimientosContables, empresas } = data;
 
   // Todo el bloque de abajo es O(ventas × clientes) en el peor caso
   // (facturaPendientesPeriodo hace un .filter() sobre `ventas` por cada
@@ -150,6 +150,22 @@ export function useCierreData() {
     const totalCantidadMetodosPago = metodosPago.reduce((s, m) => s + m.cantidad, 0);
     const totalMontoMetodosPago = metodosPago.reduce((s, m) => s + m.monto, 0);
 
+    // A qué correo se va a mandar el PDF al apretar "Emitir factura": misma
+    // regla que mandarFacturaPorCorreo (@/lib/facturacion) — contacto de la
+    // empresa registrada con ese RUT, si no el correo de la venta, si no el de
+    // la ficha. Se muestra para que quien emite vea a quién le llega.
+    const clientesPorId = new Map(clientes.map((c) => [c.id, c]));
+    const empresaPorRut = new Map(empresas.map((e) => [formatRut(e.rut), e]));
+    const ventasPorId = new Map(ventas.map((v) => [v.id, v]));
+    const correoDestino = (ventaId: string | undefined): string => {
+      const v0 = ventaId ? ventasPorId.get(ventaId) : undefined;
+      const ficha = v0 ? clientesPorId.get(v0.clienteId) : undefined;
+      const rut = v0?.rut || ficha?.rut;
+      const empresa = rut ? empresaPorRut.get(formatRut(rut)) : undefined;
+      const contacto = empresa?.contactoClienteId ? clientesPorId.get(empresa.contactoClienteId) : undefined;
+      return [contacto?.email, v0?.email, ficha?.email].find((e) => esEmailEnviable(e))?.trim() || "";
+    };
+
     const facturaPendientesPeriodo = (() => {
       const items = clientes
         .filter((c) => c.tipoDocumento === "Factura")
@@ -176,6 +192,7 @@ export function useCierreData() {
           clientes: group,
           montoTotal: group.reduce((s, x) => s + x.monto, 0),
           ventaIdsTotal: group.flatMap((x) => x.ventaIds),
+          correoDestino: correoDestino(group[0].ventaIds[0]),
         }))
         .filter((g) => !g.clientes.every((x) => x.allEmitida));
     })();
@@ -186,7 +203,9 @@ export function useCierreData() {
     // Cliente con tipoDocumento="Factura" en su ficha), acá el dato es un
     // snapshot por venta que llega directo del checkout — ver
     // pagosWebpayItems y aplicarPagoAprobado/aplicarPagoPackEmpresa.
-    const facturasEmpresaPeriodo = ventasPeriodo.filter((v) => v.tipoDocumento === "Factura" && !sigueDocumentoDeFicha(v) && !v.facturaEmitida);
+    const facturasEmpresaPeriodo = ventasPeriodo
+      .filter((v) => v.tipoDocumento === "Factura" && !sigueDocumentoDeFicha(v) && !v.facturaEmitida)
+      .map((v) => ({ ...v, correoDestino: correoDestino(v.id) }));
 
     // Lo que hay que facturarle a cada cliente con Factura en el período, por
     // cliente.id: lo que realmente se le vendió, nada más. El que no compró en
@@ -224,7 +243,7 @@ export function useCierreData() {
       serviciosAdicionalesItems,
       ingresosContablesPeriodo,
     };
-  }, [ingresos, clientes, ventas, movimientosContables, desde, hasta]);
+  }, [ingresos, clientes, ventas, movimientosContables, empresas, desde, hasta]);
 
   const marcarEmitida = useCallback(
     (ventaIds: string[], facturaFolio?: number) => {

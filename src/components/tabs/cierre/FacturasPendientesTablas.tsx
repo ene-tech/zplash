@@ -26,6 +26,8 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
       </button>
     </div>
   );
+  // Sin correo la factura se emite igual, pero el PDF no le llega a nadie.
+  const correo = (email: string) => email || <span style={{ color: "var(--gray)" }}>sin correo (no se envía)</span>;
   return (
     <>
       {facturaPendientesPeriodo.length > 0 && (
@@ -37,6 +39,7 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                 <th>Razón Social</th>
                 <th>RUT</th>
                 <th>Detalle</th>
+                <th>Se envía a</th>
                 <th>Monto total</th>
                 <th></th>
               </tr>
@@ -57,6 +60,7 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                       ))}
                     </div>
                   </td>
+                  <td>{correo(grupo.correoDestino)}</td>
                   <td style={{ fontWeight: 600 }}>{fmtCLP(grupo.montoTotal)}</td>
                   <td>
                     {acciones(grupo.ventaIdsTotal)}
@@ -80,7 +84,7 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                 <th>RUT</th>
                 <th>Dirección</th>
                 <th>Giro</th>
-                <th>Email</th>
+                <th>Se envía a</th>
                 <th>Monto</th>
                 <th></th>
               </tr>
@@ -97,7 +101,7 @@ export function FacturasPendientesTablas({ facturaPendientesPeriodo, facturasEmp
                   <td>{v.rut || "-"}</td>
                   <td>{v.direccion || "-"}</td>
                   <td>{v.giro || "-"}</td>
-                  <td>{v.email || "-"}</td>
+                  <td>{correo(v.correoDestino)}</td>
                   <td>{fmtCLP(v.precio)}</td>
                   <td>
                     {acciones([v.id])}
