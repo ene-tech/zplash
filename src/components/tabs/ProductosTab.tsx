@@ -102,7 +102,7 @@ export default function ProductosTab() {
                       Stock {p.stock} (mín {p.stockMin})
                     </span>
                   }
-                  right={fmtCLP(p.valorVenta)}
+                  right={`${fmtCLP(p.valorVenta)} neto`}
                 />
               }
             />

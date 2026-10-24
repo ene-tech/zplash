@@ -76,11 +76,20 @@ describe("emitirFacturasAutomaticas", () => {
     db.ventas = [venta("m", { clienteId: "c2", ...inventada }), venta("sin-cliente", { clienteId: "", ...inventada })];
     await emitirFacturasAutomaticas(["m", "sin-cliente"], { soloFicha: true });
     expect(emitirFactura).not.toHaveBeenCalled();
-    // Cliente con Factura en su ficha: sale a SU RUT, no al de la fila.
+    // Cliente con Factura en su ficha pero la fila trae OTRO RUT (otra
+    // empresa elegida en el mesón): no sale sola ni a la ficha ni a la fila;
+    // queda pendiente para el Cierre.
     db.ventas = [venta("f", { ...inventada })];
     await emitirFacturasAutomaticas(["f"], { soloFicha: true });
-    const receptor = (emitirFactura.mock.calls as unknown as [Venta[], { rut: string }][])[0][1];
-    expect(receptor.rut).toBe("76.535.951-1");
+    expect(emitirFactura).not.toHaveBeenCalled();
+  });
+
+  it("del mesón sale sola a la ficha, con su correo, cuando la fila no trae otro RUT", async () => {
+    db.ventas = [venta("f", { tipoDocumento: "Factura", rut: "76535951-1", email: "yo@malo.cl" }), venta("g")];
+    await emitirFacturasAutomaticas(["f", "g"], { soloFicha: true });
+    expect(idsEmitidos()).toEqual([["f", "g"]]);
+    const receptor = (emitirFactura.mock.calls as unknown as [Venta[], { rut: string; email?: string }][])[0][1];
+    expect(receptor).toMatchObject({ rut: "76.535.951-1", email: "a@b.cl" });
   });
 
   it("una venta que ya no existe (transacción revertida) no se factura", async () => {

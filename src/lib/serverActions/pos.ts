@@ -432,7 +432,7 @@ export async function registrarDevolucionPos(input: DevolucionPosInput): Promise
   // de papel). Sin monto (venta pagada entera con descuento) no hay vale:
   // un código de $0 no le sirve a nadie.
   let vale: Cupon | undefined;
-  if (input.forma === "vale" && armado.venta.precio !== 0) {
+  if (input.forma === "vale" && armado.monto !== 0) {
     const caduca = new Date(fecha);
     caduca.setMonth(caduca.getMonth() + MESES_VALE);
     const codigosUsados = new Set((await db.select({ codigo: cupones.codigo }).from(cupones)).map((c) => c.codigo));
@@ -440,7 +440,7 @@ export async function registrarDevolucionPos(input: DevolucionPosInput): Promise
       id: uid(),
       codigo: generarCodigoCupon(codigosUsados),
       nombreLote: `${PREFIJO_VALE_TIENDA}${fechaCorta(fecha)}`,
-      valor: Math.abs(armado.venta.precio),
+      valor: Math.abs(armado.monto),
       numeroLote: 1,
       totalLote: 1,
       fechaCaducidad: caduca.toISOString(),

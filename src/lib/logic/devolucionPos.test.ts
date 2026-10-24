@@ -47,8 +47,11 @@ describe("armarDevolucionPos", () => {
     // Sin método de pago: el arqueo del día no espera menos efectivo.
     expect(r.venta.metodoPago).toBeUndefined();
     expect(r.venta.notas).toContain("vale a favor");
-    // Ni asiento: se descuenta cuando el vale se canjea (la compra va neta).
+    // Ni asiento ni monto en la fila: se descuenta cuando el vale se canjea
+    // (la compra va neta). El valor del vale viaja aparte.
     expect(r.movimiento).toBeNull();
+    expect(Object.is(r.venta.precio, 0)).toBe(true);
+    expect(r.monto).toBeLessThan(0);
     // En efectivo sí descuenta de la caja.
     const enEfectivo = armarDevolucionPos(base);
     if ("error" in enEfectivo) throw new Error(enEfectivo.error);

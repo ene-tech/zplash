@@ -38,6 +38,9 @@ export interface DatosDevolucionPos {
 }
 
 export interface DevolucionArmada {
+  /** Lo que se le devuelve al cliente (negativo; 0 si es sin monto). En un
+   * vale a favor es el valor del vale, aunque la fila quede en $0. */
+  monto: number;
   venta: Venta;
   items: VentaItem[];
   /** null si la devolución es sin monto (venta pagada entera con descuento). */
@@ -115,6 +118,7 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
   // stock. No hay plata que devolver ni vale que emitir, así que la
   // devolución queda registrada sin monto, sin medio de pago y sin asiento.
   const sinMonto = total === 0;
+  const esVale = datos.forma === "vale" && !sinMonto;
   const unidades = items.reduce((s, it) => s + Math.abs(it.cantidad), 0);
 
   const venta: Venta = {
@@ -123,7 +127,10 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
     patente: datos.venta.patente || "",
     nombre: datos.venta.nombre,
     plan: "",
-    precio: total,
+    // El vale a favor queda en $0: no sale plata de la caja, y la compra que
+    // lo canjee se graba neta del vale. Con el monto negativo, el Cierre y
+    // Estadísticas restaban la misma venta dos veces.
+    precio: esVale ? 0 : total,
     tipo: TIPO_VENTA_REEMBOLSO,
     fecha: datos.fecha,
     creadoPor: datos.creadoPor,
@@ -131,7 +138,7 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
     // que el arqueo del día no espere menos efectivo del que hay.
     metodoPago: datos.forma === "vale" || sinMonto ? undefined : datos.forma,
     cantidadItems: unidades,
-    notas: `Devolución de ${unidades} ${unidades === 1 ? "unidad" : "unidades"} · ${sinMonto ? "sin monto (se pagó con descuento)" : glosaForma(datos.forma)} · ${datos.motivo.trim()}`,
+    notas: `Devolución de ${unidades} ${unidades === 1 ? "unidad" : "unidades"} · ${sinMonto ? "sin monto (se pagó con descuento)" : esVale ? `vale a favor por ${fmtCLP(Math.abs(total))}` : glosaForma(datos.forma)} · ${datos.motivo.trim()}`,
     estadoPago: "pagado",
     tipoDocumento: datos.venta.tipoDocumento,
     razonSocial: datos.venta.razonSocial,
@@ -142,7 +149,7 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
   // la venta se completa cuando el vale se canjea. Esa compra se graba neta
   // del vale (armarVentaPos), así que restar aquí descontaba la venta dos
   // veces del EERR: vender 10.000, devolver con vale y comprar con él daba 0.
-  if (sinMonto || datos.forma === "vale") return { venta, items, movimiento: null };
+  if (sinMonto || esVale) return { monto: total, venta, items, movimiento: null };
 
   const movimiento: MovimientoContable = {
     id: `mc-venta-${ventaId}`,
@@ -153,13 +160,13 @@ export function armarDevolucionPos(datos: DatosDevolucionPos): DevolucionArmada 
     contraparte: venta.nombre,
     monto: total,
     estado: "pagado",
-    metodoPago: datos.forma,
+    metodoPago: datos.forma === "vale" ? undefined : datos.forma,
     creadoEn: datos.fecha,
     creadoPor: datos.creadoPor,
     ventaId,
   };
 
-  return { venta, items, movimiento };
+  return { monto: total, venta, items, movimiento };
 }
 
 function glosaForma(forma: DatosDevolucionPos["forma"]): string {

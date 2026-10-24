@@ -162,6 +162,10 @@ export async function emitirFacturasAutomaticas(ventaIds: string[], opciones: Op
     if (!pideFactura) continue;
     const rut = receptorDe(v, clientes, opciones).rut;
     if (!rut) continue;
+    // El operador eligió otra empresa para esta venta (PagoModal): no se
+    // emite sola a la de la ficha. Queda pendiente en el Cierre, donde alguien
+    // con permiso de facturar la revisa y la emite a la que corresponde.
+    if (opciones.soloFicha && v.rut && formatRut(v.rut) !== formatRut(rut)) continue;
     const key = formatRut(rut);
     grupos.set(key, [...(grupos.get(key) || []), v.id]);
   }
