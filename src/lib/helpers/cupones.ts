@@ -145,6 +145,23 @@ export function cuponDescuentoDePatente(
     .sort((a, b) => new Date(a.fechaCaducidad).getTime() - new Date(b.fechaCaducidad).getTime())[0];
 }
 
+/** El descuento que el mesón aplica a un cliente CON ficha: primero el código
+ * que el operador tipeó, si sigue valiendo para esta patente (ver
+ * resolverDescuento); si no, el atado a la patente (cuponDescuentoDePatente).
+ * Los códigos abiertos (sin patenteAsignada: los "-amigo" de una campaña, los
+ * de referido) solo entran tipeados, y antes se ignoraban a cualquier patente
+ * registrada — el panel decía "válido" y se cobraba el precio completo
+ * (oct-2026). */
+export function cuponDescuentoMeson(
+  codigoTipeado: string | undefined,
+  patente: string,
+  cupones: Cupon[],
+  clientes: Cliente[]
+): Cupon | undefined {
+  const tipeado = codigoTipeado ? resolverDescuento(codigoTipeado, patente, cupones, clientes) : undefined;
+  return tipeado?.ok ? tipeado.cupon : cuponDescuentoDePatente(cupones, patente, "local");
+}
+
 /** Todos los códigos vivos de un cliente, del más nuevo al más viejo: los
  * descuentos atados a su patente, los tickets ("vale") cuyo lote la autoriza
  * —los dos que emite el atajo "Entregar cupón" de la ficha de cliente— y los

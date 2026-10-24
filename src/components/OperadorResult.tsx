@@ -8,6 +8,6 @@ export default function OperadorResult({ clearPlate, codigoDescuento }: { clearP
   const { ui } = useAppUi();
   const r = ui.operResult;
   if (!r) return null;
-  if (r.found) return <OperadorFoundResult cliente={r.cliente} clearPlate={clearPlate} />;
+  if (r.found) return <OperadorFoundResult cliente={r.cliente} clearPlate={clearPlate} codigoDescuento={codigoDescuento} />;
   return <OperadorNotFoundResult plate={r.plate} clearPlate={clearPlate} codigoDescuento={codigoDescuento} />;
 }

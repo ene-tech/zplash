@@ -94,6 +94,7 @@ import {
   soloCambiosSinPlata,
   beneficioCupon,
   cuponDescuentoDePatente,
+  cuponDescuentoMeson,
   cuponesPromo2Lavados,
   cuponesPromoLavados,
   cuponesUpgradePack,
@@ -1276,6 +1277,43 @@ describe("cuponDescuentoDePatente", () => {
   it("un cupón sin canal (los ya emitidos) sigue valiendo en los dos", () => {
     expect(cuponDescuentoDePatente([base], "AB1234", "web")?.codigo).toBe("AAA111");
     expect(cuponDescuentoDePatente([{ ...base, canal: "ambos" }], "AB1234", "web")?.codigo).toBe("AAA111");
+  });
+});
+
+describe("cuponDescuentoMeson", () => {
+  const atado: Cupon = {
+    id: "atado",
+    codigo: "AAA111",
+    nombreLote: "Lote",
+    numeroLote: 1,
+    totalLote: 1,
+    tipo: "descuento",
+    valor: 2000,
+    usado: false,
+    patenteAsignada: "AB1234",
+    creadoEn: new Date().toISOString(),
+    fechaCaducidad: new Date(Date.now() + 30 * 86400000).toISOString(),
+  };
+  const abierto: Cupon = { ...atado, id: "abierto", codigo: "EAU5X8", valor: 3991, patenteAsignada: undefined };
+  const conFicha: Cliente = { id: "c1", nombre: "Ana", patente: "AB1234", creadoEn: new Date().toISOString() };
+
+  it("aplica un código abierto tipeado a una patente con ficha", () => {
+    expect(cuponDescuentoMeson("eau5x8", "AB1234", [abierto], [conFicha])?.id).toBe("abierto");
+  });
+
+  it("el código tipeado pasa por delante del atado a la patente", () => {
+    expect(cuponDescuentoMeson("EAU5X8", "AB1234", [atado, abierto], [conFicha])?.id).toBe("abierto");
+  });
+
+  it("sin código, o con uno que no vale, queda el atado a la patente", () => {
+    expect(cuponDescuentoMeson(undefined, "AB1234", [atado, abierto], [conFicha])?.id).toBe("atado");
+    const usado = { ...abierto, usado: true };
+    expect(cuponDescuentoMeson("EAU5X8", "AB1234", [atado, usado], [conFicha])?.id).toBe("atado");
+  });
+
+  it("un código solo para clientes nuevos no se aplica a una patente con ficha", () => {
+    const nuevos = { ...abierto, soloClientesNuevos: true };
+    expect(cuponDescuentoMeson("EAU5X8", "AB1234", [nuevos], [conFicha])).toBeUndefined();
   });
 });
 

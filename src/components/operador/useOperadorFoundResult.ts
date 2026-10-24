@@ -14,6 +14,7 @@ import {
   isValidTelefono,
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   cuponDescuentoDePatente,
+  cuponDescuentoMeson,
   precioConCupon,
   precioPlanOneclick,
   promoPrimerCobroOneclick,
@@ -59,7 +60,12 @@ type FoundResultRefs = {
 // parámetro: si el objeto que retorna este hook incluyera refs, el linter de React Compiler marca cualquier
 // lectura de sus otras propiedades durante el render como "acceso a ref"
 // (no distingue qué campo del bag es cuál).
-export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void, refs: FoundResultRefs) {
+export function useOperadorFoundResult(
+  cliente: Cliente,
+  clearPlate: () => void,
+  refs: FoundResultRefs,
+  codigoDescuento?: string
+) {
   const { data, ui, patchUi } = useApp();
   const [guardarErr, setGuardarErr] = useState("");
 
@@ -113,7 +119,9 @@ export function useOperadorFoundResult(cliente: Cliente, clearPlate: () => void,
   // sin que el operador tenga que tipear ningún código (a diferencia del
   // cupón manual que sí se pide en OperadorNotFoundResult). Se aplica al Lavado
   // Full Túnel (ver useIngresoActions.cobrarLavadoUnico).
-  const cuponDescuentoVigente = cuponDescuentoDePatente(data.cupones, c.patente, "local");
+  // Antes que ése va el código que el operador tipeó en el panel (ver
+  // cuponDescuentoMeson): un código abierto solo llega así.
+  const cuponDescuentoVigente = cuponDescuentoMeson(codigoDescuento, c.patente, data.cupones, data.clientes);
   // El descuento que esta patente TIENE pero el mesón NO puede aplicar: es de
   // canal "web" (ver cuponValeEnCanal). No rebaja ningún precio de esta
   // pantalla — se muestra arriba de todo para que el operador se lo ofrezca

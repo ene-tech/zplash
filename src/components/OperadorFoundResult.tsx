@@ -18,13 +18,21 @@ import OperadorFoundOfertas from "@/components/operador/OperadorFoundOfertas";
 import QrReferido from "@/components/operador/QrReferido";
 import { useAppData } from "@/context/AppContext";
 
-export default function OperadorFoundResult({ cliente, clearPlate }: { cliente: Cliente; clearPlate: () => void }) {
+export default function OperadorFoundResult({
+  cliente,
+  clearPlate,
+  codigoDescuento,
+}: {
+  cliente: Cliente;
+  clearPlate: () => void;
+  codigoDescuento?: string;
+}) {
   const { data, guardando } = useAppData();
   const nombreRef = useRef<HTMLInputElement>(null);
   const vehiculoRef = useRef<HTMLInputElement>(null);
   const telefonoRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
-  const r = useOperadorFoundResult(cliente, clearPlate, { nombreRef, vehiculoRef, telefonoRef, emailRef });
+  const r = useOperadorFoundResult(cliente, clearPlate, { nombreRef, vehiculoRef, telefonoRef, emailRef }, codigoDescuento);
   const { c } = r;
 
   // Cliente non grato (ver nonGrato en @/db/schema/clientes): ni ofertas ni
