@@ -1,6 +1,6 @@
 import "server-only";
 
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
 import { cierresCaja, ingresos, movimientosContables, ventas } from "@/db/schema";
@@ -19,12 +19,32 @@ export function cierreCajaFromRow(r: CierreRow): CierreCaja {
     cerradoEn: r.cerradoEn,
     resumen: r.resumen,
     notas: r.notas || undefined,
+    reaperturaSolicitadaPor: r.reaperturaSolicitadaPor || undefined,
+    reaperturaSolicitadaEn: r.reaperturaSolicitadaEn || undefined,
+    reaperturaMotivo: r.reaperturaMotivo || undefined,
   };
 }
 
-/** Alta del cierre de un día. Sin update ni delete a propósito: `fecha` es la
- * PK, así que cerrar dos veces el mismo día falla acá (devuelve false) en vez
- * de duplicar o pisar el cierre original — la carrera la resuelve la base. */
+/** Deja anotado el pedido de reabrir un día cerrado. false si el día no está cerrado. */
+export async function marcarReaperturaSolicitada(fecha: string, por: string, motivo: string): Promise<boolean> {
+  const filas = await getDb()
+    .update(cierresCaja)
+    .set({ reaperturaSolicitadaPor: por, reaperturaSolicitadaEn: new Date().toISOString(), reaperturaMotivo: motivo })
+    .where(eq(cierresCaja.fecha, fecha))
+    .returning({ fecha: cierresCaja.fecha });
+  return filas.length > 0;
+}
+
+/** Reabre un día: borra su cierre y con eso los guards de abajo vuelven a
+ * dejar pasar ventas/ingresos de ese día. La única baja de esta tabla. */
+export async function deleteCierreCaja(fecha: string): Promise<boolean> {
+  const filas = await getDb().delete(cierresCaja).where(eq(cierresCaja.fecha, fecha)).returning({ fecha: cierresCaja.fecha });
+  return filas.length > 0;
+}
+
+/** Alta del cierre de un día: `fecha` es la PK, así que cerrar dos veces el
+ * mismo día falla acá (devuelve false) en vez de duplicar o pisar el cierre
+ * original — la carrera la resuelve la base. */
 export async function insertCierreCaja(cierre: CierreCaja): Promise<boolean> {
   try {
     await getDb().insert(cierresCaja).values({

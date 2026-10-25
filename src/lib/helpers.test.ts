@@ -19,6 +19,7 @@ import {
   CONFIG_DEFAULT,
   cuponDelLoteUsadoPorPatente,
   dentroDeHorarioOperador,
+  puedeCerrarCajaDeHoy,
   diasVencido,
   esExentoBloqueoReingreso,
   esExentoFormatoCliente,
@@ -98,9 +99,9 @@ import {
   cuponesPromo2Lavados,
   cuponesPromoLavados,
   cuponesUpgradePack,
-  PRECIO_UPGRADE_PACK,
   cuponesUpgradeDescuento,
   UPGRADE_DESCUENTO_KEY,
+  PRECIO_UPGRADE_PACK,
   UPGRADE_PACK_KEY,
   KEYS_PROMOS_LAVADOS,
   PROMO_5_LAVADOS_KEY,
@@ -123,8 +124,8 @@ import {
   SOLO_TUNEL_KEY,
   variacionPorcentual,
   ventaUpgradeElegible,
-  visitasDesdeContratacion,
   ventaUpgradeDescuentoElegible,
+  visitasDesdeContratacion,
   visitasPeriodoPlan,
   visitasUltimos30Dias,
   visitasUltimoPeriodoVencido,
@@ -1528,6 +1529,22 @@ describe("esFinDeSemanaOFestivo", () => {
   });
 });
 
+describe("puedeCerrarCajaDeHoy", () => {
+  const config: ConfigGlobal = CONFIG_DEFAULT; // semana 08:25-20:15, finde 09:55-19:15
+
+  it("no deja cerrar en horario de funcionamiento ni antes de abrir", () => {
+    expect(puedeCerrarCajaDeHoy(config, new Date("2026-07-17T12:00:00"))).toBe(false); // viernes
+    expect(puedeCerrarCajaDeHoy(config, new Date("2026-07-17T07:00:00"))).toBe(false);
+    expect(puedeCerrarCajaDeHoy(config, new Date("2026-07-17T20:15:00"))).toBe(false);
+  });
+
+  it("deja cerrar terminado el horario, con el de fin de semana el sábado", () => {
+    expect(puedeCerrarCajaDeHoy(config, new Date("2026-07-17T20:16:00"))).toBe(true);
+    expect(puedeCerrarCajaDeHoy(config, new Date("2026-07-18T19:20:00"))).toBe(true);
+    expect(puedeCerrarCajaDeHoy(config, new Date("2026-07-18T19:00:00"))).toBe(false);
+  });
+});
+
 describe("dentroDeHorarioOperador", () => {
   const config: ConfigGlobal = CONFIG_DEFAULT; // semana 08:25-20:15, finde 09:55-19:15
 
@@ -1827,7 +1844,6 @@ describe("ventaUpgradeElegible", () => {
   });
 });
 
-describe("cuponesUpgradePack", () => {
 describe("ventaUpgradeDescuentoElegible", () => {
   const ahora = new Date("2026-01-05T12:00:00.000Z");
 
@@ -1867,6 +1883,7 @@ describe("cuponesUpgradeDescuento", () => {
   });
 });
 
+describe("cuponesUpgradePack", () => {
   it("emite los tickets 2 a 4 de la Promo 4 Lavados, con la vigencia contada desde el lavado", () => {
     const lavado = { precio: 9990, fecha: "2026-01-05T10:00:00.000Z" };
     const tickets = cuponesUpgradePack({

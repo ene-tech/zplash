@@ -33,4 +33,8 @@ export interface CierreCaja {
   cerradoEn: string;
   resumen: ResumenCierre;
   notas?: string;
+  /** Pedido pendiente de reabrir el día, para que Gerencia lo apruebe. */
+  reaperturaSolicitadaPor?: string;
+  reaperturaSolicitadaEn?: string;
+  reaperturaMotivo?: string;
 }

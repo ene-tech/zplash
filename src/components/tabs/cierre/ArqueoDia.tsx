@@ -3,15 +3,19 @@
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import PriceInput from "@/components/PriceInput";
-import { cerrarCaja } from "@/lib/serverActions";
+import { cerrarCaja, reabrirCaja, solicitarReaperturaCaja } from "@/lib/serverActions";
 import {
+  ahoraEnSantiago,
   CATEGORIA_AJUSTE_CIERRE,
   esAjusteCierreDelDia,
   fmtCLP,
   fmtFecha,
+  finHorarioOperador,
   fmtHora,
   idAjusteCierre,
   puedeCerrarCaja,
+  puedeCerrarCajaDeHoy,
+  puedeReabrirCaja,
   resumenCierreTexto,
   signo,
   todayYMD,
@@ -70,6 +74,7 @@ export function ArqueoDia(p: Props) {
   if (cierre) return <CajaCerrada cierre={cierre} />;
   if (!puedeCerrarCaja(ui.perfilActual?.modulos)) return null;
 
+  const finDelDia = finHorarioOperador(data.config, new Date(`${p.dia}T12:00:00`));
   const efectivoEsperado = p.metodosPago.find((m) => m.metodo === "Efectivo")?.monto || 0;
   const contado = efectivoContado === "" ? undefined : Number(efectivoContado);
   const diferencia = contado === undefined ? null : contado - efectivoEsperado;
@@ -128,6 +133,10 @@ export function ArqueoDia(p: Props) {
   };
 
   const cerrar = () => {
+    if (p.dia === todayYMD() && !cierreDeHoyHabilitado(data.config)) {
+      setErr(`La caja de hoy se puede cerrar recién después de las ${finDelDia}, al terminar el horario de funcionamiento.`);
+      return;
+    }
     if (autosAjuste !== 0 && !ajusteAutosMotivo.trim()) {
       setErr("Escribe el motivo del ajuste de ingreso a túnel: es lo que queda registrado en el asiento.");
       return;
@@ -159,10 +168,10 @@ export function ArqueoDia(p: Props) {
             resumen,
             notas: notas.trim() || undefined,
           };
-          const ok = await cerrarCaja(nuevo);
+          const res = await cerrarCaja(nuevo);
           setCerrando(false);
-          if (!ok) {
-            setErr("No se pudo cerrar la caja. Puede que el día ya esté cerrado o que tu perfil no tenga el permiso.");
+          if (!res.ok) {
+            setErr(res.error);
             return;
           }
           setErr("");
@@ -181,7 +190,8 @@ export function ArqueoDia(p: Props) {
       <p style={{ fontSize: 12, color: "var(--gray)", marginBottom: 14 }}>
         El día se cierra tal como quedó registrado: las ventas y los ingresos de abajo no se editan ni se borran. Si algo no
         cuadra, inscribe un asiento de ajuste con su motivo — así queda para siempre el registro de con qué se cuadró la caja. Una
-        vez cerrado el día no se puede modificar nunca más, ni deshacer.
+        vez cerrado el día no se puede modificar; reabrirlo lo aprueba solo Gerencia.
+        {p.dia === todayYMD() && ` La caja de hoy se cierra después de las ${finDelDia}, al terminar el horario de funcionamiento.`}
       </p>
 
       <details className="disclosure">
@@ -395,6 +405,10 @@ const panelStyle: React.CSSProperties = {
  * del día que se está cuadrando (si no, no entraría en su cierre). Para el
  * día de hoy usa la hora real; para un día pasado, el mediodía. Fuera del
  * componente para no leer el reloj durante el render. */
+function cierreDeHoyHabilitado(config: Parameters<typeof puedeCerrarCajaDeHoy>[0]): boolean {
+  return puedeCerrarCajaDeHoy(config, ahoraEnSantiago());
+}
+
 function fechaEnElDia(dia: string): string {
   return dia === todayYMD() ? new Date().toISOString() : new Date(`${dia}T12:00:00`).toISOString();
 }
@@ -418,6 +432,7 @@ function CajaCerrada({ cierre }: { cierre: CierreCaja }) {
         Cerrada por {cierre.cerradoPor} el {fmtFecha(cierre.cerradoEn)} a las {fmtHora(cierre.cerradoEn)}. Este día ya no se puede
         modificar.
       </p>
+      <ReaperturaCaja cierre={cierre} />
       <table>
         <tbody>
           <tr>
@@ -470,6 +485,91 @@ function CajaCerrada({ cierre }: { cierre: CierreCaja }) {
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// Reabrir la caja de hoy: quien la cerró (módulo "arqueo") lo pide con un
+// motivo y Gerencia lo aprueba. Los permisos de verdad viven en
+// solicitarReaperturaCaja/reabrirCaja; acá solo se esconde lo que no aplica.
+function ReaperturaCaja({ cierre }: { cierre: CierreCaja }) {
+  const { data, ui, commit, patchUi } = useApp();
+  const [motivo, setMotivo] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [err, setErr] = useState("");
+  const perfil = ui.perfilActual;
+  const esGerencia = puedeReabrirCaja(perfil?.nombre);
+  if (cierre.fecha !== todayYMD()) return null;
+  if (!esGerencia && !puedeCerrarCaja(perfil?.modulos)) return null;
+
+  const solicitar = async () => {
+    setEnviando(true);
+    const res = await solicitarReaperturaCaja(cierre.fecha, motivo);
+    setEnviando(false);
+    if (!res.ok) {
+      setErr(res.error);
+      return;
+    }
+    setErr("");
+    const actualizado: CierreCaja = {
+      ...cierre,
+      reaperturaSolicitadaPor: perfil?.nombre || "",
+      reaperturaSolicitadaEn: new Date().toISOString(),
+      reaperturaMotivo: motivo.trim(),
+    };
+    // Sin ops para esta entidad: solo refresca el estado local (ver cerrar).
+    commit({ cierresCaja: data.cierresCaja.map((c) => (c.fecha === cierre.fecha ? actualizado : c)) });
+  };
+
+  const reabrir = () => {
+    patchUi({
+      modal: {
+        type: "confirm",
+        mensaje: `¿Reabrir la caja de hoy? Se borra el arqueo guardado y el POS y el túnel vuelven a registrar ventas. Al final del día hay que volver a cerrarla.`,
+        confirmLabel: "Reabrir caja",
+        danger: true,
+        onConfirm: async () => {
+          setEnviando(true);
+          const res = await reabrirCaja(cierre.fecha);
+          setEnviando(false);
+          if (!res.ok) {
+            setErr(res.error);
+            return;
+          }
+          setErr("");
+          commit({ cierresCaja: data.cierresCaja.filter((c) => c.fecha !== cierre.fecha) });
+        },
+      },
+    });
+  };
+
+  return (
+    <div style={{ margin: "0 0 14px", padding: 12, border: "1px dashed var(--border)", borderRadius: 10 }}>
+      {cierre.reaperturaSolicitadaEn ? (
+        <p style={{ fontSize: 13, marginBottom: esGerencia ? 10 : 0 }}>
+          <strong>{cierre.reaperturaSolicitadaPor}</strong> pidió reabrir la caja a las {fmtHora(cierre.reaperturaSolicitadaEn)}:{" "}
+          {cierre.reaperturaMotivo}
+          {!esGerencia && <span style={{ color: "var(--gray)" }}> · esperando a Gerencia</span>}
+        </p>
+      ) : (
+        !esGerencia && (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div className="field" style={{ flex: 1, minWidth: 220, marginBottom: 0 }}>
+              <label>Motivo para reabrir</label>
+              <input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ej: se cerró antes de tiempo, falta vender" />
+            </div>
+            <button className="btn secondary" disabled={enviando} onClick={solicitar}>
+              {enviando ? "Enviando…" : "Solicitar apertura de caja"}
+            </button>
+          </div>
+        )
+      )}
+      {esGerencia && (
+        <button className="btn" disabled={enviando} onClick={reabrir}>
+          {cierre.reaperturaSolicitadaEn ? "Aprobar y reabrir caja" : "Reabrir caja"}
+        </button>
+      )}
+      {err && <p className="err">{err}</p>}
     </div>
   );
 }

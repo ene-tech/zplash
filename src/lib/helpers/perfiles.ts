@@ -166,6 +166,13 @@ export function puedeCerrarCaja(modulos?: Modulo[]): boolean {
   return !!modulos?.includes("arqueo");
 }
 
+/** Reabrir la caja de hoy (deshacer el cierre) queda solo para "Gerencia":
+ * quien cierra (módulo "arqueo") puede pedirlo, no hacerlo — ver
+ * solicitarReaperturaCaja/reabrirCaja en @/lib/serverActions/cierre. */
+export function puedeReabrirCaja(nombre?: string): boolean {
+  return nombre === "Gerencia";
+}
+
 /** "Administración" y "Gerencia" pueden dar ingreso a un cliente desde el
  * módulo Operador aunque el teléfono o el email no estén completos/válidos
  * (ver registroIncompleto en OperadorResult): el resto de los perfiles
