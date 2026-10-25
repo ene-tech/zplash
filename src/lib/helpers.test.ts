@@ -79,6 +79,7 @@ import {
   ordenarPerfiles,
   patchDeCliente,
   planStatus,
+  sigueVigenteHoy,
   planVendible,
   TIPOS_VENTA_PLAN,
   promoPrimerCobroOneclick,
@@ -301,6 +302,23 @@ describe("planStatus", () => {
     expect(planStatus({ vencimiento: enUnMes.toISOString() }).label).toBe("Vigente");
   });
 
+  describe("vencimiento grabado a medianoche UTC (VBBS42)", () => {
+    afterEach(() => vi.useRealTimers());
+
+    // Ese día es el último del plan, tanto en el navegador (hora de Chile)
+    // como en el server (UTC): antes el mesón lo mostraba Vencido.
+    it("el último día sigue vigente y al día siguiente vence", () => {
+      vi.useFakeTimers({ now: new Date("2026-10-08T01:00:00Z") }); // 7-oct 22:00 en Chile
+      expect(planStatus({ vencimiento: "2026-10-07T00:00:00Z" })).toMatchObject({ label: "Por vencer", diasRestantes: 0 });
+      expect(sigueVigenteHoy("2026-10-07T00:00:00Z")).toBe(true);
+      expect(diasVencido({ vencimiento: "2026-10-07T00:00:00Z" })).toBeNull();
+      vi.useFakeTimers({ now: new Date("2026-10-08T15:00:00Z") });
+      expect(planStatus({ vencimiento: "2026-10-07T00:00:00Z" }).label).toBe("Vencido");
+      expect(sigueVigenteHoy("2026-10-07T00:00:00Z")).toBe(false);
+      expect(diasVencido({ vencimiento: "2026-10-07T00:00:00Z" })).toBe(1);
+    });
+  });
+
   describe("con renovación automática de Woo", () => {
     const woo = (vencimiento: string) => ({ vencimiento, renovacionAutoWooDesde: "2026-09-10T14:10:00Z" });
     // Mediodía en Chile (UTC-3).
@@ -448,10 +466,9 @@ describe("diasVencido", () => {
   });
 
   it("vencido hace 15 días -> 15", () => {
-    const ahora = new Date();
-    const hace15Dias = new Date(ahora);
-    hace15Dias.setDate(hace15Dias.getDate() - 15);
-    expect(diasVencido({ vencimiento: hace15Dias.toISOString() }, ahora)).toBe(15);
+    // `ahora` va en hora de Chile (como ahoraEnSantiago()), no un instante UTC.
+    const ahora = new Date("2026-10-24T12:00:00");
+    expect(diasVencido({ vencimiento: "2026-10-09T15:00:00Z" }, ahora)).toBe(15);
   });
 });
 

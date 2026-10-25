@@ -21,13 +21,19 @@ export const DIAS_AVISO_VENCIMIENTO = 7;
 export const DIAS_ESPERA_COBRO_WOO = 2;
 
 /**
- * Día de calendario en que vence el plan, para contar los días de
- * DIAS_ESPERA_COBRO_WOO. Un vencimiento grabado a medianoche UTC (lo que deja
- * vencimientoAnclado al correr en Vercel) es ese día UTC: en hora de Chile
- * caería el anterior a las 21:00 y se comería un día del margen.
+ * Día de calendario en que vence el plan (último día vigente), como Date a
+ * medianoche local del proceso. Un vencimiento grabado a medianoche UTC (lo
+ * que deja vencimientoAnclado al correr en Vercel) es ese día UTC: en hora de
+ * Chile caería el anterior a las 21:00 y el cliente perdía su último día
+ * (Vencido en el mesón, Por vencer en el server). Todo lo que compara el
+ * vencimiento con "hoy" pasa por acá, así el navegador y el server ven el
+ * mismo día.
  */
 function diaVencimiento(iso: string): Date | null {
-  return iso.endsWith("T00:00:00.000Z") ? new Date(`${iso.slice(0, 10)}T00:00:00`) : diaEnSantiago(iso);
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const utc = d.toISOString();
+  return utc.endsWith("T00:00:00.000Z") ? new Date(`${utc.slice(0, 10)}T00:00:00`) : diaEnSantiago(utc);
 }
 
 export function findClient(clientes: Cliente[], plate: string): Cliente | undefined {
@@ -88,13 +94,13 @@ export function planStatus(c: Pick<Cliente, "vencimiento"> & Partial<Pick<Client
   // horario del módulo Operador, ver dentroDeHorarioOperador).
   const hoy = ahoraEnSantiago();
   hoy.setHours(0, 0, 0, 0);
-  const venc = new Date(c.vencimiento);
+  const venc = diaVencimiento(c.vencimiento);
+  if (!venc) return { label: "Sin plan", cls: "bad" };
   if (venc < hoy) {
-    const dia = c.renovacionAutoWooDesde ? diaVencimiento(venc.toISOString()) : null;
-    if (dia && Math.round((hoy.getTime() - dia.getTime()) / 86400000) <= DIAS_ESPERA_COBRO_WOO) return { label: "Vigente", cls: "ok" };
+    if (c.renovacionAutoWooDesde && Math.round((hoy.getTime() - venc.getTime()) / 86400000) <= DIAS_ESPERA_COBRO_WOO) return { label: "Vigente", cls: "ok" };
     return { label: "Vencido", cls: "bad" };
   }
-  const diff = Math.ceil((venc.getTime() - hoy.getTime()) / 86400000);
+  const diff = Math.round((venc.getTime() - hoy.getTime()) / 86400000);
   if (diff <= DIAS_AVISO_VENCIMIENTO) return { label: "Por vencer", cls: "warn", diasRestantes: diff };
   return { label: "Vigente", cls: "ok" };
 }
@@ -117,8 +123,8 @@ export function planProgreso(c: Pick<Cliente, "vencimiento">, ahora: Date = ahor
   if (!c.vencimiento) return null;
   const hoy = new Date(ahora);
   hoy.setHours(0, 0, 0, 0);
-  const venc = new Date(c.vencimiento);
-  venc.setHours(0, 0, 0, 0);
+  const venc = diaVencimiento(c.vencimiento);
+  if (!venc) return null;
   const diasRestantes = Math.round((venc.getTime() - hoy.getTime()) / 86400000);
   return Math.max(0, Math.min(100, Math.round((diasRestantes / DURACION_PLAN_DIAS) * 100)));
 }
@@ -134,9 +140,8 @@ export function diasVencido(c: Pick<Cliente, "vencimiento">, ahora: Date = ahora
   if (!c.vencimiento) return null;
   const hoy = new Date(ahora);
   hoy.setHours(0, 0, 0, 0);
-  const venc = new Date(c.vencimiento);
-  venc.setHours(0, 0, 0, 0);
-  if (venc >= hoy) return null;
+  const venc = diaVencimiento(c.vencimiento);
+  if (!venc || venc >= hoy) return null;
   return Math.round((hoy.getTime() - venc.getTime()) / 86400000);
 }
 
@@ -286,7 +291,8 @@ export function sigueVigenteHoy(vencimiento: string | null | undefined): boolean
   if (!vencimiento) return false;
   const hoy = ahoraEnSantiago();
   hoy.setHours(0, 0, 0, 0);
-  return new Date(vencimiento) >= hoy;
+  const venc = diaVencimiento(vencimiento);
+  return !!venc && venc >= hoy;
 }
 
 /**
