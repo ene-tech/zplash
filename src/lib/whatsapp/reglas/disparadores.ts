@@ -1,19 +1,31 @@
 import "server-only";
 
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { cupones } from "@/db/schema";
 import { listarReglasWhatsappActivas, marcarDisparoReglaWhatsapp, registrarDisparoReglaWhatsapp } from "@/lib/dataAccess/whatsapp";
-import { mesKey, uid } from "@/lib/helpers";
+import { KEYS_PROMOS_LAVADOS, mesKey, uid } from "@/lib/helpers";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
 import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
 
 // Desde oct-2026 un lavado pagado con cupón de descuento o con ticket no suma
 // a otras promociones: las reglas que regalan un código (de descuento o de
 // referido) no salen por él, tenga o no la regla condicionExcluirConCupon.
+// Excepción: el descuento abierto de la próxima visita ("cupon_abierto"), que
+// por decisión del dueño (24-oct-2026) llega también al que pagó con cupón.
 function reglaRegalaCupon(regla: ReglaWhatsapp): boolean {
-  return regla.accion !== "mensaje_simple";
+  return regla.accion !== "mensaje_simple" && regla.accion !== "cupon_abierto";
+}
+
+// condicionTipoVenta admite varios tipos separados por "|" (ej. todos los
+// packs de lavados en una sola regla).
+function coincideTipoVenta(regla: ReglaWhatsapp, tipo: string): boolean {
+  if (!regla.condicionTipoVenta) return true;
+  return regla.condicionTipoVenta.split("|").some((t) => t.trim() === tipo);
 }
 
 function coincideVenta(regla: ReglaWhatsapp, venta: Venta): boolean {
-  if (regla.condicionTipoVenta && regla.condicionTipoVenta !== venta.tipo) return false;
+  if (!coincideTipoVenta(regla, venta.tipo)) return false;
   if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(venta.plan)) return false;
   // Ej. no mandar la oferta "contrata tu plan" de un "Lavado único" a quien
   // ya pagó ese lavado con un cupón de descuento (ver comentario en
@@ -76,6 +88,37 @@ export async function evaluarReglasPorVenta(ventasNuevas: Venta[]): Promise<void
   }
 }
 
+// "ingreso_ticket": el auto pasó canjeando un ticket de pack. No sale si el
+// ticket es de un pack recién comprado (el primero se canjea en la misma
+// compra y esa ya tiene su confirmación, ver las reglas "venta_creada" de los
+// packs).
+const VENTANA_PACK_RECIEN_COMPRADO_MS = 60 * 60_000;
+
+async function dispararPorIngresoTicket(reglas: ReglaWhatsapp[], ingreso: Ingreso): Promise<void> {
+  if (!ingreso.clienteId || !ingreso.viaCupon || !ingreso.cuponCodigo) return;
+  const [ticket] = await getDb().select().from(cupones).where(eq(cupones.codigo, ingreso.cuponCodigo)).limit(1);
+  if (!ticket || !KEYS_PROMOS_LAVADOS.includes(ticket.nombreLote)) return;
+  if (new Date(ingreso.fecha).getTime() - new Date(ticket.creadoEn).getTime() < VENTANA_PACK_RECIEN_COMPRADO_MS) return;
+  const cliente = await buscarCliente(ingreso.clienteId);
+  if (!cliente) return;
+  for (const regla of reglas) {
+    const disparo = await registrarDisparoReglaWhatsapp({
+      id: uid(),
+      reglaId: regla.id,
+      origenTipo: "ingreso",
+      origenId: ingreso.id,
+      clienteId: cliente.id,
+      patente: ingreso.patente,
+      estado: "programado",
+      enviarEn: new Date().toISOString(),
+    });
+    if (!disparo) continue;
+    await ejecutarAccionRegla(regla, disparo.id, cliente, undefined, undefined, undefined, ingreso.cuponCodigo).catch((error) =>
+      console.error(`Error disparando regla WhatsApp "${regla.nombre}" para ingreso ${ingreso.id}`, error)
+    );
+  }
+}
+
 // Se llama desde dataAccess/ingresos.ts::insertIngresos justo después del
 // INSERT, sin awaitear el resultado (fire-and-forget) — mismo patrón que
 // evaluarReglasPorVenta. Solo dispara para ingresos de un cliente con plan
@@ -92,22 +135,24 @@ export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promis
   if (!ingresosNuevos.length) return;
   let reglas: ReglaWhatsapp[];
   let reglasPrimerIngresoMes: ReglaWhatsapp[];
+  let reglasTicket: ReglaWhatsapp[];
   try {
-    [reglas, reglasPrimerIngresoMes] = await Promise.all([
+    [reglas, reglasPrimerIngresoMes, reglasTicket] = await Promise.all([
       listarReglasWhatsappActivas("ingreso_plan_registrado"),
       listarReglasWhatsappActivas("primer_ingreso_mes"),
+      listarReglasWhatsappActivas("ingreso_ticket"),
     ]);
   } catch (error) {
-    console.error("Error cargando reglas WhatsApp (ingreso_plan_registrado/primer_ingreso_mes)", error);
+    console.error("Error cargando reglas WhatsApp (ingreso_plan_registrado/primer_ingreso_mes/ingreso_ticket)", error);
     return;
   }
-  if (!reglas.length && !reglasPrimerIngresoMes.length) return;
+  if (!reglas.length && !reglasPrimerIngresoMes.length && !reglasTicket.length) return;
 
   for (const ingreso of ingresosNuevos) {
+    if (reglasTicket.length) await dispararPorIngresoTicket(reglasTicket, ingreso);
     if (!ingreso.clienteId || ingreso.planEstadoAlIngreso !== "ok") continue;
     const cliente = await buscarCliente(ingreso.clienteId);
     if (!cliente || !cliente.plan) continue;
-
     for (const regla of reglas) {
       if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(cliente.plan)) continue;
       // En un Ingreso, viaCupon = entró canjeando un ticket.

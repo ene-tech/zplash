@@ -179,12 +179,21 @@ export type TipoEventoReglaWhatsapp =
   | "ingreso_plan_registrado"
   | "cambio_patente"
   | "primer_ingreso_mes"
-  | "ticket_por_vencer";
+  | "ticket_por_vencer"
+  // Ingreso canjeando un ticket de pack (Promo 2/4 Lavados y sus upgrades).
+  | "ingreso_ticket"
+  // Cron diario: cliente sin plan vigente que lleva N días
+  // (condicionDiasAntesVencimiento) sin pasar por el túnel.
+  | "sin_visita"
+  // Cron diario: cupón de "sin_visita" sin usar que vence en N días.
+  | "cupon_por_vencer";
 // "cupon_regalo": código de referido abierto, para regalárselo a un amigo (ver
 // rechazoCodigoReferido en @/lib/referidos); usa cuponValor/cuponValidezDias.
 // Conserva el nombre de antes (oct-2026, "regalo del lavado") porque es el
 // valor guardado en reglas_whatsapp.accion.
-export type AccionReglaWhatsapp = "cupon_descuento" | "cupon_regalo" | "mensaje_simple";
+// "cupon_abierto": descuento abierto para la próxima visita, de cualquier
+// patente y sin premio de referido; usa cuponValor/cuponValidezDias.
+export type AccionReglaWhatsapp = "cupon_descuento" | "cupon_regalo" | "cupon_abierto" | "mensaje_simple";
 // Ver `canal` en @/db/schema/whatsapp.
 export type CanalReglaWhatsapp = "whatsapp" | "sms" | "correo";
 

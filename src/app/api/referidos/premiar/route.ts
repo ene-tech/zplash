@@ -3,13 +3,13 @@ import { and, asc, eq, gt, like } from "drizzle-orm";
 import { getDb } from "@/db";
 import { cupones } from "@/db/schema";
 import { rechazoSiNoEsCron } from "@/lib/cron";
-import { buscarClientePorPatente, cuponToRow, getConfig, obtenerPlantillaWhatsapp } from "@/lib/dataAccess";
+import { buscarClientePorPatente, cuponToRow, getConfig } from "@/lib/dataAccess";
 import { consumirCupon } from "@/lib/pagos";
-import { fmtCLP, generarCodigoCupon, uid } from "@/lib/helpers";
+import { fmtCLP, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
-import { PLANTILLA_WHATSAPP_PREMIO_REFERIDO, acumularPremio, premiosPendientes } from "@/lib/referidos";
-import { construirVariables, enviarSegunPlantilla } from "@/lib/whatsapp/reglas/motor";
+import { acumularPremio, premiosPendientes } from "@/lib/referidos";
+import { enviarSms } from "@/lib/sms/enviar";
 import type { Cupon } from "@/types";
 
 export const runtime = "nodejs";
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   if (rechazo) return rechazo;
 
   const db = getDb();
-  const [usados, premios, existentes, config, plantillaAviso] = await Promise.all([
+  const [usados, premios, existentes, config] = await Promise.all([
     db
       .select({ codigo: cupones.codigo, nombreLote: cupones.nombreLote, patenteUso: cupones.patenteUso })
       .from(cupones)
@@ -32,10 +32,6 @@ export async function GET(request: NextRequest) {
     db.select({ nombreLote: cupones.nombreLote }).from(cupones).where(like(cupones.nombreLote, "Premio referido - %")),
     db.select({ codigo: cupones.codigo }).from(cupones),
     getConfig(),
-    // null hasta que Meta apruebe el template y se corra --activar (ver
-    // scripts/crear-template-referidos-lavado-unico.mts): mientras tanto el
-    // aviso sale solo por correo.
-    obtenerPlantillaWhatsapp(PLANTILLA_WHATSAPP_PREMIO_REFERIDO),
   ]);
 
   const codigos = new Set(existentes.map((r) => r.codigo));
@@ -103,21 +99,22 @@ export async function GET(request: NextRequest) {
     if (!premio) continue;
     emitidos++;
 
-    // El aviso va por WhatsApp (lo que el cliente lee) y por correo solo si no
-    // salió el WhatsApp. Si los dos fallan el premio igual existe y se aplica
-    // solo al leer la patente. sinComunicacionAuto: mismo opt-out que las
-    // reglas de WhatsApp (ver ejecutarAccionRegla).
-    let avisadoPorWhatsapp = false;
-    if (plantillaAviso?.activo && referidor?.telefono && !referidor.sinComunicacionAuto) {
-      const variables = construirVariables({
-        cliente: referidor,
-        diasValidez: config.descuentoReferidoDiasValidez,
-        descuentoReferido: premio.valor,
+    // El aviso va por SMS (desde oct-2026 no se inician conversaciones por
+    // WhatsApp) y por correo solo si no salió el SMS. Si los dos fallan el
+    // premio igual existe y se aplica solo al leer la patente.
+    // sinComunicacionAuto: mismo opt-out que las reglas (ver ejecutarAccionRegla).
+    let avisadoPorSms = false;
+    if (referidor?.telefono && !referidor.sinComunicacionAuto) {
+      const envio = await enviarSms({
+        telefono: referidor.telefono,
+        texto: `ZPlash: tu amigo uso tu codigo. Ganaste ${fmtCLP(premio.valor)} de descuento en la patente ${p.patenteReferidor}, valido hasta el ${fmtFecha(premio.fechaCaducidad)}. Se aplica solo en tu proximo pago.`,
+        campana: "premio-referido",
+        clienteId: referidor.id,
+        enviadoPor: "referidos-cron",
       });
-      const mensaje = await enviarSegunPlantilla(plantillaAviso, referidor.telefono, variables, "referidos-cron");
-      avisadoPorWhatsapp = mensaje?.estado === "enviado";
+      avisadoPorSms = envio.ok;
     }
-    if (email && !avisadoPorWhatsapp && !referidor?.sinComunicacionAuto) {
+    if (email && !avisadoPorSms && !referidor?.sinComunicacionAuto) {
       await enviarCorreoTransaccional({
         to: email,
         subject: `Ganaste ${fmtCLP(premio.valor)} de descuento en ZPlash`,

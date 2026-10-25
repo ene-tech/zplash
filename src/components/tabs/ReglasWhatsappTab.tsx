@@ -13,6 +13,9 @@ const TIPOS_VENTA_CONOCIDOS = ["Lavado único", ...TIPOS_VENTA_PLAN];
 
 const NOMBRE_CANAL: Record<CanalReglaWhatsapp, string> = { whatsapp: "WhatsApp", sms: "SMS", correo: "Correo" };
 
+// Eventos que se configuran con un número de días (condicionDiasAntesVencimiento).
+const CON_DIAS: TipoEventoReglaWhatsapp[] = ["plan_proximo_vencer", "ticket_por_vencer", "sin_visita", "cupon_por_vencer"];
+
 function resumenCondicion(r: ReglaWhatsapp): string {
   if (r.tipoEvento === "venta_creada") {
     const tipo = r.condicionTipoVenta || "cualquier tipo de venta";
@@ -40,6 +43,11 @@ function resumenCondicion(r: ReglaWhatsapp): string {
   }
   if (r.tipoEvento === "ticket_por_vencer") {
     return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes de que venza el ticket de la promo de reactivación`;
+  }
+  if (r.tipoEvento === "ingreso_ticket") return "Al ingresar canjeando un ticket de pack (Promo 2/4 Lavados)";
+  if (r.tipoEvento === "sin_visita") return `Cliente sin plan vigente que lleva ${r.condicionDiasAntesVencimiento ?? 0} día(s) sin venir`;
+  if (r.tipoEvento === "cupon_por_vencer") {
+    return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes de que venza el descuento por días sin venir`;
   }
   const planes = r.condicionPlanes?.length ? ` del plan ${r.condicionPlanes.join(", ")}` : "";
   return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes del vencimiento${planes}`;
@@ -79,7 +87,9 @@ function ReglaRow({ regla, puedeBorrar }: { regla: ReglaWhatsapp; puedeBorrar: b
             ? `Genera descuento: ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
             : regla.accion === "cupon_regalo"
               ? `Genera código de referido: ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
-              : "Solo manda el mensaje (sin descuento)"}
+              : regla.accion === "cupon_abierto"
+                ? `Genera código abierto (cualquier patente): ${regla.cuponEsPorcentaje ? `${regla.cuponValor}%` : `$${regla.cuponValor}`}, válido ${regla.cuponValidezDias} día(s)`
+                : "Solo manda el mensaje (sin descuento)"}
           {" · Plantilla: "}
           {plantilla?.nombre || "(eliminada)"}
         </span>
@@ -153,7 +163,7 @@ export default function ReglasWhatsappTab() {
       condicionPlanes: planesElegidos.length ? planesElegidos : undefined,
       condicionExcluirConCupon: tipoEvento === "venta_creada" ? excluirConCupon : undefined,
       condicionDiasAntesVencimiento:
-        tipoEvento === "plan_proximo_vencer" || tipoEvento === "ticket_por_vencer" ? Number(diasAntesRef.current?.value || 0) : undefined,
+        CON_DIAS.includes(tipoEvento) ? Number(diasAntesRef.current?.value || 0) : undefined,
       delayDias: tipoEvento === "venta_creada" ? Number(delayDiasRef.current?.value || 0) : 0,
       accion,
       cuponEsPorcentaje: generaCupon ? cuponEsPorcentaje : undefined,
@@ -207,13 +217,16 @@ export default function ReglasWhatsappTab() {
             <option value="primer_ingreso_mes">Cliente con plan vigente ingresa por primera vez en el mes</option>
             <option value="cambio_patente">Se aplica un cambio de patente</option>
             <option value="ticket_por_vencer">El ticket de la promo de reactivación está por vencer</option>
+            <option value="ingreso_ticket">Cliente ingresa canjeando un ticket de pack</option>
+            <option value="sin_visita">Cliente sin plan lleva N días sin venir</option>
+            <option value="cupon_por_vencer">El descuento por días sin venir está por vencer</option>
           </select>
         </div>
 
         {tipoEvento === "venta_creada" && (
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
             <div className="field" style={{ flex: 1, minWidth: 200, margin: 0 }}>
-              <label>Tipo de venta (vacío = cualquiera)</label>
+              <label>Tipo de venta (vacío = cualquiera; varios separados por |)</label>
               <input ref={condicionTipoVentaRef} placeholder="Ej: Lavado único" list="tipos-venta-reglas" />
               <datalist id="tipos-venta-reglas">
                 {TIPOS_VENTA_CONOCIDOS.map((t) => (
@@ -232,9 +245,9 @@ export default function ReglasWhatsappTab() {
           </div>
         )}
 
-        {(tipoEvento === "plan_proximo_vencer" || tipoEvento === "ticket_por_vencer") && (
+        {CON_DIAS.includes(tipoEvento) && (
           <div className="field" style={{ marginBottom: 10 }}>
-            <label>Días antes del vencimiento</label>
+            <label>{tipoEvento === "sin_visita" ? "Días sin venir" : "Días antes del vencimiento"}</label>
             <input ref={diasAntesRef} type="number" min={0} defaultValue={5} />
           </div>
         )}
@@ -258,6 +271,7 @@ export default function ReglasWhatsappTab() {
           <select value={accion} onChange={(e) => setAccion(e.target.value as AccionReglaWhatsapp)}>
             <option value="cupon_descuento">Generar descuento (reconocido por patente al volver)</option>
             <option value="cupon_regalo">Generar código de referido (para regalar a un amigo; cuando lo usa, premia a este cliente)</option>
+            <option value="cupon_abierto">Generar código abierto (lo usa cualquier patente, sin premio)</option>
             <option value="mensaje_simple">Solo enviar el mensaje</option>
           </select>
         </div>

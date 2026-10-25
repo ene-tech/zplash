@@ -18,7 +18,7 @@ import {
 // aplicarPagoAprobado, que importa este archivo — el ciclo revienta en
 // runtime.
 import { cortarCobroWooCommerceLegacy } from "@/lib/pagos/cancelarSuscripcionWooCommerceLegacy";
-import { buscarCliente, construirVariables, ejecutarAccionReglaCorreo } from "./motor";
+import { buscarCliente, construirVariables, ejecutarAccionReglaCorreo, MS_POR_DIA } from "./motor";
 import type { Cliente, Ingreso, ReglaCorreo, Venta } from "@/types";
 
 function coincideVenta(regla: ReglaCorreo, venta: Venta): boolean {
@@ -33,8 +33,6 @@ function coincideVenta(regla: ReglaCorreo, venta: Venta): boolean {
 }
 
 async function dispararPorVenta(regla: ReglaCorreo, venta: Venta): Promise<void> {
-  if (regla.delayDias > 0) return; // v1: sin cron de pendientes con delay, solo envío inmediato (delayDias=0)
-
   const cliente = await buscarCliente(venta.clienteId!);
   if (!cliente) return;
 
@@ -51,9 +49,10 @@ async function dispararPorVenta(regla: ReglaCorreo, venta: Venta): Promise<void>
     clienteId: venta.clienteId,
     patente: venta.patente,
     estado: "programado",
-    enviarEn: new Date().toISOString(),
+    enviarEn: new Date(Date.now() + regla.delayDias * MS_POR_DIA).toISOString(),
   });
   if (!disparo) return;
+  if (regla.delayDias > 0) return; // lo manda el cron diario (ver procesarDisparosProgramadosCorreo)
 
   const variables = construirVariables({ cliente, monto: venta.precio });
   await ejecutarAccionReglaCorreo(regla, disparo.id, cliente, variables);

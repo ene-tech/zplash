@@ -1,8 +1,8 @@
 import "server-only";
 
-import { and, eq, gte, isNotNull, lt, lte } from "drizzle-orm";
+import { and, eq, gt, gte, isNotNull, lt, lte, ne } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, cupones, ingresos } from "@/db/schema";
+import { clientes, cupones, ingresos, ventas } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import {
   listarDisparosProgramadosVencidos,
@@ -15,7 +15,7 @@ import {
 import { periodoPlan, planVigente, uid } from "@/lib/helpers";
 import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
 import { LOTE_TICKET_REACTIVACION } from "@/lib/pagos/ticketReactivacion";
-import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
+import { buscarCliente, ejecutarAccionRegla, LOTE_CUPON_SIN_VISITA, MS_POR_DIA } from "./motor";
 import type { DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 
 // Disparos "venta_creada" con espera (delayDias/delayMinutos) cuya hora ya
@@ -41,7 +41,34 @@ export async function procesarDisparosProgramados(): Promise<{ procesados: numbe
         errores++;
         continue;
       }
-      await ejecutarAccionRegla(regla, disparo.id, cliente);
+      // Apagar una regla también frena lo que ya tenía programado.
+      if (!regla.activa) {
+        await marcarDisparoReglaWhatsapp(disparo.id, { estado: "omitido" });
+        continue;
+      }
+      let monto: number | undefined;
+      if (disparo.origenTipo === "venta") {
+        const [venta] = await getDb()
+          .select({ precio: ventas.precio, fecha: ventas.fecha })
+          .from(ventas)
+          .where(eq(ventas.id, disparo.origenId))
+          .limit(1);
+        monto = venta?.precio;
+        // Una oferta no le llega al que ya compró otra cosa después (ej. el
+        // upgrade a Promo 4 dentro de la hora del lavado).
+        if (venta && regla.accion !== "mensaje_simple") {
+          const [despues] = await getDb()
+            .select({ id: ventas.id })
+            .from(ventas)
+            .where(and(eq(ventas.clienteId, cliente.id), gt(ventas.fecha, venta.fecha), ne(ventas.id, disparo.origenId)))
+            .limit(1);
+          if (despues) {
+            await marcarDisparoReglaWhatsapp(disparo.id, { estado: "omitido" });
+            continue;
+          }
+        }
+      }
+      await ejecutarAccionRegla(regla, disparo.id, cliente, monto);
       procesados++;
     } catch (error) {
       console.error("Error procesando disparo programado de WhatsApp", disparo.id, error);
@@ -182,5 +209,118 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
     }
   }
 
+  const sinVisita = await procesarSinVisita(ahoraISO);
+  const porVencer = await procesarCuponesPorVencer(ahoraISO);
+  return {
+    procesados: procesados + sinVisita.procesados + porVencer.procesados,
+    errores: errores + sinVisita.errores + porVencer.errores,
+  };
+}
+
+// Días de margen para "sin_visita": si el cron no corre un día, el cliente
+// que cumplió N días ayer igual entra hoy. El origenId evita el doble envío.
+const DIAS_VENTANA_SIN_VISITA = 3;
+
+// "sin_visita": cliente que lleva N días (condicionDiasAntesVencimiento) sin
+// pasar por el túnel y no tiene plan vigente — al de plan vigente no se le
+// recuerda que no viene (cree que le van a cortar el plan). Una regla por
+// cada umbral (ej. 18, 30, 45 y 65 días). origenId con la fecha de la última
+// visita y los días: si vuelve, la cuenta empieza de nuevo.
+async function procesarSinVisita(ahoraISO: string): Promise<{ procesados: number; errores: number }> {
+  let procesados = 0;
+  let errores = 0;
+  let reglas: ReglaWhatsapp[] = [];
+  try {
+    reglas = await listarReglasWhatsappActivas("sin_visita");
+  } catch (error) {
+    console.error("Error cargando reglas WhatsApp (sin_visita)", error);
+  }
+  for (const regla of reglas) {
+    const dias = regla.condicionDiasAntesVencimiento ?? 0;
+    if (dias <= 0) continue;
+    const hasta = new Date(Date.now() - dias * MS_POR_DIA).toISOString();
+    const desde = new Date(Date.now() - (dias + DIAS_VENTANA_SIN_VISITA) * MS_POR_DIA).toISOString();
+    const filas = await getDb()
+      .select()
+      .from(clientes)
+      .where(and(isNotNull(clientes.ultimaVisita), gt(clientes.ultimaVisita, desde), lte(clientes.ultimaVisita, hasta)));
+
+    for (const row of filas) {
+      if (row.vencimiento && new Date(row.vencimiento) >= new Date(ahoraISO)) continue; // plan vigente
+      const disparo = await registrarDisparoReglaWhatsapp({
+        id: uid(),
+        reglaId: regla.id,
+        origenTipo: "cliente",
+        origenId: `${row.id}:${row.ultimaVisita}:${dias}`,
+        clienteId: row.id,
+        patente: row.patente ?? undefined,
+        estado: "programado",
+        enviarEn: ahoraISO,
+      });
+      if (!disparo) continue;
+      try {
+        await ejecutarAccionRegla(regla, disparo.id, clienteFromRow(row));
+        procesados++;
+      } catch (error) {
+        console.error("Error disparando regla WhatsApp sin_visita", regla.id, row.id, error);
+        await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+        errores++;
+      }
+    }
+  }
+  return { procesados, errores };
+}
+
+// "cupon_por_vencer": recordatorio N días antes de que venza el descuento de
+// "sin_visita" (lote LOTE_CUPON_SIN_VISITA, atado a la patente) sin usar.
+async function procesarCuponesPorVencer(ahoraISO: string): Promise<{ procesados: number; errores: number }> {
+  let procesados = 0;
+  let errores = 0;
+  let reglas: ReglaWhatsapp[] = [];
+  try {
+    reglas = await listarReglasWhatsappActivas("cupon_por_vencer");
+  } catch (error) {
+    console.error("Error cargando reglas WhatsApp (cupon_por_vencer)", error);
+  }
+  for (const regla of reglas) {
+    const hastaISO = new Date(Date.now() + (regla.condicionDiasAntesVencimiento ?? 0) * MS_POR_DIA).toISOString();
+    const filas = await getDb()
+      .select({ cupon: cupones, cliente: clientes })
+      .from(cupones)
+      .innerJoin(clientes, eq(clientes.patente, cupones.patenteAsignada))
+      .where(
+        and(
+          eq(cupones.nombreLote, LOTE_CUPON_SIN_VISITA),
+          eq(cupones.usado, false),
+          gte(cupones.fechaCaducidad, ahoraISO),
+          lte(cupones.fechaCaducidad, hastaISO)
+        )
+      );
+    for (const { cupon, cliente } of filas) {
+      const disparo = await registrarDisparoReglaWhatsapp({
+        id: uid(),
+        reglaId: regla.id,
+        origenTipo: "cupon",
+        origenId: `${cupon.id}:${cupon.fechaCaducidad}`,
+        clienteId: cliente.id,
+        patente: cliente.patente ?? undefined,
+        estado: "programado",
+        enviarEn: ahoraISO,
+      });
+      if (!disparo) continue;
+      try {
+        await ejecutarAccionRegla(regla, disparo.id, clienteFromRow(cliente), undefined, undefined, {
+          id: cupon.id,
+          codigo: cupon.codigo,
+          fechaCaducidad: cupon.fechaCaducidad,
+        });
+        procesados++;
+      } catch (error) {
+        console.error("Error disparando regla WhatsApp de cupón por vencer", regla.id, cupon.id, error);
+        await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+        errores++;
+      }
+    }
+  }
   return { procesados, errores };
 }

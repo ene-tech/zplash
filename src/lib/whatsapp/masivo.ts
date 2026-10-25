@@ -132,14 +132,16 @@ export async function enviarMensajesMasivosWhatsapp(
   // filtro sin más, la Graph API lo rechazaba uno por uno con "(#131009)
   // Parameter value is not valid" y esos clientes quedaban contados como
   // "fallido" en vez de "sinTelefono".
-  const conTelefono = clientesEncontrados.filter((c) => c.telefono && isValidTelefono(c.telefono));
+  // sinComunicacionAuto: mismo opt-out que las reglas y los masivos de SMS y
+  // correo — se cuentan como "sinTelefono" para no inventar otra categoría.
+  const conTelefono = clientesEncontrados.filter((c) => c.telefono && isValidTelefono(c.telefono) && !c.sinComunicacionAuto);
   const cuponPorClienteId = await generarCuponesMasivos(conTelefono, opts, `WhatsApp masivo - ${plantilla.nombre}`, enviadoPor);
   if (!cuponPorClienteId) {
     return { total: clientesEncontrados.length, enviados: 0, fallidos: clientesEncontrados.length, sinTelefono: 0, cuponError: true };
   }
 
   for (const cliente of clientesEncontrados) {
-    if (!cliente.telefono || !isValidTelefono(cliente.telefono)) {
+    if (!cliente.telefono || !isValidTelefono(cliente.telefono) || cliente.sinComunicacionAuto) {
       resultado.sinTelefono++;
       continue;
     }

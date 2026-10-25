@@ -2,15 +2,22 @@ import "server-only";
 
 import { and, eq, gte, isNotNull, lt, lte } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, ingresos, precios, suscripcionesOneclick } from "@/db/schema";
+import { clientes, ingresos, precios, reglasCorreo, suscripcionesOneclick, ventas } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import { preciosFromRows } from "@/lib/dataAccess/precios";
-import { listarReglasCorreoActivas, obtenerPlantillaCorreo, registrarDisparoReglaCorreo } from "@/lib/dataAccess/mail";
+import {
+  listarDisparosProgramadosCorreoVencidos,
+  listarReglasCorreoActivas,
+  marcarDisparoReglaCorreo,
+  obtenerPlantillaCorreo,
+  registrarDisparoReglaCorreo,
+  reglaCorreoFromRow,
+} from "@/lib/dataAccess/mail";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { ofertaConCupon } from "@/lib/helpers/ofertasPlan";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos/cuponPlan";
 import { montoDescuento, periodoPlan, planVigente, precioRenovacionATiempo, uid } from "@/lib/helpers";
-import { construirVariables, ejecutarAccionReglaCorreo, MS_POR_DIA } from "./motor";
+import { buscarCliente, construirVariables, ejecutarAccionReglaCorreo, MS_POR_DIA } from "./motor";
 import type { ReglaCorreo } from "@/types";
 
 // Cuánto atrás se sigue considerando "recién vencido" para tipoEvento
@@ -54,9 +61,41 @@ export async function patentesConAutopago(): Promise<Set<string>> {
  * delay — a diferencia del cron de WhatsApp, la v1 de correo solo dispara
  * inmediato (delayDias=0 en venta_creada/cobro_fallido, ver disparadores.ts).
  */
-export async function procesarVencimientosCorreo(): Promise<{ procesados: number; errores: number }> {
+// Disparos "venta_creada" con delayDias > 0 cuya fecha ya llegó. Solo los
+// corre este cron diario, así que no hay dos procesos peleando el mismo.
+async function procesarDisparosProgramadosCorreo(): Promise<{ procesados: number; errores: number }> {
   let procesados = 0;
   let errores = 0;
+  const db = getDb();
+  for (const disparo of await listarDisparosProgramadosCorreoVencidos(new Date().toISOString())) {
+    try {
+      const [reglaRow] = await db.select().from(reglasCorreo).where(eq(reglasCorreo.id, disparo.reglaId)).limit(1);
+      const cliente = disparo.clienteId ? await buscarCliente(disparo.clienteId) : null;
+      if (!reglaRow || !cliente) {
+        await marcarDisparoReglaCorreo(disparo.id, { estado: "error", error: "regla o cliente no existe" });
+        errores++;
+        continue;
+      }
+      const regla = reglaCorreoFromRow(reglaRow);
+      if (!regla.activa) {
+        await marcarDisparoReglaCorreo(disparo.id, { estado: "error", error: "regla apagada antes del envío" });
+        continue;
+      }
+      const [venta] =
+        disparo.origenTipo === "venta" ? await db.select({ precio: ventas.precio }).from(ventas).where(eq(ventas.id, disparo.origenId)).limit(1) : [];
+      await ejecutarAccionReglaCorreo(regla, disparo.id, cliente, construirVariables({ cliente, monto: venta?.precio }));
+      procesados++;
+    } catch (error) {
+      console.error("Error procesando disparo programado de correo", disparo.id, error);
+      await marcarDisparoReglaCorreo(disparo.id, { estado: "error", error: "excepción" }).catch(() => {});
+      errores++;
+    }
+  }
+  return { procesados, errores };
+}
+
+export async function procesarVencimientosCorreo(): Promise<{ procesados: number; errores: number }> {
+  let { procesados, errores } = await procesarDisparosProgramadosCorreo();
   const ahoraISO = new Date().toISOString();
   const db = getDb();
 
