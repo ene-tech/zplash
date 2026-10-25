@@ -49,6 +49,8 @@ export interface Cliente extends DatosFacturacion {
   sinComunicacionAuto?: boolean;
   // Ver nonGrato en db/schema/clientes.ts — true bloquea ingreso y cobros.
   nonGrato?: boolean;
+  // Ver invitacionVipHasta en db/schema/clientes.ts.
+  invitacionVipHasta?: string | null;
   origen?: "WEB" | "LOCAL";
   visitas?: number;
   ultimaVisita?: string;

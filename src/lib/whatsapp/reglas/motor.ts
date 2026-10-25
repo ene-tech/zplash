@@ -318,7 +318,7 @@ export async function promoVipParaCliente(
   const lista = filas
     .map(cuponFromRow)
     .map((c) => (recienUsado && c.codigo === recienUsado.codigo ? { ...c, usado: true, fechaUso: c.fechaUso || recienUsado.fecha } : c));
-  const oferta = ofertaPromoVip(lista, p);
+  const oferta = ofertaPromoVip(lista, p, new Date(), cliente.invitacionVipHasta);
   return oferta ? { precio, vence: oferta.vence } : undefined;
 }
 

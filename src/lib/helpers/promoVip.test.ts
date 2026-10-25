@@ -76,3 +76,19 @@ describe("libresVipDePatente", () => {
     expect(libresVipDePatente(vip, "CD5678", new Date("2026-10-02T00:00:00.000Z"))).toEqual([]);
   });
 });
+
+describe("ofertaPromoVip con invitación manual", () => {
+  const viejo = () => packDeCuatro().map((c) => usar(c, "2026-10-05T15:00:00.000Z"));
+  const ahora = new Date("2026-10-25T15:00:00.000Z");
+
+  it("pasadas las 120 h, la invitación la vuelve a abrir hasta su fecha", () => {
+    expect(ofertaPromoVip(viejo(), "AB1234", ahora)).toBeUndefined();
+    expect(ofertaPromoVip(viejo(), "AB1234", ahora, "2026-10-30T15:00:00.000Z")).toEqual({ vence: "2026-10-30T15:00:00.000Z" });
+    expect(ofertaPromoVip(viejo(), "AB1234", ahora, "2026-10-20T15:00:00.000Z")).toBeUndefined();
+  });
+
+  it("no aplica si todavía tiene tickets vivos", () => {
+    const vivos = packDeCuatro();
+    expect(ofertaPromoVip(vivos, "AB1234", new Date("2026-10-02T00:00:00.000Z"), "2026-10-30T15:00:00.000Z")).toBeUndefined();
+  });
+});

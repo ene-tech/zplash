@@ -394,13 +394,22 @@ export function libresVipDePatente(lista: Cupon[], patente: string, ahora: Date 
  * venció sin usar), no le queda ningún ticket vivo y no pasaron
  * HORAS_VENTANA_PROMO_VIP desde ese canje. Comprar la VIP le deja tickets
  * vivos, así que la oferta se apaga sola; al gastar el 4º de la VIP se abre
- * de nuevo. `vence` es el límite para comprarla. */
-export function ofertaPromoVip(lista: Cupon[], patente: string, ahora: Date = new Date()): { vence: string } | undefined {
+ * de nuevo. `vence` es el límite para comprarla.
+ *
+ * `invitacionHasta` (Cliente.invitacionVipHasta): invitación manual, vale
+ * hasta esa fecha para quien no tenga tickets vivos, sin mirar el último. */
+export function ofertaPromoVip(
+  lista: Cupon[],
+  patente: string,
+  ahora: Date = new Date(),
+  invitacionHasta?: string | null
+): { vence: string } | undefined {
   const p = normPlate(patente);
   const delAuto = lista.filter(
     (c) => c.tipo === "vale" && KEYS_PROMOS_LAVADOS.includes(c.nombreLote) && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)
   );
   if (delAuto.some((c) => !c.usado && new Date(c.fechaCaducidad) > ahora)) return undefined;
+  if (invitacionHasta && new Date(invitacionHasta) > ahora) return { vence: invitacionHasta };
   const ultimo = delAuto
     .filter((c) => c.usado && c.fechaUso)
     .sort((a, b) => new Date(b.fechaUso!).getTime() - new Date(a.fechaUso!).getTime())[0];

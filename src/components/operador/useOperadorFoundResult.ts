@@ -229,7 +229,7 @@ export function useOperadorFoundResult(
 
   // Promo 5 Tickets VIP: gastó el último ticket de un pack de 4 hace menos de
   // 120 h (ver ofertaPromoVip). Solo mesón.
-  const ofertaVip = !planVigente ? ofertaPromoVip(data.cupones, c.patente) : undefined;
+  const ofertaVip = !planVigente ? ofertaPromoVip(data.cupones, c.patente, new Date(), c.invitacionVipHasta) : undefined;
   const precioVip = precioPromoVip(data.precios);
   const promoVip = ofertaVip && precioVip > 0 ? { precio: precioVip, vence: ofertaVip.vence } : undefined;
 
