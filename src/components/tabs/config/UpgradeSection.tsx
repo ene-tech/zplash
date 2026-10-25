@@ -4,11 +4,15 @@ import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useAppData } from "@/context/AppContext";
 import {
+  HORAS_VENTANA_PROMO_VIP,
   PROMOS_LAVADOS,
+  PROMO_VIP_KEY,
+  TICKETS_VIP_PATENTE,
   TICKETS_UPGRADE_DESCUENTO,
   TICKETS_UPGRADE_PACK,
   UPGRADE_DESCUENTO_KEY,
   UPGRADE_PACK_KEY,
+  precioPromoVip,
   precioUpgradeDescuento,
   precioUpgradePack,
 } from "@/lib/helpers";
@@ -23,6 +27,7 @@ export default function UpgradeSection() {
   const { data, commit } = useAppData();
   const [precioVal, setPrecioVal] = useState(() => String(precioUpgradePack(data.precios)));
   const [precioDescuentoVal, setPrecioDescuentoVal] = useState(() => String(precioUpgradeDescuento(data.precios)));
+  const [precioVipVal, setPrecioVipVal] = useState(() => String(precioPromoVip(data.precios)));
   const [horasVentanaVal, setHorasVentanaVal] = useState(() => String(data.config.horasVentanaUpgradePlan));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
@@ -36,6 +41,7 @@ export default function UpgradeSection() {
         ...data.precios,
         [UPGRADE_PACK_KEY]: { normal: Number(precioVal) || 0, promo: 0 },
         [UPGRADE_DESCUENTO_KEY]: { normal: Number(precioDescuentoVal) || 0, promo: 0 },
+        [PROMO_VIP_KEY]: { normal: Number(precioVipVal) || 0, promo: 0 },
       },
     });
     setGuardando(false);
@@ -58,6 +64,13 @@ export default function UpgradeSection() {
           apaga
         </label>
         <PriceInput value={precioDescuentoVal} onChange={setPrecioDescuentoVal} />
+      </div>
+      <div className="field" style={{ margin: 0 }}>
+        <label>
+          {PROMO_VIP_KEY} (solo mesón, hasta {HORAS_VENTANA_PROMO_VIP} h después de gastar el último ticket de un pack de 4):{" "}
+          {TICKETS_VIP_PATENTE} tickets para la patente + 1 libre — $0 la apaga
+        </label>
+        <PriceInput value={precioVipVal} onChange={setPrecioVipVal} />
       </div>
       <div className="field" style={{ margin: 0 }}>
         <label>Horas disponibles para el upgrade (usa múltiplos de 24 para días, ej: 48 = 2 días)</label>

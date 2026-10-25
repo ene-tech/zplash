@@ -5,7 +5,7 @@ import { getDb } from "@/db";
 import { cupones } from "@/db/schema";
 import { listarReglasWhatsappActivas, marcarDisparoReglaWhatsapp, registrarDisparoReglaWhatsapp } from "@/lib/dataAccess/whatsapp";
 import { KEYS_PROMOS_LAVADOS, mesKey, uid } from "@/lib/helpers";
-import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA } from "./motor";
+import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA, promoVipParaCliente } from "./motor";
 import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
 
 // Desde oct-2026 un lavado pagado con cupón de descuento o con ticket no suma
@@ -91,16 +91,23 @@ export async function evaluarReglasPorVenta(ventasNuevas: Venta[]): Promise<void
 // "ingreso_ticket": el auto pasó canjeando un ticket de pack. No sale si el
 // ticket es de un pack recién comprado (el primero se canjea en la misma
 // compra y esa ya tiene su confirmación, ver las reglas "venta_creada" de los
-// packs).
+// packs). Si con ese canje gastó el último de un pack de 4, salen en su lugar
+// las de "ultimo_ticket_pack" (oferta VIP, ver ofertaPromoVip). El ticket
+// libre de una VIP (sin patente) no dispara nada: lo usa otro auto.
 const VENTANA_PACK_RECIEN_COMPRADO_MS = 60 * 60_000;
 
-async function dispararPorIngresoTicket(reglas: ReglaWhatsapp[], ingreso: Ingreso): Promise<void> {
+async function dispararPorIngresoTicket(reglasTicket: ReglaWhatsapp[], reglasUltimo: ReglaWhatsapp[], ingreso: Ingreso): Promise<void> {
   if (!ingreso.clienteId || !ingreso.viaCupon || !ingreso.cuponCodigo) return;
   const [ticket] = await getDb().select().from(cupones).where(eq(cupones.codigo, ingreso.cuponCodigo)).limit(1);
-  if (!ticket || !KEYS_PROMOS_LAVADOS.includes(ticket.nombreLote)) return;
+  if (!ticket || !KEYS_PROMOS_LAVADOS.includes(ticket.nombreLote) || !ticket.patentesAutorizadas?.length) return;
   if (new Date(ingreso.fecha).getTime() - new Date(ticket.creadoEn).getTime() < VENTANA_PACK_RECIEN_COMPRADO_MS) return;
   const cliente = await buscarCliente(ingreso.clienteId);
   if (!cliente) return;
+  // Sin reglas de la VIP activas (o con la VIP apagada), la última pasada
+  // recibe el aviso de siempre ("usaste el último lavado de tu pack").
+  const ofreceVip =
+    reglasUltimo.length > 0 && !!(await promoVipParaCliente(cliente, { codigo: ticket.codigo, fecha: ingreso.fecha }));
+  const reglas = ofreceVip ? reglasUltimo : reglasTicket;
   for (const regla of reglas) {
     const disparo = await registrarDisparoReglaWhatsapp({
       id: uid(),
@@ -139,22 +146,24 @@ export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promis
   let reglas: ReglaWhatsapp[];
   let reglasPrimerIngresoMes: ReglaWhatsapp[];
   let reglasTicket: ReglaWhatsapp[];
+  let reglasUltimoTicket: ReglaWhatsapp[];
   try {
-    [reglas, reglasPrimerIngresoMes, reglasTicket] = await Promise.all([
+    [reglas, reglasPrimerIngresoMes, reglasTicket, reglasUltimoTicket] = await Promise.all([
       listarReglasWhatsappActivas("ingreso_plan_registrado"),
       listarReglasWhatsappActivas("primer_ingreso_mes"),
       listarReglasWhatsappActivas("ingreso_ticket"),
+      listarReglasWhatsappActivas("ultimo_ticket_pack"),
     ]);
   } catch (error) {
     console.error("Error cargando reglas WhatsApp (ingreso_plan_registrado/primer_ingreso_mes/ingreso_ticket)", error);
     return;
   }
-  if (!reglas.length && !reglasPrimerIngresoMes.length && !reglasTicket.length) return;
+  if (!reglas.length && !reglasPrimerIngresoMes.length && !reglasTicket.length && !reglasUltimoTicket.length) return;
 
   for (const ingreso of ingresosNuevos) {
-    if (reglasTicket.length) {
+    if (reglasTicket.length || reglasUltimoTicket.length) {
       // Un fallo acá no frena las reglas de plan de este ingreso ni de los siguientes.
-      await dispararPorIngresoTicket(reglasTicket, ingreso).catch((error) =>
+      await dispararPorIngresoTicket(reglasTicket, reglasUltimoTicket, ingreso).catch((error) =>
         console.error(`Error evaluando reglas ingreso_ticket para ingreso ${ingreso.id}`, error)
       );
     }

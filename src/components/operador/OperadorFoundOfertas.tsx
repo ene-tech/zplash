@@ -3,7 +3,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
-import { PASES_INCLUIDOS_X5, PLANES, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, fmtCLP, fmtFecha } from "@/lib/helpers";
+import { DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, fmtCLP, fmtFecha, fmtHora } from "@/lib/helpers";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
 // Lo que el operador tiene que contarle al cliente que todavía anda con el
@@ -60,6 +60,8 @@ type Props = Pick<
   | "cobrarUpgradePack"
   | "upgradeDescuento"
   | "cobrarUpgradeDescuento"
+  | "promoVip"
+  | "cobrarPromoVip"
   | "precioQrTarjeta"
   | "perfilId"
 >;
@@ -155,6 +157,24 @@ export default function OperadorFoundOfertas(props: Props) {
           </div>
           <button className="btn secondary" onClick={() => props.cobrarUpgradePack(props.upgradePack!)} disabled={guardando}>
             Cobrar {TICKETS_UPGRADE_PACK} lavados más (+{fmtCLP(props.upgradePack.precio)})
+          </button>
+        </div>
+      )}
+      {props.promoVip && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <h4>{PROMO_VIP_KEY}</h4>
+          </div>
+          <div className="msg">
+            {c.nombre} terminó su pack. Por {fmtCLP(props.promoVip.precio)} se lleva {TICKETS_VIP_PATENTE} lavados para esta
+            patente y 1 libre que sirve para este o cualquier otro auto, a usar en {DIAS_PROMO_VIP} días. La oferta vale hasta el{" "}
+            {fmtFecha(props.promoVip.vence)} a las {fmtHora(props.promoVip.vence)}.
+          </div>
+          <div className="price-row">
+            <span className="new">{fmtCLP(props.promoVip.precio)}</span>
+          </div>
+          <button className="btn secondary" onClick={() => props.cobrarPromoVip(props.promoVip!.precio)} disabled={guardando}>
+            Cobrar {PROMO_VIP_KEY} ({fmtCLP(props.promoVip.precio)})
           </button>
         </div>
       )}

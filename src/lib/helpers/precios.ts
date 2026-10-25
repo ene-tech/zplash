@@ -708,8 +708,31 @@ export const PROMOS_LAVADOS = {
 export type IdPromoLavados = keyof typeof PROMOS_LAVADOS;
 export type PromoLavados = (typeof PROMOS_LAVADOS)[IdPromoLavados];
 export const IDS_PROMOS_LAVADOS = Object.keys(PROMOS_LAVADOS) as IdPromoLavados[];
+/**
+ * Promo 5 Tickets VIP (oct-2026): la recompra del que gastó el último ticket
+ * de un pack de 4 (Promo 4 Lavados, su upgrade, o una VIP anterior). Por el
+ * precio se lleva TICKETS_VIP_PATENTE tickets para su patente más 1 libre, un
+ * código que sirve para cualquier auto (ver esTicketLibreVip). No es el
+ * Plan X5: son tickets, sin renovación. Solo mesón, y solo dentro de
+ * HORAS_VENTANA_PROMO_VIP desde ese último ticket (ver ofertaPromoVip). Esta
+ * clave es la fila de `precios`, el `Venta.tipo` y el `nombreLote` de los 5.
+ */
+export const PROMO_VIP_KEY = "Promo 5 Tickets VIP";
+export const PRECIO_PROMO_VIP = 19990;
+export const TICKETS_VIP_PATENTE = 4;
+export const DIAS_PROMO_VIP = 30;
+export const HORAS_VENTANA_PROMO_VIP = 120;
+
+/** Sin fila vale el de siempre; con la fila en $0 queda apagada. */
+export function precioPromoVip(precios: Precios): number {
+  return precios[PROMO_VIP_KEY] ? precios[PROMO_VIP_KEY].normal : PRECIO_PROMO_VIP;
+}
+
+/** Los packs cuyo último ticket abre la oferta VIP: los de 4 para un auto. */
+export const KEYS_PACKS_DE_CUATRO: string[] = [PROMO_5_LAVADOS_KEY, PROMO_VIP_KEY];
+
 /** Los `nombreLote` de todos los packs: para encontrar sus tickets por patente. */
-export const KEYS_PROMOS_LAVADOS: string[] = IDS_PROMOS_LAVADOS.map((id) => PROMOS_LAVADOS[id].key);
+export const KEYS_PROMOS_LAVADOS: string[] = [...IDS_PROMOS_LAVADOS.map((id) => PROMOS_LAVADOS[id].key), PROMO_VIP_KEY];
 export const esIdPromoLavados = (v: unknown): v is IdPromoLavados => typeof v === "string" && Object.hasOwn(PROMOS_LAVADOS, v);
 
 /** Precio de un pack, editable en Configuración → "Lavado túnel" (junto al

@@ -4,7 +4,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones } from "@/db/schema";
 import type { Cupon } from "@/types";
-import { KEYS_PROMOS_LAVADOS, generarCodigoCupon, uid } from "@/lib/helpers";
+import { KEYS_PROMOS_LAVADOS, PROMO_VIP_KEY, generarCodigoCupon, uid } from "@/lib/helpers";
 import { upsertRows } from "./shared";
 
 type CuponRow = typeof cupones.$inferSelect;
@@ -16,12 +16,13 @@ type CuponRow = typeof cupones.$inferSelect;
 export function cuponesDeLaCuentaWhere(email: string, clienteIds: string[]) {
   const porEmail = sql`lower(${cupones.email}) = ${email.trim().toLowerCase()}`;
   if (!clienteIds.length) return porEmail;
+  const patentesCuenta = sql`ARRAY(SELECT ${clientes.patente} FROM ${clientes} WHERE ${inArray(clientes.id, clienteIds)})`;
   return or(
     porEmail,
-    and(
-      inArray(cupones.nombreLote, KEYS_PROMOS_LAVADOS),
-      sql`jsonb_exists_any(${cupones.patentesAutorizadas}, ARRAY(SELECT ${clientes.patente} FROM ${clientes} WHERE ${inArray(clientes.id, clienteIds)}))`
-    )
+    and(inArray(cupones.nombreLote, KEYS_PROMOS_LAVADOS), sql`jsonb_exists_any(${cupones.patentesAutorizadas}, ${patentesCuenta})`),
+    // El libre de la Promo 5 Tickets VIP no tiene patente autorizada: es de la
+    // cuenta por la patente que lo compró (patenteAsignada).
+    and(eq(cupones.nombreLote, PROMO_VIP_KEY), sql`${cupones.patenteAsignada} = ANY(${patentesCuenta})`)
   );
 }
 

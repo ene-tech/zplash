@@ -29,6 +29,9 @@ import {
   precioSoloTunel,
   precioUpgradePack,
   precioUpgradeDescuento,
+  ofertaPromoVip,
+  libresVipDePatente,
+  precioPromoVip,
   precioRenovacionATiempo,
   precioRenovacionLocal,
   ticketsVigentesDePatente,
@@ -202,7 +205,7 @@ export function useOperadorFoundResult(
   // Tickets que esta patente puede canjear sin código — los de la Promo 2
   // Lavados y los de un Pack de Tickets con flota (ver
   // ticketsVigentesDePatente). Se ofrecen arriba, antes de cobrarle nada.
-  const ticketsPatente = ticketsVigentesDePatente(data.cupones, c.patente);
+  const ticketsPatente = [...ticketsVigentesDePatente(data.cupones, c.patente), ...libresVipDePatente(data.cupones, c.patente)];
   // $0 = pack apagado: su botón no se muestra (ver precioPromoLavados).
   const precioPromo2 = precioPromoLavados(data.precios, "promo_2_lavados");
   const precioPromo5 = precioPromoLavados(data.precios, "promo_5_lavados");
@@ -223,6 +226,12 @@ export function useOperadorFoundResult(
   const precioUpgradeDesc = precioUpgradeDescuento(data.precios);
   const upgradeDescuento =
     lavadoUpgradeDescuento && precioUpgradeDesc > 0 ? { precio: precioUpgradeDesc, lavado: lavadoUpgradeDescuento } : undefined;
+
+  // Promo 5 Tickets VIP: gastó el último ticket de un pack de 4 hace menos de
+  // 120 h (ver ofertaPromoVip). Solo mesón.
+  const ofertaVip = !planVigente ? ofertaPromoVip(data.cupones, c.patente) : undefined;
+  const precioVip = precioPromoVip(data.precios);
+  const promoVip = ofertaVip && precioVip > 0 ? { precio: precioVip, vence: ofertaVip.vence } : undefined;
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
@@ -292,12 +301,14 @@ export function useOperadorFoundResult(
     precioSoloTunel: precioSoloTunelMeson,
     upgradePack,
     upgradeDescuento,
+    promoVip,
     ...ingreso,
     ...ficha,
     registrar: conFichaCompleta(ingreso.registrar),
     registrarPagado: conFichaCompleta(ingreso.registrarPagado),
     cobrarLavadoUnico: conFichaCompleta(ingreso.cobrarLavadoUnico),
     cobrarPromoLavados: conFichaCompleta(ingreso.cobrarPromoLavados),
+    cobrarPromoVip: conFichaCompleta(ingreso.cobrarPromoVip),
     cobrarSoloTunel: conFichaCompleta(ingreso.cobrarSoloTunel),
     cobrarUpgradePack: conFichaCompleta(ingreso.cobrarUpgradePack),
     cobrarUpgradeDescuento: conFichaCompleta(ingreso.cobrarUpgradeDescuento),

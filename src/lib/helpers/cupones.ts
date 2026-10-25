@@ -1,6 +1,16 @@
 import type { Cliente, Cupon, Venta } from "@/types";
 import { findClient } from "./clientes";
-import { PROMOS_LAVADOS, fmtCLP, type IdPromoLavados } from "./precios";
+import {
+  DIAS_PROMO_VIP,
+  HORAS_VENTANA_PROMO_VIP,
+  KEYS_PACKS_DE_CUATRO,
+  KEYS_PROMOS_LAVADOS,
+  PROMOS_LAVADOS,
+  PROMO_VIP_KEY,
+  TICKETS_VIP_PATENTE,
+  fmtCLP,
+  type IdPromoLavados,
+} from "./precios";
 import { limpiarRut, normPlate } from "./validadores";
 import { rechazoCodigoReferido } from "@/lib/referidos";
 
@@ -323,6 +333,84 @@ export function cuponesUpgradeDescuento(
 ): Cupon[] {
   const { lavado, ...resto } = p;
   return cuponesPromoLavados({ ...resto, promo: "promo_2_lavados", vigenciaDesde: new Date(lavado.fecha) });
+}
+
+/** Los 5 tickets de la Promo 5 Tickets VIP (ver PROMO_VIP_KEY): los
+ * TICKETS_VIP_PATENTE primeros atados a la patente, como un pack, y el último
+ * libre — sin patentes autorizadas: lo usa el auto del dueño o cualquier otro
+ * tipeando el código (ver esTicketLibreVip). `patenteAsignada` y `email` lo
+ * dejan a nombre del dueño en su ficha y en Mi Cuenta, sin restringirlo. */
+export function cuponesPromoVip(p: {
+  patente: string;
+  email?: string | null;
+  precio: number;
+  existentes: Set<string>;
+  creadoPor: string;
+  idBase: string;
+  ahora?: Date;
+}): Cupon[] {
+  const ahora = p.ahora ?? new Date();
+  const patente = normPlate(p.patente);
+  const total = TICKETS_VIP_PATENTE + 1;
+  const fechaCaducidad = new Date(ahora.getTime() + DIAS_PROMO_VIP * 86400000).toISOString();
+  return Array.from({ length: total }, (_, i) => {
+    const codigo = generarCodigoCupon(p.existentes);
+    p.existentes.add(codigo);
+    return {
+      id: `${p.idBase}-${i + 1}`,
+      codigo,
+      nombreLote: PROMO_VIP_KEY,
+      valor: Math.round(p.precio / total),
+      numeroLote: i + 1,
+      totalLote: total,
+      fechaCaducidad,
+      usado: false,
+      creadoEn: ahora.toISOString(),
+      creadoPor: p.creadoPor,
+      tipo: "vale" as const,
+      patenteAsignada: patente,
+      patentesAutorizadas: i < TICKETS_VIP_PATENTE ? [patente] : undefined,
+      email: p.email?.trim().toLowerCase() || undefined,
+    };
+  });
+}
+
+/** El ticket libre de una VIP: sirve para cualquier auto, también el del dueño. */
+export function esTicketLibreVip(c: Pick<Cupon, "nombreLote" | "patentesAutorizadas">): boolean {
+  return c.nombreLote === PROMO_VIP_KEY && !c.patentesAutorizadas?.length;
+}
+
+/** Los libres de VIP vivos que compró esta patente: en su ficha van después
+ * de sus tickets, para que se gasten primero los que solo sirven a ese auto. */
+export function libresVipDePatente(lista: Cupon[], patente: string, ahora: Date = new Date()): Cupon[] {
+  const p = normPlate(patente);
+  return lista.filter(
+    (c) => esTicketLibreVip(c) && !c.usado && new Date(c.fechaCaducidad) > ahora && normPlate(c.patenteAsignada) === p
+  );
+}
+
+/** Oferta VIP para esta patente: el último ticket que gastó es de un pack de
+ * 4 (KEYS_PACKS_DE_CUATRO), ese pack quedó entero usado (no vale si el resto
+ * venció sin usar), no le queda ningún ticket vivo y no pasaron
+ * HORAS_VENTANA_PROMO_VIP desde ese canje. Comprar la VIP le deja tickets
+ * vivos, así que la oferta se apaga sola; al gastar el 4º de la VIP se abre
+ * de nuevo. `vence` es el límite para comprarla. */
+export function ofertaPromoVip(lista: Cupon[], patente: string, ahora: Date = new Date()): { vence: string } | undefined {
+  const p = normPlate(patente);
+  const delAuto = lista.filter(
+    (c) => c.tipo === "vale" && KEYS_PROMOS_LAVADOS.includes(c.nombreLote) && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)
+  );
+  if (delAuto.some((c) => !c.usado && new Date(c.fechaCaducidad) > ahora)) return undefined;
+  const ultimo = delAuto
+    .filter((c) => c.usado && c.fechaUso)
+    .sort((a, b) => new Date(b.fechaUso!).getTime() - new Date(a.fechaUso!).getTime())[0];
+  if (!ultimo || !KEYS_PACKS_DE_CUATRO.includes(ultimo.nombreLote)) return undefined;
+  // Mismo pack = mismo lote y misma caducidad (el upgrade y la web emiten
+  // todos los tickets de una compra con la misma).
+  const mismoPack = delAuto.filter((c) => c.nombreLote === ultimo.nombreLote && c.fechaCaducidad === ultimo.fechaCaducidad);
+  if (mismoPack.some((c) => !c.usado)) return undefined;
+  const vence = new Date(new Date(ultimo.fechaUso!).getTime() + HORAS_VENTANA_PROMO_VIP * 3600_000);
+  return vence > ahora ? { vence: vence.toISOString() } : undefined;
 }
 
 /** Tickets ("vale") que esta patente puede canjear ahora mismo sin código:

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones as cuponesTabla, disparosReglaWhatsapp, ingresos as ingresosTabla, precios as preciosTabla } from "@/db/schema";
 // Import directo a los submódulos de dataAccess (no al barrel @/lib/dataAccess)
@@ -13,8 +13,13 @@ import { cuponFromRow, cuponToRow } from "@/lib/dataAccess/cupones";
 import { preciosFromRows } from "@/lib/dataAccess/precios";
 import { marcarDisparoReglaWhatsapp, obtenerPlantillaWhatsapp } from "@/lib/dataAccess/whatsapp";
 import {
+  HORAS_VENTANA_PROMO_VIP,
   KEYS_PROMOS_LAVADOS,
+  PROMO_VIP_KEY,
   aplicarVariables,
+  esTicketLibreVip,
+  ofertaPromoVip,
+  planStatus,
   esEmailEnviable,
   fmtCLP,
   fmtFecha,
@@ -22,6 +27,7 @@ import {
   normPlate,
   pasesRestantes,
   precioLavadoAdicional,
+  precioPromoVip,
   ticketsVigentesDePatente,
   uid,
 } from "@/lib/helpers";
@@ -293,6 +299,29 @@ async function cuponDelDisparo(regla: ReglaWhatsapp, disparoId: string, cliente:
   return guardado ? cuponFromRow(guardado) : null;
 }
 
+/** La oferta VIP de este cliente con los mismos filtros del mesón (ver
+ * useOperadorFoundResult): VIP prendida (precio > 0), sin plan vigente y
+ * ofertaPromoVip sobre los tickets de su patente. `recienUsado` es el canje
+ * que disparó la regla, que puede no verse todavía como usado en la base. */
+export async function promoVipParaCliente(
+  cliente: Cliente,
+  recienUsado?: { codigo: string; fecha: string }
+): Promise<{ precio: number; vence: string } | undefined> {
+  if (planStatus(cliente).cls !== "bad") return undefined;
+  const precio = precioPromoVip(preciosFromRows(await getDb().select().from(preciosTabla)));
+  if (precio <= 0) return undefined;
+  const p = normPlate(cliente.patente);
+  const filas = await getDb()
+    .select()
+    .from(cuponesTabla)
+    .where(and(inArray(cuponesTabla.nombreLote, KEYS_PROMOS_LAVADOS), sql`${cuponesTabla.patentesAutorizadas} ? ${p}`));
+  const lista = filas
+    .map(cuponFromRow)
+    .map((c) => (recienUsado && c.codigo === recienUsado.codigo ? { ...c, usado: true, fechaUso: c.fechaUso || recienUsado.fecha } : c));
+  const oferta = ofertaPromoVip(lista, p);
+  return oferta ? { precio, vence: oferta.vence } : undefined;
+}
+
 const pideVariable = (plantilla: PlantillaWhatsapp, v: string) => plantilla.mensaje.includes(`{{${v}}}`) || !!plantilla.nombre?.includes(`{{${v}}}`);
 
 // Variables que salen de otras tablas: se consultan solo si la plantilla las
@@ -304,6 +333,11 @@ const pideVariable = (plantilla: PlantillaWhatsapp, v: string) => plantilla.mens
 // - lavadosRestantes: pasadas que le quedan en el ciclo del plan (ver
 //   pasesRestantes); vacío si el plan no tiene tope.
 // - precioLavadoAdicional: lo que paga el de plan que ya gastó sus pasadas.
+// - precioPromoVip / fechaLimitePromoVip: la oferta del que gastó el último
+//   ticket de un pack de 4 (ver "ultimo_ticket_pack" y promoVipParaCliente);
+//   el límite es el mismo que ve el mesón.
+// - codigoTicketLibre: el libre de la última Promo 5 Tickets VIP de la patente,
+//   para la confirmación de esa compra.
 async function variablesCalculadas(plantilla: PlantillaWhatsapp, cliente: Cliente, ticketUsado?: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   if (["ticketsRestantes", "fechaVencimientoTickets", "resumenTickets"].some((v) => pideVariable(plantilla, v))) {
@@ -334,6 +368,29 @@ async function variablesCalculadas(plantilla: PlantillaWhatsapp, cliente: Client
   }
   if (pideVariable(plantilla, "precioLavadoAdicional")) {
     out.precioLavadoAdicional = fmtCLP(precioLavadoAdicional(preciosFromRows(await getDb().select().from(preciosTabla))));
+  }
+  if (["precioPromoVip", "fechaLimitePromoVip"].some((v) => pideVariable(plantilla, v))) {
+    const vip = await promoVipParaCliente(cliente, ticketUsado ? { codigo: ticketUsado, fecha: new Date().toISOString() } : undefined);
+    out.precioPromoVip = fmtCLP(vip?.precio ?? precioPromoVip(preciosFromRows(await getDb().select().from(preciosTabla))));
+    // Con zona explícita: el servidor corre en UTC.
+    out.fechaLimitePromoVip = new Date(vip?.vence ?? Date.now() + HORAS_VENTANA_PROMO_VIP * 3600_000).toLocaleString("es-CL", {
+      timeZone: "America/Santiago",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  if (pideVariable(plantilla, "codigoTicketLibre")) {
+    const filas = await getDb()
+      .select()
+      .from(cuponesTabla)
+      .where(and(eq(cuponesTabla.nombreLote, PROMO_VIP_KEY), eq(cuponesTabla.patenteAsignada, normPlate(cliente.patente)), eq(cuponesTabla.usado, false)));
+    const libre = filas
+      .map(cuponFromRow)
+      .filter((c) => esTicketLibreVip(c))
+      .sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime())[0];
+    out.codigoTicketLibre = libre?.codigo ?? "";
   }
   return out;
 }

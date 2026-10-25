@@ -7,7 +7,7 @@
  * cuadra con el asiento de ajuste de ingreso monetario, ver ArqueoDia—, pero
  * el tipo se queda acá para que las ventas históricas sigan sumando en su
  * fila de "Detalle de venta" y no caigan en "Otros". */
-import { PROMO_2_LAVADOS_KEY, PROMO_5_LAVADOS_KEY, SOLO_TUNEL_KEY, TIPO_VENTA_PRODUCTOS, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY } from "@/lib/helpers";
+import { PROMO_2_LAVADOS_KEY, PROMO_5_LAVADOS_KEY, PROMO_VIP_KEY, SOLO_TUNEL_KEY, TIPO_VENTA_PRODUCTOS, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY } from "@/lib/helpers";
 
 export const TIPO_VENTA_PUNTUAL = "Venta puntual";
 
@@ -18,6 +18,7 @@ export const PRODUCTOS_CIERRE = [
   { tipo: PROMO_5_LAVADOS_KEY, label: "Promo 4 lavados (4 tickets para un auto)" },
   { tipo: UPGRADE_PACK_KEY, label: "Upgrade a Promo 4 lavados (3 tickets sobre un Lavado Tunel / Uso Aspirado)" },
   { tipo: UPGRADE_DESCUENTO_KEY, label: "Upgrade lavado con descuento (2 tickets)" },
+  { tipo: PROMO_VIP_KEY, label: "Promo 5 Tickets VIP (4 para un auto + 1 libre)" },
   { tipo: "Plan nuevo", label: "Contratación de plan" },
   { tipo: "Renovación preferencial", label: "Renovación temprana" },
   { tipo: "Reactivación promocional", label: "Reactivación promocional (plan vencido)" },

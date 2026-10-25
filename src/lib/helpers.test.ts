@@ -2721,7 +2721,7 @@ describe("Promo 2 Lavados — tickets por patente", () => {
     const precios = { [PROMO_2_LAVADOS_KEY]: { normal: 15990, promo: 0 }, [PROMO_5_LAVADOS_KEY]: { normal: 19990, promo: 0 } };
     expect(precioPromoLavados(precios, "promo_5_lavados")).toBe(19990);
     expect(precioPromoLavados({}, "promo_5_lavados")).toBe(0);
-    expect(KEYS_PROMOS_LAVADOS).toEqual([PROMO_2_LAVADOS_KEY, PROMO_5_LAVADOS_KEY]);
+    expect(KEYS_PROMOS_LAVADOS).toEqual([PROMO_2_LAVADOS_KEY, PROMO_5_LAVADOS_KEY, "Promo 5 Tickets VIP"]);
   });
 });
 
