@@ -2,12 +2,24 @@ import type { Cliente, Ingreso } from "@/types";
 import { periodoPlan } from "./clientes";
 import { fmtCLP, pasesIncluidos, planVigente, PRECIO_LAVADO_UNICO } from "./precios";
 import { ahoraEnSantiago, fmtFecha, fmtHora, sumarMesesFecha, todayStr } from "./fechas";
+import { normPlate } from "./validadores";
 
 /** Si el cliente ya registró un ingreso hoy (para limitar a 1 pasada diaria por plan vigente). */
 export function yaIngresoHoy(ingresos: Ingreso[], clienteId: string): boolean {
   const hoy = todayStr();
   return ingresos.some((i) => i.clienteId === clienteId && new Date(i.fecha).toDateString() === hoy);
 }
+
+/** Si esta patente ya pasó hoy por el túnel, con o sin ficha: un ticket no se
+ * canjea el mismo día de otra pasada (oct-2026, regla del dueño — un pack son
+ * lavados para días distintos). */
+export function patenteYaPasoHoy(ingresos: Ingreso[], patente: string): boolean {
+  const p = normPlate(patente);
+  const hoy = todayStr();
+  return ingresos.some((i) => normPlate(i.patente) === p && new Date(i.fecha).toDateString() === hoy);
+}
+
+export const MSG_TICKET_YA_PASO_HOY = "Esta patente ya pasó hoy: los tickets se usan uno por día";
 
 export function ultimoIngresoCliente(ingresos: Ingreso[], clienteId: string): Ingreso | undefined {
   return ingresos

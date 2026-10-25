@@ -3,8 +3,10 @@
 import { useEffect, useState, type RefObject } from "react";
 import { useApp } from "@/context/AppContext";
 import {
+  MSG_TICKET_YA_PASO_HOY,
   PATENTE_FORMATO_MSG,
   ahoraEnSantiago,
+  patenteYaPasoHoy,
   cuponDelLoteUsadoPorPatente,
   dentroDeHorarioOperador,
   esExentoHorarioOperador,
@@ -139,6 +141,10 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
     }
     if (!patenteAutorizadaParaCupon(cupon, patente)) {
       setCuponErr({ msg: "Este ticket fue contratado para otra patente", ok: false });
+      return;
+    }
+    if (patenteYaPasoHoy(data.ingresos, patente)) {
+      setCuponErr({ msg: MSG_TICKET_YA_PASO_HOY, ok: false });
       return;
     }
     const yaCanjeadoDelLote = cuponDelLoteUsadoPorPatente(cupon, patente, data.cupones);

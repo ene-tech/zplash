@@ -102,9 +102,13 @@ export default function OperadorFoundOfertas(props: Props) {
             {new Date(tickets[0].fechaCaducidad).toLocaleDateString("es-CL")}. Úsalo para dejarlo entrar — no genera un
             cobro nuevo, ya se pagó.
           </div>
-          <button className="btn secondary" onClick={() => props.usarTicket(tickets[0])} disabled={guardando}>
-            Usar 1 ticket e ingresar
-          </button>
+          {props.yaPasoHoy ? (
+            <div className="msg">Ya pasó hoy: el próximo ticket se puede usar mañana.</div>
+          ) : (
+            <button className="btn secondary" onClick={() => props.usarTicket(tickets[0])} disabled={guardando}>
+              Usar 1 ticket e ingresar
+            </button>
+          )}
         </div>
       )}
       {props.citaDetailingPendiente && (

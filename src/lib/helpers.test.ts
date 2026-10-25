@@ -111,6 +111,7 @@ import {
   PROMO_2_LAVADOS_KEY,
   precioPromo2Lavados,
   ticketsVigentesDePatente,
+  patenteYaPasoHoy,
   ofertaConCupon,
   precioConCupon,
   marcarDescuentoUsado,
@@ -2737,5 +2738,17 @@ describe("neto e IVA de un monto bruto", () => {
     expect(brutoDeNeto(10000)).toBe(11900);
     expect(brutoDeNeto(2490)).toBe(2963);
     expect(brutoDeNeto(0)).toBe(0);
+  });
+});
+
+// Caso 24-oct-2026: un pack son lavados para días distintos, no dos el mismo día.
+describe("patenteYaPasoHoy", () => {
+  const ing = (patente: string, fecha: Date) => ({ id: "i", patente, fecha: fecha.toISOString() }) as Ingreso;
+  it("cuenta cualquier pasada de hoy de esa patente, con o sin ficha", () => {
+    expect(patenteYaPasoHoy([ing("ab-1234", new Date())], "AB1234")).toBe(true);
+  });
+  it("no cuenta otra patente ni una pasada de ayer", () => {
+    const ayer = new Date(Date.now() - 24 * 3600_000);
+    expect(patenteYaPasoHoy([ing("AB1234", ayer), ing("CD5678", new Date())], "AB1234")).toBe(false);
   });
 });

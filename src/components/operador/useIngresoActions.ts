@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { entregarPromoLavados, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { PROMOS_LAVADOS, SOLO_TUNEL_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
 import { conReglaVigente } from "./reglaVigente";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -322,6 +322,10 @@ export function useIngresoActions(
   const usarTicket = async (cliente: Cliente, ticketEnMemoria: Cupon) => {
     // La lista sale de la copia del mesón: el dueño del pack pudo haber sacado
     // esta patente de la regla desde Mi Cuenta (ver conReglaVigente).
+    if (patenteYaPasoHoy(data.ingresos, cliente.patente)) {
+      setGuardarErr(MSG_TICKET_YA_PASO_HOY);
+      return;
+    }
     const ticket = await conReglaVigente(ticketEnMemoria);
     if (!patenteAutorizadaParaCupon(ticket, cliente.patente)) {
       setGuardarErr("Este ticket ya no está autorizado para esta patente: el dueño del pack cambió la regla");
