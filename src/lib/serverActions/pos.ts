@@ -16,6 +16,7 @@ import {
 import * as dataAccess from "@/lib/dataAccess";
 import {
   beneficioCupon,
+  fmtCLP,
   generarCodigoCupon,
   generarFolioTraspaso,
   marcarDescuentoUsado,
@@ -258,17 +259,27 @@ export async function cotizarVentaPos(input: VentaPosInput): Promise<CotizacionP
  * cuya respuesta se perdió): se devuelve tal cual, sin volver a descontar
  * stock ni quemar el código. Solo ventas de tienda, para que el id no sirva
  * para leer otra cosa. */
-async function ventaPosYaRegistrada(ventaId: string | undefined): Promise<VentaPosResultado | null> {
+async function ventaPosYaRegistrada(input: VentaPosInput): Promise<VentaPosResultado | null> {
+  const { ventaId } = input;
   if (!ventaId || !FORMATO_VENTA_ID.test(ventaId)) return null;
   const db = getDb();
   const [row] = await db.select().from(ventas).where(eq(ventas.id, ventaId)).limit(1);
   if (!row || row.tipo !== TIPO_VENTA_PRODUCTOS) return null;
+  const guardada = dataAccess.ventaFromRow(row);
+  // El reintento trae otro pago (ej. pasaron la tarjeta de nuevo): ese
+  // segundo cobro no tiene venta y hay que anularlo, no darlo por bueno.
+  if ((input.voucher || "") !== (guardada.voucher || "") || (input.metodoPago || "") !== (guardada.metodoPago || "")) {
+    return {
+      ok: false,
+      error: `Esta venta ya había quedado registrada (${fmtCLP(guardada.precio)}${guardada.voucher ? `, voucher ${guardada.voucher}` : ""}). El cobro nuevo sobra: anúlalo y vacía el carrito.`,
+    };
+  }
   const items = await db.select().from(ventaItems).where(eq(ventaItems.ventaId, ventaId));
   const ids = items.map((it) => it.productoId).filter((id): id is string => !!id);
   const actualizados = ids.length ? await db.select().from(productos).where(inArray(productos.id, ids)) : [];
   return {
     ok: true,
-    venta: dataAccess.ventaFromRow(row),
+    venta: guardada,
     items: items.map((it) => ({ ...it, productoId: it.productoId || undefined })),
     productos: actualizados.map(dataAccess.productoFromRow),
     // El asiento y el código ya quedaron en la base; la pantalla los toma en
@@ -282,7 +293,7 @@ export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosR
   if ("error" in apertura) return { ok: false, error: apertura.error };
   const { sesion, fecha } = apertura;
 
-  const yaRegistrada = await ventaPosYaRegistrada(input.ventaId);
+  const yaRegistrada = await ventaPosYaRegistrada(input);
   if (yaRegistrada) return yaRegistrada;
 
   const db = getDb();
@@ -332,11 +343,11 @@ export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosR
       return { ...v, movimiento };
     });
   } catch (error) {
-    if (error instanceof RechazoVenta) return { ok: false, error: error.message, porCodigo: error.porCodigo || undefined };
     // Dos envíos del mismo cobro a la vez: el segundo choca con la PK de la
-    // venta que acaba de guardar el primero.
-    const yaRegistrada = await ventaPosYaRegistrada(input.ventaId).catch(() => null);
+    // venta que acaba de guardar el primero, o con el código que ese ya quemó.
+    const yaRegistrada = await ventaPosYaRegistrada(input).catch(() => null);
     if (yaRegistrada) return yaRegistrada;
+    if (error instanceof RechazoVenta) return { ok: false, error: error.message, porCodigo: error.porCodigo || undefined };
     console.error("Error registrando venta POS", error);
     return {
       ok: false,

@@ -12,7 +12,7 @@ import {
   registrarDisparoReglaWhatsapp,
   tomarDisparoProgramado,
 } from "@/lib/dataAccess/whatsapp";
-import { periodoPlan, planVigente, uid } from "@/lib/helpers";
+import { periodoPlan, planStatus, planVigente, uid } from "@/lib/helpers";
 import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
 import { LOTE_TICKET_REACTIVACION } from "@/lib/pagos/ticketReactivacion";
 import { buscarCliente, ejecutarAccionRegla, LOTE_CUPON_SIN_VISITA, MS_POR_DIA } from "./motor";
@@ -240,13 +240,21 @@ async function procesarSinVisita(ahoraISO: string): Promise<{ procesados: number
     if (dias <= 0) continue;
     const hasta = new Date(Date.now() - dias * MS_POR_DIA).toISOString();
     const desde = new Date(Date.now() - (dias + DIAS_VENTANA_SIN_VISITA) * MS_POR_DIA).toISOString();
-    const filas = await getDb()
-      .select()
-      .from(clientes)
-      .where(and(isNotNull(clientes.ultimaVisita), gt(clientes.ultimaVisita, desde), lte(clientes.ultimaVisita, hasta)));
+    let filas: (typeof clientes.$inferSelect)[];
+    try {
+      filas = await getDb()
+        .select()
+        .from(clientes)
+        .where(and(isNotNull(clientes.ultimaVisita), gt(clientes.ultimaVisita, desde), lte(clientes.ultimaVisita, hasta)));
+    } catch (error) {
+      console.error("Error buscando clientes sin visita", regla.id, error);
+      errores++;
+      continue;
+    }
 
     for (const row of filas) {
-      if (row.vencimiento && new Date(row.vencimiento) >= new Date(ahoraISO)) continue; // plan vigente
+      // Mismo criterio que el mesón (incluye el último día y la espera de Woo).
+      if (row.vencimiento && planStatus(clienteFromRow(row)).label !== "Vencido") continue;
       const disparo = await registrarDisparoReglaWhatsapp({
         id: uid(),
         reglaId: regla.id,
@@ -284,18 +292,25 @@ async function procesarCuponesPorVencer(ahoraISO: string): Promise<{ procesados:
   }
   for (const regla of reglas) {
     const hastaISO = new Date(Date.now() + (regla.condicionDiasAntesVencimiento ?? 0) * MS_POR_DIA).toISOString();
-    const filas = await getDb()
-      .select({ cupon: cupones, cliente: clientes })
-      .from(cupones)
-      .innerJoin(clientes, eq(clientes.patente, cupones.patenteAsignada))
-      .where(
-        and(
-          eq(cupones.nombreLote, LOTE_CUPON_SIN_VISITA),
-          eq(cupones.usado, false),
-          gte(cupones.fechaCaducidad, ahoraISO),
-          lte(cupones.fechaCaducidad, hastaISO)
-        )
-      );
+    let filas: { cupon: typeof cupones.$inferSelect; cliente: typeof clientes.$inferSelect }[];
+    try {
+      filas = await getDb()
+        .select({ cupon: cupones, cliente: clientes })
+        .from(cupones)
+        .innerJoin(clientes, eq(clientes.patente, cupones.patenteAsignada))
+        .where(
+          and(
+            eq(cupones.nombreLote, LOTE_CUPON_SIN_VISITA),
+            eq(cupones.usado, false),
+            gte(cupones.fechaCaducidad, ahoraISO),
+            lte(cupones.fechaCaducidad, hastaISO)
+          )
+        );
+    } catch (error) {
+      console.error("Error buscando descuentos sin visita por vencer", regla.id, error);
+      errores++;
+      continue;
+    }
     for (const { cupon, cliente } of filas) {
       const disparo = await registrarDisparoReglaWhatsapp({
         id: uid(),

@@ -392,7 +392,7 @@ export async function ejecutarAccionRegla(
     cupon = nuevo;
     cuponId = nuevo.id;
     montoOferta = nuevo.valor;
-    diasValidez = regla.cuponValidezDias ?? undefined;
+    diasValidez = regla.cuponValidezDias ?? (regla.accion === "cupon_descuento" ? 7 : 15);
   }
 
   const descuentoReferido = await descuentoReferidoSiLoPide(plantilla);

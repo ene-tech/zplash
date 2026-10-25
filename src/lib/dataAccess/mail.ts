@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, correosAutomaticos, disparosReglaCorreo, plantillasCorreo, reglasCorreo } from "@/db/schema";
 import type {
@@ -285,11 +285,22 @@ export async function marcarDisparoReglaCorreo(id: string, cambios: { estado: Es
     .where(eq(disparosReglaCorreo.id, id));
 }
 
+// Solo disparos de venta con espera (enviarEn posterior a su alta): los
+// inmediatos y los de los crons diarios se mandan en el momento por quien los
+// registra, y tomarlos acá los mandaba dos veces si el cron pasaba justo
+// mientras se estaban enviando (o mandaba meses tarde uno que había fallado).
 export async function listarDisparosProgramadosCorreoVencidos(ahoraISO: string): Promise<DisparoReglaCorreo[]> {
   const rows = await getDb()
     .select()
     .from(disparosReglaCorreo)
-    .where(and(eq(disparosReglaCorreo.estado, "programado"), lte(disparosReglaCorreo.enviarEn, ahoraISO)));
+    .where(
+      and(
+        eq(disparosReglaCorreo.estado, "programado"),
+        lte(disparosReglaCorreo.enviarEn, ahoraISO),
+        eq(disparosReglaCorreo.origenTipo, "venta"),
+        sql`${disparosReglaCorreo.enviarEn} > ${disparosReglaCorreo.creadoEn} + interval '30 seconds'`
+      )
+    );
   return rows.map(disparoReglaCorreoFromRow);
 }
 

@@ -113,9 +113,12 @@ async function dispararPorIngresoTicket(reglas: ReglaWhatsapp[], ingreso: Ingres
       enviarEn: new Date().toISOString(),
     });
     if (!disparo) continue;
-    await ejecutarAccionRegla(regla, disparo.id, cliente, undefined, undefined, undefined, ingreso.cuponCodigo).catch((error) =>
-      console.error(`Error disparando regla WhatsApp "${regla.nombre}" para ingreso ${ingreso.id}`, error)
-    );
+    try {
+      await ejecutarAccionRegla(regla, disparo.id, cliente, undefined, undefined, undefined, ingreso.cuponCodigo);
+    } catch (error) {
+      console.error(`Error disparando regla WhatsApp "${regla.nombre}" para ingreso ${ingreso.id}`, error);
+      await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+    }
   }
 }
 
@@ -149,7 +152,12 @@ export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promis
   if (!reglas.length && !reglasPrimerIngresoMes.length && !reglasTicket.length) return;
 
   for (const ingreso of ingresosNuevos) {
-    if (reglasTicket.length) await dispararPorIngresoTicket(reglasTicket, ingreso);
+    if (reglasTicket.length) {
+      // Un fallo acá no frena las reglas de plan de este ingreso ni de los siguientes.
+      await dispararPorIngresoTicket(reglasTicket, ingreso).catch((error) =>
+        console.error(`Error evaluando reglas ingreso_ticket para ingreso ${ingreso.id}`, error)
+      );
+    }
     if (!ingreso.clienteId || ingreso.planEstadoAlIngreso !== "ok") continue;
     const cliente = await buscarCliente(ingreso.clienteId);
     if (!cliente || !cliente.plan) continue;
