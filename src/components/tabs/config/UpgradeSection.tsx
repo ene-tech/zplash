@@ -46,7 +46,7 @@ export default function UpgradeSection() {
     <ConfigSection
       title="Promoción: upgrade a Promo 4 lavados"
       icon={ArrowUpCircle}
-      description={`Dentro del tiempo configurado abajo tras pagar un lavado único, al cliente sin plan vigente se le ofrece, en el mesón y en Mi Cuenta, sumar ${TICKETS_UPGRADE_PACK} lavados más para la misma patente por este adicional: queda como si hubiera comprado la Promo ${PROMOS_LAVADOS.promo_5_lavados.lavados} lavados, con los tickets vigentes ${PROMOS_LAVADOS.promo_5_lavados.dias} días desde ese lavado.`}
+      description={`Dentro del tiempo configurado abajo tras pagar un Lavado Tunel / Uso Aspirado, al cliente sin plan vigente se le ofrece, en el mesón y en Mi Cuenta, sumar ${TICKETS_UPGRADE_PACK} lavados más para la misma patente por este adicional: queda como si hubiera comprado la Promo ${PROMOS_LAVADOS.promo_5_lavados.lavados} lavados, con los tickets vigentes ${PROMOS_LAVADOS.promo_5_lavados.dias} días desde ese lavado.`}
     >
       <div className="field" style={{ margin: 0 }}>
         <label>Precio adicional — $0 la apaga</label>

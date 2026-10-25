@@ -39,7 +39,7 @@ export default function PagosWebSection() {
         <PriceInput value={planOneclickVal} onChange={setPlanOneclickVal} />
       </div>
       <div className="field">
-        <label>Precio Lavado único (web)</label>
+        <label>Precio Lavado Tunel / Uso Aspirado (web)</label>
         <PriceInput value={lavadoUnicoWebVal} onChange={setLavadoUnicoWebVal} />
       </div>
       <SaveBar saving={guardando} msg={msg} onSave={guardar} />

@@ -127,7 +127,7 @@ export default function OperadorFoundOfertas(props: Props) {
             <h4>Lavado pagado online, pendiente de canjear</h4>
           </div>
           <div className="msg">
-            {c.nombre} ya pagó un Lavado único ({fmtCLP(props.lavadoWebPendiente.precio)}) desde la web. Regístralo
+            {c.nombre} ya pagó un Lavado Tunel / Uso Aspirado ({fmtCLP(props.lavadoWebPendiente.precio)}) desde la web. Regístralo
             para dejarlo entrar — esto no genera un cobro nuevo, ya se pagó.
           </div>
           <button className="btn secondary" onClick={props.registrarLavadoWeb}>
@@ -143,7 +143,7 @@ export default function OperadorFoundOfertas(props: Props) {
             <h4>Completar Promo 4 lavados</h4>
           </div>
           <div className="msg">
-            {c.nombre} pagó un lavado único el {fmtFecha(props.upgradePack.lavado.fecha)}. Con {fmtCLP(props.upgradePack.precio)}{" "}
+            {c.nombre} pagó un Lavado Tunel / Uso Aspirado el {fmtFecha(props.upgradePack.lavado.fecha)}. Con {fmtCLP(props.upgradePack.precio)}{" "}
             más se lleva {TICKETS_UPGRADE_PACK} lavados para esta patente, a usar en 30 días desde ese lavado.
           </div>
           <div className="price-row">

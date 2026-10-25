@@ -101,7 +101,7 @@ export function calcularFilasVentaCierre(
   const upgradePlanItems = ventasPeriodo.filter(esUpgradePlan);
   const upgradePlanRow = {
     tipo: "upgrade-plan",
-    label: "Upgrade a Plan X5 (sobre lavado único ya pagado)",
+    label: "Upgrade a Plan X5 (sobre Lavado Tunel / Uso Aspirado ya pagado)",
     cantidad: upgradePlanItems.length,
     monto: upgradePlanItems.reduce((s, v) => s + (v.precio || 0), 0),
     items: upgradePlanItems,

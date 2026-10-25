@@ -82,7 +82,7 @@ export default function CierreTab() {
         </div>
         <div className="stat-card bad">
           <div className="num">{r.sinPlan}</div>
-          <div className="lbl">Autos por Lavado único</div>
+          <div className="lbl">Autos por Lavado Tunel / Uso Aspirado</div>
         </div>
         <div className="stat-card">
           <div className="num">{r.nuevosPeriodo.length}</div>

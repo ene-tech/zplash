@@ -24,7 +24,7 @@ export default function BloqueoSection() {
     <ConfigSection
       title="Bloqueo de reingreso — clientes con plan"
       icon={Lock}
-      description="Horas mínimas que debe esperar un vehículo con plan antes de volver a pasar por el túnel. Dentro de la primera hora desde el ingreso anterior el reingreso cuenta como garantía (sin cobrar de nuevo); pasada esa hora y hasta cumplir el total configurado, queda bloqueado (salvo pagando un lavado único, o para Administración/Gerencia)."
+      description="Horas mínimas que debe esperar un vehículo con plan antes de volver a pasar por el túnel. Dentro de la primera hora desde el ingreso anterior el reingreso cuenta como garantía (sin cobrar de nuevo); pasada esa hora y hasta cumplir el total configurado, queda bloqueado (salvo pagando un Lavado Tunel / Uso Aspirado, o para Administración/Gerencia)."
     >
       <div className="field" style={{ margin: 0 }}>
         <label>Horas de bloqueo hasta el siguiente uso</label>

@@ -51,7 +51,7 @@ export default function LavadoSection() {
   return (
     <ConfigSection title="Lavado túnel suelto" icon={Droplets}>
       <div className="field" style={{ margin: 0 }}>
-        <label>Precio lavado único (sin plan vigente)</label>
+        <label>Precio Lavado Tunel / Uso Aspirado (sin plan vigente)</label>
         <PriceInput value={lavadoUnicoVal} onChange={setLavadoUnicoVal} />
       </div>
       <div className="field" style={{ margin: 0 }}>

@@ -80,7 +80,7 @@ export function StatsResumenPeriodo(p: Props) {
         </div>
         <div className="stat-card">
           <div className="num">{p.por9990.length}</div>
-          <div className="lbl">Autos con lavado único</div>
+          <div className="lbl">Autos con Lavado Tunel / Uso Aspirado</div>
         </div>
         <div className="stat-card">
           <div className="num">{p.ticketGratis.length}</div>
@@ -108,7 +108,7 @@ export function StatsResumenPeriodo(p: Props) {
           <div className="num">
             {p.por9990.length} · {p.pct9990}
           </div>
-          <div className="lbl">Lavado único</div>
+          <div className="lbl">Lavado Tunel / Uso Aspirado</div>
         </div>
         <div className="stat-card">
           <div className="num">
@@ -135,7 +135,7 @@ export function StatsResumenPeriodo(p: Props) {
         </div>
         <div className="stat-card">
           <div className="num">{fmtCLP(p.montoPor9990)}</div>
-          <div className="lbl">Lavado único y solo túnel</div>
+          <div className="lbl">Lavado Tunel / Uso Aspirado y solo túnel</div>
           <div className="lbl" style={{ marginTop: 4 }}>
             {p.pctMonto9990}
           </div>

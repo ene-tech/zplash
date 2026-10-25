@@ -12,11 +12,11 @@ import { PROMO_2_LAVADOS_KEY, PROMO_5_LAVADOS_KEY, SOLO_TUNEL_KEY, TIPO_VENTA_PR
 export const TIPO_VENTA_PUNTUAL = "Venta puntual";
 
 export const PRODUCTOS_CIERRE = [
-  { tipo: "Lavado único", label: "Lavado único" },
+  { tipo: "Lavado único", label: "Lavado Tunel / Uso Aspirado" },
   { tipo: SOLO_TUNEL_KEY, label: "Solo túnel (sin aspirado)" },
   { tipo: PROMO_2_LAVADOS_KEY, label: "Promo 2 lavados (2 tickets para un auto)" },
   { tipo: PROMO_5_LAVADOS_KEY, label: "Promo 4 lavados (4 tickets para un auto)" },
-  { tipo: UPGRADE_PACK_KEY, label: "Upgrade a Promo 4 lavados (3 tickets sobre un lavado único)" },
+  { tipo: UPGRADE_PACK_KEY, label: "Upgrade a Promo 4 lavados (3 tickets sobre un Lavado Tunel / Uso Aspirado)" },
   { tipo: UPGRADE_DESCUENTO_KEY, label: "Upgrade lavado con descuento (2 tickets)" },
   { tipo: "Plan nuevo", label: "Contratación de plan" },
   { tipo: "Renovación preferencial", label: "Renovación temprana" },
