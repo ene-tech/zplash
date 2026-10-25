@@ -12,6 +12,7 @@ import {
   netoDeBruto,
   normPlate,
   stockPorDestino,
+  uidVenta,
 } from "@/lib/helpers";
 import { cotizarVentaPos, registrarVentaPos, type VentaPosInput } from "@/lib/serverActions";
 import { rebajaDescuento, type LineaPos } from "@/lib/logic";
@@ -48,6 +49,11 @@ export default function PosView() {
   // de pago, así que dentro de cobrar() siempre vale false: el que de verdad
   // corta un segundo disparo es este ref.
   const cobrandoRef = useRef(false);
+  // Id de la venta del cobro en curso, atado al carrito tal como se cobró: si
+  // la respuesta se pierde y el cajero reintenta lo mismo, el servidor
+  // reconoce el id y no registra una segunda venta (ver ventaPosYaRegistrada).
+  // Cambiar el carrito, el cliente o el código arma un id nuevo.
+  const intentoVentaRef = useRef<{ firma: string; id: string } | null>(null);
   const [err, setErr] = useState("");
   // Cobro aprobado en el terminal cuya venta no se pudo guardar por un motivo
   // que no se arregla reintentando: hay que anularlo en el terminal.
@@ -218,8 +224,14 @@ export default function PosView() {
     setErr("");
     setPorAnular(null);
     try {
+      const entrada = entradaVenta();
+      const firma = JSON.stringify(entrada);
+      if (intentoVentaRef.current?.firma !== firma) {
+        intentoVentaRef.current = { firma, id: uidVenta() + Math.random().toString(36).slice(2, 6) };
+      }
       const r = await registrarVentaPos({
-        ...entradaVenta(),
+        ...entrada,
+        ventaId: intentoVentaRef.current.id,
         metodoPago: sinCobro ? undefined : pago.metodo,
         voucher: pago.voucher,
       });
@@ -251,11 +263,12 @@ export default function PosView() {
         setPorAnular({ operacion: pago.operacionTerminal, voucher: pago.voucher });
         return;
       }
+      intentoVentaRef.current = null;
       // La transacción ya quedó en la base: acá solo se funde el resultado en
       // el snapshot local (sin re-disparar server actions).
       const productosPorId = new Map(r.productos.map((p) => [p.id, p]));
       aplicarLocal((actual) => ({
-        ventas: [r.venta, ...actual.ventas],
+        ventas: [r.venta, ...actual.ventas.filter((v) => v.id !== r.venta.id)],
         productos: actual.productos.map((p) => productosPorId.get(p.id) || p),
         movimientosContables: r.movimiento
           ? [r.movimiento, ...actual.movimientosContables]

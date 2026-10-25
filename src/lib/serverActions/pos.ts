@@ -23,6 +23,7 @@ import {
   movimientoContableDesdeVenta,
   PREFIJO_VENTA_REEMBOLSO,
   stockPorDestino,
+  TIPO_VENTA_PRODUCTOS,
   uid,
   uidVenta,
 } from "@/lib/helpers";
@@ -51,7 +52,15 @@ export interface VentaPosInput {
   nombre?: string;
   notas?: string;
   datosFactura?: DatosFacturacion;
+  /** Id de la venta, fijado por el navegador al cobrar y repetido si el
+   * cajero reintenta el mismo carrito: si la primera respuesta se perdió (red
+   * caída después del commit), el reintento devuelve la venta ya guardada en
+   * vez de cobrar dos veces. Ver ventaPosYaRegistrada. */
+  ventaId?: string;
 }
+
+/** Formato de uidVenta() más un sufijo al azar (dos cajas en el mismo ms). */
+const FORMATO_VENTA_ID = /^v\d{13}[a-z0-9]{0,8}$/;
 
 export type VentaPosResultado =
   | {
@@ -176,7 +185,7 @@ async function prepararVentaPos(db: DbOrTx, input: VentaPosInput, sesion: Sesion
   }
 
   const armado = armarVentaPos({
-    id: uidVenta(),
+    id: input.ventaId && FORMATO_VENTA_ID.test(input.ventaId) ? input.ventaId : uidVenta(),
     fecha,
     lineas: input.lineas,
     productos: productosRows.map((p) => ({ id: p.id, sku: p.sku, detalle: p.detalle })),
@@ -245,10 +254,36 @@ export async function cotizarVentaPos(input: VentaPosInput): Promise<CotizacionP
   }
 }
 
+/** La venta del POS con ese id, si ya quedó guardada (reintento de un cobro
+ * cuya respuesta se perdió): se devuelve tal cual, sin volver a descontar
+ * stock ni quemar el código. Solo ventas de tienda, para que el id no sirva
+ * para leer otra cosa. */
+async function ventaPosYaRegistrada(ventaId: string | undefined): Promise<VentaPosResultado | null> {
+  if (!ventaId || !FORMATO_VENTA_ID.test(ventaId)) return null;
+  const db = getDb();
+  const [row] = await db.select().from(ventas).where(eq(ventas.id, ventaId)).limit(1);
+  if (!row || row.tipo !== TIPO_VENTA_PRODUCTOS) return null;
+  const items = await db.select().from(ventaItems).where(eq(ventaItems.ventaId, ventaId));
+  const ids = items.map((it) => it.productoId).filter((id): id is string => !!id);
+  const actualizados = ids.length ? await db.select().from(productos).where(inArray(productos.id, ids)) : [];
+  return {
+    ok: true,
+    venta: dataAccess.ventaFromRow(row),
+    items: items.map((it) => ({ ...it, productoId: it.productoId || undefined })),
+    productos: actualizados.map(dataAccess.productoFromRow),
+    // El asiento y el código ya quedaron en la base; la pantalla los toma en
+    // la próxima carga.
+    movimiento: null,
+  };
+}
+
 export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosResultado> {
   const apertura = await abrirVentaPos();
   if ("error" in apertura) return { ok: false, error: apertura.error };
   const { sesion, fecha } = apertura;
+
+  const yaRegistrada = await ventaPosYaRegistrada(input.ventaId);
+  if (yaRegistrada) return yaRegistrada;
 
   const db = getDb();
   let resultado: Awaited<ReturnType<typeof prepararVentaPos>> & { movimiento: MovimientoContable | null };
@@ -298,6 +333,10 @@ export async function registrarVentaPos(input: VentaPosInput): Promise<VentaPosR
     });
   } catch (error) {
     if (error instanceof RechazoVenta) return { ok: false, error: error.message, porCodigo: error.porCodigo || undefined };
+    // Dos envíos del mismo cobro a la vez: el segundo choca con la PK de la
+    // venta que acaba de guardar el primero.
+    const yaRegistrada = await ventaPosYaRegistrada(input.ventaId).catch(() => null);
+    if (yaRegistrada) return yaRegistrada;
     console.error("Error registrando venta POS", error);
     return {
       ok: false,
