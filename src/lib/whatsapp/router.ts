@@ -174,8 +174,8 @@ async function textoPreciosPrimeraVez(descuento: number): Promise<string> {
   const soloTunel = precioSoloTunel(mapa);
   return [
     `💰 *Su primer lavado con el código de ${fmtCLP(descuento)}*`,
-    ...(soloTunel > 0 ? [linea("Lavado exterior, sin aspirado", soloTunel)] : []),
-    linea("Lavado exterior + aspirado", precioLavadoUnico(mapa)),
+    ...(soloTunel > 0 ? [linea("Lavado exterior, sin aspirado autoservicio", soloTunel)] : []),
+    linea("Lavado exterior + aspirado autoservicio", precioLavadoUnico(mapa)),
   ].join("\n");
 }
 

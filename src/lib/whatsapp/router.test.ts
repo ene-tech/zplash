@@ -57,7 +57,7 @@ describe("iniciarDesdeAnuncio", () => {
   it("número nuevo: horario + precios con descuento + invitación, y abre el registro marcado como anuncio", async () => {
     const r = await iniciarDesdeAnuncio(conv(), "+56911111111");
     expect(r.texto).toBe(
-      "HORARIO\n\n💰 *Su primer lavado con el código de $2.000*\n• Lavado exterior, sin aspirado: *$4.990* (normal $6.990)\n• Lavado exterior + aspirado: *$7.990* (normal $9.990)\n\nRegalo $2.000 por 10 días. Su nombre:"
+      "HORARIO\n\n💰 *Su primer lavado con el código de $2.000*\n• Lavado exterior, sin aspirado autoservicio: *$4.990* (normal $6.990)\n• Lavado exterior + aspirado autoservicio: *$7.990* (normal $9.990)\n\nRegalo $2.000 por 10 días. Su nombre:"
     );
     expect(flowState).toHaveBeenCalledWith("conv1", { tipo: "registro_descuento", paso: "nombre", origen: "anuncio" });
   });
