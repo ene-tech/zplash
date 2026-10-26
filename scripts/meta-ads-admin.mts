@@ -148,7 +148,8 @@ async function listar() {
 }
 
 async function cambiar(id: string, cambios: Record<string, string>, descripcion: string) {
-  const actual = await graph(id, { fields: "name,effective_status,daily_budget" });
+  // Los anuncios no tienen daily_budget: pedirlo hace fallar la lectura. Solo lo pide quien cambia el presupuesto.
+  const actual = await graph(id, { fields: cambios.daily_budget ? "name,effective_status,daily_budget" : "name,effective_status" });
   console.log(`${actual.name} (${id}), hoy ${actual.effective_status}${actual.daily_budget ? `, ${pesos(actual.daily_budget)}/día` : ""}`);
   if (!confirmar) {
     console.log(`Se haría: ${descripcion}. Agrega --confirmar para mandarlo.`);
