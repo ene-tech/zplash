@@ -171,7 +171,7 @@ function fuentes(): Fuente[] {
   ];
 }
 
-const describir = (f: Fuente) => ("reel" in f ? `reel de Instagram ${f.reel}` : "video" in f ? `video ${f.video}` : `imagen ${f.imagen}`);
+const describir = (f: Fuente) => ("reel" in f ? `reel de Instagram ${f.reel}` : "video" in f ? `video ${basename(f.video)}` : `imagen ${basename(f.imagen)}`);
 
 // Botón "Enviar mensaje de WhatsApp". Meta exige el link aunque abra la app.
 const BOTON_WSP = { type: "WHATSAPP_MESSAGE", value: { app_destination: "WHATSAPP", link: "https://api.whatsapp.com/send" } };
@@ -270,6 +270,14 @@ async function crear() {
     geo_locations: { custom_locations: [{ latitude: LOCAL.lat, longitude: LOCAL.lng, radius: radio, distance_unit: "kilometer" }], location_types: ["home", "recent"] },
     age_min: Number(arg("--edad-min") ?? 18),
     age_max: Number(arg("--edad-max") ?? 65),
+    // Sin Advantage+ (pedido del usuario, 26-oct-2026): ubicaciones elegidas a
+    // mano (sin Audience Network ni Messenger), solo celular, y sin expandir el
+    // público a similares ni a intereses.
+    publisher_platforms: ["facebook", "instagram"],
+    facebook_positions: ["feed", "story", "facebook_reels"],
+    instagram_positions: ["stream", "story", "reels", "explore"],
+    device_platforms: ["mobile"],
+    targeting_relaxation_types: { lookalike: 0, custom_audience: 0 },
     targeting_automation: { advantage_audience: 0 },
   };
 
