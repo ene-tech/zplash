@@ -108,6 +108,7 @@ import {
   PROMO_5_LAVADOS_KEY,
   precioPromoLavados,
   cuponesVigentesDeCliente,
+  detalleCupon,
   PROMO_2_LAVADOS_KEY,
   precioPromo2Lavados,
   ticketsVigentesDePatente,
@@ -1397,6 +1398,40 @@ describe("cuponesVigentesDeCliente", () => {
       { ...base, id: "e", codigo: "FLOTA1", tipo: "vale", patenteAsignada: undefined, patentesAutorizadas: ["ZZ9999"] },
     ];
     expect(cuponesVigentesDeCliente(lista, { patente: "AB1234", email: "ana@zplash.cl", rut: "12.345.678-9" })).toEqual([]);
+  });
+});
+
+describe("detalleCupon", () => {
+  const ahora = new Date("2026-10-26T12:00:00.000Z");
+  const base: Cupon = {
+    id: "cu1",
+    codigo: "AAA111",
+    nombreLote: "Referido - AB1234",
+    numeroLote: 1,
+    totalLote: 1,
+    tipo: "descuento",
+    valor: 2000,
+    usado: false,
+    creadoEn: "2026-10-20T12:00:00.000Z",
+    creadoPor: "sistema",
+    fechaCaducidad: "2026-11-05T12:00:00.000Z",
+  };
+
+  it("un descuento abierto dice para quién vale, sus reglas y el canal", () => {
+    const d = detalleCupon({ ...base, unUsoPorPatente: true, patentesUsadas: ["XX1111"], canal: "local" }, ahora);
+    expect(d).toContain("Abierto: cualquier patente");
+    expect(d).toContain("Un uso por patente (ya lo usaron 1)");
+    expect(d).toContain("Solo mesón");
+    expect(d.join(" ")).toContain("(en 10 días)");
+    expect(d).toContain('Lote "Referido - AB1234"');
+  });
+
+  it("un ticket de pack dice la patente, lo que costó y su número en el lote", () => {
+    const d = detalleCupon(
+      { ...base, tipo: "vale", valor: 4998, nombreLote: "Promo 2 Lavados", numeroLote: 2, totalLote: 2, patentesAutorizadas: ["AB1234"] },
+      ahora
+    );
+    expect(d).toEqual(expect.arrayContaining(["Ticket de lavado", "Solo patente AB1234", "Costó $4.998", "Promo 2 Lavados N° 2/2"]));
   });
 });
 

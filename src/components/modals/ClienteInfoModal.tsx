@@ -15,10 +15,12 @@ import {
   suspenderSuscripcionOneclick,
 } from "@/lib/serverActions";
 import type { DetallePagoVenta, SuscripcionOneclickInfo } from "@/lib/dataAccess";
+import type { CanalEnvioCupon } from "@/lib/serverActions/cupones";
 import {
   beneficioCupon,
   cuponDescuentoDePatente,
   cuponesVigentesDeCliente,
+  detalleCupon,
   fmtCLP,
   fmtDate,
   fmtFecha,
@@ -42,6 +44,12 @@ import GenerarCuponesForm from "@/components/tabs/ventaEmpresa/GenerarCuponesFor
 import CrearDescuentoForm from "@/components/tabs/ventaEmpresa/CrearDescuentoForm";
 import { useGenerarCupones } from "@/components/tabs/ventaEmpresa/useGenerarCupones";
 import { useCrearDescuento } from "@/components/tabs/ventaEmpresa/useCrearDescuento";
+
+const ENVIOS_CUPON: { canal: CanalEnvioCupon; label: string }[] = [
+  { canal: "whatsapp", label: "WhatsApp" },
+  { canal: "correo", label: "Correo" },
+  { canal: "sms", label: "SMS" },
+];
 
 export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const { data: appData, commit, aplicarLocal, patchUi, loadingHistorial } = useAppData();
@@ -80,11 +88,11 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const [enviandoCodigo, setEnviandoCodigo] = useState("");
   const [envios, setEnvios] = useState<Record<string, string>>({});
 
-  async function enviarCodigo(codigo: string) {
+  async function enviarCodigo(codigo: string, canales: CanalEnvioCupon[]) {
     setEnviandoCodigo(codigo);
     try {
-      const r = await enviarCuponAlCliente(c.id, codigo);
-      setEnvios((prev) => ({ ...prev, [codigo]: `${r.whatsapp} · ${r.correo}` }));
+      const r = await enviarCuponAlCliente(c.id, codigo, canales);
+      setEnvios((prev) => ({ ...prev, [codigo]: r.join(" · ") }));
     } catch {
       setEnvios((prev) => ({ ...prev, [codigo]: "No se pudo enviar (sin conexión)" }));
     } finally {
@@ -129,7 +137,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   // mensajes al mismo número y el resultado de cada uno se pinta en su fila.
   async function generarYEnviar() {
     const nuevos = await generarCupones.generar();
-    for (const cup of nuevos ?? []) await enviarCodigo(cup.codigo);
+    for (const cup of nuevos ?? []) await enviarCodigo(cup.codigo, ["whatsapp", "correo"]);
     return nuevos;
   }
   const crearDescuento = useCrearDescuento({ dNombreRef, dCaducidadRef, dPatenteRef });
@@ -671,16 +679,16 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
               {cuponesVigentes.map((cup) => (
                 <div key={cup.id} className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-mono text-base font-semibold tracking-widest">{cup.codigo}</span>
-                  <span className="text-muted-foreground">
-                    {beneficioCupon(cup)} · vence {fmtFecha(cup.fechaCaducidad)}
-                    {/* El lote solo dice algo cuando el ticket viene de un
-                        pack (Pack Empresa por web, o un lote de cortesía): un
-                        descuento suelto siempre sería "1/1". */}
-                    {cup.totalLote > 1 && ` · ${cup.nombreLote} N° ${cup.numeroLote}/${cup.totalLote}`}
-                  </span>
-                  <Button size="sm" variant="secondary" onClick={() => enviarCodigo(cup.codigo)} disabled={enviandoCodigo === cup.codigo}>
-                    {enviandoCodigo === cup.codigo ? "Enviando…" : "Enviar por WhatsApp y correo"}
-                  </Button>
+                  <span className="font-medium">{beneficioCupon(cup)}</span>
+                  {enviandoCodigo === cup.codigo ? (
+                    <span className="text-xs text-muted-foreground">Enviando…</span>
+                  ) : (
+                    ENVIOS_CUPON.map(({ canal, label }) => (
+                      <Button key={canal} size="sm" variant="secondary" onClick={() => enviarCodigo(cup.codigo, [canal])} disabled={!!enviandoCodigo}>
+                        {label}
+                      </Button>
+                    ))
+                  )}
                   {cup.tipo === "descuento" &&
                     (confirmarBorrar === cup.id ? (
                       <>
@@ -702,6 +710,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                       </Button>
                     ))}
                   {envios[cup.codigo] && <span className="text-xs text-muted-foreground">{envios[cup.codigo]}</span>}
+                  <span className="w-full text-xs text-muted-foreground">{detalleCupon(cup).join(" · ")}</span>
                 </div>
               ))}
             </div>

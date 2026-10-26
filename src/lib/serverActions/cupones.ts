@@ -16,6 +16,7 @@ import {
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { sesionActual, tieneAlgunModulo, tieneSesionValida } from "@/lib/session";
+import { enviarSms } from "@/lib/sms/enviar";
 import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
 import type { Cupon } from "@/types";
 
@@ -60,32 +61,61 @@ function condicionesCupon(c: Cupon): string {
   return `válido solo para la patente ${c.patentesAutorizadas.join(", ")}, un solo uso`;
 }
 
-/** Entrega al cliente el código de un cupón recién generado desde su ficha,
- * por los dos canales que tenemos: WhatsApp y correo. Cada uno devuelve su
- * propio resultado en texto porque casi siempre uno de los dos no aplica (la
- * mitad de las fichas no tiene correo) y el operador tiene que ver cuál llegó
- * y cuál no antes de dejar ir al cliente.
+export type CanalEnvioCupon = "whatsapp" | "correo" | "sms";
+
+/** Entrega al cliente el código de un cupón de su ficha por los canales
+ * pedidos (el operador elige uno con su botón; el cupón recién generado sale
+ * por WhatsApp y correo). Devuelve un resultado en texto por canal, en el
+ * mismo orden, porque seguido un canal no aplica (la mitad de las fichas no
+ * tiene correo) y el operador tiene que ver cuál llegó y cuál no antes de
+ * dejar ir al cliente.
  *
  * El contenido se arma con lo que hay en la base, no con lo que manda el
  * navegador: la Server Action es un POST alcanzable directo (ver el
- * comentario del barrel), y `codigo` + `clienteId` son lo único que se
- * acepta de afuera. */
-export async function enviarCuponAlCliente(clienteId: string, codigo: string): Promise<{ correo: string; whatsapp: string }> {
-  if (!(await tieneSesionValida())) return { correo: "Sin sesión", whatsapp: "Sin sesión" };
+ * comentario del barrel), y `codigo` + `clienteId` + los canales son lo único
+ * que se acepta de afuera. */
+export async function enviarCuponAlCliente(clienteId: string, codigo: string, canales: CanalEnvioCupon[]): Promise<string[]> {
+  if (!(await tieneSesionValida())) return ["Sin sesión"];
   const sesion = await sesionActual();
 
   const [cliente] = await dataAccess.getClientesByIds([clienteId]);
   const cupon = await dataAccess.obtenerCuponPorCodigo(codigo.trim().toUpperCase());
-  if (!cliente || !cupon) return { correo: "Cupón no encontrado", whatsapp: "Cupón no encontrado" };
+  if (!cliente || !cupon) return ["Cupón no encontrado"];
 
   const beneficio = `${beneficioCupon(cupon)} (${condicionesCupon(cupon)})`;
   const vence = fmtFecha(cupon.fechaCaducidad);
   const nombre = cliente.nombre || "";
 
-  return {
-    correo: await enviarPorCorreo(cliente.email, cliente.id, nombre, cupon.codigo, beneficio, vence),
-    whatsapp: await enviarPorWhatsapp(cliente.telefono, nombre, cupon.codigo, beneficio, vence, sesion?.nombre),
-  };
+  const resultados: string[] = [];
+  for (const canal of canales) {
+    if (canal === "correo") resultados.push(await enviarPorCorreo(cliente.email, cliente.id, nombre, cupon.codigo, beneficio, vence));
+    else if (canal === "whatsapp")
+      resultados.push(await enviarPorWhatsapp(cliente.telefono, nombre, cupon.codigo, beneficio, vence, sesion?.nombre));
+    else if (canal === "sms")
+      resultados.push(await enviarPorSms(cliente.telefono, cliente.id, nombre, cupon.codigo, beneficio, vence, sesion?.nombre));
+  }
+  return resultados;
+}
+
+async function enviarPorSms(
+  telefono: string | undefined,
+  clienteId: string,
+  nombre: string,
+  codigo: string,
+  beneficio: string,
+  vence: string,
+  enviadoPor: string | undefined
+): Promise<string> {
+  if (!telefono?.trim()) return "Sin teléfono en la ficha";
+  // enviarSms normaliza a GSM-7, junta todo en una línea y agrega el pie de baja.
+  const envio = await enviarSms({
+    telefono,
+    texto: `Hola ${nombre}, tu ${beneficio.toLowerCase()} en ZPlash. Codigo ${codigo}, valido hasta el ${vence}.`,
+    campana: "entrega-cupon",
+    clienteId,
+    enviadoPor,
+  });
+  return envio.ok ? `SMS enviado a ${telefono}` : `SMS no enviado (${envio.error || "error"})`;
 }
 
 async function enviarPorCorreo(

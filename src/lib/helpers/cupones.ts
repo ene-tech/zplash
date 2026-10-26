@@ -1,5 +1,6 @@
 import type { Cliente, Cupon, Venta } from "@/types";
 import { findClient } from "./clientes";
+import { fmtFecha } from "./fechas";
 import {
   DIAS_PROMO_VIP,
   HORAS_VENTANA_PROMO_VIP,
@@ -489,6 +490,46 @@ export function cuponDelLoteUsadoPorPatente(
 export function beneficioCupon(c: Pick<Cupon, "tipo" | "valor" | "esPorcentaje">): string {
   if (c.tipo !== "descuento") return "Lavado gratis";
   return c.esPorcentaje ? `${c.valor}% de descuento` : `${fmtCLP(c.valor)} de descuento`;
+}
+
+/** Todo lo que se sabe de un código, en frases cortas, para la ficha de
+ * cliente: qué es, para quién vale (una patente, una flota o abierto), las
+ * reglas que lo restringen, de qué lote sale y quién lo emitió. El operador lo
+ * lee para contestarle al cliente sin ir a B2B/Tickets a buscarlo. */
+export function detalleCupon(c: Cupon, ahora: Date = new Date()): string[] {
+  const out: string[] = [c.tipo === "descuento" ? "Descuento" : "Ticket de lavado"];
+
+  if (c.tipo === "descuento") {
+    out.push(c.patenteAsignada ? `Solo patente ${normPlate(c.patenteAsignada)}` : "Abierto: cualquier patente");
+    if (c.unUsoPorPatente) {
+      const n = c.patentesUsadas?.length ?? 0;
+      out.push(`Un uso por patente${n ? ` (ya lo usaron ${n})` : ""}`);
+    } else {
+      out.push("Un solo uso");
+    }
+    if (c.soloClientesNuevos) out.push("Solo clientes nuevos");
+    out.push(c.canal === "web" ? "Solo web" : c.canal === "local" ? "Solo mesón" : "Web y mesón");
+  } else {
+    const flota = c.patentesAutorizadas ?? [];
+    out.push(
+      flota.length === 0
+        ? "Abierto: cualquier patente"
+        : flota.length === 1
+          ? `Solo patente ${flota[0]}`
+          : `Flota de ${flota.length} patentes`
+    );
+    // En un "vale", `valor` es lo que costó el ticket (ver valorCupon), no un descuento.
+    if (c.valor > 0) out.push(`Costó ${fmtCLP(c.valor)}`);
+    if (c.unCuponPorPatente) out.push("Un ticket del lote por patente");
+  }
+
+  const dias = Math.ceil((new Date(c.fechaCaducidad).getTime() - ahora.getTime()) / 86400000);
+  out.push(`Vence ${fmtFecha(c.fechaCaducidad)} (en ${dias} ${dias === 1 ? "día" : "días"})`);
+  out.push(c.totalLote > 1 ? `${c.nombreLote} N° ${c.numeroLote}/${c.totalLote}` : `Lote "${c.nombreLote}"`);
+  out.push(`Emitido ${fmtFecha(c.creadoEn)}${c.creadoPor ? ` por ${c.creadoPor}` : ""}`);
+  if (c.email) out.push(`Correo ${c.email}`);
+  if (c.rut) out.push(`RUT ${c.rut}`);
+  return out;
 }
 
 export type EstadoCupon = { label: string; cls: "ok" | "warn" | "bad" };
