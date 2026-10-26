@@ -15,6 +15,10 @@ export interface FlowStateWhatsapp {
   // Solo en tipo="opinion", paso="comentario": la fila de `opiniones` que ya
   // se creó con la nota, para completarle el comentario en el paso siguiente.
   opinionId?: string;
+  // Solo en tipo="registro_descuento": "anuncio" si el flujo lo abrió un
+  // anuncio Click-to-WhatsApp (ver iniciarDesdeAnuncio), para que el cupón
+  // quede en su propio lote y se pueda medir la campaña.
+  origen?: "anuncio";
 }
 
 // El `referral` que manda Meta en el primer mensaje de alguien que tocó un

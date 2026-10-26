@@ -141,6 +141,29 @@ async function iniciarRegistroDescuento(
   };
 }
 
+// Lote de los cupones que entrega el flujo abierto por un anuncio (ver
+// iniciarDesdeAnuncio): cuántos se emitieron y usaron es el resultado de la campaña.
+export const LOTE_ANUNCIO = "WhatsApp - Anuncio Meta";
+
+// Primer mensaje de alguien que tocó un anuncio Click-to-WhatsApp: en un solo
+// mensaje, horario y ubicación (lo que más preguntan) y la invitación al
+// descuento de primera vez, que pide nombre → patente → mail. Va directo al
+// flujo, sin menú ni agente: el anuncio promete el descuento y cada mensaje
+// de más es gente que se cae antes de dejar sus datos.
+export async function iniciarDesdeAnuncio(conversacion: ConversacionWhatsapp, telefono: string): Promise<RespuestaBot> {
+  const { textosBotWhatsapp: textos, descuentoPrimeraVezValor, descuentoPrimeraVezDiasValidez } = await getConfig();
+  if (conversacion.clienteId || (await existeClienteConTelefono(telefono))) {
+    return { texto: `${textos.horarioUbicacion}\n\n${textos.menuPrincipal}` };
+  }
+  await actualizarFlowStateConversacion(conversacion.id, { tipo: "registro_descuento", paso: "nombre", origen: "anuncio" });
+  const invitacion = aplicarVariables(textos.textoDescuentoInstrucciones, {
+    monto: fmtCLP(descuentoPrimeraVezValor),
+    dias: String(descuentoPrimeraVezDiasValidez),
+  });
+  // La invitación termina pidiendo el nombre: va al final, que es lo que se responde.
+  return { texto: `${textos.horarioUbicacion}\n\n${invitacion}` };
+}
+
 // Continúa el flujo de registro + descuento paso a paso. `conversacion`
 // llega con el flowState previo a este mensaje (el que decide cómo
 // interpretar `texto`); cada paso valida su dato, y si es válido avanza al
@@ -159,7 +182,7 @@ async function manejarPasoRegistroDescuento(
   if (flowState.paso === "nombre") {
     const nombre = texto.trim();
     if (!nombre) return { texto: textos.textoDescuentoPedirNombre };
-    await actualizarFlowStateConversacion(conversacion.id, { tipo: "registro_descuento", paso: "patente", nombre });
+    await actualizarFlowStateConversacion(conversacion.id, { ...flowState, paso: "patente", nombre });
     return { texto: textos.textoDescuentoPedirPatente };
   }
 
@@ -215,7 +238,7 @@ async function manejarPasoRegistroDescuento(
     patente,
     valor: descuentoValor,
     diasValidez: descuentoDiasValidez,
-    nombreLote: "WhatsApp - Primera vez",
+    nombreLote: flowState.origen === "anuncio" ? LOTE_ANUNCIO : "WhatsApp - Primera vez",
     creadoPor: "whatsapp-bot",
   });
   await actualizarFlowStateConversacion(conversacion.id, null);

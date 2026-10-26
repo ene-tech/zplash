@@ -6,7 +6,7 @@ import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
 import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
 import { claveAnthropic, costoUsd, MODELO, responderConAgente } from "@/lib/whatsapp/agente";
-import { responderMensaje } from "@/lib/whatsapp/router";
+import { iniciarDesdeAnuncio, responderMensaje } from "@/lib/whatsapp/router";
 import type { EstadoMensajeWhatsapp, ReferralAnuncioWhatsapp } from "@/types";
 
 export const runtime = "nodejs";
@@ -156,6 +156,20 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
   if (await humanoAtendiendo(conversacion.id)) {
     if (opcionDeTexto(textoEntrante) === "humano") await avisarGerencia(nombreContacto || conversacion.nombreContacto || telefono, conversacion.id);
     return;
+  }
+
+  // Llega desde un anuncio: horario, ubicación y descuento de primera vez,
+  // sin pasar por el agente ni el menú (ver iniciarDesdeAnuncio). Si ya está
+  // en un flujo a medias, lo sigue el bot de siempre.
+  if (msg.referral?.source_type === "ad" && !conversacion.flowState) {
+    const respuesta = await iniciarDesdeAnuncio(conversacion, telefono).catch((e) => {
+      console.error("No se pudo abrir el flujo del anuncio, responde el bot de siempre", e);
+      return null;
+    });
+    if (respuesta) {
+      await enviarMensajeTexto(telefono, respuesta.texto);
+      return;
+    }
   }
 
   // La opinión del QR del túnel guarda una nota paso a paso: esa y cualquier
