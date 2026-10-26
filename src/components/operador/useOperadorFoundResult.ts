@@ -15,6 +15,7 @@ import {
   MAX_INGRESOS_TUNEL_DETAILING_POR_CITA,
   cuponDescuentoDePatente,
   cuponDescuentoMeson,
+  cuponValeEnSoloTunel,
   precioConCupon,
   precioPlanOneclick,
   promoPrimerCobroOneclick,
@@ -209,7 +210,10 @@ export function useOperadorFoundResult(
   // $0 = pack apagado: su botón no se muestra (ver precioPromoLavados).
   const precioPromo2 = precioPromoLavados(data.precios, "promo_2_lavados");
   const precioPromo5 = precioPromoLavados(data.precios, "promo_5_lavados");
-  const precioSoloTunelMeson = precioSoloTunel(data.precios);
+  // El descuento de primera vez del bot también rebaja el solo túnel (ver
+  // cuponValeEnSoloTunel); el resto de los cupones no.
+  const cuponSoloTunel = cuponDescuentoVigente && cuponValeEnSoloTunel(cuponDescuentoVigente) ? cuponDescuentoVigente : undefined;
+  const precioSoloTunelMeson = precioConCupon(precioSoloTunel(data.precios), cuponSoloTunel);
   // Ya pasó hoy (p. ej. con un cupón y le ofrecen un pack en el aspirado): el
   // pack no canjea ningún ticket ahora (ver entregarPromoLavados).
   const yaPasoHoy = yaIngresoHoy(ingresosCliente, c.id);
@@ -241,6 +245,8 @@ export function useOperadorFoundResult(
     lavadoWebPendiente,
     cuponDescuentoVigente,
     precioLavadoUnicoFinal,
+    cuponSoloTunel,
+    precioSoloTunelFinal: precioSoloTunelMeson,
   });
   const ficha = useFichaClienteActions(c, refs, setGuardarErr, updateResult);
 

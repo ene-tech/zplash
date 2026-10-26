@@ -1,7 +1,21 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes } from "@/db/schema";
-import { aplicarVariables, fmtCLP, isValidEmail, isValidPatente, normPlate, normalizarTextoBot, OPINION_NOTA_BUENA, opcionDeTexto, uid } from "@/lib/helpers";
+import { clientes, precios } from "@/db/schema";
+import {
+  aplicarVariables,
+  fmtCLP,
+  isValidEmail,
+  isValidPatente,
+  LOTE_ANUNCIO_META,
+  LOTE_PRIMERA_VEZ_WHATSAPP,
+  normPlate,
+  normalizarTextoBot,
+  OPINION_NOTA_BUENA,
+  opcionDeTexto,
+  precioLavadoUnico,
+  precioSoloTunel,
+  uid,
+} from "@/lib/helpers";
 // Directo a la capa de datos, no al Server Action de @/lib/serverActions: este flujo
 // corre dentro del webhook de Meta (protegido por firma, ver
 // /api/whatsapp/route.ts), no hay perfil logueado que pase el chequeo de
@@ -141,9 +155,29 @@ async function iniciarRegistroDescuento(
   };
 }
 
-// Lote de los cupones que entrega el flujo abierto por un anuncio (ver
-// iniciarDesdeAnuncio): cuántos se emitieron y usaron es el resultado de la campaña.
-export const LOTE_ANUNCIO = "WhatsApp - Anuncio Meta";
+// Cómo queda cada lavado con el descuento de primera vez: el código sirve con
+// o sin aspirado (ver cuponValeEnSoloTunel) y el cliente elige en el local.
+// Precios del mesón, que es donde se canjea. Es un agregado: si la lectura
+// falla, el mensaje sale igual sin esta parte (lo que no puede perderse es el
+// código, que a esa altura ya está emitido y el flujo cerrado).
+async function textoPreciosPrimeraVez(descuento: number): Promise<string> {
+  const filas = await getDb()
+    .select()
+    .from(precios)
+    .catch((e) => {
+      console.error("No se pudieron leer los precios para el mensaje de primera vez", e);
+      return null;
+    });
+  if (!filas) return "";
+  const mapa = Object.fromEntries(filas.map((p) => [p.plan, { normal: p.normal, promo: p.promo }]));
+  const linea = (nombre: string, precio: number) => `• ${nombre}: *${fmtCLP(Math.max(0, precio - descuento))}* (normal ${fmtCLP(precio)})`;
+  const soloTunel = precioSoloTunel(mapa);
+  return [
+    `💰 *Su primer lavado con el código de ${fmtCLP(descuento)}*`,
+    ...(soloTunel > 0 ? [linea("Lavado exterior, sin aspirado", soloTunel)] : []),
+    linea("Lavado exterior + aspirado", precioLavadoUnico(mapa)),
+  ].join("\n");
+}
 
 // Primer mensaje de alguien que tocó un anuncio Click-to-WhatsApp: en un solo
 // mensaje, horario y ubicación (lo que más preguntan) y la invitación al
@@ -161,7 +195,8 @@ export async function iniciarDesdeAnuncio(conversacion: ConversacionWhatsapp, te
     dias: String(descuentoPrimeraVezDiasValidez),
   });
   // La invitación termina pidiendo el nombre: va al final, que es lo que se responde.
-  return { texto: `${textos.horarioUbicacion}\n\n${invitacion}` };
+  const preciosTexto = await textoPreciosPrimeraVez(descuentoPrimeraVezValor);
+  return { texto: [textos.horarioUbicacion, preciosTexto, invitacion].filter(Boolean).join("\n\n") };
 }
 
 // Continúa el flujo de registro + descuento paso a paso. `conversacion`
@@ -238,12 +273,13 @@ async function manejarPasoRegistroDescuento(
     patente,
     valor: descuentoValor,
     diasValidez: descuentoDiasValidez,
-    nombreLote: flowState.origen === "anuncio" ? LOTE_ANUNCIO : "WhatsApp - Primera vez",
+    nombreLote: flowState.origen === "anuncio" ? LOTE_ANUNCIO_META : LOTE_PRIMERA_VEZ_WHATSAPP,
     creadoPor: "whatsapp-bot",
   });
   await actualizarFlowStateConversacion(conversacion.id, null);
 
-  return { texto: textoConfirmacionDescuento(textos, cupon.codigo, cupon.fechaCaducidad, cupon.valor) };
+  const preciosTexto = await textoPreciosPrimeraVez(cupon.valor);
+  return { texto: [textoConfirmacionDescuento(textos, cupon.codigo, cupon.fechaCaducidad, cupon.valor), preciosTexto].filter(Boolean).join("\n\n") };
 }
 
 // Opción 6, y lo que abre el QR pegado en el túnel. Vale la pena por dos

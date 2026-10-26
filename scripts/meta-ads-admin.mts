@@ -361,7 +361,7 @@ async function medir() {
           and cw.anuncio_origen_en >= ($1::date at time zone 'America/Santiago')
         group by 1 order by conversaciones desc`, [desde]);
     });
-    // Cupones del flujo que abre el anuncio (LOTE_ANUNCIO en src/lib/whatsapp/router.ts).
+    // Cupones del flujo que abre el anuncio (LOTE_ANUNCIO_META en src/lib/helpers/cupones.ts).
     const [cupones] = await sql`
       select count(*)::int as emitidos, count(*) filter (where usado)::int as usados
       from cupones where nombre_lote = 'WhatsApp - Anuncio Meta'

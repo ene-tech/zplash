@@ -231,6 +231,20 @@ export function precioConCupon(precio: number, cupon: Pick<Cupon, "esPorcentaje"
   return Math.max(0, precio - montoDescuento(cupon, precio));
 }
 
+// Lotes del descuento de primera vez que entrega el bot de WhatsApp: la
+// Opción 5 del menú y quien llega desde un anuncio de Meta (ver
+// iniciarDesdeAnuncio en @/lib/whatsapp/router).
+export const LOTE_PRIMERA_VEZ_WHATSAPP = "WhatsApp - Primera vez";
+export const LOTE_ANUNCIO_META = "WhatsApp - Anuncio Meta";
+
+/** true si el cupón también rebaja el "Solo túnel (sin aspirado)". El resto
+ * de los descuentos son para el Lavado Full Túnel; el de primera vez no,
+ * porque el anuncio promete el exterior a $4.990 y el cliente elige si lo usa
+ * con o sin aspirado (pedido del usuario, 26-oct-2026). */
+export function cuponValeEnSoloTunel(cupon: Pick<Cupon, "nombreLote" | "esPorcentaje">): boolean {
+  return !cupon.esPorcentaje && (cupon.nombreLote === LOTE_PRIMERA_VEZ_WHATSAPP || cupon.nombreLote === LOTE_ANUNCIO_META);
+}
+
 /** true si la patente puede canjear este cupón: los cupones tipo "vale" de un
  * pack empresa pueden traer una lista de patentes autorizadas (la flota para
  * la que se contrató el lote); sin lista (vacía/undefined) el cupón queda

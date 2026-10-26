@@ -21,10 +21,13 @@ export function useIngresoActions(
     lavadoWebPendiente: Venta | undefined;
     cuponDescuentoVigente: Cupon | undefined;
     precioLavadoUnicoFinal: number;
+    // Solo el descuento de primera vez del bot (ver cuponValeEnSoloTunel).
+    cuponSoloTunel: Cupon | undefined;
+    precioSoloTunelFinal: number;
   }
 ) {
   const { data, ui, commit, patchUi } = useApp();
-  const { estadoIngreso, citaDetailingPendiente, lavadoWebPendiente, cuponDescuentoVigente, precioLavadoUnicoFinal } = opts;
+  const { estadoIngreso, citaDetailingPendiente, lavadoWebPendiente, cuponDescuentoVigente, precioLavadoUnicoFinal, cuponSoloTunel, precioSoloTunelFinal } = opts;
 
   const hacerRegistro = async (esGarantia: boolean, cliente: Cliente) => {
     const patch = registrarIngreso(data, cliente, ui.perfilActual?.nombre, esGarantia);
@@ -157,18 +160,20 @@ export function useIngresoActions(
   };
 
   // Solo túnel, sin aspirado (ver SOLO_TUNEL_KEY): cobra y da ingreso, como
-  // el lavado único pero a su propio precio. Sin cupón, como los packs: el
-  // descuento de la patente es para el Lavado Full Túnel.
+  // el lavado único pero a su propio precio. El único cupón que lo rebaja es
+  // el de primera vez del bot (cuponSoloTunel, ver cuponValeEnSoloTunel); el
+  // resto de los descuentos de la patente son para el Lavado Full Túnel.
   const cobrarSoloTunel = (cliente: Cliente) => {
-    const precio = precioSoloTunel(data.precios);
-    if (precio <= 0) return;
+    if (precioSoloTunel(data.precios) <= 0) return;
+    const precio = precioSoloTunelFinal;
     patchUi({
       modal: {
         type: "pago",
         monto: precio,
-        descripcion: `Solo túnel (sin aspirado) para ${cliente.nombre} (${cliente.patente})`,
+        descripcion: `Solo túnel (sin aspirado) para ${cliente.nombre} (${cliente.patente})${cuponSoloTunel ? ` con el código ${cuponSoloTunel.codigo}` : ""}`,
         cliente,
         onConfirm: async (pago: PagoInfo) => {
+          const ahora = new Date().toISOString();
           const venta: Venta = {
             id: uidVenta(),
             clienteId: cliente.id,
@@ -177,14 +182,26 @@ export function useIngresoActions(
             plan: cliente.plan || "",
             precio,
             tipo: SOLO_TUNEL_KEY,
-            fecha: new Date().toISOString(),
+            fecha: ahora,
             creadoPor: ui.perfilActual?.nombre || "",
             metodoPago: pago.metodo,
             voucher: pago.voucher,
             ...pago.documento,
+            viaCupon: !!cuponSoloTunel,
+            cuponCodigo: cuponSoloTunel?.codigo,
           };
           const patch = registrarIngreso(data, cliente, ui.perfilActual?.nombre);
-          const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
+          const ok = await commit({
+            ...patch,
+            ventas: [venta, ...data.ventas],
+            ...(cuponSoloTunel
+              ? {
+                  cupones: data.cupones.map((x) =>
+                    x.id === cuponSoloTunel.id ? marcarDescuentoUsado(cuponSoloTunel, cliente.patente, ui.perfilActual?.nombre, ahora) : x
+                  ),
+                }
+              : {}),
+          });
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
             return;
