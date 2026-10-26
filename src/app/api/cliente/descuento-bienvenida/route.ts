@@ -7,6 +7,12 @@ import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { loteReferido } from "@/lib/referidos";
+import { telefonoTieneSmsDeCampana } from "@/lib/dataAccess/sms";
+import { enviarSms, msisdnChile } from "@/lib/sms/enviar";
+
+// Campaña con que queda el SMS en mensajes_sms: también es la llave del
+// "uno por número" (ver telefonoTieneSmsDeCampana).
+const CAMPANA_SMS = "landing-bienvenida";
 
 export const runtime = "nodejs";
 
@@ -34,7 +40,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
   }
 
-  let body: { patente?: unknown; email?: unknown; ref?: unknown };
+  let body: { patente?: unknown; email?: unknown; telefono?: unknown; ref?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -48,6 +54,15 @@ export async function POST(request: NextRequest) {
   }
   if (!isValidEmail(email)) {
     return NextResponse.json({ ok: false, error: "Correo inválido" }, { status: 400 });
+  }
+  // Celular opcional: si viene, tiene que ser un celular chileno, para no
+  // aceptar un número que después no recibe el SMS sin avisarle a nadie.
+  const telefonoRaw = typeof body.telefono === "string" ? body.telefono.trim() : "";
+  // "9 1234 5678" (sin el 56) también vale: es como lo escribe la mayoría.
+  const digitos = telefonoRaw.replace(/\D/g, "");
+  const msisdn = digitos ? msisdnChile(digitos.length === 9 ? "56" + digitos : digitos) : null;
+  if (telefonoRaw && !msisdn) {
+    return NextResponse.json({ ok: false, error: "Celular inválido: usa un número que empiece con 9 (ej. 9 1234 5678)" }, { status: 400 });
   }
 
   try {
@@ -105,12 +120,29 @@ export async function POST(request: NextRequest) {
       ),
     });
 
+    // Copia por SMS (pedido del dueño, 26-oct-2026). El número no está
+    // verificado: uno por celular, y un fallo no invalida el cupón.
+    let smsEnviado = false;
+    if (msisdn && !(await telefonoTieneSmsDeCampana(msisdn, CAMPANA_SMS))) {
+      const sms = await enviarSms({
+        telefono: msisdn,
+        texto: `ZPlash: tu descuento de ${fmtCLP(cupon.valor)} para la patente ${patente} ya quedo guardado. Codigo de respaldo ${cupon.codigo}, vence el ${new Date(cupon.fechaCaducidad).toLocaleDateString("es-CL")}.`,
+        campana: CAMPANA_SMS,
+        enviadoPor: "landing-web",
+      }).catch((error) => {
+        console.error("No se pudo mandar el SMS del descuento de bienvenida", error);
+        return { ok: false };
+      });
+      smsEnviado = sms.ok;
+    }
+
     return NextResponse.json({
       ok: true,
       codigo: cupon.codigo,
       valor: cupon.valor,
       fechaCaducidad: cupon.fechaCaducidad,
       correoEnviado: envio.ok,
+      smsEnviado,
     });
   } catch (error) {
     console.error("Error emitiendo descuento de bienvenida", error);

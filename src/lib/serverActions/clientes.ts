@@ -8,8 +8,10 @@ import {
   isValidPatente,
   isValidTelefono,
   normPlate,
+  puedeCorregirContacto,
   rechazoClienteSinPatente,
   resolverPatentePendiente,
+  type FallasContacto,
 } from "@/lib/helpers";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
@@ -141,7 +143,38 @@ async function esCambioPermitidoSinModuloClientes(patches: ClientePatch[], porId
       porId.has(patch.id) &&
       patchSoloContiene(patch, new Set([...CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES, ...CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES]))
   );
-  return soloVentaDePlan && (await tieneModulo("operador"));
+  if (soloVentaDePlan) return tieneModulo("operador");
+
+  return esCorreccionDeContacto(patches, porId);
+}
+
+// Aviso "a este cliente no le llegan los mensajes" del mesón (ver
+// AvisoContactoCliente): Jeny, Administración y Gerencia pueden corregir un
+// nombre, celular o correo que ya tiene valor, pero solo el dato que el
+// servidor también ve fallado (ver fallasContactoCliente) — no es una puerta
+// para editar cualquier ficha desde el mesón.
+const CAMPOS_CORREGIBLES_CONTACTO = new Set<keyof Cliente>(["nombre", "telefono", "email"]);
+
+async function esCorreccionDeContacto(patches: ClientePatch[], porId: Map<string, Cliente>): Promise<boolean> {
+  const sesion = await sesionActual();
+  if (!sesion || !puedeCorregirContacto(sesion.modulos, sesion.nombre) || !sesion.modulos.includes("operador")) return false;
+  for (const patch of patches) {
+    const anterior = porId.get(patch.id);
+    if (!anterior) return false;
+    const campos = (Object.keys(patch) as (keyof Cliente)[]).filter((c) => c !== "id" && !CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(c));
+    if (!campos.length || !campos.every((c) => CAMPOS_CORREGIBLES_CONTACTO.has(c))) return false;
+    const fallas = await dataAccess.fallasContactoCliente(anterior);
+    if (!campos.every((c) => !!fallas[c as keyof typeof fallas])) return false;
+  }
+  return true;
+}
+
+/** Para el aviso del mesón (AvisoContactoCliente): null si el perfil no corrige contacto. */
+export async function revisarContactoCliente(clienteId: string): Promise<FallasContacto | null> {
+  const sesion = await sesionActual();
+  if (!sesion || !puedeCorregirContacto(sesion.modulos, sesion.nombre)) return null;
+  const [cliente] = await dataAccess.getClientesByIds([clienteId]);
+  return cliente ? dataAccess.fallasContactoCliente(cliente) : null;
 }
 
 export async function upsertClientes(patches: ClientePatch[]): Promise<boolean> {

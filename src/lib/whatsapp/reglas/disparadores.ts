@@ -1,10 +1,10 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { getDb } from "@/db";
-import { cupones } from "@/db/schema";
+import { cupones, ingresos as ingresosTabla, ventas as ventasTabla } from "@/db/schema";
 import { listarReglasWhatsappActivas, marcarDisparoReglaWhatsapp, registrarDisparoReglaWhatsapp } from "@/lib/dataAccess/whatsapp";
-import { KEYS_PROMOS_LAVADOS, mesKey, uid } from "@/lib/helpers";
+import { KEYS_PROMOS_LAVADOS, mesKey, uid, visitasPeriodoPlan } from "@/lib/helpers";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA, promoVipParaCliente } from "./motor";
 import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
 
@@ -32,6 +32,24 @@ function coincideVenta(regla: ReglaWhatsapp, venta: Venta): boolean {
   // @/db/schema/whatsapp).
   if ((regla.condicionExcluirConCupon || reglaRegalaCupon(regla)) && venta.viaCupon) return false;
   return true;
+}
+
+// El primer cobro Oneclick de una patente se graba igual que cualquier
+// renovación ("Renovación automática (Oneclick)", que es lo que cuentan Stats
+// y el Cierre), pero para los mensajes es un alta: las reglas lo ven como
+// TIPO_ALTA_ONECLICK, así el que recién contrata recibe la bienvenida y no el
+// "renovamos tu plan" (decisión del dueño, 26-oct-2026).
+export const TIPO_RENOVACION_ONECLICK = "Renovación automática (Oneclick)";
+export const TIPO_ALTA_ONECLICK = "Alta Oneclick";
+
+async function tipoParaReglas(venta: Venta): Promise<string> {
+  if (venta.tipo !== TIPO_RENOVACION_ONECLICK || !venta.patente) return venta.tipo;
+  const [anterior] = await getDb()
+    .select({ id: ventasTabla.id })
+    .from(ventasTabla)
+    .where(and(eq(ventasTabla.patente, venta.patente), eq(ventasTabla.tipo, TIPO_RENOVACION_ONECLICK), ne(ventasTabla.id, venta.id)))
+    .limit(1);
+  return anterior ? venta.tipo : TIPO_ALTA_ONECLICK;
 }
 
 async function dispararPorVenta(regla: ReglaWhatsapp, venta: Venta): Promise<void> {
@@ -80,7 +98,14 @@ export async function evaluarReglasPorVenta(ventasNuevas: Venta[]): Promise<void
 
   for (const venta of ventasNuevas) {
     if (!venta.clienteId) continue; // ventas sin cliente (ej. B2B directo) no tienen a quién escribirle
-    for (const regla of reglas.filter((r) => coincideVenta(r, venta))) {
+    let tipo = venta.tipo;
+    try {
+      tipo = await tipoParaReglas(venta);
+    } catch (error) {
+      console.error(`Error viendo si la venta ${venta.id} es un alta Oneclick`, error);
+    }
+    const comoRegla = tipo === venta.tipo ? venta : { ...venta, tipo };
+    for (const regla of reglas.filter((r) => coincideVenta(r, comoRegla))) {
       await dispararPorVenta(regla, venta).catch((error) =>
         console.error(`Error disparando regla WhatsApp "${regla.nombre}" para venta ${venta.id}`, error)
       );
@@ -170,10 +195,28 @@ export async function evaluarReglasPorIngreso(ingresosNuevos: Ingreso[]): Promis
     if (!ingreso.clienteId || ingreso.planEstadoAlIngreso !== "ok") continue;
     const cliente = await buscarCliente(ingreso.clienteId);
     if (!cliente || !cliente.plan) continue;
+    // Pasadas del ciclo contando esta: se calcula una vez, solo si alguna
+    // regla filtra por pasadas (ver condicionPasadasMin/Max).
+    let pasadasCiclo: number | undefined;
+    const pasadasDelCiclo = async () => {
+      if (pasadasCiclo === undefined) {
+        const filas = await getDb()
+          .select({ id: ingresosTabla.id, clienteId: ingresosTabla.clienteId, fecha: ingresosTabla.fecha })
+          .from(ingresosTabla)
+          .where(eq(ingresosTabla.clienteId, cliente.id));
+        pasadasCiclo = visitasPeriodoPlan(filas as Ingreso[], cliente);
+      }
+      return pasadasCiclo;
+    };
     for (const regla of reglas) {
       if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(cliente.plan)) continue;
       // En un Ingreso, viaCupon = entró canjeando un ticket.
       if (ingreso.viaCupon && reglaRegalaCupon(regla)) continue;
+      if (regla.condicionPasadasMin != null || regla.condicionPasadasMax != null) {
+        const n = await pasadasDelCiclo();
+        if (regla.condicionPasadasMin != null && n < regla.condicionPasadasMin) continue;
+        if (regla.condicionPasadasMax != null && n > regla.condicionPasadasMax) continue;
+      }
       const disparo = await registrarDisparoReglaWhatsapp({
         id: uid(),
         reglaId: regla.id,

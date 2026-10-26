@@ -4,6 +4,7 @@ import { clientes, precios } from "@/db/schema";
 import {
   aplicarVariables,
   fmtCLP,
+  fmtFecha,
   isValidEmail,
   isValidPatente,
   LOTE_ANUNCIO_META,
@@ -34,6 +35,7 @@ import {
   vincularClienteConversacion,
 } from "@/lib/dataAccess";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
+import { enviarSms } from "@/lib/sms/enviar";
 import type { Cliente, ConversacionWhatsapp, FlowStateWhatsapp, TextosBotWhatsapp } from "@/types";
 import { parsearNotaOpinion, parsearTamano, textoPedirTamano, textoPrecios } from "./contenido";
 import { estadoPlanPorPatente, iniciarCambioPatente, manejarPasoCambioPatente } from "./patente";
@@ -277,6 +279,18 @@ async function manejarPasoRegistroDescuento(
     creadoPor: "whatsapp-bot",
   });
   await actualizarFlowStateConversacion(conversacion.id, null);
+
+  // Copia del código por SMS (pedido del dueño, 26-oct-2026): el chat se
+  // pierde entre otros, el SMS queda a mano para mostrarlo en el mesón. Se
+  // espera (en Vercel una promesa suelta puede cortarse al responder), pero
+  // si LabsMobile falla la respuesta del bot sale igual.
+  await enviarSms({
+    telefono,
+    texto: `ZPlash: tu codigo de primera vez es ${cupon.codigo}: ${fmtCLP(cupon.valor)} de descuento en tu primer lavado, vence el ${fmtFecha(cupon.fechaCaducidad)}. Muestralo en el meson.`,
+    campana: "bot-descuento-primera-vez",
+    clienteId: nuevoCliente.id,
+    enviadoPor: "whatsapp-bot",
+  }).catch((error) => console.error("No se pudo mandar el SMS del código de primera vez", error));
 
   const preciosTexto = await textoPreciosPrimeraVez(cupon.valor);
   return { texto: [textoConfirmacionDescuento(textos, cupon.codigo, cupon.fechaCaducidad, cupon.valor), preciosTexto].filter(Boolean).join("\n\n") };

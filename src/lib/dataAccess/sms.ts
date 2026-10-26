@@ -28,6 +28,19 @@ export async function insertarMensajeSmsPendiente(row: {
   return insertados.length > 0;
 }
 
+// ¿Este celular (msisdn, ver msisdnChile) ya recibió un SMS de esta campaña?
+// Para rutas públicas que mandan SMS a un número que nadie verificó (el pop-up
+// de la landing): uno por número, así nadie usa el formulario para mandarle
+// SMS a un tercero una y otra vez.
+export async function telefonoTieneSmsDeCampana(msisdn: string, campana: string): Promise<boolean> {
+  const [fila] = await getDb()
+    .select({ id: mensajesSms.id })
+    .from(mensajesSms)
+    .where(and(eq(mensajesSms.telefono, msisdn), eq(mensajesSms.campana, campana)))
+    .limit(1);
+  return !!fila;
+}
+
 export async function marcarMensajeSms(id: string, cambios: { estado: EstadoMensajeSms; proveedorId?: string; error?: string }): Promise<void> {
   await getDb().update(mensajesSms).set(cambios).where(eq(mensajesSms.id, id));
 }

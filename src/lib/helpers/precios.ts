@@ -191,6 +191,13 @@ export const PRECIO_LAVADO_ADICIONAL = 3990;
 /** Clave usada dentro de Precios para guardar el valor editable del lavado adicional. */
 export const LAVADO_ADICIONAL_KEY = "Lavado adicional (con plan vigente)";
 
+/** `Venta.tipo` del lavado que el mesón le cobra a un cliente con plan vigente
+ * (el extra cuando ya gastó sus pasadas, o el reingreso pagado dentro de las
+ * 24 h). Hasta el 26-oct-2026 se grababa como "Lavado único", y por eso le
+ * llegaban los mensajes del cliente sin plan (descuento de próxima visita):
+ * ahora es un producto aparte y ninguna regla lo toma salvo que lo nombre. */
+export const LAVADO_EXTRA_PLAN_TIPO = "Lavado extra plan";
+
 /** Precio vigente del lavado full túnel adicional, editable por el administrador; si no se ha guardado uno, usa el valor por defecto. */
 export function precioLavadoAdicional(precios: Precios): number {
   return (precios[LAVADO_ADICIONAL_KEY] && precios[LAVADO_ADICIONAL_KEY].normal) || PRECIO_LAVADO_ADICIONAL;
@@ -320,7 +327,7 @@ export function ventaLavadoUnicoDeIngreso(
   let mejor: Venta | undefined;
   let mejorDelta = Infinity;
   for (const v of ventas) {
-    if (v.clienteId !== ingreso.clienteId || (v.tipo !== LAVADO_UNICO_KEY && v.tipo !== SOLO_TUNEL_KEY)) continue;
+    if (v.clienteId !== ingreso.clienteId || (v.tipo !== LAVADO_UNICO_KEY && v.tipo !== SOLO_TUNEL_KEY && v.tipo !== LAVADO_EXTRA_PLAN_TIPO)) continue;
     const delta = Math.abs(new Date(v.fecha).getTime() - fechaIngreso);
     if (delta <= toleranciaMs && delta < mejorDelta) {
       mejor = v;

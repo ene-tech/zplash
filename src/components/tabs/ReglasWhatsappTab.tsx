@@ -2,14 +2,16 @@
 
 import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { PLANES, TIPOS_VENTA_PLAN, uid } from "@/lib/helpers";
+import { LAVADO_EXTRA_PLAN_TIPO, PLANES, TIPOS_VENTA_PLAN, uid } from "@/lib/helpers";
 import type { AccionReglaWhatsapp, CanalReglaWhatsapp, ReglaWhatsapp, TipoEventoReglaWhatsapp } from "@/types";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
 
 // Mismo selector que ReglasCorreoTab, misma razón: sale de TIPOS_VENTA_PLAN
 // para que un canal de cobro nuevo no quede sin poder disparar reglas.
-// "Lavado único" se agrega aparte porque no es una venta de plan.
-const TIPOS_VENTA_CONOCIDOS = ["Lavado único", ...TIPOS_VENTA_PLAN];
+// "Lavado único" se agrega aparte porque no es una venta de plan. "Alta
+// Oneclick" no es un tipo de venta real: es el primer cobro Oneclick de una
+// patente (ver tipoParaReglas en @/lib/whatsapp/reglas/disparadores).
+const TIPOS_VENTA_CONOCIDOS = ["Lavado único", LAVADO_EXTRA_PLAN_TIPO, "Alta Oneclick", ...TIPOS_VENTA_PLAN];
 
 const NOMBRE_CANAL: Record<CanalReglaWhatsapp, string> = { whatsapp: "WhatsApp", sms: "SMS", correo: "Correo" };
 

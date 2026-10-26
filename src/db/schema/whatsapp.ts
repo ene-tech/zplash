@@ -156,6 +156,11 @@ export const reglasWhatsapp = pgTable("reglas_whatsapp", {
   // o menos se le MANTIENE el plan, asi que el aviso de "tu plan se termina"
   // solo le corresponde al que se paso del tope.
   condicionPasadasMin: integer("condicion_pasadas_min"),
+  // Tope de pasadas del ciclo en curso, contando la que disparó la regla.
+  // Junto con condicionPasadasMin aplica también a "ingreso_plan_registrado":
+  // así el correo de cada pasada del X5 puede cambiar en la 4ª y 5ª (avisar
+  // que el extra cuesta $3.990) sin repetirse en las anteriores. Null = sin tope.
+  condicionPasadasMax: integer("condicion_pasadas_max"),
   // Solo aplica a tipoEvento="venta_creada": días de espera tras la venta
   // antes de mandar (0 = inmediato). En "plan_proximo_vencer" el "cuándo" ya
   // lo define condicionDiasAntesVencimiento.

@@ -15,7 +15,7 @@ const DELAY_MS = 3500;
 // regalo, así que no se le hace esperar.
 const DELAY_REFERIDO_MS = 600;
 
-type Emitido = { codigo: string; valor: number; fechaCaducidad: string; correoEnviado: boolean };
+type Emitido = { codigo: string; valor: number; fechaCaducidad: string; correoEnviado: boolean; smsEnviado?: boolean };
 
 // Captura de clientes nuevos en la landing: patente + correo a cambio del
 // descuento de primera vez (el mismo de la Opción 5 del bot de WhatsApp, ver
@@ -29,6 +29,7 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
   const [listo, setListo] = useState(false);
   const [patente, setPatente] = useState("");
   const [email, setEmail] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [err, setErr] = useState("");
   const [emitido, setEmitido] = useState<Emitido | null>(null);
@@ -52,7 +53,7 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
       const res = await fetch("/api/cliente/descuento-bienvenida", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patente, email, ref }),
+        body: JSON.stringify({ patente, email, telefono, ref }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
@@ -85,8 +86,10 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
                   Ahora solo llegar y pasar: aplicamos tus {fmtCLP(emitido.valor)} de descuento de forma automática en tu próxima
                   visita.
                   {emitido.correoEnviado
-                    ? ` Te mandamos el detalle a ${email}.`
-                    : " No alcanzamos a enviarte el correo, pero el descuento ya quedó guardado."}
+                    ? ` Te mandamos el detalle a ${email}${emitido.smsEnviado ? " y por SMS" : ""}.`
+                    : emitido.smsEnviado
+                      ? " Te mandamos el detalle por SMS."
+                      : " No alcanzamos a enviarte el correo, pero el descuento ya quedó guardado."}
                 </DialogDescription>
               </DialogHeader>
               <p className="promo-popup-codigo">{emitido.codigo}</p>
@@ -139,6 +142,21 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && enviar()}
                   placeholder="correo@ejemplo.com"
+                />
+              </div>
+
+              {/* Opcional: con el celular le llega también por SMS. */}
+              <div className="field">
+                <label htmlFor="promo-telefono">Celular (opcional, te lo mandamos por SMS)</label>
+                <input
+                  id="promo-telefono"
+                  type="tel"
+                  inputMode="tel"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && enviar()}
+                  placeholder="9 1234 5678"
+                  autoComplete="tel"
                 />
               </div>
 

@@ -220,6 +220,7 @@ export interface ReglaWhatsapp {
   condicionExcluirConCupon?: boolean;
   condicionDiasAntesVencimiento?: number;
   condicionPasadasMin?: number;
+  condicionPasadasMax?: number;
   delayDias: number;
   delayMinutos?: number;
   accion: AccionReglaWhatsapp;

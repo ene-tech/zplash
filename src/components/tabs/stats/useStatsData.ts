@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
 import { patentesConOneclickActiva } from "@/lib/serverActions";
-import { GLOSA_LAVADO_WEB, IDS_PROMOS_LAVADOS, LAVADO_UNICO_WEB_KEY, PROMOS_LAVADOS, PROMO_VIP_KEY, SOLO_TUNEL_KEY, TIPOS_VENTA_PLAN, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, inRange, normPlate, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
+import { GLOSA_LAVADO_WEB, IDS_PROMOS_LAVADOS, LAVADO_EXTRA_PLAN_TIPO, LAVADO_UNICO_WEB_KEY, PROMOS_LAVADOS, PROMO_VIP_KEY, SOLO_TUNEL_KEY, TIPOS_VENTA_PLAN, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, inRange, normPlate, periodoPlan, planStatus, primerDiaMesActualYMD, todayStr, todayYMD } from "@/lib/helpers";
 import type { AppData, Cliente } from "@/types";
 import { calcularFilasVentaCierre } from "../cierre/filasVenta";
 
@@ -90,7 +90,9 @@ function calcularStats(data: AppData, desde: string, hasta: string, patentesOnec
   // servicio adicional (tienda, venta puntual, reembolsos, ingresos del
   // módulo Contabilidad) va a "Otros".
   const cierre = calcularFilasVentaCierre(data.ventas, data.clientes, data.movimientosContables, desde, hasta);
-  const tiposLavadoUnico = new Set(["Lavado único", LAVADO_UNICO_WEB_KEY, SOLO_TUNEL_KEY, `${SOLO_TUNEL_KEY} (Web)`]);
+  // El lavado extra plan se grababa como "Lavado único" hasta el 26-oct-2026:
+  // sigue en el mismo grupo para que los períodos se puedan comparar.
+  const tiposLavadoUnico = new Set(["Lavado único", LAVADO_EXTRA_PLAN_TIPO, LAVADO_UNICO_WEB_KEY, SOLO_TUNEL_KEY, `${SOLO_TUNEL_KEY} (Web)`]);
   const tiposPacks = new Set(["Cupón Venta Empresa", UPGRADE_PACK_KEY, UPGRADE_DESCUENTO_KEY, PROMO_VIP_KEY]);
   for (const id of IDS_PROMOS_LAVADOS) {
     tiposPacks.add(PROMOS_LAVADOS[id].key);

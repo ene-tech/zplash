@@ -278,6 +278,7 @@ export function useOperadorFoundResult(
   return {
     c,
     st,
+    updateResult,
     guardarErr,
     registroIncompleto,
     planVigente,

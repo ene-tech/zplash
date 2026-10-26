@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { entregarPromoLavados, entregarPromoVip, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
 import { conReglaVigente } from "./reglaVigente";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -83,7 +83,9 @@ export function useIngresoActions(
         nombre: cliente.nombre,
         plan: cliente.plan || "",
         precio,
-        tipo: "Lavado único",
+        // Al de plan vigente (extra sin pasadas o reingreso pagado) es otro
+        // producto: no le corresponden los mensajes del lavado único.
+        tipo: estadoIngreso === "sin_pases" || planStatus(cliente).cls !== "bad" ? LAVADO_EXTRA_PLAN_TIPO : "Lavado único",
         fecha: ahora,
         creadoPor: ui.perfilActual?.nombre || "",
         metodoPago: pago.metodo,

@@ -15,6 +15,7 @@ import type { Cliente } from "@/types";
 import { DetailList, DetailRow } from "@/components/DetailList";
 import { useOperadorFoundResult } from "@/components/operador/useOperadorFoundResult";
 import OperadorFoundOfertas from "@/components/operador/OperadorFoundOfertas";
+import AvisoContactoCliente from "@/components/operador/AvisoContactoCliente";
 import QrReferido from "@/components/operador/QrReferido";
 import { useAppData } from "@/context/AppContext";
 
@@ -62,6 +63,7 @@ export default function OperadorFoundResult({
           que corresponda — se guardarán automáticamente
         </div>
       )}
+      <AvisoContactoCliente cliente={c} onActualizado={r.updateResult} />
       <OperadorFoundOfertas {...r} />
       {r.guardarErr && <div className="err" style={{ marginBottom: 10 }}>{r.guardarErr}</div>}
       <div className="result-card found">

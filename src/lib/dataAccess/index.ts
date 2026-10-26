@@ -25,6 +25,7 @@ export * from "./cierre";
 export * from "./clientes";
 export * from "./config";
 export * from "./contabilidad";
+export * from "./contactoCliente";
 export * from "./cupones";
 export * from "./empresas";
 export * from "./estanques";

@@ -23,6 +23,16 @@ vi.mock("@/lib/mailing/proveedor", () => ({
   enviarCorreoTransaccional: (envio: unknown) => mockEnviar(envio),
 }));
 
+const mockEnviarSms = vi.fn();
+const mockYaTieneSms = vi.fn();
+vi.mock("@/lib/sms/enviar", async () => ({
+  enviarSms: (opts: unknown) => mockEnviarSms(opts),
+  msisdnChile: (t: string) => (/^569\d{8}$/.test(t.replace(/\D/g, "")) ? t.replace(/\D/g, "") : null),
+}));
+vi.mock("@/lib/dataAccess/sms", () => ({
+  telefonoTieneSmsDeCampana: (m: string, c: string) => mockYaTieneSms(m, c),
+}));
+
 vi.mock("@/lib/csrf", () => ({ origenValido: () => true }));
 vi.mock("@/lib/rateLimit", () => ({ clienteIp: () => "1.2.3.4", rateLimited: () => false }));
 
@@ -44,6 +54,8 @@ describe("POST /api/cliente/descuento-bienvenida", () => {
     mockBuscarClientePorPatente.mockResolvedValue(null);
     mockYaReferida.mockResolvedValue(false);
     mockEnviar.mockResolvedValue({ ok: true });
+    mockEnviarSms.mockResolvedValue({ ok: true });
+    mockYaTieneSms.mockResolvedValue(false);
     mockEmitirCupon.mockResolvedValue({
       codigo: "ABC234",
       valor: 3000,
@@ -108,6 +120,31 @@ describe("POST /api/cliente/descuento-bienvenida", () => {
 
     await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", ref: "ZZ9999" });
     expect(mockEmitirCupon).toHaveBeenLastCalledWith(expect.objectContaining({ nombreLote: "Web - Primera vez", valor: 3000, diasValidez: 7 }));
+  });
+
+  it("sin celular no manda SMS", async () => {
+    const data = await (await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl" })).json();
+    expect(data.smsEnviado).toBe(false);
+    expect(mockEnviarSms).not.toHaveBeenCalled();
+  });
+
+  it("con celular manda el código por SMS, aunque venga sin el 56", async () => {
+    const data = await (await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", telefono: "9 1234 5678" })).json();
+    expect(data.smsEnviado).toBe(true);
+    expect(mockEnviarSms).toHaveBeenCalledWith(expect.objectContaining({ telefono: "56912345678", campana: "landing-bienvenida" }));
+    expect(mockEnviarSms.mock.calls[0][0].texto).toContain("ABC234");
+  });
+
+  it("un celular que ya recibió este SMS no recibe otro", async () => {
+    mockYaTieneSms.mockResolvedValue(true);
+    const data = await (await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", telefono: "+56 9 1234 5678" })).json();
+    expect(data).toMatchObject({ ok: true, smsEnviado: false });
+    expect(mockEnviarSms).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un celular inválido sin emitir el cupón", async () => {
+    expect((await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", telefono: "1234" })).status).toBe(400);
+    expect(mockEmitirCupon).not.toHaveBeenCalled();
   });
 
   it("devuelve el código igual si el correo no sale", async () => {
