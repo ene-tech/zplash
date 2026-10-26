@@ -142,9 +142,16 @@ describe("POST /api/cliente/descuento-bienvenida", () => {
     expect(mockEnviarSms).not.toHaveBeenCalled();
   });
 
-  it("rechaza un celular inválido sin emitir el cupón", async () => {
-    expect((await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", telefono: "1234" })).status).toBe(400);
-    expect(mockEmitirCupon).not.toHaveBeenCalled();
+  it("un celular inválido no frena el descuento, solo no manda SMS", async () => {
+    const res = await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", telefono: "1234" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, smsEnviado: false });
+    expect(mockEnviarSms).not.toHaveBeenCalled();
+  });
+
+  it("acepta el celular con el 0 de adelante", async () => {
+    await pedir({ patente: "AB1234", email: "nuevo@ejemplo.cl", telefono: "09 1234 5678" });
+    expect(mockEnviarSms).toHaveBeenCalledWith(expect.objectContaining({ telefono: "56912345678" }));
   });
 
   it("devuelve el código igual si el correo no sale", async () => {

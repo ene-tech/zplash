@@ -13,10 +13,12 @@ insert into plantillas_whatsapp (id, nombre, categoria, mensaje, activo) values
  'ZPlash: bienvenido a tu {{plan}}! La patente {{patente}} ya tiene sus lavados del mes con cobro automatico, vigente hasta el {{fechaVencimiento}}. Revisa tu plan en zplash.cl/cliente', true),
 ('correo-bienvenida-x5', 'Bienvenido a tu {{plan}} en ZPlash', 'correo',
  E'Hola {{nombre}}, ¡bienvenido a ZPlash!\n\nTu **{{plan}}** para la patente **{{patente}}** ya está activo, vigente hasta el **{{fechaVencimiento}}**.\n\nAsí funciona:\n\n- Tienes **5 lavados** en cada ciclo del plan. Al llegar solo di tu patente en el mesón.\n- Si necesitas más, cada lavado extra cuesta **{{precioLavadoAdicional}}**.\n- El plan se renueva solo con tu tarjeta cada mes: no tienes que hacer nada.\n\nEn **Mi Cuenta** (zplash.cl/cliente, con tu patente) puedes ver tus lavados, cambiar la tarjeta o cancelar la renovación cuando quieras.\n\n¡Nos vemos en el túnel!', true),
-('correo-plan-ultimos-lavados', 'Te quedan {{lavadosRestantes}} lavados en tu plan', 'correo',
- E'Hola {{nombre}}, gracias por pasar hoy por ZPlash.\n\nYa vas en los últimos lavados de este ciclo de tu plan: te quedan **{{lavadosRestantes}}**.\n\nSi necesitas más antes de que se renueve, cada lavado extra cuesta **{{precioLavadoAdicional}}**, directo en el mesón.', true),
+-- Sale en la 4ª y en la 5ª pasada: el número va como dato ("...: 0") para que
+-- se lea bien también cuando ya no le quedan.
+('correo-plan-ultimos-lavados', 'Tus últimos lavados del plan y el lavado extra', 'correo',
+ E'Hola {{nombre}}, gracias por pasar hoy por ZPlash.\n\nYa vas en los últimos lavados de este ciclo de tu plan.\n\nLavados incluidos que te quedan en este ciclo: **{{lavadosRestantes}}**\n\nSi necesitas más antes de que se renueve, cada lavado extra cuesta **{{precioLavadoAdicional}}**, directo en el mesón.', true),
 ('sms-plan-ultimos-lavados', 'SMS: últimos lavados del ciclo del plan', 'sms',
- 'ZPlash: te quedan {{lavadosRestantes}} lavados de tu plan en este ciclo. Si necesitas mas, el lavado extra cuesta {{precioLavadoAdicional}} en el meson.', true)
+ 'ZPlash: lavados de tu plan que te quedan este ciclo: {{lavadosRestantes}}. Si necesitas mas, el lavado extra cuesta {{precioLavadoAdicional}} en el meson.', true)
 on conflict (id) do nothing;
 
 -- 2. Reglas nuevas, prendidas
@@ -37,5 +39,7 @@ on conflict (id) do nothing;
 --    reciben el de arriba, que avisa del lavado extra).
 update reglas_whatsapp set condicion_pasadas_max = 3 where id = 'correo-plan-lavados-restantes';
 
--- 4. El SMS de plan contratado también para la contratación por Webpay.
+-- 4. El SMS de plan contratado también para "Plan nuevo (Web)". Hoy casi no
+--    se graba (2 en 30 días): el alta web normal es por Oneclick y recibe la
+--    bienvenida de arriba.
 update reglas_whatsapp set condicion_tipo_venta = 'Plan nuevo|Plan nuevo (Web)' where id = 'sms-c1785028292938367';

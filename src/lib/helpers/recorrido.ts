@@ -1,10 +1,14 @@
 import type { Cliente, Ingreso, Venta } from "@/types";
 import { DIAS_AVISO_VENCIMIENTO, diasVencido, indexarClientesPorTelefono, planStatus } from "./clientes";
 import { inRange, sumarMesesFecha } from "./fechas";
-import { PLAN_ILIMITADO_LEGACY, PLAN_X5, planVigente } from "./precios";
+import { LAVADO_EXTRA_PLAN_TIPO, PLAN_ILIMITADO_LEGACY, PLAN_X5, planVigente } from "./precios";
 import { formatTelefono } from "./validadores";
 import type { InteresBot } from "./whatsapp";
 import { TIPOS_VENTA_PLAN } from "./ventas";
+
+// Tipos que las reglas entienden y que son de un cliente con plan sin ser una
+// venta de plan (ver tipoParaReglas en @/lib/whatsapp/reglas/disparadores).
+const TIPOS_CON_PLAN_EXTRA = new Set(["Alta Oneclick", LAVADO_EXTRA_PLAN_TIPO]);
 
 // Recorrido del cliente: las etapas por las que pasa desde que existe la
 // ficha hasta que se le enfría el plan, y qué comunicación recibe en cada
@@ -434,8 +438,13 @@ export function etapaDePalanca(
     case "venta_creada_presencial":
       // Dispara DESPUÉS de la venta, así que actúa sobre la etapa en la que
       // el cliente queda parado: comprar plan lo deja al día, y un lavado
-      // suelto lo deja donde ya estaba, lavando sin plan.
-      return p.condicionTipoVenta && !TIPOS_VENTA_PLAN.has(p.condicionTipoVenta) ? "lavado_suelto" : "plan_activo";
+      // suelto lo deja donde ya estaba, lavando sin plan. La condición puede
+      // traer varios tipos ("A|B"); "Alta Oneclick" y el lavado extra plan
+      // son de cliente con plan aunque no sean tipos de venta de plan.
+      if (!p.condicionTipoVenta) return "plan_activo";
+      return p.condicionTipoVenta.split("|").some((t) => TIPOS_VENTA_PLAN.has(t.trim()) || TIPOS_CON_PLAN_EXTRA.has(t.trim()))
+        ? "plan_activo"
+        : "lavado_suelto";
     case "plan_proximo_vencer":
       return "por_vencer";
     case "plan_vencido":

@@ -55,15 +55,11 @@ export async function POST(request: NextRequest) {
   if (!isValidEmail(email)) {
     return NextResponse.json({ ok: false, error: "Correo inválido" }, { status: 400 });
   }
-  // Celular opcional: si viene, tiene que ser un celular chileno, para no
-  // aceptar un número que después no recibe el SMS sin avisarle a nadie.
-  const telefonoRaw = typeof body.telefono === "string" ? body.telefono.trim() : "";
-  // "9 1234 5678" (sin el 56) también vale: es como lo escribe la mayoría.
-  const digitos = telefonoRaw.replace(/\D/g, "");
+  // Celular opcional, solo para mandarle una copia por SMS: "9 1234 5678"
+  // (sin el 56) o "09 1234 5678" también valen. Uno que no es celular chileno
+  // no frena el descuento: simplemente no sale el SMS (smsEnviado: false).
+  const digitos = (typeof body.telefono === "string" ? body.telefono : "").replace(/\D/g, "").replace(/^0+/, "");
   const msisdn = digitos ? msisdnChile(digitos.length === 9 ? "56" + digitos : digitos) : null;
-  if (telefonoRaw && !msisdn) {
-    return NextResponse.json({ ok: false, error: "Celular inválido: usa un número que empiece con 9 (ej. 9 1234 5678)" }, { status: 400 });
-  }
 
   try {
     // Llegó por el link de un cliente (zplash.cl/?ref=PATENTE, ver

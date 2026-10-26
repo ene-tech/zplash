@@ -30,6 +30,15 @@ export function esErrorSmsDeCuenta(error: string | null | undefined): boolean {
   return ERROR_SMS_DE_CUENTA.test(error || "");
 }
 
+// Al revés que en SMS, de los errores de correo solo cuentan los que culpan a
+// la dirección (la rechazó nuestro filtro o el proveedor): una caída de
+// Resend, el límite por segundo o una llave faltante no dicen nada del correo.
+const ERROR_CORREO_DE_DIRECCION = /dirección no enviable|invalid `to`|invalid.*(address|recipient)/i;
+
+export function esErrorCorreoDeDireccion(error: string | null | undefined): boolean {
+  return ERROR_CORREO_DE_DIRECCION.test(error || "");
+}
+
 /** Qué dato de contacto hay que actualizar y por qué (texto para el operador). Vacío = nada. */
 export type FallasContacto = { nombre?: string; telefono?: string; email?: string };
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { fmtTelefono, formatTelefono, isValidEmail, isValidTelefono, puedeCorregirContacto, TELEFONO_FORMATO_MSG, type FallasContacto } from "@/lib/helpers";
+import { esNombreVacio, fmtTelefono, formatTelefono, isValidEmail, isValidTelefono, puedeCorregirContacto, TELEFONO_FORMATO_MSG, type FallasContacto } from "@/lib/helpers";
 import { revisarContactoCliente } from "@/lib/serverActions";
 import type { Cliente } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -16,7 +16,12 @@ const ETIQUETA: Record<keyof FallasContacto, string> = { nombre: "Nombre", telef
 export default function AvisoContactoCliente({ cliente, onActualizado }: { cliente: Cliente; onActualizado: (c: Cliente) => void }) {
   const { data, ui, commit } = useApp();
   const habilitado = puedeCorregirContacto(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
-  const [fallas, setFallas] = useState<FallasContacto | null>(null);
+  // La respuesta queda guardada junto a la ficha que se consultó: si cambia el
+  // cliente escaneado (o sus datos, al guardar), la anterior deja de valer al
+  // tiro y no se muestra ni se guarda mientras llega la nueva.
+  const firma = `${cliente.id}|${cliente.nombre}|${cliente.telefono}|${cliente.email}`;
+  const [revision, setRevision] = useState<{ firma: string; fallas: FallasContacto | null } | null>(null);
+  const fallas = revision?.firma === firma ? revision.fallas : null;
   const [valores, setValores] = useState<Record<keyof FallasContacto, string>>({ nombre: "", telefono: "", email: "" });
   const [err, setErr] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -27,7 +32,8 @@ export default function AvisoContactoCliente({ cliente, onActualizado }: { clien
     revisarContactoCliente(cliente.id)
       .then((f) => {
         if (cancelado) return;
-        setFallas(f);
+        setRevision({ firma, fallas: f });
+        setErr("");
         setValores({
           nombre: f?.nombre ? "" : cliente.nombre,
           telefono: f?.telefono ? cliente.telefono || "+569" : cliente.telefono || "",
@@ -38,9 +44,17 @@ export default function AvisoContactoCliente({ cliente, onActualizado }: { clien
     return () => {
       cancelado = true;
     };
-  }, [habilitado, cliente.id, cliente.nombre, cliente.telefono, cliente.email]);
+  }, [habilitado, firma, cliente.id, cliente.nombre, cliente.telefono, cliente.email]);
 
-  const campos = fallas ? (Object.keys(fallas) as (keyof FallasContacto)[]).filter((k) => fallas[k]) : [];
+  // Lo vacío o inválido ya lo pide la ficha de abajo con su propio input
+  // (nombre vacío, sin celular válido, sin correo): acá solo lo que la ficha
+  // no muestra, el dato que tiene valor pero no le llega, y el "Invitado".
+  const yaLoPideLaFicha: Record<keyof FallasContacto, boolean> = {
+    nombre: esNombreVacio(cliente.nombre),
+    telefono: !cliente.telefono || !isValidTelefono(cliente.telefono),
+    email: !cliente.email,
+  };
+  const campos = fallas ? (Object.keys(fallas) as (keyof FallasContacto)[]).filter((k) => fallas[k] && !yaLoPideLaFicha[k]) : [];
   if (!habilitado || !campos.length) return null;
 
   const guardar = async () => {
@@ -62,7 +76,10 @@ export default function AvisoContactoCliente({ cliente, onActualizado }: { clien
     }
     if (!Object.keys(cambios).length) return setErr("Escribe el dato nuevo antes de guardar.");
     setGuardando(true);
-    const updated = { ...cliente, ...cambios };
+    // Sobre la fila de hoy, no sobre la copia del escaneo: si en el intertanto
+    // cambió otro campo (un cobro que movió el vencimiento), no se pisa.
+    const actual = data.clientes.find((x) => x.id === cliente.id) ?? cliente;
+    const updated = { ...actual, ...cambios };
     const ok = await commit({ clientes: data.clientes.map((x) => (x.id === cliente.id ? updated : x)) });
     setGuardando(false);
     if (!ok) return setErr(ERROR_GUARDADO_INGRESO);

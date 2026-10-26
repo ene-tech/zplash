@@ -1,10 +1,10 @@
 import "server-only";
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { cupones, ingresos as ingresosTabla, ventas as ventasTabla } from "@/db/schema";
 import { listarReglasWhatsappActivas, marcarDisparoReglaWhatsapp, registrarDisparoReglaWhatsapp } from "@/lib/dataAccess/whatsapp";
-import { KEYS_PROMOS_LAVADOS, mesKey, uid, visitasPeriodoPlan } from "@/lib/helpers";
+import { KEYS_PROMOS_LAVADOS, mesKey, TIPOS_VENTA_PLAN, uid, visitasPeriodoPlan } from "@/lib/helpers";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA, promoVipParaCliente } from "./motor";
 import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
 
@@ -34,20 +34,22 @@ function coincideVenta(regla: ReglaWhatsapp, venta: Venta): boolean {
   return true;
 }
 
-// El primer cobro Oneclick de una patente se graba igual que cualquier
-// renovación ("Renovación automática (Oneclick)", que es lo que cuentan Stats
-// y el Cierre), pero para los mensajes es un alta: las reglas lo ven como
-// TIPO_ALTA_ONECLICK, así el que recién contrata recibe la bienvenida y no el
-// "renovamos tu plan" (decisión del dueño, 26-oct-2026).
-export const TIPO_RENOVACION_ONECLICK = "Renovación automática (Oneclick)";
+// La primera venta de plan por Oneclick de una patente que nunca tuvo plan se
+// graba igual que siempre ("Renovación automática (Oneclick)" o "Upgrade a
+// Plan X5 (Oneclick)", que es lo que cuentan Stats y el Cierre), pero para los
+// mensajes es un alta: las reglas la ven como TIPO_ALTA_ONECLICK, así el que
+// recién contrata recibe la bienvenida y no el "renovamos tu plan" (decisión
+// del dueño, 26-oct-2026). Un cliente de años que pasa de Woo o del mesón a
+// Oneclick ya tiene ventas de plan: no es un alta.
 export const TIPO_ALTA_ONECLICK = "Alta Oneclick";
+const TIPOS_PUEDEN_SER_ALTA = new Set(["Renovación automática (Oneclick)", "Upgrade a Plan X5 (Oneclick)"]);
 
 async function tipoParaReglas(venta: Venta): Promise<string> {
-  if (venta.tipo !== TIPO_RENOVACION_ONECLICK || !venta.patente) return venta.tipo;
+  if (!TIPOS_PUEDEN_SER_ALTA.has(venta.tipo) || !venta.patente) return venta.tipo;
   const [anterior] = await getDb()
     .select({ id: ventasTabla.id })
     .from(ventasTabla)
-    .where(and(eq(ventasTabla.patente, venta.patente), eq(ventasTabla.tipo, TIPO_RENOVACION_ONECLICK), ne(ventasTabla.id, venta.id)))
+    .where(and(eq(ventasTabla.patente, venta.patente), inArray(ventasTabla.tipo, [...TIPOS_VENTA_PLAN]), ne(ventasTabla.id, venta.id)))
     .limit(1);
   return anterior ? venta.tipo : TIPO_ALTA_ONECLICK;
 }

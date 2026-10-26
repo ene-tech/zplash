@@ -3,7 +3,7 @@ import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { correosAutomaticos, correosSuprimidos, mensajesSms } from "@/db/schema";
-import { esErrorSmsDeCuenta, fallasContacto, type FallasContacto } from "@/lib/helpers";
+import { esErrorCorreoDeDireccion, esErrorSmsDeCuenta, fallasContacto, type FallasContacto } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 /** "+56 9 1234 5678" → "56912345678", igual que msisdnChile (@/lib/sms/enviar), que es como queda en mensajes_sms. */
@@ -23,13 +23,21 @@ export async function fallasContactoCliente(cliente: Cliente): Promise<FallasCon
   const [ultimoCorreo, suprimido, ultimoSms] = await Promise.all([
     email
       ? db
-          .select({ estado: correosAutomaticos.estado, para: correosAutomaticos.para })
+          .select({ estado: correosAutomaticos.estado, para: correosAutomaticos.para, error: correosAutomaticos.error })
           .from(correosAutomaticos)
           .where(eq(correosAutomaticos.clienteId, cliente.id))
           .orderBy(desc(correosAutomaticos.creadoEn))
           .limit(1)
       : [],
-    email ? db.select({ email: correosSuprimidos.email }).from(correosSuprimidos).where(eq(correosSuprimidos.email, email)).limit(1) : [],
+    // Solo rebotes: una queja de spam o una baja manual es el cliente diciendo
+    // que no quiere correos, no un correo malo que haya que cambiar.
+    email
+      ? db
+          .select({ email: correosSuprimidos.email })
+          .from(correosSuprimidos)
+          .where(and(eq(correosSuprimidos.email, email), eq(correosSuprimidos.motivo, "rebote")))
+          .limit(1)
+      : [],
     telefono
       ? db
           .select({ estado: mensajesSms.estado, error: mensajesSms.error })
@@ -42,7 +50,8 @@ export async function fallasContactoCliente(cliente: Cliente): Promise<FallasCon
   const correo = ultimoCorreo[0];
   const sms = ultimoSms[0];
   return fallasContacto(cliente, {
-    correoFallido: !!correo && correo.estado === "error" && (correo.para || "").trim().toLowerCase() === email,
+    correoFallido:
+      !!correo && correo.estado === "error" && (correo.para || "").trim().toLowerCase() === email && esErrorCorreoDeDireccion(correo.error),
     correoSuprimido: suprimido.length > 0,
     smsFallido: !!sms && sms.estado === "fallido" && !esErrorSmsDeCuenta(sms.error),
   });
