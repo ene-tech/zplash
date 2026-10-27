@@ -330,7 +330,7 @@ const pideVariable = (plantilla: PlantillaWhatsapp, v: string) => plantilla.mens
 // - ticketsRestantes / fechaVencimientoTickets / resumenTickets: tickets de packs (Promo 2/4
 //   Lavados y sus upgrades) vivos de la patente; `ticketUsado` es el código
 //   canjeado en el ingreso que disparó la regla, que puede no estar marcado
-//   usado todavía.
+//   usado todavía. resumenTicketsSms es resumenTickets sin tildes, para SMS.
 // - lavadosRestantes: pasadas que le quedan en el ciclo del plan (ver
 //   pasesRestantes); vacío si el plan no tiene tope.
 // - precioLavadoAdicional: lo que paga el de plan que ya gastó sus pasadas.
@@ -341,7 +341,7 @@ const pideVariable = (plantilla: PlantillaWhatsapp, v: string) => plantilla.mens
 //   para la confirmación de esa compra.
 async function variablesCalculadas(plantilla: PlantillaWhatsapp, cliente: Cliente, ticketUsado?: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  if (["ticketsRestantes", "fechaVencimientoTickets", "resumenTickets"].some((v) => pideVariable(plantilla, v))) {
+  if (["ticketsRestantes", "fechaVencimientoTickets", "resumenTickets", "resumenTicketsSms"].some((v) => pideVariable(plantilla, v))) {
     const filas = await getDb()
       .select()
       .from(cuponesTabla)
@@ -358,6 +358,9 @@ async function variablesCalculadas(plantilla: PlantillaWhatsapp, cliente: Client
     out.resumenTickets = tickets.length
       ? `Te ${tickets.length === 1 ? "queda 1 lavado" : `quedan ${tickets.length} lavados`} de tu pack, válidos hasta el ${out.fechaVencimientoTickets}.`
       : "Usaste el último lavado de tu pack.";
+    out.resumenTicketsSms = tickets.length
+      ? `Te ${tickets.length === 1 ? "queda 1 lavado" : `quedan ${tickets.length} lavados`} para ${normPlate(cliente.patente)}, validos hasta el ${out.fechaVencimientoTickets}.`
+      : "Usaste el ultimo lavado de tu pack.";
   }
   if (pideVariable(plantilla, "lavadosRestantes")) {
     const filas = await getDb()

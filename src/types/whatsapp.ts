@@ -194,7 +194,10 @@ export type TipoEventoReglaWhatsapp =
   // (condicionDiasAntesVencimiento) sin pasar por el túnel.
   | "sin_visita"
   // Cron diario: cupón de "sin_visita" sin usar que vence en N días.
-  | "cupon_por_vencer";
+  | "cupon_por_vencer"
+  // Cron diario: se le vencieron tickets de un pack sin usar y el mesón le
+  // ofrece la recompra (ver procesarPacksVencidos).
+  | "pack_vencido";
 // "cupon_regalo": código de referido abierto, para regalárselo a un amigo (ver
 // rechazoCodigoReferido en @/lib/referidos); usa cuponValor/cuponValidezDias.
 // Conserva el nombre de antes (oct-2026, "regalo del lavado") porque es el

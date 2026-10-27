@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt, gte, isNotNull, lt, lte, ne } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, lt, lte, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones, ingresos, ventas } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
@@ -12,10 +12,10 @@ import {
   registrarDisparoReglaWhatsapp,
   tomarDisparoProgramado,
 } from "@/lib/dataAccess/whatsapp";
-import { periodoPlan, planStatus, planVigente, uid } from "@/lib/helpers";
+import { KEYS_PROMOS_LAVADOS, periodoPlan, planStatus, planVigente, uid } from "@/lib/helpers";
 import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
 import { LOTE_TICKET_REACTIVACION } from "@/lib/pagos/ticketReactivacion";
-import { buscarCliente, ejecutarAccionRegla, LOTE_CUPON_SIN_VISITA, MS_POR_DIA } from "./motor";
+import { buscarCliente, ejecutarAccionRegla, LOTE_CUPON_SIN_VISITA, MS_POR_DIA, promoVipParaCliente } from "./motor";
 import type { DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 
 // Disparos "venta_creada" con espera (delayDias/delayMinutos) cuya hora ya
@@ -211,10 +211,89 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
 
   const sinVisita = await procesarSinVisita(ahoraISO);
   const porVencer = await procesarCuponesPorVencer(ahoraISO);
+  const packsVencidos = await procesarPacksVencidos(ahoraISO);
   return {
-    procesados: procesados + sinVisita.procesados + porVencer.procesados,
-    errores: errores + sinVisita.errores + porVencer.errores,
+    procesados: procesados + sinVisita.procesados + porVencer.procesados + packsVencidos.procesados,
+    errores: errores + sinVisita.errores + porVencer.errores + packsVencidos.errores,
   };
+}
+
+// Días hacia atrás en que se buscan tickets de pack vencidos: el cron corre
+// una vez al día y la ventana del mesón es más corta que esto, así que
+// promoVipParaCliente descarta los que ya no la tienen.
+const DIAS_BUSQUEDA_PACK_VENCIDO = 2;
+
+// "pack_vencido": se le vencieron tickets de un pack sin usar. Sale solo si el
+// mesón le está ofreciendo la recompra (promoVipParaCliente: sin tickets vivos,
+// sin plan vigente y dentro de la ventana); así el mensaje y el mesón dicen lo
+// mismo. Uno por pack: origenId con la patente y la caducidad del pack.
+async function procesarPacksVencidos(ahoraISO: string): Promise<{ procesados: number; errores: number }> {
+  let procesados = 0;
+  let errores = 0;
+  let reglas: ReglaWhatsapp[] = [];
+  try {
+    reglas = await listarReglasWhatsappActivas("pack_vencido");
+  } catch (error) {
+    console.error("Error cargando reglas WhatsApp (pack_vencido)", error);
+  }
+  if (!reglas.length) return { procesados, errores };
+  const desdeISO = new Date(Date.now() - DIAS_BUSQUEDA_PACK_VENCIDO * MS_POR_DIA).toISOString();
+  let filas: { cupon: typeof cupones.$inferSelect; cliente: typeof clientes.$inferSelect }[];
+  try {
+    filas = await getDb()
+      .select({ cupon: cupones, cliente: clientes })
+      .from(cupones)
+      .innerJoin(clientes, eq(clientes.patente, cupones.patenteAsignada))
+      .where(
+        and(
+          inArray(cupones.nombreLote, KEYS_PROMOS_LAVADOS),
+          eq(cupones.usado, false),
+          gte(cupones.fechaCaducidad, desdeISO),
+          lt(cupones.fechaCaducidad, ahoraISO)
+        )
+      );
+  } catch (error) {
+    console.error("Error buscando tickets de pack vencidos", error);
+    return { procesados, errores: errores + 1 };
+  }
+  // El libre de una VIP no tiene patente autorizada: no es del auto.
+  const packs = new Map<string, { cliente: typeof clientes.$inferSelect; fechaCaducidad: string }>();
+  for (const { cupon, cliente } of filas) {
+    if (!cupon.patentesAutorizadas?.length) continue;
+    packs.set(`${cliente.id}:${cupon.fechaCaducidad}`, { cliente, fechaCaducidad: cupon.fechaCaducidad });
+  }
+  for (const { cliente: row, fechaCaducidad } of packs.values()) {
+    const cliente = clienteFromRow(row);
+    try {
+      if (!(await promoVipParaCliente(cliente))) continue;
+    } catch (error) {
+      console.error("Error calculando la recompra de un pack vencido", row.id, error);
+      errores++;
+      continue;
+    }
+    for (const regla of reglas) {
+      const disparo = await registrarDisparoReglaWhatsapp({
+        id: uid(),
+        reglaId: regla.id,
+        origenTipo: "cliente",
+        origenId: `${row.id}:${fechaCaducidad}`,
+        clienteId: row.id,
+        patente: row.patente ?? undefined,
+        estado: "programado",
+        enviarEn: ahoraISO,
+      });
+      if (!disparo) continue;
+      try {
+        await ejecutarAccionRegla(regla, disparo.id, cliente);
+        procesados++;
+      } catch (error) {
+        console.error("Error disparando regla WhatsApp pack_vencido", regla.id, row.id, error);
+        await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+        errores++;
+      }
+    }
+  }
+  return { procesados, errores };
 }
 
 // Días de margen para "sin_visita": si el cron no corre un día, el cliente
