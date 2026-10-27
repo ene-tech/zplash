@@ -27,6 +27,7 @@ vi.mock("@/lib/dataAccess", () => ({
         horarioUbicacion: "HORARIO",
         menuPrincipal: "MENU",
         textoDescuentoInstrucciones: "Regalo {{monto}} por {{dias}} días. Su nombre:",
+        textoDescuentoPedirNombre: "NOMBRE?",
         textoDescuentoPedirPatente: "PATENTE?",
         textoDescuentoPedirMail: "MAIL?",
         textoDescuentoConfirmacion: "Código {{codigo}}",
@@ -41,7 +42,7 @@ vi.mock("@/lib/dataAccess", () => ({
   vincularClienteConversacion: () => Promise.resolve(),
 }));
 
-import { iniciarDesdeAnuncio, responderMensaje } from "./router";
+import { esConsultaDuranteRegistro, iniciarDesdeAnuncio, responderMensaje } from "./router";
 import { cuponValeEnSoloTunel, LOTE_ANUNCIO_META } from "@/lib/helpers";
 import type { ConversacionWhatsapp, FlowStateWhatsapp } from "@/types";
 
@@ -77,6 +78,33 @@ describe("iniciarDesdeAnuncio", () => {
     const r = await responderMensaje("ana@ejemplo.cl", "+56911111111", conv({ flowState: { ...estado, paso: "mail", nombre: "Ana Pérez", patente: "ABCD12" } }));
     expect(r?.texto).toMatch(/^Código ABC123\n\n💰 [\s\S]*\$4\.990[\s\S]*\$7\.990/);
     expect(emitirCupon).toHaveBeenCalledWith(expect.objectContaining({ nombreLote: LOTE_ANUNCIO_META, patente: "ABCD12", valor: 2000 }));
+  });
+});
+
+describe("registro del descuento: nombre vs otra consulta", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // Respuestas reales a "indíqueme su nombre" (ago-oct 2026).
+  it("una consulta suelta el flujo; un nombre no", () => {
+    for (const t of ["El lavado de chasis", "Y el lavado de chazis", "¿dónde están?", "cuanto vale"]) expect(esConsultaDuranteRegistro(t, "nombre")).toBe(true);
+    for (const t of ["ANDRES EDUARDO MONTALBA CERDA", "Ayline Jara San Martin", "Stephanie", "Hola, soy Juan", "Ok"])
+      expect(esConsultaDuranteRegistro(t, "nombre")).toBe(false);
+  });
+
+  it("al pedir patente o correo, el dato con palabras de consulta sigue siendo la respuesta", () => {
+    expect(esConsultaDuranteRegistro("mi auto es AB1234", "patente")).toBe(false);
+    expect(esConsultaDuranteRegistro("info@empresa.cl", "mail")).toBe(false);
+    expect(esConsultaDuranteRegistro("juan.lavado@gmail.com", "mail")).toBe(false);
+    expect(esConsultaDuranteRegistro("¿y cuánto vale el lavado?", "patente")).toBe(true);
+  });
+
+  it("'Ok', un número o el RUT vuelven a pedir el nombre sin avanzar", async () => {
+    const estado: FlowStateWhatsapp = { tipo: "registro_descuento", paso: "nombre" };
+    for (const t of ["Ok", "4", "19306276-8"]) {
+      const r = await responderMensaje(t, "+56911111111", conv({ flowState: estado }));
+      expect(r?.texto).toBe("NOMBRE?");
+    }
+    expect(flowState).not.toHaveBeenCalled();
   });
 });
 

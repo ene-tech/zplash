@@ -201,6 +201,53 @@ export async function iniciarDesdeAnuncio(conversacion: ConversacionWhatsapp, te
   return { texto: [textos.horarioUbicacion, preciosTexto, invitacion].filter(Boolean).join("\n\n") };
 }
 
+// El agente con IA (@/lib/whatsapp/agente) ofrece el descuento de primera vez
+// y deja la conversación en este mismo flujo: desde el mensaje siguiente lo
+// sigue manejarPasoRegistroDescuento, que es el que emite el código. `null`
+// si el número ya es cliente del lavado. `simular` (script de prueba) no
+// escribe el estado.
+export async function invitarDescuentoPrimeraVez(conversacion: ConversacionWhatsapp, telefono: string, simular = false): Promise<string | null> {
+  const { textosBotWhatsapp: textos, descuentoPrimeraVezValor, descuentoPrimeraVezDiasValidez } = await getConfig();
+  if (conversacion.clienteId || (await existeClienteConTelefono(telefono))) return null;
+  if (!simular) await actualizarFlowStateConversacion(conversacion.id, { tipo: "registro_descuento", paso: "nombre" });
+  const invitacion = aplicarVariables(textos.textoDescuentoInstrucciones, {
+    monto: fmtCLP(descuentoPrimeraVezValor),
+    dias: String(descuentoPrimeraVezDiasValidez),
+  });
+  // La invitación termina pidiendo el nombre: va al final, que es lo que se responde.
+  const preciosTexto = await textoPreciosPrimeraVez(descuentoPrimeraVezValor);
+  return [preciosTexto, invitacion].filter(Boolean).join("\n\n");
+}
+
+// Respuestas a "indíqueme su nombre" que no son una pregunta pero tampoco un
+// nombre ("Ok", "4", el RUT): se vuelve a pedir, sin soltar el flujo.
+const NO_ES_NOMBRE = new Set(["ok", "oka", "okey", "si", "sii", "dale", "ya", "bueno", "listo", "perfecto"]);
+// Palabras que un nombre no lleva y una consulta sí ("El lavado de chasis",
+// "cuánto vale"): medido sobre las respuestas reales a la pregunta del nombre.
+const PALABRAS_DE_CONSULTA =
+  /\b(lavado|lavados|lavar|lavan|lavada|precio|precios|valor|vale|cuanto|cuesta|plan|horario|hora|abierto|abren|cierran|donde|ubicacion|direccion|quiero|necesito|consulta|consultar|chasis|chazis|aspirado|aspirar|motor|tapiz|auto|camioneta|vehiculo|descuento|codigo|cupon|informacion|info)\b/;
+
+/**
+ * Si un mensaje que llega en medio del registro + descuento es en realidad
+ * otra consulta: entonces se suelta el flujo y lo contesta el agente o el
+ * menú (ver /api/whatsapp). Antes, "Y el lavado de chasis" quedaba guardado
+ * como nombre y el bot seguía pidiendo la patente.
+ */
+export function esConsultaDuranteRegistro(texto: string, paso: FlowStateWhatsapp["paso"]): boolean {
+  const t = (texto || "").trim();
+  if (!t) return false;
+  // Al pedir patente o correo, un mensaje que trae el dato ("mi auto es
+  // AB1234", "info@empresa.cl") es la respuesta, aunque tenga palabras de consulta.
+  if (paso !== "nombre" && (t.includes("@") || t.split(/\s+/).some((p) => isValidPatente(normPlate(p))))) return false;
+  if (/[?¿]/.test(t)) return true;
+  const normal = normalizarTextoBot(t).trim();
+  return normal.split(" ").length > 6 || PALABRAS_DE_CONSULTA.test(normal);
+}
+
+function pareceNombre(texto: string): boolean {
+  return /[a-záéíóúñü]/i.test(texto) && !/\d/.test(texto) && !NO_ES_NOMBRE.has(normalizarTextoBot(texto).trim());
+}
+
 // Continúa el flujo de registro + descuento paso a paso. `conversacion`
 // llega con el flowState previo a este mensaje (el que decide cómo
 // interpretar `texto`); cada paso valida su dato, y si es válido avanza al
@@ -218,7 +265,7 @@ async function manejarPasoRegistroDescuento(
 
   if (flowState.paso === "nombre") {
     const nombre = texto.trim();
-    if (!nombre) return { texto: textos.textoDescuentoPedirNombre };
+    if (!pareceNombre(nombre)) return { texto: textos.textoDescuentoPedirNombre };
     await actualizarFlowStateConversacion(conversacion.id, { ...flowState, paso: "patente", nombre });
     return { texto: textos.textoDescuentoPedirPatente };
   }

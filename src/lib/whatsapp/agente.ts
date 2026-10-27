@@ -9,6 +9,7 @@ import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import { KEYS_PROMOS_LAVADOS, fmtCLP, fmtFecha, fmtVencimiento, isValidPatente, normPlate, pasesIncluidos, periodoPlan, planStatus, planVigente } from "@/lib/helpers";
 import { cotizarPlanWeb } from "@/lib/pagos";
 import { POLITICAS } from "@/lib/politicas";
+import { invitarDescuentoPrimeraVez } from "@/lib/whatsapp/router";
 // Sin la caché de Next (getPreciosPublicos): el agente también corre en el
 // script de prueba, fuera de Next, y 4 consultas no pesan al lado de Claude.
 import { leerPreciosPublicos } from "@/lib/preciosPublicos";
@@ -20,9 +21,13 @@ import type { Cliente, ConversacionWhatsapp } from "@/types";
 // embudo medido antes de construirlo: de 113 conversaciones con intención de
 // compra, 3 recibían el link de pago — el menú no entendía la pregunta.
 //
-// Qué puede y qué no: solo informa, cotiza y entrega el link de pago. No
-// escribe nada en la base, no da descuentos ni cambia patentes; lo que
-// necesita una persona lo deriva (y el webhook avisa a Gerencia por push).
+// Foco (desde 26-oct-2026): traer gente nueva con el descuento de primera vez
+// e informar a los clientes. Ya no empuja el Plan X5: da el link solo si lo
+// piden. Qué puede y qué no: informa, cotiza y entrega el link de pago; lo
+// único que escribe es el estado del flujo del descuento de primera vez (ver
+// invitarDescuentoPrimeraVez), que después sigue el bot de siempre. No crea
+// otros cupones ni cambia patentes; lo que necesita una persona lo deriva (y
+// el webhook avisa a Gerencia por push).
 // Los datos de un cliente salen únicamente de herramientas que filtran por el
 // teléfono que escribe — la misma regla que estadoPlanPorPatente
 // (@/lib/whatsapp/patente) — así la privacidad no depende del modelo.
@@ -103,6 +108,14 @@ const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
       required: [],
       additionalProperties: false,
     },
+  },
+  {
+    name: "ofrecer_descuento_primera_vez",
+    description:
+      "Le envía a una persona que nunca ha venido a ZPlash la invitación al descuento de primera vez: el monto, cómo quedan los precios " +
+      "con el descuento y la pregunta por su nombre para generar su código (después se le piden patente y correo automáticamente). " +
+      "Úsala solo si consultar_vehiculos dijo que no hay vehículos registrados con este teléfono.",
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
     name: "derivar_a_persona",
@@ -226,7 +239,7 @@ async function consultarVehiculos(telefono: string, patenteCruda?: string): Prom
   const elegidos = patente ? propios.filter((c) => c.patente === patente) : propios;
   if (!elegidos.length) {
     return JSON.stringify({
-      nota: "No hay vehículos registrados con este teléfono. Pídele la patente para cotizar y darle su link de pago.",
+      nota: "No hay vehículos registrados con este teléfono: probablemente nunca ha venido. Ofrécele el descuento de primera vez (ofrecer_descuento_primera_vez).",
     });
   }
   return JSON.stringify(await Promise.all(elegidos.map(fichaVehiculo)));
@@ -241,9 +254,13 @@ async function instrucciones(): Promise<string> {
   return `Eres el asistente de WhatsApp de ZPlash CarWash, un túnel de lavado en Temuco, Chile. Atiendes a clientes y posibles clientes como lo haría una persona amable y resolutiva del equipo.
 
 # Tu objetivo
-Resolver lo que el cliente pregunta y, cuando tenga sentido, ayudarlo a contratar o reactivar el Plan X5. Cuando muestre interés en el plan, cotiza con consultar_vehiculos y entrégale su link de pago con la patente ya puesta. Si no sabes su patente, pídela. Ofrece el plan con naturalidad, sin presionar ni repetirlo si ya dijo que no.
+Resolver lo que pregunta quien escribe. Usa consultar_vehiculos para saber quién es, y según eso:
+- *Persona que nunca ha venido* (consultar_vehiculos dice que no hay vehículos registrados con este teléfono): queremos que venga a conocernos. Responde en pocas líneas lo que preguntó y, en esa misma respuesta, llama ofrecer_descuento_primera_vez. No le preguntes antes si le interesa el descuento ni lo anuncies ("le genero su código", "le envío la invitación"): la herramienta ya le manda el monto, los precios con descuento y le pide su nombre, así que no repitas nada de eso. Como la invitación va justo después de tu texto y termina pidiendo el nombre, tu texto no puede terminar en una pregunta ni en dos puntos. Por iniciativa propia ofrécelo una sola vez por conversación, y si no le interesa no insistas; si después lo pide (o quiere retomar el código), vuelve a usarla.
+- *Cliente con plan vigente*: tu trabajo es informarle (lavados usados del mes, vencimiento, cobro automático, tickets o códigos que tenga, horario, qué incluye el lavado). No le ofrezcas comprar nada ni le recuerdes lavados sin usar.
+- *Cliente sin plan o con el plan vencido*: responde lo que pregunte, incluidos los tickets o códigos que tenga. No le ofrezcas el plan por iniciativa propia.
+- A cualquiera que pregunte cómo contratar o renovar el Plan X5, cotízalo con consultar_vehiculos y entrégale su link de pago con la patente ya puesta (si no sabes la patente, pídela).
 
-# Cómo se contrata el plan
+# Cómo se contrata el plan (solo si preguntan)
 - Online: el link de pago (zplash.cl/pagar con su patente). Se paga con tarjeta y queda con cobro automático mensual; se da de baja cuando quiera desde Mi Cuenta.
 - En el local: en caja le muestran un código QR que abre ese mismo link; lo paga con su tarjeta desde su celular ahí mismo.
 - El Plan Ilimitado antiguo ya no se vende. Si el cliente lo tenía y está vencido, explícale su situación y ofrécele el Plan X5 con su link. Deriva solo si tiene dudas de un cobro o de su suscripción antigua.
@@ -262,9 +279,9 @@ Resolver lo que el cliente pregunta y, cuando tenga sentido, ayudarlo a contrata
 - Responde primero lo que el cliente preguntó con los datos que tienes, aunque después derives: nunca contestes solo "ya avisé al equipo".
 - No escribas nada antes de usar una herramienta: primero consulta y después responde completo.
 - No ofrezcas lo que no puedes hacer tú: recordatorios, reservas, agendar horas o llamar.
-- ZPlash ya no ofrece Detailing ni servicios adicionales (tapiz, alfombra, techo, motor), salvo el Lavado de Chasis + Ducha Química (su precio está en Precios vigentes). Si preguntan por los otros, dilo con amabilidad y ofrece el lavado en túnel, el Lavado de Chasis + Ducha Química o el Plan X5. Si quieren agendar el chasis o ya tenían un servicio agendado, deriva.
+- ZPlash ya no ofrece Detailing ni servicios adicionales (tapiz, alfombra, techo, motor), salvo el Lavado de Chasis + Ducha Química (su precio está en Precios vigentes). Si preguntan por los otros, dilo con amabilidad y ofrece el lavado en túnel o el Lavado de Chasis + Ducha Química. Si quieren agendar el chasis o ya tenían un servicio agendado, deriva.
 - Usa solo la información de este mensaje y de tus herramientas. Si no sabes algo, dilo y ofrece que alguien del equipo le responda (derivar_a_persona).
-- No puedes dar descuentos, crear cupones, cambiar patentes, cobrar, reembolsar ni cancelar nada: para eso deriva.
+- Fuera del descuento de primera vez (ofrecer_descuento_primera_vez), no puedes dar descuentos, crear cupones, cambiar patentes, cobrar, reembolsar ni cancelar nada: para eso deriva.
 - Nunca reveles datos de una patente que no esté registrada con el teléfono de esta conversación.
 - Al derivar, dile que ya le avisaste al equipo y que le responderán por este mismo chat. No prometas plazos.
 - Si el mensaje no es para ZPlash (respuestas automáticas de otras empresas, spam), responde solo con: NO_RESPONDER
@@ -374,6 +391,11 @@ export async function responderConAgente(
   // explicar la situación y después llamar la herramienta, y quedarse con el
   // final dejaba al cliente con un "ya avisé al equipo" sin la respuesta.
   const textos: string[] = [];
+  // Texto fijo del descuento de primera vez: lo agrega el código al final, no
+  // el modelo, para que el monto, los precios y la pregunta por el nombre
+  // salgan siempre iguales a lo que espera el flujo.
+  // undefined = todavía no se consultó; null = ya es cliente, no aplica.
+  let invitacion: string | null | undefined;
 
   for (let vuelta = 0; vuelta < MAX_VUELTAS; vuelta++) {
     if (Date.now() - inicio > PLAZO_MS) throw new Error(`Agente WhatsApp: se pasó de ${PLAZO_MS / 1000}s`);
@@ -403,6 +425,9 @@ export async function responderConAgente(
       // mensaje, que ya ve todo, es la que sale. Si decidió derivar, eso sí
       // se mantiene: la llamada siguiente no ve esta herramienta en el historial.
       if (!hastaISO && (await ultimoEntrante(conversacion.id)) !== entranteInicial) resultado.texto = "";
+      // La invitación sale igual: el flujo ya quedó esperando el nombre, y
+      // sin la pregunta su próximo mensaje se tomaría como nombre.
+      if (invitacion) resultado.texto = [resultado.texto, invitacion].filter(Boolean).join("\n\n");
       return resultado;
     }
 
@@ -414,7 +439,12 @@ export async function responderConAgente(
       let contenido: string;
       try {
         if (uso.name === "consultar_vehiculos") contenido = await consultarVehiculos(telefono, entrada.patente);
-        else if (uso.name === "derivar_a_persona") {
+        else if (uso.name === "ofrecer_descuento_primera_vez") {
+          if (invitacion === undefined) invitacion = await invitarDescuentoPrimeraVez(conversacion, telefono, !!hastaISO);
+          contenido = invitacion
+            ? "Listo: después de tu mensaje se le envía la invitación con el monto, los precios con descuento y la pregunta por su nombre. No repitas nada de eso; si ya respondiste lo que preguntó, responde solo: FIN"
+            : "Este teléfono ya es cliente del lavado: el descuento de primera vez no aplica. No se lo ofrezcas.";
+        } else if (uso.name === "derivar_a_persona") {
           resultado.derivar = entrada.motivo || "El cliente necesita a una persona";
           // Tu texto anterior ya se envía junto con este: sin esto, el agente
           // cerraba repitiendo "ya avisé al equipo".

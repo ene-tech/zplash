@@ -1,12 +1,12 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { buscarOCrearConversacion, insertarMensaje, marcarAnuncioOrigen, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente, registrarGastoAgenteWhatsapp, vaciarTelefonoSinWhatsapp } from "@/lib/dataAccess";
+import { actualizarFlowStateConversacion, buscarOCrearConversacion, insertarMensaje, marcarAnuncioOrigen, actualizarEstadoMensaje, humanoAtendiendo, recibioPlantillaReciente, registrarGastoAgenteWhatsapp, vaciarTelefonoSinWhatsapp } from "@/lib/dataAccess";
 import { ENVIADO_POR_AGENTE, opcionDeTexto, uid } from "@/lib/helpers";
 import { enviarPushAGerencia } from "@/lib/push/enviar";
 import { rateLimited } from "@/lib/rateLimit";
 import { enviarMensajeTexto } from "@/lib/whatsapp/enviar";
 import { claveAnthropic, costoUsd, MODELO, responderConAgente } from "@/lib/whatsapp/agente";
-import { iniciarDesdeAnuncio, responderMensaje } from "@/lib/whatsapp/router";
+import { esConsultaDuranteRegistro, iniciarDesdeAnuncio, responderMensaje } from "@/lib/whatsapp/router";
 import type { EstadoMensajeWhatsapp, ReferralAnuncioWhatsapp } from "@/types";
 
 export const runtime = "nodejs";
@@ -156,6 +156,14 @@ async function manejarMensajeEntrante(msg: MetaMensaje, nombreContacto: string |
   if (await humanoAtendiendo(conversacion.id)) {
     if (opcionDeTexto(textoEntrante) === "humano") await avisarGerencia(nombreContacto || conversacion.nombreContacto || telefono, conversacion.id);
     return;
+  }
+
+  // Le pidieron nombre, patente o correo para el descuento y en vez de eso
+  // pregunta otra cosa: se suelta el registro y la pregunta la contesta el
+  // agente o el menú, como a cualquiera. Para retomarlo pide el descuento.
+  if (conversacion.flowState?.tipo === "registro_descuento" && esConsultaDuranteRegistro(textoEntrante, conversacion.flowState.paso)) {
+    await actualizarFlowStateConversacion(conversacion.id, null);
+    conversacion.flowState = null;
   }
 
   // Llega desde un anuncio: horario, ubicación y descuento de primera vez,
