@@ -3,7 +3,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
-import { DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, fmtCLP, fmtFecha, fmtHora, fmtVencimiento } from "@/lib/helpers";
+import { DIAS_PROMO_RECOMPRA_2, DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, fmtCLP, fmtFecha, fmtHora, fmtVencimiento } from "@/lib/helpers";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
 // Lo que el operador tiene que contarle al cliente que todavía anda con el
@@ -62,6 +62,8 @@ type Props = Pick<
   | "cobrarUpgradeDescuento"
   | "promoVip"
   | "cobrarPromoVip"
+  | "promoRecompra2"
+  | "cobrarPromoRecompra2"
   | "precioQrTarjeta"
   | "perfilId"
 >;
@@ -175,6 +177,28 @@ export default function OperadorFoundOfertas(props: Props) {
           </div>
           <button className="btn secondary" onClick={() => props.cobrarPromoVip(props.promoVip!.precio)} disabled={guardando}>
             Cobrar {PROMO_VIP_KEY} ({fmtCLP(props.promoVip.precio)})
+          </button>
+        </div>
+      )}
+      {props.promoRecompra2 && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <h4>{PROMO_RECOMPRA_2_KEY}</h4>
+          </div>
+          <div className="msg">
+            {c.nombre} terminó su pack. Por {fmtCLP(props.promoRecompra2.precio)} se lleva 2 lavados para esta patente, a usar en{" "}
+            {DIAS_PROMO_RECOMPRA_2} días desde hoy. La oferta vale hasta el {fmtFecha(props.promoRecompra2.vence)} a las{" "}
+            {fmtHora(props.promoRecompra2.vence)}.
+          </div>
+          <div className="price-row">
+            <span className="new">{fmtCLP(props.promoRecompra2.precio)}</span>
+          </div>
+          <button
+            className="btn secondary"
+            onClick={() => props.cobrarPromoRecompra2(props.promoRecompra2!.precio)}
+            disabled={guardando}
+          >
+            Cobrar {PROMO_RECOMPRA_2_KEY} ({fmtCLP(props.promoRecompra2.precio)})
           </button>
         </div>
       )}

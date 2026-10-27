@@ -31,6 +31,8 @@ import {
   precioUpgradePack,
   precioUpgradeDescuento,
   ofertaPromoVip,
+  ventanaRecompraPack,
+  precioPromoRecompra2,
   libresVipDePatente,
   precioPromoVip,
   precioRenovacionATiempo,
@@ -231,11 +233,16 @@ export function useOperadorFoundResult(
   const upgradeDescuento =
     lavadoUpgradeDescuento && precioUpgradeDesc > 0 ? { precio: precioUpgradeDesc, lavado: lavadoUpgradeDescuento } : undefined;
 
-  // Promo 5 Tickets VIP: gastó el último ticket de un pack de 4 hace menos de
-  // 120 h (ver ofertaPromoVip). Solo mesón.
+  // Promo 5 Tickets VIP y Promo 2 Tickets 15 Días: terminó un pack (gastó el
+  // último ticket o le vencieron sin usar) hace menos de 48 h (ver
+  // ventanaRecompraPack). Se muestran las dos y el cliente elige. Solo mesón.
   const ofertaVip = !planVigente ? ofertaPromoVip(data.cupones, c.patente, new Date(), c.invitacionVipHasta) : undefined;
   const precioVip = precioPromoVip(data.precios);
   const promoVip = ofertaVip && precioVip > 0 ? { precio: precioVip, vence: ofertaVip.vence } : undefined;
+  const ventanaRecompra = !planVigente ? ventanaRecompraPack(data.cupones, c.patente) : undefined;
+  const precioRecompra2 = precioPromoRecompra2(data.precios);
+  const promoRecompra2 =
+    ventanaRecompra && precioRecompra2 > 0 ? { precio: precioRecompra2, vence: ventanaRecompra.vence } : undefined;
 
   const updateResult = (updated: Cliente) => patchUi({ operResult: { found: true, cliente: updated } });
 
@@ -309,6 +316,7 @@ export function useOperadorFoundResult(
     upgradePack,
     upgradeDescuento,
     promoVip,
+    promoRecompra2,
     ...ingreso,
     ...ficha,
     registrar: conFichaCompleta(ingreso.registrar),
@@ -316,6 +324,7 @@ export function useOperadorFoundResult(
     cobrarLavadoUnico: conFichaCompleta(ingreso.cobrarLavadoUnico),
     cobrarPromoLavados: conFichaCompleta(ingreso.cobrarPromoLavados),
     cobrarPromoVip: conFichaCompleta(ingreso.cobrarPromoVip),
+    cobrarPromoRecompra2: conFichaCompleta(ingreso.cobrarPromoRecompra2),
     cobrarSoloTunel: conFichaCompleta(ingreso.cobrarSoloTunel),
     cobrarUpgradePack: conFichaCompleta(ingreso.cobrarUpgradePack),
     cobrarUpgradeDescuento: conFichaCompleta(ingreso.cobrarUpgradeDescuento),

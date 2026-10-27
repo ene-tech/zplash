@@ -3,9 +3,9 @@ import { findClient } from "./clientes";
 import { fmtFecha } from "./fechas";
 import {
   DIAS_PROMO_VIP,
-  HORAS_VENTANA_PROMO_VIP,
-  KEYS_PACKS_DE_CUATRO,
+  HORAS_VENTANA_RECOMPRA_PACK,
   KEYS_PROMOS_LAVADOS,
+  PACK_RECOMPRA_2,
   PROMOS_LAVADOS,
   PROMO_VIP_KEY,
   TICKETS_VIP_PATENTE,
@@ -269,7 +269,8 @@ export function cuponesPromo2Lavados(p: Omit<Parameters<typeof cuponesPromoLavad
 }
 
 /** Lo mismo que cuponesPromo2Lavados para cualquier pack de PROMOS_LAVADOS
- * (2 o 4 tickets): misma patente autorizada, vigencia y valor por ticket.
+ * (2 o 4 tickets), o uno que no se vende en /pagar pasando su definición
+ * (ver PACK_RECOMPRA_2): misma patente autorizada, vigencia y valor por ticket.
  *
  * `yaCanjeados` y `vigenciaDesde` son del upgrade a Promo 4 Lavados (ver
  * UPGRADE_PACK_KEY): el lavado único ya pagado cuenta como el ticket 1, así
@@ -278,7 +279,7 @@ export function cuponesPromo2Lavados(p: Omit<Parameters<typeof cuponesPromoLavad
  * del pack completo (lavado + adicional), para que cada ticket valga lo mismo
  * que en un pack comprado de una. */
 export function cuponesPromoLavados(p: {
-  promo: IdPromoLavados;
+  promo: IdPromoLavados | { key: string; lavados: number; dias: number };
   patente: string;
   email?: string | null;
   precio: number;
@@ -290,7 +291,7 @@ export function cuponesPromoLavados(p: {
   yaCanjeados?: number;
   vigenciaDesde?: Date;
 }): Cupon[] {
-  const { key, lavados, dias } = PROMOS_LAVADOS[p.promo];
+  const { key, lavados, dias } = typeof p.promo === "string" ? PROMOS_LAVADOS[p.promo] : p.promo;
   const ahora = p.ahora ?? new Date();
   const yaCanjeados = p.yaCanjeados ?? 0;
   const patente = normPlate(p.patente);
@@ -404,37 +405,68 @@ export function libresVipDePatente(lista: Cupon[], patente: string, ahora: Date 
   );
 }
 
-/** Oferta VIP para esta patente: el último ticket que gastó es de un pack de
- * 4 (KEYS_PACKS_DE_CUATRO), ese pack quedó entero usado (no vale si el resto
- * venció sin usar), no le queda ningún ticket vivo y no pasaron
- * HORAS_VENTANA_PROMO_VIP desde ese canje. Comprar la VIP le deja tickets
- * vivos, así que la oferta se apaga sola; al gastar el 4º de la VIP se abre
- * de nuevo. `vence` es el límite para comprarla.
- *
- * `invitacionHasta` (Cliente.invitacionVipHasta): invitación manual, vale
- * hasta esa fecha para quien no tenga tickets vivos, sin mirar el último. */
+/** Los 2 tickets de la Promo 2 Tickets 15 Días (ver PROMO_RECOMPRA_2_KEY),
+ * vigentes desde la compra. */
+export function cuponesPromoRecompra2(p: Omit<Parameters<typeof cuponesPromoLavados>[0], "promo" | "yaCanjeados" | "vigenciaDesde">): Cupon[] {
+  return cuponesPromoLavados({ ...p, promo: PACK_RECOMPRA_2 });
+}
+
+/** Ventana de recompra de esta patente: no le queda ningún ticket vivo de
+ * un pack (KEYS_PROMOS_LAVADOS, de 2 o de 4) y no pasaron
+ * HORAS_VENTANA_RECOMPRA_PACK desde que terminó el último — al gastar su
+ * último ticket o, si le quedaron sin usar, al vencer (desde el 27-oct-2026).
+ * Comprar cualquiera de las dos ofertas (VIP o Promo 2 Tickets 15 Días) le
+ * deja tickets vivos, así que se apaga sola; al terminar esa compra se abre
+ * de nuevo. `vence` es el límite para comprar. */
+export function ventanaRecompraPack(lista: Cupon[], patente: string, ahora: Date = new Date()): { vence: string } | undefined {
+  const p = normPlate(patente);
+  const delAuto = lista.filter(
+    (c) => c.tipo === "vale" && KEYS_PROMOS_LAVADOS.includes(c.nombreLote) && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)
+  );
+  if (delAuto.some((c) => !c.usado && new Date(c.fechaCaducidad) > ahora)) return undefined;
+  // Mismo pack = mismo lote y misma caducidad (el upgrade y la web emiten
+  // todos los tickets de una compra con la misma).
+  const packs = new Map<string, Cupon[]>();
+  for (const c of delAuto) {
+    const k = `${c.nombreLote}|${c.fechaCaducidad}`;
+    packs.set(k, [...(packs.get(k) ?? []), c]);
+  }
+  let fin = 0;
+  for (const tickets of packs.values()) {
+    const terminado = tickets.every((c) => c.usado)
+      ? Math.max(...tickets.map((c) => (c.fechaUso ? new Date(c.fechaUso).getTime() : 0)))
+      : new Date(tickets[0].fechaCaducidad).getTime();
+    fin = Math.max(fin, terminado);
+  }
+  if (!fin) return undefined;
+  const vence = new Date(fin + HORAS_VENTANA_RECOMPRA_PACK * 3600_000);
+  return vence > ahora ? { vence: vence.toISOString() } : undefined;
+}
+
+/** Oferta VIP para esta patente: la ventana de recompra (ver
+ * ventanaRecompraPack), o `invitacionHasta` (Cliente.invitacionVipHasta):
+ * invitación manual, vale hasta esa fecha para quien no tenga tickets vivos,
+ * sin mirar el último. */
 export function ofertaPromoVip(
   lista: Cupon[],
   patente: string,
   ahora: Date = new Date(),
   invitacionHasta?: string | null
 ): { vence: string } | undefined {
-  const p = normPlate(patente);
-  const delAuto = lista.filter(
-    (c) => c.tipo === "vale" && KEYS_PROMOS_LAVADOS.includes(c.nombreLote) && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)
-  );
-  if (delAuto.some((c) => !c.usado && new Date(c.fechaCaducidad) > ahora)) return undefined;
-  if (invitacionHasta && new Date(invitacionHasta) > ahora) return { vence: invitacionHasta };
-  const ultimo = delAuto
-    .filter((c) => c.usado && c.fechaUso)
-    .sort((a, b) => new Date(b.fechaUso!).getTime() - new Date(a.fechaUso!).getTime())[0];
-  if (!ultimo || !KEYS_PACKS_DE_CUATRO.includes(ultimo.nombreLote)) return undefined;
-  // Mismo pack = mismo lote y misma caducidad (el upgrade y la web emiten
-  // todos los tickets de una compra con la misma).
-  const mismoPack = delAuto.filter((c) => c.nombreLote === ultimo.nombreLote && c.fechaCaducidad === ultimo.fechaCaducidad);
-  if (mismoPack.some((c) => !c.usado)) return undefined;
-  const vence = new Date(new Date(ultimo.fechaUso!).getTime() + HORAS_VENTANA_PROMO_VIP * 3600_000);
-  return vence > ahora ? { vence: vence.toISOString() } : undefined;
+  if (invitacionHasta && new Date(invitacionHasta) > ahora) {
+    const p = normPlate(patente);
+    const vivos = lista.some(
+      (c) =>
+        c.tipo === "vale" &&
+        KEYS_PROMOS_LAVADOS.includes(c.nombreLote) &&
+        !!c.patentesAutorizadas?.length &&
+        patenteAutorizadaParaCupon(c, p) &&
+        !c.usado &&
+        new Date(c.fechaCaducidad) > ahora
+    );
+    if (!vivos) return { vence: invitacionHasta };
+  }
+  return ventanaRecompraPack(lista, patente, ahora);
 }
 
 /** Tickets ("vale") que esta patente puede canjear ahora mismo sin código:

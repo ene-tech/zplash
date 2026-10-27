@@ -186,8 +186,8 @@ export type TipoEventoReglaWhatsapp =
   | "ticket_por_vencer"
   // Ingreso canjeando un ticket de pack (Promo 2/4 Lavados y sus upgrades).
   | "ingreso_ticket"
-  // Ingreso que gasta el último ticket de un pack de 4 (Promo 4 Lavados, su
-  // upgrade o una Promo 5 Tickets VIP): ofrece la VIP. En esa pasada sale esta
+  // Ingreso que gasta el último ticket de un pack (de 2 o de 4 desde el
+  // 27-oct-2026): ofrece la VIP. En esa pasada sale esta
   // en vez de "ingreso_ticket".
   | "ultimo_ticket_pack"
   // Cron diario: cliente sin plan vigente que lleva N días

@@ -13,7 +13,7 @@ import { cuponFromRow, cuponToRow } from "@/lib/dataAccess/cupones";
 import { preciosFromRows } from "@/lib/dataAccess/precios";
 import { marcarDisparoReglaWhatsapp, obtenerPlantillaWhatsapp } from "@/lib/dataAccess/whatsapp";
 import {
-  HORAS_VENTANA_PROMO_VIP,
+  HORAS_VENTANA_RECOMPRA_PACK,
   KEYS_PROMOS_LAVADOS,
   PROMO_VIP_KEY,
   aplicarVariables,
@@ -335,7 +335,7 @@ const pideVariable = (plantilla: PlantillaWhatsapp, v: string) => plantilla.mens
 //   pasesRestantes); vacío si el plan no tiene tope.
 // - precioLavadoAdicional: lo que paga el de plan que ya gastó sus pasadas.
 // - precioPromoVip / fechaLimitePromoVip: la oferta del que gastó el último
-//   ticket de un pack de 4 (ver "ultimo_ticket_pack" y promoVipParaCliente);
+//   ticket de un pack (ver "ultimo_ticket_pack" y promoVipParaCliente);
 //   el límite es el mismo que ve el mesón.
 // - codigoTicketLibre: el libre de la última Promo 5 Tickets VIP de la patente,
 //   para la confirmación de esa compra.
@@ -377,7 +377,7 @@ async function variablesCalculadas(plantilla: PlantillaWhatsapp, cliente: Client
     const vip = await promoVipParaCliente(cliente, ticketUsado ? { codigo: ticketUsado, fecha: new Date().toISOString() } : undefined);
     out.precioPromoVip = fmtCLP(vip?.precio ?? precioPromoVip(preciosFromRows(await getDb().select().from(preciosTabla))));
     // Con zona explícita: el servidor corre en UTC.
-    out.fechaLimitePromoVip = new Date(vip?.vence ?? Date.now() + HORAS_VENTANA_PROMO_VIP * 3600_000).toLocaleString("es-CL", {
+    out.fechaLimitePromoVip = new Date(vip?.vence ?? Date.now() + HORAS_VENTANA_RECOMPRA_PACK * 3600_000).toLocaleString("es-CL", {
       timeZone: "America/Santiago",
       day: "2-digit",
       month: "2-digit",

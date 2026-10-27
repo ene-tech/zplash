@@ -118,7 +118,7 @@ export async function evaluarReglasPorVenta(ventasNuevas: Venta[]): Promise<void
 // "ingreso_ticket": el auto pasó canjeando un ticket de pack. No sale si el
 // ticket es de un pack recién comprado (el primero se canjea en la misma
 // compra y esa ya tiene su confirmación, ver las reglas "venta_creada" de los
-// packs). Si con ese canje gastó el último de un pack de 4, salen en su lugar
+// packs). Si con ese canje gastó el último de un pack, salen en su lugar
 // las de "ultimo_ticket_pack" (oferta VIP, ver ofertaPromoVip). El ticket
 // libre de una VIP (sin patente) no dispara nada: lo usa otro auto.
 const VENTANA_PACK_RECIEN_COMPRADO_MS = 60 * 60_000;

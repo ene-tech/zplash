@@ -7,6 +7,7 @@ import {
   PLAN_X5,
   type IdPromoLavados,
   cuponesPromoLavados,
+  cuponesPromoRecompra2,
   cuponesPromoVip,
   cuponesUpgradePack,
   cuponesUpgradeDescuento,
@@ -76,6 +77,26 @@ export function entregarPromoVip(
   yaPasoHoy = false
 ): Partial<AppData> {
   const nuevos = cuponesPromoVip({
+    patente: cliente.patente,
+    email: cliente.email,
+    precio,
+    existentes: new Set(data.cupones.map((c) => c.codigo)),
+    creadoPor: operadorActual || "",
+    idBase: "cup" + Date.now(),
+  });
+  return entregarTickets(data, cliente, nuevos, operadorActual, yaPasoHoy);
+}
+
+// Promo 2 Tickets 15 Días en el mesón (ver PROMO_RECOMPRA_2_KEY): igual que
+// entregarPromoLavados, con el primero canjeado ahora salvo que ya haya pasado hoy.
+export function entregarPromoRecompra2(
+  data: AppData,
+  cliente: Cliente,
+  precio: number,
+  operadorActual: string | null | undefined,
+  yaPasoHoy = false
+): Partial<AppData> {
+  const nuevos = cuponesPromoRecompra2({
     patente: cliente.patente,
     email: cliente.email,
     precio,

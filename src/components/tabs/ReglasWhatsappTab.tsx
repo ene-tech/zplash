@@ -47,7 +47,7 @@ function resumenCondicion(r: ReglaWhatsapp): string {
     return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes de que venza el ticket de la promo de reactivación`;
   }
   if (r.tipoEvento === "ingreso_ticket") return "Al ingresar canjeando un ticket de pack (Promo 2/4 Lavados)";
-  if (r.tipoEvento === "ultimo_ticket_pack") return "Al gastar el último ticket de un pack de 4 (ofrece la Promo 5 Tickets VIP)";
+  if (r.tipoEvento === "ultimo_ticket_pack") return "Al gastar el último ticket de un pack (ofrece la Promo 5 Tickets VIP)";
   if (r.tipoEvento === "pack_vencido") return "Se le vencieron tickets de un pack sin usar (ofrece la recompra del mesón)";
   if (r.tipoEvento === "sin_visita") return `Cliente sin plan vigente que lleva ${r.condicionDiasAntesVencimiento ?? 0} día(s) sin venir`;
   if (r.tipoEvento === "cupon_por_vencer") {
@@ -222,7 +222,7 @@ export default function ReglasWhatsappTab() {
             <option value="cambio_patente">Se aplica un cambio de patente</option>
             <option value="ticket_por_vencer">El ticket de la promo de reactivación está por vencer</option>
             <option value="ingreso_ticket">Cliente ingresa canjeando un ticket de pack</option>
-            <option value="ultimo_ticket_pack">Cliente gasta el último ticket de un pack de 4</option>
+            <option value="ultimo_ticket_pack">Cliente gasta el último ticket de un pack</option>
             <option value="sin_visita">Cliente sin plan lleva N días sin venir</option>
             <option value="cupon_por_vencer">El descuento por días sin venir está por vencer</option>
             <option value="pack_vencido">Se le vencieron tickets de un pack sin usar</option>

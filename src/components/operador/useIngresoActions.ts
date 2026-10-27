@@ -1,8 +1,8 @@
 "use client";
 
 import { useApp } from "@/context/AppContext";
-import { entregarPromoLavados, entregarPromoVip, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { entregarPromoLavados, entregarPromoRecompra2, entregarPromoVip, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
+import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
 import { conReglaVigente } from "./reglaVigente";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -260,9 +260,16 @@ export function useIngresoActions(
     });
   };
 
-  // Promo 5 Tickets VIP (ver PROMO_VIP_KEY): el mismo cobro que un pack; el
-  // precio y la ventana ya los resolvió ofertaPromoVip en useOperadorFoundResult.
-  const cobrarPromoVip = (cliente: Cliente, precio: number) => {
+  // Promo 5 Tickets VIP (ver PROMO_VIP_KEY) y Promo 2 Tickets 15 Días (ver
+  // PROMO_RECOMPRA_2_KEY): el mismo cobro que un pack; el precio y la ventana
+  // ya los resolvió useOperadorFoundResult.
+  const cobrarRecompra = (
+    cliente: Cliente,
+    precio: number,
+    tipo: string,
+    detalle: string,
+    entregar: typeof entregarPromoVip
+  ) => {
     if (precio <= 0) return;
     const yaPasoHoy = yaIngresoHoy(data.ingresos, cliente.id);
     patchUi({
@@ -270,7 +277,7 @@ export function useIngresoActions(
         type: "pago",
         monto: precio,
         descripcion:
-          `${PROMO_VIP_KEY} para ${cliente.nombre} (${cliente.patente}): ${TICKETS_VIP_PATENTE} para su auto + 1 libre` +
+          `${tipo} para ${cliente.nombre} (${cliente.patente}): ${detalle}` +
           (yaPasoHoy ? " — ya pasó hoy, se lleva todos para después" : ""),
         cliente,
         onConfirm: async (pago: PagoInfo) => {
@@ -281,14 +288,14 @@ export function useIngresoActions(
             nombre: cliente.nombre,
             plan: cliente.plan || "",
             precio,
-            tipo: PROMO_VIP_KEY,
+            tipo,
             fecha: new Date().toISOString(),
             creadoPor: ui.perfilActual?.nombre || "",
             metodoPago: pago.metodo,
             voucher: pago.voucher,
             ...pago.documento,
           };
-          const patch = entregarPromoVip(data, cliente, precio, ui.perfilActual?.nombre, yaPasoHoy);
+          const patch = entregar(data, cliente, precio, ui.perfilActual?.nombre, yaPasoHoy);
           const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
@@ -300,6 +307,11 @@ export function useIngresoActions(
       },
     });
   };
+
+  const cobrarPromoVip = (cliente: Cliente, precio: number) =>
+    cobrarRecompra(cliente, precio, PROMO_VIP_KEY, `${TICKETS_VIP_PATENTE} para su auto + 1 libre`, entregarPromoVip);
+  const cobrarPromoRecompra2 = (cliente: Cliente, precio: number) =>
+    cobrarRecompra(cliente, precio, PROMO_RECOMPRA_2_KEY, "2 lavados para su auto", entregarPromoRecompra2);
 
   // Upgrade a Promo 4 Lavados (ver UPGRADE_PACK_KEY): cobra el adicional y
   // deja los 3 tickets que le faltan al lavado único que ya pagó. Sin
@@ -411,6 +423,7 @@ export function useIngresoActions(
     cobrarUpgradePack,
     cobrarUpgradeDescuento,
     cobrarPromoVip,
+    cobrarPromoRecompra2,
     usarTicket,
   };
 }

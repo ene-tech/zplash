@@ -4,14 +4,17 @@ import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useAppData } from "@/context/AppContext";
 import {
-  HORAS_VENTANA_PROMO_VIP,
+  DIAS_PROMO_RECOMPRA_2,
+  HORAS_VENTANA_RECOMPRA_PACK,
   PROMOS_LAVADOS,
+  PROMO_RECOMPRA_2_KEY,
   PROMO_VIP_KEY,
   TICKETS_VIP_PATENTE,
   TICKETS_UPGRADE_DESCUENTO,
   TICKETS_UPGRADE_PACK,
   UPGRADE_DESCUENTO_KEY,
   UPGRADE_PACK_KEY,
+  precioPromoRecompra2,
   precioPromoVip,
   precioUpgradeDescuento,
   precioUpgradePack,
@@ -28,6 +31,7 @@ export default function UpgradeSection() {
   const [precioVal, setPrecioVal] = useState(() => String(precioUpgradePack(data.precios)));
   const [precioDescuentoVal, setPrecioDescuentoVal] = useState(() => String(precioUpgradeDescuento(data.precios)));
   const [precioVipVal, setPrecioVipVal] = useState(() => String(precioPromoVip(data.precios)));
+  const [precioRecompra2Val, setPrecioRecompra2Val] = useState(() => String(precioPromoRecompra2(data.precios)));
   const [horasVentanaVal, setHorasVentanaVal] = useState(() => String(data.config.horasVentanaUpgradePlan));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
@@ -42,6 +46,7 @@ export default function UpgradeSection() {
         [UPGRADE_PACK_KEY]: { normal: Number(precioVal) || 0, promo: 0 },
         [UPGRADE_DESCUENTO_KEY]: { normal: Number(precioDescuentoVal) || 0, promo: 0 },
         [PROMO_VIP_KEY]: { normal: Number(precioVipVal) || 0, promo: 0 },
+        [PROMO_RECOMPRA_2_KEY]: { normal: Number(precioRecompra2Val) || 0, promo: 0 },
       },
     });
     setGuardando(false);
@@ -67,10 +72,17 @@ export default function UpgradeSection() {
       </div>
       <div className="field" style={{ margin: 0 }}>
         <label>
-          {PROMO_VIP_KEY} (solo mesón, hasta {HORAS_VENTANA_PROMO_VIP} h después de gastar el último ticket de un pack de 4):{" "}
+          {PROMO_VIP_KEY} (solo mesón, hasta {HORAS_VENTANA_RECOMPRA_PACK} h después de gastar el último ticket de un pack):{" "}
           {TICKETS_VIP_PATENTE} tickets para la patente + 1 libre — $0 la apaga
         </label>
         <PriceInput value={precioVipVal} onChange={setPrecioVipVal} />
+      </div>
+      <div className="field" style={{ margin: 0 }}>
+        <label>
+          {PROMO_RECOMPRA_2_KEY} (solo mesón, misma ventana que la VIP): 2 tickets para la patente que vencen{" "}
+          {DIAS_PROMO_RECOMPRA_2} días después de la compra — $0 la apaga
+        </label>
+        <PriceInput value={precioRecompra2Val} onChange={setPrecioRecompra2Val} />
       </div>
       <div className="field" style={{ margin: 0 }}>
         <label>Horas disponibles para el upgrade (usa múltiplos de 24 para días, ej: 48 = 2 días)</label>

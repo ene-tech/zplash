@@ -93,7 +93,7 @@ export const clientes = pgTable("clientes", {
   // tarjeta inscrita (cobrarSuscripcion). Se marca desde la ficha del cliente.
   nonGrato: boolean("non_grato").notNull().default(false),
   // Invitación manual a la Promo 5 Tickets VIP (ver ofertaPromoVip): hasta
-  // cuándo el mesón se la ofrece aunque ya hayan pasado las 120 h desde su
+  // cuándo el mesón se la ofrece aunque ya hayan pasado las 48 h desde su
   // último ticket. La primera vez (25-oct-2026) fue para los que terminaron
   // su pack antes de que existiera la VIP. Se graba por SQL.
   invitacionVipHasta: timestamptz("invitacion_vip_hasta"),
