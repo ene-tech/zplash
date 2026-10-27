@@ -226,7 +226,8 @@ const DIAS_BUSQUEDA_PACK_VENCIDO = 2;
 // "pack_vencido": se le vencieron tickets de un pack sin usar. Sale solo si el
 // mesón le está ofreciendo la recompra (promoVipParaCliente: sin tickets vivos,
 // sin plan vigente y dentro de la ventana); así el mensaje y el mesón dicen lo
-// mismo. Uno por pack: origenId con la patente y la caducidad del pack.
+// mismo. Uno por ventana de recompra: origenId con el cliente y el límite de
+// la oferta (dos packs vencidos juntos abren una sola ventana).
 async function procesarPacksVencidos(ahoraISO: string): Promise<{ procesados: number; errores: number }> {
   let procesados = 0;
   let errores = 0;
@@ -257,15 +258,17 @@ async function procesarPacksVencidos(ahoraISO: string): Promise<{ procesados: nu
     return { procesados, errores: errores + 1 };
   }
   // El libre de una VIP no tiene patente autorizada: no es del auto.
-  const packs = new Map<string, { cliente: typeof clientes.$inferSelect; fechaCaducidad: string }>();
+  const porCliente = new Map<string, typeof clientes.$inferSelect>();
   for (const { cupon, cliente } of filas) {
-    if (!cupon.patentesAutorizadas?.length) continue;
-    packs.set(`${cliente.id}:${cupon.fechaCaducidad}`, { cliente, fechaCaducidad: cupon.fechaCaducidad });
+    if (cupon.patentesAutorizadas?.length) porCliente.set(cliente.id, cliente);
   }
-  for (const { cliente: row, fechaCaducidad } of packs.values()) {
+  for (const row of porCliente.values()) {
     const cliente = clienteFromRow(row);
+    let vence: string;
     try {
-      if (!(await promoVipParaCliente(cliente))) continue;
+      const oferta = await promoVipParaCliente(cliente);
+      if (!oferta) continue;
+      vence = oferta.vence;
     } catch (error) {
       console.error("Error calculando la recompra de un pack vencido", row.id, error);
       errores++;
@@ -276,7 +279,7 @@ async function procesarPacksVencidos(ahoraISO: string): Promise<{ procesados: nu
         id: uid(),
         reglaId: regla.id,
         origenTipo: "cliente",
-        origenId: `${row.id}:${fechaCaducidad}`,
+        origenId: `${row.id}:${vence}`,
         clienteId: row.id,
         patente: row.patente ?? undefined,
         estado: "programado",

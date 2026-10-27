@@ -359,7 +359,7 @@ async function variablesCalculadas(plantilla: PlantillaWhatsapp, cliente: Client
       ? `Te ${tickets.length === 1 ? "queda 1 lavado" : `quedan ${tickets.length} lavados`} de tu pack, válidos hasta el ${out.fechaVencimientoTickets}.`
       : "Usaste el último lavado de tu pack.";
     out.resumenTicketsSms = tickets.length
-      ? `Te ${tickets.length === 1 ? "queda 1 lavado" : `quedan ${tickets.length} lavados`} para ${normPlate(cliente.patente)}, validos hasta el ${out.fechaVencimientoTickets}.`
+      ? `Te ${tickets.length === 1 ? "queda 1 lavado" : `quedan ${tickets.length} lavados`} para ${normPlate(cliente.patente)}, validos hasta el ${out.fechaVencimientoTickets}. Solo di tu patente en el meson.`
       : "Usaste el ultimo lavado de tu pack.";
   }
   if (pideVariable(plantilla, "lavadosRestantes")) {

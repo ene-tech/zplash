@@ -8,7 +8,7 @@
 
 insert into plantillas_whatsapp (id, nombre, categoria, mensaje, activo) values
 ('sms-pack-ticket-usado', 'SMS: lavados que le quedan del pack', 'sms',
- 'ZPlash: gracias por venir! {{resumenTicketsSms}} Solo di tu patente en el meson.', true)
+ 'ZPlash: gracias por venir! {{resumenTicketsSms}}', true)
 on conflict (id) do nothing;
 
 insert into reglas_whatsapp (id, nombre, activa, tipo_evento, condicion_tipo_venta, condicion_excluir_con_cupon,
