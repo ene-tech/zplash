@@ -65,6 +65,16 @@ describe("OperadorFoundOfertas — pack al que ya pasó hoy", () => {
     expect(html).toContain("se lleva los 2 lavados para después");
   });
 
+  it("también se le ofrecen al que tiene el plan vigente", () => {
+    const html = render({ planVigente: true, precioPromo2: 12990, precioPromo5: 24990 });
+    expect(html).toContain("Cobrar Promo 2 lavados");
+    expect(html).toContain("Cobrar Promo 4 lavados");
+    // Entra con su plan: el pack no canjea ningún ticket ahora.
+    expect(html).not.toContain("Pasa ahora");
+    expect(html).toContain("Entra con su plan: se lleva los 2 lavados para después");
+    expect(html).toContain("Entra con su plan: se lleva los 4 lavados");
+  });
+
   it("si no ha pasado, el primero es el de ahora", () => {
     const html = render({ planVigente: false, precioPromo5: 24990 });
     expect(html).toContain("Pasa ahora y le quedan 3 lavados");

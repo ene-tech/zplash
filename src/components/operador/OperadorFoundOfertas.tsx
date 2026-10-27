@@ -320,13 +320,16 @@ export default function OperadorFoundOfertas(props: Props) {
             </button>
           </div>
         )],
-        [props.precioPromo2, sinPlan && props.precioPromo2 > 0 && (
+        // Los packs de 2 y 4 se ofrecen a todo cliente, con o sin plan (27-oct-2026).
+        [props.precioPromo2, props.precioPromo2 > 0 && (
           <div key="promo2" className="offer-card">
             <div className="offer-head">
               <h4>Promo 2 lavados</h4>
             </div>
             <div className="msg">
-              {props.yaPasoHoy
+              {props.planVigente
+                ? "Entra con su plan: se lleva los 2 lavados para después."
+                : props.yaPasoHoy
                 ? "Ya pasó hoy: se lleva los 2 lavados para después."
                 : "Pasa ahora y le queda 1 lavado para después."}
             </div>
@@ -338,13 +341,15 @@ export default function OperadorFoundOfertas(props: Props) {
             </button>
           </div>
         )],
-        [props.precioPromo5, sinPlan && props.precioPromo5 > 0 && (
+        [props.precioPromo5, props.precioPromo5 > 0 && (
           <div key="promo5" className="offer-card">
             <div className="offer-head">
               <h4>Promo 4 lavados</h4>
             </div>
             <div className="msg">
-              {props.yaPasoHoy
+              {props.planVigente
+                ? "Entra con su plan: se lleva los 4 lavados para los próximos 30 días."
+                : props.yaPasoHoy
                 ? "Ya pasó hoy: se lleva los 4 lavados para los próximos 30 días. Sin plan ni renovación."
                 : "Pasa ahora y le quedan 3 lavados para los próximos 30 días. Sin plan ni renovación."}
             </div>
