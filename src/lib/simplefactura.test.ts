@@ -29,10 +29,15 @@ describe("armarFactura", () => {
     expect(doc.Encabezado.Receptor.CmnaRecep).toBe("Temuco");
   });
 
-  it("una venta con orden de compra lleva la referencia a continuación del producto", () => {
-    const oc = venta(1000, { tipo: "Cupón Venta Empresa", patente: "", nombre: "Venta Empresa · 10 lavados", ordenCompra: "4500123" });
+  it("una venta de tickets detalla cuántos y, con orden de compra, lleva la referencia a continuación", () => {
+    const oc = venta(399900, { tipo: "Cupón Venta Empresa", patente: "", nombre: "Venta Empresa · SALFA", cantidadItems: 40, ordenCompra: "OC: 521518" });
     const doc = armarFactura([oc], receptor, "2026-10-03", "1-9").Documento;
-    expect(doc.Detalle[0].NmbItem).toBe("10 lavados Referencia: 4500123");
+    expect(doc.Detalle[0].NmbItem).toBe("40 tickets de lavado de vehículo - Referencia: OC: 521518");
+  });
+
+  it("un pack de tickets web sin orden de compra solo lleva el detalle", () => {
+    const web = venta(79990, { tipo: "10 Tickets (Web)", patente: "", cantidadItems: 10 });
+    expect(armarFactura([web], receptor, "2026-10-03", "1-9").Documento.Detalle[0].NmbItem).toBe("10 tickets de lavado de vehículo");
   });
 
   it("usa comuna y ciudad de la empresa antes que la dirección", () => {

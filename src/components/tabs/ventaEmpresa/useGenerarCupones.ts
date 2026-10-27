@@ -156,6 +156,8 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
         precio: valorTotal,
         tipo: "Cupón Venta Empresa",
         fecha: new Date().toISOString(),
+        // La factura detalla cuántos tickets se compraron (ver nombreItem en @/lib/simplefactura).
+        cantidadItems: cantidad,
         creadoPor: "Administrador",
         tipoDocumento: tipoDoc,
         razonSocial,

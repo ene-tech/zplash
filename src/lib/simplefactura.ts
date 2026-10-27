@@ -90,13 +90,21 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
   };
 }
 
-/** Nombre de la línea en la factura. Una venta contra orden de compra lleva el
- * producto (el nombre del lote: "10 lavados") seguido de su referencia, para
- * que la factura diga de qué OC nace. */
+/** Nombre de la línea en la factura: qué se compró ("40 tickets de lavado de
+ * vehículo") y, si la venta es contra orden de compra, su referencia, para que
+ * la factura diga de qué OC nace. */
 function nombreItem(v: Venta): string {
-  if (!v.ordenCompra) return [v.tipo, v.patente].filter(Boolean).join(" - ");
-  const producto = v.nombre.replace(/^Venta Empresa · /, "") || v.tipo;
-  return `${producto} Referencia: ${v.ordenCompra}`;
+  const producto = esVentaDeTickets(v) ? detalleTickets(v.cantidadItems ?? 1) : [v.tipo, v.patente].filter(Boolean).join(" - ");
+  return v.ordenCompra ? `${producto} - Referencia: ${v.ordenCompra}` : producto;
+}
+
+// Lote de tickets del mesón (Venta Empresa) o pack comprado por la web ("10 Tickets (Web)").
+function esVentaDeTickets(v: Venta): boolean {
+  return v.tipo === "Cupón Venta Empresa" || /Tickets \(Web\)$/.test(v.tipo);
+}
+
+function detalleTickets(n: number): string {
+  return `${n} ${n === 1 ? "ticket" : "tickets"} de lavado de vehículo`;
 }
 
 /** Por qué no salió una factura, para saber si se puede volver a intentar:
