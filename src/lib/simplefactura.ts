@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { MotivoNotaCredito } from "@/lib/logic/empresas";
 import type { Venta } from "@/types";
 
 // Emisión de facturas electrónicas (DTE 33) vía SimpleFactura
@@ -114,6 +115,34 @@ const TIMEOUT_EMISION_MS = 30_000;
 
 /** Emite la factura y devuelve el folio asignado por el SII. Falla con ErrorFactura. */
 export async function emitirFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: string): Promise<number> {
+  return emitirDte("invoiceV2", (rutEmisor) => armarFactura(ventas, receptor, fecha, rutEmisor));
+}
+
+export interface FacturaReferida {
+  folio: number;
+  fecha: string; // AAAA-MM-DD, la de emisión de la factura
+  razon: string;
+}
+
+/** Nota de crédito (DTE 61) que anula completa una factura (CodRef 1): las
+ * mismas líneas y montos de la factura, más la referencia a ella. */
+export function armarNotaCredito(ventas: Venta[], receptor: ReceptorFactura, fecha: string, rutEmisor: string, factura: FacturaReferida) {
+  const dte = armarFactura(ventas, receptor, fecha, rutEmisor);
+  dte.Documento.Encabezado.IdDoc.TipoDTE = 61;
+  return {
+    Documento: {
+      ...dte.Documento,
+      Referencia: [{ NroLinRef: 1, TpoDocRef: "33", FolioRef: String(factura.folio), FchRef: factura.fecha, CodRef: 1, RazonRef: factura.razon.slice(0, 90) }],
+    },
+  };
+}
+
+/** Emite la nota de crédito que anula la factura y devuelve su folio. Falla con ErrorFactura. */
+export async function emitirNotaCredito(ventas: Venta[], receptor: ReceptorFactura, fecha: string, factura: FacturaReferida, motivo: MotivoNotaCredito): Promise<number> {
+  return emitirDte("invoiceCreditDebitNotesV2", (rutEmisor) => armarNotaCredito(ventas, receptor, fecha, rutEmisor, factura), `/${motivo}`);
+}
+
+async function emitirDte(endpoint: string, armar: (rutEmisor: string) => unknown, sufijo = ""): Promise<number> {
   const rutEmisor = process.env.SIMPLEFACTURA_RUT_EMISOR;
   if (!rutEmisor || !process.env.SIMPLEFACTURA_EMAIL || !process.env.SIMPLEFACTURA_PASSWORD) {
     throw new ErrorFactura("Falta configurar SimpleFactura (SIMPLEFACTURA_EMAIL, SIMPLEFACTURA_PASSWORD, SIMPLEFACTURA_RUT_EMISOR)", "rechazo");
@@ -127,10 +156,10 @@ export async function emitirFactura(ventas: Venta[], receptor: ReceptorFactura, 
   }
   let res: Response;
   try {
-    res = await fetch(`${API}/invoiceV2/${encodeURIComponent(sucursal)}`, {
+    res = await fetch(`${API}/${endpoint}/${encodeURIComponent(sucursal)}${sufijo}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${bearer}` },
-      body: JSON.stringify(armarFactura(ventas, receptor, fecha, rutEmisor)),
+      body: JSON.stringify(armar(rutEmisor)),
       signal: AbortSignal.timeout(TIMEOUT_EMISION_MS),
     });
   } catch (e) {
@@ -146,19 +175,41 @@ export async function emitirFactura(ventas: Venta[], receptor: ReceptorFactura, 
   throw new ErrorFactura(mensaje, res.status >= 400 && res.status < 500 && json ? "rechazo" : "incierto");
 }
 
-/** PDF de una factura ya emitida, para mandarla por correo. ambiente: 1 =
- * producción, 0 = certificación (SIMPLEFACTURA_AMBIENTE=0 en una cuenta de
- * pruebas); a diferencia de la emisión, este endpoint sí lo pide. */
-export async function pdfFactura(folio: number): Promise<Buffer> {
+function referenciaDte(folio: number, codigoTipoDte: number) {
   const rutEmisor = process.env.SIMPLEFACTURA_RUT_EMISOR;
   if (!rutEmisor) throw new Error("Falta configurar SIMPLEFACTURA_RUT_EMISOR");
+  return {
+    credenciales: { rutEmisor, nombreSucursal: process.env.SIMPLEFACTURA_SUCURSAL || "Casa Matriz" },
+    dteReferenciadoExterno: { folio, codigoTipoDte, ambiente: process.env.SIMPLEFACTURA_AMBIENTE === "0" ? 0 : 1 },
+  };
+}
+
+/** Fecha, total y receptor de una factura tal como quedó en el SII: la nota de
+ * crédito se referencia a esa fecha, anula el mismo monto y va al mismo RUT. */
+export async function datosFactura(folio: number): Promise<{ fecha: string; total: number; rutReceptor: string; razonSocialReceptor: string }> {
+  const res = await fetch(`${API}/documentIssued`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
+    body: JSON.stringify(referenciaDte(folio, 33)),
+    signal: AbortSignal.timeout(TIMEOUT_EMISION_MS),
+  });
+  const json = await res.json().catch(() => null);
+  const d = json?.data;
+  if (!res.ok || typeof d?.total !== "number" || typeof d?.fechaDte !== "string") {
+    throw new Error(json?.errors?.join("; ") || json?.message || `SimpleFactura no encontró la factura N° ${folio} (${res.status})`);
+  }
+  return { fecha: d.fechaDte.slice(0, 10), total: d.total, rutReceptor: String(d.rutReceptor ?? ""), razonSocialReceptor: String(d.razonSocialReceptor ?? "") };
+}
+
+/** PDF de una factura (33) o nota de crédito (61) ya emitida, para mandarla
+ * por correo. ambiente: 1 = producción, 0 = certificación
+ * (SIMPLEFACTURA_AMBIENTE=0 en una cuenta de pruebas); a diferencia de la
+ * emisión, este endpoint sí lo pide. */
+export async function pdfFactura(folio: number, tipoDte: 33 | 61 = 33): Promise<Buffer> {
   const res = await fetch(`${API}/dte/pdf`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
-    body: JSON.stringify({
-      credenciales: { rutEmisor, nombreSucursal: process.env.SIMPLEFACTURA_SUCURSAL || "Casa Matriz" },
-      dteReferenciadoExterno: { folio, codigoTipoDte: 33, ambiente: process.env.SIMPLEFACTURA_AMBIENTE === "0" ? 0 : 1 },
-    }),
+    body: JSON.stringify(referenciaDte(folio, tipoDte)),
   });
   const buf = Buffer.from(await res.arrayBuffer());
   // Los errores vienen en JSON; el PDF, en binario.

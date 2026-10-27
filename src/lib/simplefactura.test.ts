@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Venta } from "@/types";
-import { armarFactura } from "./simplefactura";
+import { armarFactura, armarNotaCredito } from "./simplefactura";
 
 const venta = (precio: number, extra: Partial<Venta> = {}): Venta =>
   ({ id: "v", clienteId: "c", patente: "ABCD12", nombre: "", plan: "", precio, tipo: "Renovación", fecha: "2026-10-01T12:00:00Z", ...extra }) as Venta;
@@ -45,5 +45,16 @@ describe("armarFactura", () => {
     const { Emisor, Receptor } = armarFactura([venta(1000)], receptor, "2026-10-03", "1-9").Documento.Encabezado;
     expect(Emisor.CiudadOrigen).toBe("Temuco");
     expect(Receptor.CiudadRecep).toBe("Temuco");
+  });
+});
+
+describe("armarNotaCredito", () => {
+  it("es un DTE 61 con los montos de la factura y la referencia que la anula", () => {
+    const ref = { folio: 120, fecha: "2026-10-20", razon: "Error de digitación: RUT equivocado" };
+    const doc = armarNotaCredito([venta(21990), venta(9990)], receptor, "2026-10-27", "1-9", ref).Documento;
+    expect(doc.Encabezado.IdDoc.TipoDTE).toBe(61);
+    expect(doc.Encabezado.Totales.MntTotal).toBe(31980);
+    expect(doc.Detalle).toHaveLength(2);
+    expect(doc.Referencia).toEqual([{ NroLinRef: 1, TpoDocRef: "33", FolioRef: "120", FchRef: "2026-10-20", CodRef: 1, RazonRef: "Error de digitación: RUT equivocado" }]);
   });
 });

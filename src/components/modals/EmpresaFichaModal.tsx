@@ -24,7 +24,8 @@ export default function EmpresaFichaModal({ data: empresaInicial }: { data: Empr
   const cerrar = () => patchUi({ modal: null });
 
   const facturas = useMemo(() => facturasDeEmpresa(empresa, data.ventas, data.clientes), [empresa, data.ventas, data.clientes]);
-  const totalFacturado = facturas.reduce((s, f) => s + f.total, 0);
+  // Las anuladas por nota de crédito no suman (igual que en la pestaña Facturas).
+  const totalFacturado = facturas.reduce((s, f) => s + (f.notaCreditoFolio ? 0 : f.total), 0);
 
   const reenviar = async (folio: number) => {
     setEnviando(folio);
@@ -83,13 +84,14 @@ export default function EmpresaFichaModal({ data: empresaInicial }: { data: Empr
                 <li key={f.folio ?? f.ventas[0].id} className="flex items-center justify-between gap-2 border-b px-2 py-1.5 last:border-b-0">
                   <span>
                     {f.folio ? `N° ${f.folio}` : "Sin folio (marcada a mano)"} · {fmtFecha(f.fecha)}
+                    {!!f.notaCreditoFolio && <span className="text-muted-foreground"> · anulada (NC N° {f.notaCreditoFolio})</span>}
                     <span className="block text-xs text-muted-foreground">
                       {f.ventas.map((v) => [v.tipo, v.patente].filter(Boolean).join(" ")).join(", ")}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
-                    <span className="whitespace-nowrap font-medium">{fmtCLP(f.total)}</span>
-                    {f.folio && (
+                    <span className={`whitespace-nowrap font-medium${f.notaCreditoFolio ? " line-through text-muted-foreground" : ""}`}>{fmtCLP(f.total)}</span>
+                    {f.folio && !f.notaCreditoFolio && (
                       <Button variant="outline" size="xs" disabled={enviando !== null} onClick={() => reenviar(f.folio!)}>
                         {enviando === f.folio ? "Enviando…" : "Reenviar por mail"}
                       </Button>

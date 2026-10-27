@@ -76,6 +76,9 @@ export interface Venta extends DatosFacturacion {
   facturaEmitida?: boolean;
   // Folio SII si la emitió SimpleFactura (ver marcarFacturaEmitida).
   facturaFolio?: number;
+  // Nota de crédito que anuló esa factura (0 = sin confirmar, ver
+  // emitirNotaCreditoDeFactura).
+  notaCreditoFolio?: number;
   // Email de quien compró (hoy solo se llena en Pack Empresa por web) —
   // permite mostrarle esta venta en Mi Cuenta buscando por el correo de la
   // sesión, sin depender de clienteId (que queda null en compras B2B).

@@ -84,6 +84,8 @@ export function ventaFromRow(r: VentaRow): Venta {
     facturaEmitida: r.facturaEmitida || undefined,
     // Tampoco va en ventaToRow: solo lo escribe marcarFacturaEmitida.
     facturaFolio: r.facturaFolio ?? undefined,
+    // Igual: solo lo escribe la emisión de la nota de crédito.
+    notaCreditoFolio: r.notaCreditoFolio ?? undefined,
     canjeadaEn: r.canjeadaEn || undefined,
     // No va en ventaToRow a propósito: lo escribe /inscripcion/retorno y la
     // app nunca debe pisarlo al re-guardar la venta.
@@ -128,6 +130,29 @@ export async function marcarFacturaEmitida(ids: string[], folio: number): Promis
     return true;
   } catch (error) {
     console.error("Error marcando factura emitida", error);
+    return false;
+  }
+}
+
+/** Reserva la factura para anularla: deja nota_credito_folio en 0 en un solo
+ * UPDATE condicional. false si ya tiene nota de crédito (o se está emitiendo):
+ * dos clics no anulan la misma factura dos veces ante el SII. */
+export async function reservarNotaCredito(facturaFolio: number): Promise<boolean> {
+  const filas = await getDb()
+    .update(ventas)
+    .set({ notaCreditoFolio: 0 })
+    .where(and(eq(ventas.facturaFolio, facturaFolio), isNull(ventas.notaCreditoFolio)))
+    .returning({ id: ventas.id });
+  return filas.length > 0;
+}
+
+/** Libera la reserva (folio = null) o guarda el folio de la nota emitida. */
+export async function marcarNotaCredito(facturaFolio: number, folio: number | null): Promise<boolean> {
+  try {
+    await getDb().update(ventas).set({ notaCreditoFolio: folio }).where(eq(ventas.facturaFolio, facturaFolio));
+    return true;
+  } catch (error) {
+    console.error("Error guardando nota de crédito", error);
     return false;
   }
 }

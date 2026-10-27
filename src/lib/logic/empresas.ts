@@ -1,4 +1,4 @@
-import type { AppData, Cliente, Empresa, Venta } from "@/types";
+import type { AppData, Cliente, Empresa, Modulo, Venta } from "@/types";
 import { formatRut, uid } from "@/lib/helpers";
 
 // Backfill para clientes con Factura que quedaron sin su Empresa (p. ej. los
@@ -30,8 +30,17 @@ export function empresasFaltantesDesdeClientes(data: AppData): Empresa[] {
   return nuevas;
 }
 
+/** Motivo de la nota de crédito: SimpleFactura lo pide como número en la URL
+ * (4 y 5 son intereses, solo para notas de débito). */
+export const MOTIVOS_NOTA_CREDITO = { 1: "Error de digitación", 2: "Reclamo del cliente", 3: "Datos desactualizados", 6: "Otro" } as const;
+export type MotivoNotaCredito = keyof typeof MOTIVOS_NOTA_CREDITO;
+/** Quién puede emitirla: los mismos que emiten facturas en el cierre. */
+export const MODULOS_NOTA_CREDITO: Modulo[] = ["cierre", "arqueo", "permisos"];
+
 export interface FacturaEmpresa {
   folio?: number;
+  /** Nota de crédito que la anuló (0 = sin confirmar). */
+  notaCreditoFolio?: number;
   fecha: string;
   total: number;
   ventas: Venta[];
@@ -57,7 +66,7 @@ export function facturasEmitidas(ventas: Venta[], clientes: Cliente[]): FacturaE
     if (!f) {
       const cliente = clientePorId.get(v.clienteId);
       const rut = v.rut || cliente?.rut;
-      f = { folio: v.facturaFolio, fecha: v.fecha, total: 0, ventas: [], rut: rut ? formatRut(rut) : "", razonSocial: v.razonSocial || cliente?.razonSocial || "" };
+      f = { folio: v.facturaFolio, notaCreditoFolio: v.notaCreditoFolio, fecha: v.fecha, total: 0, ventas: [], rut: rut ? formatRut(rut) : "", razonSocial: v.razonSocial || cliente?.razonSocial || "" };
       porFolio.set(key, f);
     }
     f.total += v.precio || 0;

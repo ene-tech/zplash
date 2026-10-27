@@ -47,6 +47,9 @@ export const ventas = pgTable(
     // Folio SII de la factura emitida por SimpleFactura (varias ventas pueden
     // compartirlo). Null en las marcadas a mano como emitidas.
     facturaFolio: integer("factura_folio"),
+    // Folio SII de la nota de crédito que anuló esa factura. 0 = emitiéndose,
+    // o se mandó sin respuesta legible: revisarla en SimpleFactura.
+    notaCreditoFolio: integer("nota_credito_folio"),
     // Momento en que un "Lavado único (Web)" comprado por adelantado desde
     // /pagar se canjeó físicamente en el túnel (ver registrarIngresoLavadoWeb
     // en @/lib/logic/ingresos) — null mientras siga pendiente de canjear.
