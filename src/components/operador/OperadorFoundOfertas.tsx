@@ -3,7 +3,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
-import { DIAS_PROMO_RECOMPRA_2, DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, fmtCLP, fmtFecha, fmtHora, fmtVencimiento } from "@/lib/helpers";
+import { DIAS_PROMO_RECOMPRA_2, DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, finGarantia, fmtCLP, fmtFecha, fmtHora, fmtVencimiento } from "@/lib/helpers";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
 // Lo que el operador tiene que contarle al cliente que todavía anda con el
@@ -53,6 +53,8 @@ type Props = Pick<
   | "precioPromo2"
   | "precioPromo5"
   | "yaPasoHoy"
+  | "ingresoEnGarantia"
+  | "registrarGarantia"
   | "cobrarPromoLavados"
   | "precioSoloTunel"
   | "cobrarSoloTunel"
@@ -94,7 +96,22 @@ export default function OperadorFoundOfertas(props: Props) {
   const esLavado = (el: ReactNode) => ["lavado", "solo-tunel", "lavado-extra"].includes((el as ReactElement).key as string);
   return (
     <div className="ofertas-operador">
-      {/* Ingresos ya pagados: no son venta, van antes que las opciones. */}
+      {/* Ingresos ya pagados: no son venta, van antes que las opciones. El
+          que tiene plan repasa con "Registrar ingreso" (ver registrar). */}
+      {sinPlan && props.ingresoEnGarantia && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <h4>Pasar por garantía (sin cobro)</h4>
+          </div>
+          <div className="msg">
+            {c.nombre || "Este vehículo"} pasó por el túnel a las {fmtHora(props.ingresoEnGarantia.fecha)}. Si quedó mal
+            lavado, puede volver a pasar sin pagar hasta las {fmtHora(finGarantia(props.ingresoEnGarantia).toISOString())}.
+          </div>
+          <button className="btn secondary" onClick={() => props.registrarGarantia()} disabled={guardando}>
+            Ingresar por garantía
+          </button>
+        </div>
+      )}
       {tickets.length > 0 && (
         <div className="offer-card">
           <div className="offer-head">

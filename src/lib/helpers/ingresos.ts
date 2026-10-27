@@ -29,6 +29,27 @@ export function ultimoIngresoCliente(ingresos: Ingreso[], clienteId: string): In
 
 const HORAS_VENTANA_GARANTIA = 1;
 
+/**
+ * El ingreso pagado (o por plan/ticket) que todavía da derecho a garantía:
+ * todo auto que pasó por el túnel puede repasar sin cobro hasta 1 hora
+ * después de ese ingreso (regla del dueño, oct-2026). La hora corre desde el
+ * ingreso original, no desde una garantía: repasar no alarga la ventana.
+ */
+export function ingresoConGarantia(ingresos: Ingreso[], clienteId: string, ahora: Date = new Date()): Ingreso | undefined {
+  const original = ultimoIngresoCliente(
+    ingresos.filter((i) => !i.esGarantia),
+    clienteId
+  );
+  if (!original) return undefined;
+  const ms = ahora.getTime() - new Date(original.fecha).getTime();
+  return ms >= 0 && ms <= HORAS_VENTANA_GARANTIA * 3600 * 1000 ? original : undefined;
+}
+
+/** Hora hasta la que corre la garantía de ese ingreso. */
+export function finGarantia(ingreso: Ingreso): Date {
+  return new Date(new Date(ingreso.fecha).getTime() + HORAS_VENTANA_GARANTIA * 3600 * 1000);
+}
+
 export type EstadoReingresoPlan = "libre" | "garantia" | "bloqueado" | "sin_pases";
 
 /** Texto legible de horasBloqueoReingresoPlan, ej: 24.5 -> "24:30 horas". */
@@ -57,7 +78,7 @@ export function estadoReingresoPlan(
   if (!ultimo) return "libre";
   const msDesdeUltimo = ahora.getTime() - new Date(ultimo.fecha).getTime();
   if (msDesdeUltimo >= horasBloqueo * 3600 * 1000) return "libre";
-  if (msDesdeUltimo <= HORAS_VENTANA_GARANTIA * 3600 * 1000) return "garantia";
+  if (ingresoConGarantia(ingresos, clienteId, ahora)) return "garantia";
   return "bloqueado";
 }
 

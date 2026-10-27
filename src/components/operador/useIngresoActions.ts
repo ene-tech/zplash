@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { entregarPromoLavados, entregarPromoRecompra2, entregarPromoVip, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, ingresoConGarantia, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
 import { conReglaVigente } from "./reglaVigente";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -57,7 +57,7 @@ export function useIngresoActions(
       patchUi({
         modal: {
           type: "confirm",
-          mensaje: `Vehiculo Ingreso hace menos de 24 horas. ¿Desea que pase nuevamente por garantía?`,
+          mensaje: `Vehiculo ingresó hace menos de 1 hora. ¿Desea que pase nuevamente por garantía?`,
           confirmLabel: "Sí, ingresar por garantía",
           danger: false,
           onConfirm: () => hacerRegistro(true, cliente),
@@ -145,12 +145,18 @@ export function useIngresoActions(
     patchUi({ operResult: null });
   };
 
+  // Repasar sin cobro dentro de la hora de garantía (ver ingresoConGarantia),
+  // desde su propio botón en el mesón.
+  const registrarGarantia = (cliente: Cliente = c) => hacerRegistro(true, cliente);
+
   const registrarPagado = (cliente: Cliente = c) => {
-    if (yaIngresoHoy(data.ingresos, cliente.id)) {
+    // Dentro de la hora de garantía, "Lavado Full Túnel" no vuelve a cobrar
+    // sin preguntar: lo más probable es que venga a repasar.
+    if (ingresoConGarantia(data.ingresos, cliente.id)) {
       patchUi({
         modal: {
           type: "confirm",
-          mensaje: `Este cliente ya pasó una vez hoy. ¿Desea que pase nuevamente por garantía?`,
+          mensaje: `Este vehículo pasó hace menos de 1 hora. ¿Desea que pase nuevamente por garantía, sin cobro?`,
           confirmLabel: "Sí, ingresar por garantía",
           danger: false,
           onConfirm: () => hacerRegistro(true, cliente),
@@ -419,6 +425,7 @@ export function useIngresoActions(
     registrarDetailing,
     registrarLavadoWeb,
     registrarPagado,
+    registrarGarantia,
     cobrarLavadoUnico,
     cobrarSoloTunel,
     cobrarPromoLavados,
