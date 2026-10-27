@@ -59,10 +59,11 @@ vi.mock("@/lib/whatsapp/reglas", () => ({ evaluarReglasPorCobroFallido: () => Pr
 let pasadasDelCiclo = 0;
 let sinCliente = false;
 const pagosAplicados: Record<string, unknown>[] = [];
+let vencimientoAplicado: string | undefined;
 vi.mock("./aplicarPagoAprobado", () => ({
   aplicarPagoAprobado: (p: Record<string, unknown>) => {
     pagosAplicados.push(p);
-    return Promise.resolve({});
+    return Promise.resolve({ vencimiento: vencimientoAplicado });
   },
   visitasPeriodoActual: () => Promise.resolve(pasadasDelCiclo),
 }));
@@ -76,7 +77,11 @@ vi.mock("./oneclickCobro", async (importOriginal) => ({
   reconciliarCobrosEnCurso: () => Promise.resolve(recuperados),
 }));
 
-import { cobrarSuscripcion, inicioCicloCobrado, proximoCicloISO } from "./cobrarSuscripcion";
+import { cobrarSuscripcion, inicioCicloCobrado, proximoCicloISO, proximoCobroTrasPago } from "./cobrarSuscripcion";
+
+beforeEach(() => {
+  vencimientoAplicado = undefined;
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const suscripcion = { id: "s1", patente: "AB1234", username: "AB1234", tbkUser: "tbk1", proximoCobro: "2026-09-01T00:00:00.000Z", clienteId: null } as any;
@@ -255,11 +260,38 @@ describe("reintento diario tras un rechazo", () => {
     expect(faltan).toBeLessThan(unDia);
   });
 
-  it("aprobado tras reintentos -> el próximo ciclo sale de la fecha original", async () => {
+  it("aprobado sin vencimiento aplicado -> el próximo ciclo sale de la fecha original", async () => {
     authorize.mockReset().mockResolvedValue({ details: [{ response_code: 0, authorization_code: "a1" }] });
     respuestas = [precios, cliente, [], [{ estado: "rechazada" }]];
     await cobrarSuscripcion(suscripcion);
     expect(updates.at(-1)!.proximoCobro).toBe(proximoCicloISO(suscripcion.proximoCobro));
+  });
+
+  // TYGL56 y otras 15 (26-oct-2026): el cobro salió días después de su fecha,
+  // el vencimiento quedó anclado y el próximo cobro, a un mes del anterior,
+  // caía días después de que el plan venciera.
+  it("aprobado -> el próximo cobro es el vencimiento que dejó el pago", async () => {
+    authorize.mockReset().mockResolvedValue({ details: [{ response_code: 0, authorization_code: "a1" }] });
+    vencimientoAplicado = new Date(Date.now() + 25 * unDia).toISOString();
+    respuestas = [precios, cliente, [], [{ estado: "rechazada" }]];
+    await cobrarSuscripcion(suscripcion);
+    expect(updates.at(-1)!.proximoCobro).toBe(vencimientoAplicado);
+  });
+});
+
+describe("proximoCobroTrasPago", () => {
+  const ahora = new Date("2026-10-27T13:00:00Z");
+  const anterior = "2026-10-01T13:00:00Z";
+
+  it("vencimiento a un mes -> ese vencimiento", () => {
+    expect(proximoCobroTrasPago("2026-11-25T00:00:00.000Z", anterior, ahora)).toBe("2026-11-25T00:00:00.000Z");
+  });
+
+  // Un ciclo anclado corto no puede dejar dos cobros a días de distancia.
+  it("vencimiento a pocos días, vencido o ausente -> el ciclo de siempre", () => {
+    for (const v of ["2026-10-30T00:00:00.000Z", "2026-10-20T00:00:00.000Z", null, "basura"]) {
+      expect(proximoCobroTrasPago(v, anterior, ahora)).toBe(proximoCicloISO(anterior));
+    }
   });
 });
 

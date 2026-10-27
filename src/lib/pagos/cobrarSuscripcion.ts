@@ -28,6 +28,25 @@ export function proximoCicloISO(base: string | null): string {
   return d.toISOString();
 }
 
+/** Próximo cobro tras un pago aprobado: el vencimiento que ese pago dejó, el
+ * mismo criterio del cron al reagendar un plan vigente y de
+ * cobrarOfertaOneclick. Contar "un mes desde el cobro anterior" separaba el
+ * cobro del vencimiento cada vez que un cobro salía fuera de su fecha
+ * (reintento, pago atrasado anclado): el plan vencía y el cobro llegaba días
+ * después (16 suscripciones al 26-oct-2026, PZVB27 con 29 días).
+ *
+ * Solo si ese vencimiento queda a DIAS_MINIMOS_ENTRE_COBROS o más: un ciclo
+ * anclado corto (anclas desalineadas, ver diag-ancla-desalineada) dejaría el
+ * próximo cobro a días del que acaba de salir, y el cron le cobraría la
+ * tarjeta otra vez. Ahí, o sin vencimiento (no se pudo aplicar el pago),
+ * queda el ciclo de siempre. */
+const DIAS_MINIMOS_ENTRE_COBROS = 20;
+export function proximoCobroTrasPago(vencimiento: string | null, proximoAnterior: string | null, ahora = new Date()): string {
+  const v = vencimiento ? new Date(vencimiento) : null;
+  const piso = ahora.getTime() + DIAS_MINIMOS_ENTRE_COBROS * 24 * 60 * 60 * 1000;
+  return v && !isNaN(v.getTime()) && v.getTime() >= piso ? v.toISOString() : proximoCicloISO(proximoAnterior);
+}
+
 /** Tras un rechazo: el cobro vuelve a intentarse en ~24h SIN correr la fecha
  * del ciclo. Si `proximoCobro` ya pasó (el caso normal) se deja tal cual: el
  * cron diario lo vuelve a ver vencido mañana, y cuando por fin salga el ciclo
@@ -92,9 +111,10 @@ async function cortarReintentoAutomatico(tx: Tx, suscripcionId: string): Promise
  */
 export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOneclick, cobro: CobroRecuperado): Promise<void> {
   let ventaId: string | null = "oc-" + cobro.id;
+  let vencimiento: string | null = null;
   try {
     await tx.transaction(async (tx2) => {
-      await aplicarPagoAprobado(
+      ({ vencimiento } = await aplicarPagoAprobado(
         {
           patente: suscripcion.patente,
           monto: cobro.monto,
@@ -107,11 +127,12 @@ export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOne
           email: suscripcion.email,
         },
         tx2
-      );
+      ));
     });
   } catch (error) {
     console.error("Cobro Oneclick recuperado pero no se pudo aplicar en la base — requiere revisión manual", suscripcion.id, cobro.id, error);
     ventaId = null;
+    vencimiento = null;
   }
   await tx
     .update(cobrosOneclick)
@@ -119,7 +140,7 @@ export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOne
     .where(eq(cobrosOneclick.id, cobro.id));
   await tx
     .update(suscripcionesOneclick)
-    .set({ proximoCobro: proximoCicloISO(suscripcion.proximoCobro), actualizadoEn: new Date().toISOString() })
+    .set({ proximoCobro: proximoCobroTrasPago(vencimiento, suscripcion.proximoCobro), actualizadoEn: new Date().toISOString() })
     .where(eq(suscripcionesOneclick.id, suscripcion.id));
 }
 
@@ -398,6 +419,7 @@ export async function cobrarSuscripcion(
     let responseCode: number | null = null;
     let authorizationCode: string | null = null;
     let ventaId: string | null = null;
+    let vencimiento: string | null = null;
 
     // Si Transbank no contesta ni el cobro ni la consulta, esto tira y la
     // reserva queda "en_curso" (ver autorizarCobro).
@@ -416,7 +438,7 @@ export async function cobrarSuscripcion(
         // medio aplicar, y se deja ventaId en null para que quede marcado
         // para revisión manual en vez de simular una venta que no cuadra.
         await tx.transaction(async (tx2) => {
-          await aplicarPagoAprobado(
+          ({ vencimiento } = await aplicarPagoAprobado(
             {
               patente: suscripcion.patente,
               monto,
@@ -437,7 +459,7 @@ export async function cobrarSuscripcion(
               reiniciarCiclo: opciones.reiniciarCiclo,
             },
             tx2
-          );
+          ));
         });
       } catch (errorAplicar) {
         console.error(
@@ -447,6 +469,7 @@ export async function cobrarSuscripcion(
           errorAplicar
         );
         ventaId = null;
+        vencimiento = null;
       }
     }
 
@@ -471,7 +494,7 @@ export async function cobrarSuscripcion(
         // Cortado = null, igual que cortarReintentoAutomatico (va en el mismo
         // update para no escribir la fila dos veces).
         proximoCobro:
-          estado === "aprobada" ? proximoCicloISO(suscripcion.proximoCobro) : cortado ? null : proximoReintentoISO(suscripcion.proximoCobro),
+          estado === "aprobada" ? proximoCobroTrasPago(vencimiento, suscripcion.proximoCobro) : cortado ? null : proximoReintentoISO(suscripcion.proximoCobro),
         actualizadoEn: new Date().toISOString(),
         // Si venía pausada por el candado y este cobro igual salió (política de
         // rescate: no le cambia el plan), la pausa ya no describe nada — no se
