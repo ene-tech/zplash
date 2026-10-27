@@ -68,6 +68,8 @@ export default function StatsTab() {
       <StatsResumenGlobal
         clientesTotales={r.data.clientes.length}
         ingresosHoy={r.ingresosHoy}
+        ingresosMes={r.ingresosMes}
+        clientesNuevosMes={r.clientesNuevosMes}
         ingresosHistoricos={r.data.ingresos.length}
         porVencer={r.porVencer}
         vencidos={r.vencidos}

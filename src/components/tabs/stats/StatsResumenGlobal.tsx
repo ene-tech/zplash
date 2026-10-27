@@ -3,6 +3,8 @@
 export function StatsResumenGlobal({
   clientesTotales,
   ingresosHoy,
+  ingresosMes,
+  clientesNuevosMes,
   ingresosHistoricos,
   porVencer,
   vencidos,
@@ -16,6 +18,8 @@ export function StatsResumenGlobal({
 }: {
   clientesTotales: number;
   ingresosHoy: number;
+  ingresosMes: number;
+  clientesNuevosMes: number;
   ingresosHistoricos: number;
   porVencer: number;
   vencidos: number;
@@ -36,6 +40,14 @@ export function StatsResumenGlobal({
       <div className="stat-card">
         <div className="num">{ingresosHoy}</div>
         <div className="lbl">Ingresos hoy</div>
+      </div>
+      <div className="stat-card">
+        <div className="num">{ingresosMes}</div>
+        <div className="lbl">Autos ingresados este mes</div>
+      </div>
+      <div className="stat-card">
+        <div className="num">{clientesNuevosMes}</div>
+        <div className="lbl">Clientes nuevos este mes</div>
       </div>
       <div className="stat-card">
         <div className="num">{ingresosHistoricos}</div>

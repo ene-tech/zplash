@@ -43,6 +43,11 @@ export function useStatsData() {
 
 function calcularStats(data: AppData, desde: string, hasta: string, patentesOneclick: Set<string> | null, hoy: string) {
   const ingresosHoy = data.ingresos.filter((i) => new Date(i.fecha).toDateString() === hoy).length;
+  // Mes calendario en curso, fijo: no sigue el período elegido más abajo.
+  const inicioMes = primerDiaMesActualYMD();
+  const finMes = todayYMD();
+  const ingresosMes = data.ingresos.filter((i) => inRange(i.fecha, inicioMes, finMes)).length;
+  const clientesNuevosMes = data.clientes.filter((c) => inRange(c.creadoEn, inicioMes, finMes)).length;
   const vencidosList = data.clientes.filter((c) => planStatus(c).label === "Vencido");
   const vencidos = vencidosList.length;
   const vencidosWeb = vencidosList.filter((c) => c.origen === "WEB").length;
@@ -254,6 +259,8 @@ function calcularStats(data: AppData, desde: string, hasta: string, patentesOnec
 
   return {
     ingresosHoy,
+    ingresosMes,
+    clientesNuevosMes,
     vencidos,
     vencidosWeb,
     vencidosLocal,
