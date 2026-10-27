@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { fmtFecha, isValidPatente, normPlate, PATENTE_FORMATO_MSG } from "@/lib/helpers";
+import { fmtVencimiento, isValidPatente, normPlate, PATENTE_FORMATO_MSG } from "@/lib/helpers";
 
 // Solo aplica a vehículos con un plan mensual vigente: el cambio de patente
 // no es inmediato porque el plan ya está pagado/activo para el mes en curso
@@ -67,7 +67,7 @@ export function SolicitudCambioPatente({
       <div style={{ marginTop: 8 }}>
         <p style={{ color: "var(--gray)", fontSize: 12.5, marginBottom: 6 }}>
           Solicitaste cambiar tu patente a <strong>{patentePendiente}</strong>. El cambio se aplicará
-          automáticamente a tu plan cuando termine tu mes actual{vencimiento ? ` (vence el ${fmtFecha(vencimiento)})` : ""} e
+          automáticamente a tu plan cuando termine tu mes actual{vencimiento ? ` (vence el ${fmtVencimiento(vencimiento)})` : ""} e
           inicie el próximo — hasta esa fecha tu plan sigue funcionando con la patente {patente}
           {patentePendienteDesde ? ` (solicitado el ${new Date(patentePendienteDesde).toLocaleDateString("es-CL")})` : ""}.
         </p>

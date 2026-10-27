@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import { clienteIdsConMensajePlantilla, enviarMensajesMasivosSms, enviarMensajesMasivosWhatsapp } from "@/lib/serverActions";
 import { MAX_SEGMENTOS_SMS, segmentosSms, textoFinalSms } from "@/lib/sms/texto";
-import { aplicarVariables, fmtFecha, montoDescuento } from "@/lib/helpers";
+import { aplicarVariables, fmtFecha, fmtVencimiento, montoDescuento } from "@/lib/helpers";
 import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
 import { AccionEnvioMasivoFields } from "./mensajesUnicos/AccionEnvioMasivoFields";
 import { CamposSms } from "./mensajesUnicos/CamposSms";
@@ -163,7 +163,7 @@ export default function WebSettingsMensajesUnicosTab() {
     nombre: primerElegido?.nombre || "(nombre del cliente)",
     patente: primerElegido?.patente || "(patente)",
     plan: primerElegido?.plan || "",
-    fechaVencimiento: primerElegido?.vencimiento ? fmtFecha(primerElegido.vencimiento) : "",
+    fechaVencimiento: primerElegido?.vencimiento ? fmtVencimiento(primerElegido.vencimiento) : "",
     fechaVencimientoOferta:
       diasValidezEfectivo && !isNaN(Number(diasValidezEfectivo)) ? fechaOfertaDesdeHoy(Number(diasValidezEfectivo)) : "",
     montoOferta: montoOfertaEfectivo,

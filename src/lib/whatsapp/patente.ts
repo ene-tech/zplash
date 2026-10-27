@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes } from "@/db/schema";
-import { aplicarVariables, fmtFecha, isValidPatente, normPlate, planStatus } from "@/lib/helpers";
+import { aplicarVariables, fmtVencimiento, isValidPatente, normPlate, planStatus } from "@/lib/helpers";
 import {
   actualizarFlowStateConversacion,
   actualizarPatentePendiente,
@@ -44,7 +44,7 @@ export async function estadoPlanPorPatente(
     aplicarVariables(textos.patenteEstadoPlan, { plan }),
     aplicarVariables(textos.patenteEstadoLinea, { estado: estado.label }),
   ];
-  if (cliente.vencimiento) lineas.push(aplicarVariables(textos.patenteEstadoVencimiento, { fecha: fmtFecha(cliente.vencimiento) }));
+  if (cliente.vencimiento) lineas.push(aplicarVariables(textos.patenteEstadoVencimiento, { fecha: fmtVencimiento(cliente.vencimiento) }));
   if (estado.cls === "warn" && estado.diasRestantes !== undefined) {
     lineas.push(aplicarVariables(textos.patenteEstadoAvisoPorVencer, { dias: String(estado.diasRestantes) }));
   }

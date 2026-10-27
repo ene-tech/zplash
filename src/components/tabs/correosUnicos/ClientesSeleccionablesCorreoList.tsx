@@ -1,4 +1,4 @@
-import { diasVencido, fmtFecha, planStatus } from "@/lib/helpers";
+import { diasVencido, fmtVencimiento, planStatus } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 // Gemela de ClientesSeleccionablesList (mensajesUnicos) pero mirando el email
@@ -34,7 +34,7 @@ export function ClientesSeleccionablesCorreoList({
               {c.nombre} · {c.patente} {c.plan ? `· ${c.plan}` : ""}
               {c.email ? ` · ${c.email}` : ""}
               {dias !== null ? ` · vencido hace ${dias} día${dias === 1 ? "" : "s"}` : ""}
-              {c.vencimiento ? ` (${fmtFecha(c.vencimiento)})` : ""}
+              {c.vencimiento ? ` (${fmtVencimiento(c.vencimiento)})` : ""}
             </span>
             <span className="hint" style={{ margin: 0, fontSize: 12, color: "var(--gray)" }}>
               {sinMail ? "Sin email" : planStatus(c).label}

@@ -36,6 +36,17 @@ function diaVencimiento(iso: string): Date | null {
   return utc.endsWith("T00:00:00.000Z") ? new Date(`${utc.slice(0, 10)}T00:00:00`) : diaEnSantiago(utc);
 }
 
+/**
+ * Vencimiento para mostrar (dd-mm-aaaa), con la misma regla que diaVencimiento.
+ * fmtFecha a secas mostraba un vencimiento a medianoche UTC como el día
+ * anterior en el navegador ("31-10-2026 21:00" en la ficha del operador) y como
+ * el día correcto en el server (bot): caso SPCF18, 26-oct-2026.
+ */
+export function fmtVencimiento(iso: string): string {
+  const d = diaVencimiento(iso);
+  return d ? d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }) : "-";
+}
+
 export function findClient(clientes: Cliente[], plate: string): Cliente | undefined {
   // Sin patente no hay a quién buscar: si no, "" calzaría con cualquier
   // comprador de la tienda registrado sin auto (patente vacía).

@@ -6,7 +6,7 @@ import { getDb } from "@/db";
 import { clientes, cupones, ingresos, mensajesWhatsapp, plantillasWhatsapp, suscripcionesOneclick } from "@/db/schema";
 import { getConfig } from "@/lib/dataAccess/config";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
-import { KEYS_PROMOS_LAVADOS, fmtCLP, fmtFecha, isValidPatente, normPlate, pasesIncluidos, periodoPlan, planStatus, planVigente } from "@/lib/helpers";
+import { KEYS_PROMOS_LAVADOS, fmtCLP, fmtFecha, fmtVencimiento, isValidPatente, normPlate, pasesIncluidos, periodoPlan, planStatus, planVigente } from "@/lib/helpers";
 import { cotizarPlanWeb } from "@/lib/pagos";
 import { POLITICAS } from "@/lib/politicas";
 // Sin la caché de Next (getPreciosPublicos): el agente también corre en el
@@ -175,7 +175,7 @@ async function fichaVehiculo(c: Cliente) {
     nombre: c.nombre || undefined,
     plan: plan ?? "Sin plan",
     estado: estado.label,
-    vencimiento: c.vencimiento ? fmtFecha(c.vencimiento) : undefined,
+    vencimiento: c.vencimiento ? fmtVencimiento(c.vencimiento) : undefined,
     lavadosDelMes,
     // El automático viejo (WooCommerce) no pasa por suscripcionesOneclick: sin
     // esto, al cliente que sí lo tiene se le decía que no.

@@ -3,7 +3,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
-import { DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, fmtCLP, fmtFecha, fmtHora } from "@/lib/helpers";
+import { DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, fmtCLP, fmtFecha, fmtHora, fmtVencimiento } from "@/lib/helpers";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
 // Lo que el operador tiene que contarle al cliente que todavía anda con el
@@ -415,7 +415,7 @@ export function QrPlanConTarjeta({
         acá</b>, solo por la web:{" "}
         {vence ? (
           <>
-            su plan sigue igual y desde el {fmtFecha(vence)} se le renueva solo cada mes.
+            su plan sigue igual y desde el {fmtVencimiento(vence)} se le renueva solo cada mes.
           </>
         ) : (
           <>el plan queda pagado y se le renueva solo cada mes.</>

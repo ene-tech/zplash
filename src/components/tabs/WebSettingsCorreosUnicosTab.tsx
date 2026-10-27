@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import { clienteIdsConCorreoDePlantilla, enviarCorreosMasivos, suscripcionesParaFiltroCorreo } from "@/lib/serverActions";
-import { aplicarVariables, fmtFecha, normPlate } from "@/lib/helpers";
+import { aplicarVariables, fmtVencimiento, normPlate } from "@/lib/helpers";
 import { ClientesSeleccionablesCorreoList } from "./correosUnicos/ClientesSeleccionablesCorreoList";
 import {
   FiltrosEnvioCorreo,
@@ -161,7 +161,7 @@ export default function WebSettingsCorreosUnicosTab() {
     nombre: primerElegido?.nombre || "(nombre del cliente)",
     patente: primerElegido?.patente || "(patente)",
     plan: primerElegido?.plan || "",
-    fechaVencimiento: primerElegido?.vencimiento ? fmtFecha(primerElegido.vencimiento) : "",
+    fechaVencimiento: primerElegido?.vencimiento ? fmtVencimiento(primerElegido.vencimiento) : "",
     monto: "",
   };
   const asuntoPreview = plantilla ? aplicarVariables(plantilla.asunto, variablesPreview) : "";

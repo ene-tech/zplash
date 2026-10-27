@@ -24,6 +24,7 @@ import {
   fmtCLP,
   fmtDate,
   fmtFecha,
+  fmtVencimiento,
   formatTelefono,
   isValidTelefono,
   periodoPlan,
@@ -469,7 +470,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           </div>
           <div>
             <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Vence</div>
-            <div className="font-medium">{c.vencimiento ? fmtDate(c.vencimiento) : "Sin plan"}</div>
+            <div className="font-medium">{c.vencimiento ? fmtVencimiento(c.vencimiento) : "Sin plan"}</div>
           </div>
           <div>
             <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Visitas del mes de plan</div>

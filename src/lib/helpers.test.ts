@@ -38,6 +38,7 @@ import {
   MINUTOS_BLOQUEO_PLAN_DUPLICADO,
   fechaEfectiva,
   fmtCLP,
+  fmtVencimiento,
   LAVADO_ADICIONAL_KEY,
   LAVADO_UNICO_KEY,
   precioLavadoAdicional,
@@ -318,6 +319,14 @@ describe("planStatus", () => {
       expect(planStatus({ vencimiento: "2026-10-07T00:00:00Z" }).label).toBe("Vencido");
       expect(sigueVigenteHoy("2026-10-07T00:00:00Z")).toBe(false);
       expect(diasVencido({ vencimiento: "2026-10-07T00:00:00Z" })).toBe(1);
+    });
+
+    // La ficha y Mi Cuenta mostraban "31-10-2026" y el bot "01-11-2026" para
+    // el mismo vencimiento (SPCF18): se muestra el día que el mesón respeta.
+    it("se muestra como ese día, igual en el navegador y en el server", () => {
+      expect(fmtVencimiento("2026-11-01T00:00:00.000Z")).toBe("01-11-2026");
+      // Con hora (grabado desde Chile): el día de Chile, no el UTC.
+      expect(fmtVencimiento("2026-10-02T00:30:00Z")).toBe("01-10-2026");
     });
   });
 

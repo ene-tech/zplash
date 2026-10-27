@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
-import { beneficioCupon, cuponDescuentoDePatente, fmtFecha, fmtTelefono, planStatus, plateEstadoCls } from "@/lib/helpers";
+import { beneficioCupon, cuponDescuentoDePatente, fmtFecha, fmtTelefono, fmtVencimiento, planStatus, plateEstadoCls } from "@/lib/helpers";
 import type { Cliente, ConversacionWhatsapp } from "@/types";
 
 // Hoja de registro del cliente debajo del chat de WhatsApp: los datos que el
@@ -88,7 +88,7 @@ export function FichaClienteChat({ conversacion, fichas }: { conversacion: Conve
               </div>
               <div>
                 <div className="k">Vence</div>
-                <div className="v">{c.vencimiento ? fmtFecha(c.vencimiento) : "-"}</div>
+                <div className="v">{c.vencimiento ? fmtVencimiento(c.vencimiento) : "-"}</div>
               </div>
               <div>
                 <div className="k">Visitas</div>

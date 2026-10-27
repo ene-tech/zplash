@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtFecha } from "@/lib/helpers";
+import { fmtVencimiento } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 
 type Fila = { cliente: Cliente; cantidad: number };
@@ -142,7 +142,7 @@ export function StatsUsoPlanes({
                 <td className="plate-tag">{cliente.patente}</td>
                 <td>{cliente.nombre}</td>
                 <td>{cantidad}</td>
-                <td>{cliente.vencimiento ? fmtFecha(cliente.vencimiento) : "-"}</td>
+                <td>{cliente.vencimiento ? fmtVencimiento(cliente.vencimiento) : "-"}</td>
                 {/* La marca se limpia al cortar: si sigue puesta, WooCommerce todavía le cobra. */}
                 <td>{cliente.renovacionAutoWooDesde ? "Corte pendiente" : "Cortado"}</td>
               </tr>

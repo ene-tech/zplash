@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PLANES, fmtCLP, fmtFecha, precioConHeredado } from "@/lib/helpers";
+import { PLANES, fmtCLP, fmtVencimiento, precioConHeredado } from "@/lib/helpers";
 import { AvisoPasaAX5 } from "@/components/cliente/AvisoPasaAX5";
 import type { PreciosPublicos } from "@/components/cliente/types";
 import type { usePagarForm } from "./usePagarForm";
@@ -47,7 +47,7 @@ export function ResultadoBusqueda(p: Props) {
             {r.vencimiento && (
               <div>
                 <div className="k">Vencimiento</div>
-                <div className="v">{fmtFecha(r.vencimiento)}</div>
+                <div className="v">{fmtVencimiento(r.vencimiento)}</div>
               </div>
             )}
           </div>
