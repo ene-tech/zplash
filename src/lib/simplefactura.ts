@@ -170,9 +170,17 @@ async function emitirDte(endpoint: string, armar: (rutEmisor: string) => unknown
   if (res.ok && typeof folio === "number") return folio;
   const mensaje = json?.errors?.join("; ") || json?.message || `SimpleFactura respondió ${res.status}`;
   if (res.status === 429) throw new ErrorFactura(mensaje, "transitorio");
+  // Sin folios no hay documento, venga con el status que venga (la nota de
+  // crédito sin CAF del tipo 61 volvió así, oct-2026, y quedó trabada).
+  if (json && esSinFolios(mensaje)) throw new ErrorFactura(mensaje, "rechazo");
   // 4xx con error legible = rechazo; un 2xx sin folio, un 5xx o una respuesta
   // ilegible no dicen si el folio se asignó.
   throw new ErrorFactura(mensaje, res.status >= 400 && res.status < 500 && json ? "rechazo" : "incierto");
+}
+
+/** "No hay suficientes folios disponibles…" / "no tiene timbrajes". */
+export function esSinFolios(mensaje: string): boolean {
+  return /folios disponibles|timbraje/i.test(mensaje);
 }
 
 function referenciaDte(folio: number, codigoTipoDte: number) {

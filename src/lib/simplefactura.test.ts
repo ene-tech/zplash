@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Venta } from "@/types";
-import { armarFactura, armarNotaCredito } from "./simplefactura";
+import { armarFactura, armarNotaCredito, esSinFolios } from "./simplefactura";
 
 const venta = (precio: number, extra: Partial<Venta> = {}): Venta =>
   ({ id: "v", clienteId: "c", patente: "ABCD12", nombre: "", plan: "", precio, tipo: "Renovación", fecha: "2026-10-01T12:00:00Z", ...extra }) as Venta;
@@ -56,5 +56,13 @@ describe("armarNotaCredito", () => {
     expect(doc.Encabezado.Totales.MntTotal).toBe(31980);
     expect(doc.Detalle).toHaveLength(2);
     expect(doc.Referencia).toEqual([{ NroLinRef: 1, TpoDocRef: "33", FolioRef: "120", FchRef: "2026-10-20", CodRef: 1, RazonRef: "Error de digitación: RUT equivocado" }]);
+  });
+});
+
+describe("esSinFolios", () => {
+  it("reconoce la falta de folios como rechazo (no se emitió nada)", () => {
+    expect(esSinFolios("No hay suficientes folios disponibles para emitir los documentos requeridos.Actualmente, solo dispones de 0 folios.")).toBe(true);
+    expect(esSinFolios("La empresa no tiene timbrajes")).toBe(true);
+    expect(esSinFolios("Error interno del servidor")).toBe(false);
   });
 });
