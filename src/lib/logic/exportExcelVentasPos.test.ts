@@ -62,8 +62,15 @@ describe("filasVentasPos", () => {
       ["A", "Producto A", 2, 2000],
       ["", "Total", 3, 7000],
     ]);
-    expect(filas[6]).toEqual(["Detalle de ventas POS (2 tickets)"]);
-    const detalle = filas.slice(8);
+    expect(filas.slice(6, 10)).toEqual([
+      ["Ventas por vendedor"],
+      ["Vendedor", "Tickets", "Devoluciones", "Unidades", "Efectivo", "Tarjetas GETNET", "Total"],
+      ["Ana", 1, 1, 2, 6000, 0, 6000],
+      ["Luis", 1, 0, 1, 0, 1000, 1000],
+    ]);
+    expect(filas[10]).toEqual(["Total", 2, 1, 3, 6000, 1000, 7000]);
+    expect(filas[12]).toEqual(["Detalle de ventas POS (2 tickets)"]);
+    const detalle = filas.slice(14);
     expect(detalle.map((f) => [f[1], f[2], f[3], f[6], f[10]])).toEqual([
       ["v1", "Venta", "Ana", "A", 2000],
       ["v1", "Venta", "Ana", "B", 5000],

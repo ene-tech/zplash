@@ -66,11 +66,54 @@ export function filasVentasPos(ventasPos: Venta[], items: VentaItem[]): (string 
   const resumen = [...porProducto.values()].sort((a, b) => b.monto - a.monto);
   const tickets = new Set(lineas.filter(({ venta }) => venta.tipo === TIPO_VENTA_PRODUCTOS).map(({ venta }) => venta.id));
 
+  // Por vendedor: quien cobró el ticket (creadoPor). La devolución se le
+  // descuenta a quien la registró, no a quien hizo la venta original.
+  const metodos = [...new Set(lineas.map(({ venta }) => metodoPagoLabel(venta)))].sort();
+  const porVendedor = new Map<
+    string,
+    { tickets: Set<string>; devoluciones: Set<string>; unidades: number; porMetodo: Map<string, number>; total: number }
+  >();
+  for (const { it, venta } of lineas) {
+    const nombre = venta.creadoPor || "Sin registrar";
+    let v = porVendedor.get(nombre);
+    if (!v) {
+      v = { tickets: new Set(), devoluciones: new Set(), unidades: 0, porMetodo: new Map(), total: 0 };
+      porVendedor.set(nombre, v);
+    }
+    (venta.tipo === TIPO_VENTA_REEMBOLSO ? v.devoluciones : v.tickets).add(venta.id);
+    const monto = it.cantidad * it.precioUnitario;
+    const metodo = metodoPagoLabel(venta);
+    v.unidades += it.cantidad;
+    v.porMetodo.set(metodo, (v.porMetodo.get(metodo) || 0) + monto);
+    v.total += monto;
+  }
+  const vendedores = [...porVendedor].sort((a, b) => b[1].total - a[1].total);
+  const sumar = (f: (v: (typeof vendedores)[number][1]) => number) => vendedores.reduce((s, [, v]) => s + f(v), 0);
+
   return [
     ["Productos vendidos"],
     ["SKU", "Producto", "Cantidad", "Monto"],
     ...resumen.map((p) => [p.sku, p.detalle, p.cantidad, p.monto]),
     ["", "Total", resumen.reduce((s, p) => s + p.cantidad, 0), resumen.reduce((s, p) => s + p.monto, 0)],
+    [],
+    ["Ventas por vendedor"],
+    ["Vendedor", "Tickets", "Devoluciones", "Unidades", ...metodos, "Total"],
+    ...vendedores.map(([nombre, v]) => [
+      nombre,
+      v.tickets.size,
+      v.devoluciones.size,
+      v.unidades,
+      ...metodos.map((m) => v.porMetodo.get(m) || 0),
+      v.total,
+    ]),
+    [
+      "Total",
+      sumar((v) => v.tickets.size),
+      sumar((v) => v.devoluciones.size),
+      sumar((v) => v.unidades),
+      ...metodos.map((m) => sumar((v) => v.porMetodo.get(m) || 0)),
+      sumar((v) => v.total),
+    ],
     [],
     [`Detalle de ventas POS (${tickets.size} ${tickets.size === 1 ? "ticket" : "tickets"})`],
     ["Fecha", "N° venta", "Tipo", "Funcionario", "Cliente", "Método de pago", "SKU", "Producto", "Cantidad", "Precio unitario", "Subtotal"],
