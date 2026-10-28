@@ -115,13 +115,7 @@ export default function OperadorFoundOfertas(props: Props) {
       {tickets.length > 0 && (
         <div className="offer-card">
           <div className="offer-head">
-            <h4>{tickets.length === 1 ? "Tiene 1 lavado pagado" : `Tiene ${tickets.length} lavados pagados`}</h4>
-          </div>
-          <div className="msg">
-            {c.nombre} tiene {tickets.length === 1 ? "un ticket" : `${tickets.length} tickets`} de &quot;{tickets[0].nombreLote}
-            &quot; para esta patente{tickets.length > 1 ? "; el más próximo" : ", que"} es válido hasta el{" "}
-            {fmtCaducidad(tickets[0].fechaCaducidad)} (incluido). Úsalo para dejarlo entrar — no genera un
-            cobro nuevo, ya se pagó.
+            <h4>Tickets disponibles: {tickets.length}</h4>
           </div>
           {props.yaPasoHoy ? (
             <div className="msg">Ya pasó hoy: el próximo ticket se puede usar mañana.</div>
