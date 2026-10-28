@@ -4,9 +4,7 @@ import { after } from "next/server";
 import * as dataAccess from "@/lib/dataAccess";
 import {
   esExentoFormatoCliente,
-  esNombreVacio,
   isValidPatente,
-  isValidTelefono,
   normPlate,
   puedeCorregirContacto,
   rechazoClienteSinPatente,
@@ -37,12 +35,12 @@ const CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>([
   "patentePendienteDesde",
 ]);
 
-// Campos que OperadorFoundResult deja completar cuando llegan vacíos (nombre,
-// vehículo, teléfono, correo): la UI solo muestra el input de cada uno
-// cuando el campo todavía está vacío (ver c.vehiculo ? … : <input>… en ese
-// componente), así que un cambio en estos campos nunca sobreescribe un valor
-// ya guardado — es completar una ficha "INVITADO"/incompleta, no editarla.
-const CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>(["nombre", "vehiculo", "telefono", "email"]);
+// Datos de contacto que cualquier operador corrige aunque ya tengan valor
+// (botón "Editar" de OperadorFoundResult): el cliente los dicta en el mesón.
+// Antes solo se podían completar vacíos, o corregir el dato fallado desde
+// AvisoContactoCliente (Jeny/Administración/Gerencia). El vehículo, en
+// cambio, solo se completa cuando llega vacío.
+const CAMPOS_EDITABLES_OPERADOR = new Set<keyof Cliente>(["nombre", "telefono", "email"]);
 
 // Campos que renovar/reactivar/renovarWeb/contratarPlan/upgradeAPlan (ver
 // OperadorFoundResult) y renovarPlan (@/lib/logic) tocan sobre un cliente
@@ -109,64 +107,25 @@ async function esCambioPermitidoSinModuloClientes(patches: ClientePatch[], porId
     return false;
   }
 
-  // Fila ya existente (p.ej. "INVITADO" creada con datos mínimos) a la que
-  // el operador le está completando nombre/vehículo/teléfono/correo desde
-  // OperadorFoundResult: mismo criterio que un alta, solo que la fila ya
-  // existía en la base con esos campos vacíos.
-  const soloCompletaDatosVacios = patches.every((patch) => {
+  // Fila ya existente a la que el operador le corrige nombre/teléfono/correo
+  // o le completa el vehículo vacío desde OperadorFoundResult.
+  const soloFichaDelMeson = patches.every((patch) => {
     const anterior = porId.get(patch.id);
     if (!anterior) return false;
     return (Object.keys(patch) as (keyof Cliente)[]).every((campo) => {
       if (campo === "id" || CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo)) return true;
-      if (!CAMPOS_COMPLETABLES_SIN_MODULO_CLIENTES.has(campo)) return false;
-      // "nombre" cuenta como vacío también con el placeholder "Sin nombre"
-      // que deja la carga masiva por Excel (ver esNombreVacio), y "telefono"
-      // con cualquier valor que no pase isValidTelefono — p.ej. el
-      // placeholder "+569" que queda guardado tal cual si alguna vez se tocó
-      // "Guardar" sin tipear los 8 dígitos (ver el input en
-      // OperadorFoundResult, que precarga "+569" como ayuda). En ambos casos
-      // es un string truthy que un simple !anterior[campo] no detecta como
-      // "vacío", y sin esto un operador sin el módulo "clientes" queda
-      // bloqueado para siempre corrigiendo ese dato corrupto — ve "sin
-      // conexión" en vez de poder completar el teléfono real.
-      if (campo === "nombre") return esNombreVacio(anterior.nombre);
-      // isValidTelefono("") es true (el teléfono es opcional), así que hay
-      // que seguir cubriendo el caso realmente vacío además del inválido.
-      if (campo === "telefono") return !anterior.telefono || !isValidTelefono(anterior.telefono);
-      return !anterior[campo];
+      if (CAMPOS_EDITABLES_OPERADOR.has(campo)) return true;
+      return campo === "vehiculo" && !anterior.vehiculo;
     });
   });
-  if (soloCompletaDatosVacios) return tieneModulo("operador");
+  if (soloFichaDelMeson) return tieneModulo("operador");
 
   const soloVentaDePlan = patches.every(
     (patch) =>
       porId.has(patch.id) &&
       patchSoloContiene(patch, new Set([...CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES, ...CAMPOS_VENTA_PLAN_SIN_MODULO_CLIENTES]))
   );
-  if (soloVentaDePlan) return tieneModulo("operador");
-
-  return esCorreccionDeContacto(patches, porId);
-}
-
-// Aviso "a este cliente no le llegan los mensajes" del mesón (ver
-// AvisoContactoCliente): Jeny, Administración y Gerencia pueden corregir un
-// nombre, celular o correo que ya tiene valor, pero solo el dato que el
-// servidor también ve fallado (ver fallasContactoCliente) — no es una puerta
-// para editar cualquier ficha desde el mesón.
-const CAMPOS_CORREGIBLES_CONTACTO = new Set<keyof Cliente>(["nombre", "telefono", "email"]);
-
-async function esCorreccionDeContacto(patches: ClientePatch[], porId: Map<string, Cliente>): Promise<boolean> {
-  const sesion = await sesionActual();
-  if (!sesion || !puedeCorregirContacto(sesion.modulos, sesion.nombre) || !sesion.modulos.includes("operador")) return false;
-  for (const patch of patches) {
-    const anterior = porId.get(patch.id);
-    if (!anterior) return false;
-    const campos = (Object.keys(patch) as (keyof Cliente)[]).filter((c) => c !== "id" && !CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(c));
-    if (!campos.length || !campos.every((c) => CAMPOS_CORREGIBLES_CONTACTO.has(c))) return false;
-    const fallas = await dataAccess.fallasContactoCliente(anterior);
-    if (!campos.every((c) => !!fallas[c as keyof typeof fallas])) return false;
-  }
-  return true;
+  return soloVentaDePlan && tieneModulo("operador");
 }
 
 /** Para el aviso del mesón (AvisoContactoCliente): null si el perfil no corrige contacto. */

@@ -15,7 +15,9 @@ type FichaRefs = {
 
 // Guardado individual de cada campo de la ficha (nombre, vehículo, teléfono,
 // correo) que el operador puede completar directamente desde el resultado
-// "cliente encontrado", sin pasar por el módulo Clientes.
+// "cliente encontrado", sin pasar por el módulo Clientes. Nombre, teléfono y
+// correo también se corrigen con valor ya guardado (botón "Editar"): esos
+// devuelven si se guardó, para cerrar el modo edición.
 export function useFichaClienteActions(c: Cliente, refs: FichaRefs, setGuardarErr: (msg: string) => void, updateResult: (updated: Cliente) => void) {
   const { data, commit } = useAppData();
   const { nombreRef, vehiculoRef, telefonoRef, emailRef } = refs;
@@ -33,20 +35,21 @@ export function useFichaClienteActions(c: Cliente, refs: FichaRefs, setGuardarEr
     return val ? val.toUpperCase() : null;
   };
 
-  const guardarNombre = async () => {
+  const guardarNombre = async (): Promise<boolean> => {
     const val = nombreRef.current?.value.trim();
     if (!val) {
       setGuardarErr("Escribe el nombre antes de tocar Guardar.");
-      return;
+      return false;
     }
     const updated = { ...c, nombre: val.toUpperCase() };
     const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO_INGRESO);
-      return;
+      return false;
     }
     setGuardarErr("");
     updateResult(updated);
+    return true;
   };
 
   const guardarVehiculo = async () => {
@@ -76,55 +79,57 @@ export function useFichaClienteActions(c: Cliente, refs: FichaRefs, setGuardarEr
     telefonoRef.current.value = fmtTelefono(raw);
   };
 
-  const guardarTelefono = async () => {
+  const guardarTelefono = async (): Promise<boolean> => {
     const raw = telefonoRef.current?.value.trim();
     if (!raw) {
       setGuardarErr("Escribe el teléfono antes de tocar Guardar.");
-      return;
+      return false;
     }
     const telefono = formatTelefono(raw);
     if (!isValidTelefono(telefono)) {
       setGuardarErr(TELEFONO_FORMATO_MSG);
-      return;
+      return false;
     }
     const nombre = nombreParaGuardar();
     if (!nombre) {
       setGuardarErr("Ingresa el nombre del cliente antes de guardar.");
-      return;
+      return false;
     }
     const updated = { ...c, nombre, telefono };
     const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO_INGRESO);
-      return;
+      return false;
     }
     setGuardarErr("");
     updateResult(updated);
+    return true;
   };
 
-  const guardarEmail = async () => {
+  const guardarEmail = async (): Promise<boolean> => {
     const val = emailRef.current?.value.trim();
     if (!val) {
       setGuardarErr("Escribe el correo antes de tocar Guardar.");
-      return;
+      return false;
     }
     if (!isValidEmail(val)) {
       setGuardarErr("Ingresa un email válido");
-      return;
+      return false;
     }
     const nombre = nombreParaGuardar();
     if (!nombre) {
       setGuardarErr("Ingresa el nombre del cliente antes de guardar.");
-      return;
+      return false;
     }
     const updated = { ...c, nombre, email: val };
     const ok = await commit({ clientes: data.clientes.map((x) => (x.id === c.id ? updated : x)) });
     if (!ok) {
       setGuardarErr(ERROR_GUARDADO_INGRESO);
-      return;
+      return false;
     }
     setGuardarErr("");
     updateResult(updated);
+    return true;
   };
 
   type ResultadoFicha = { ok: true; cliente: Cliente } | { ok: false; error: string };

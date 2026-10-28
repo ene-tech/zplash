@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   esNombreVacio,
   fmtTelefono,
@@ -20,6 +20,8 @@ import AvisoContactoCliente from "@/components/operador/AvisoContactoCliente";
 import QrReferido from "@/components/operador/QrReferido";
 import { useAppData } from "@/context/AppContext";
 
+type CampoEditable = "nombre" | "telefono" | "email";
+
 export default function OperadorFoundResult({
   cliente,
   clearPlate,
@@ -36,6 +38,33 @@ export default function OperadorFoundResult({
   const emailRef = useRef<HTMLInputElement>(null);
   const r = useOperadorFoundResult(cliente, clearPlate, { nombreRef, vehiculoRef, telefonoRef, emailRef }, codigoDescuento);
   const { c } = r;
+  // Nombre, teléfono o correo ya guardados que el operador está corrigiendo
+  // (botón "Editar"). Va atado al id para que buscar otra patente no deje
+  // abierto el campo en la ficha siguiente.
+  const [edicion, setEdicion] = useState<{ id: string; campo: CampoEditable } | null>(null);
+  const editando = edicion?.id === c.id ? edicion.campo : null;
+  const editar = (campo: CampoEditable) => setEdicion({ id: c.id, campo });
+  const guardarEdicion = (guardar: () => Promise<boolean>) => async () => {
+    if (await guardar()) setEdicion(null);
+  };
+  const botonesEdicion = (guardar: () => Promise<boolean>, conValor: boolean) => (
+    <>
+      <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={guardarEdicion(guardar)}>
+        Guardar
+      </button>
+      {conValor && (
+        <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={() => setEdicion(null)}>
+          Cancelar
+        </button>
+      )}
+    </>
+  );
+  const botonEditar = (campo: CampoEditable) => (
+    <button className="icon-btn" style={{ whiteSpace: "nowrap", fontSize: 12 }} onClick={() => editar(campo)}>
+      Editar
+    </button>
+  );
+  const telefonoValido = !!c.telefono && isValidTelefono(c.telefono);
 
   // Cliente non grato (ver nonGrato en @/db/schema/clientes): ni ofertas ni
   // botones de ingreso o cobro, solo el aviso.
@@ -69,12 +98,17 @@ export default function OperadorFoundResult({
       {r.guardarErr && <div className="err" style={{ marginBottom: 10 }}>{r.guardarErr}</div>}
       <div className="result-card found">
         <div className="result-head">
-          {!esNombreVacio(c.nombre) ? (
-            <h3>{c.nombre}</h3>
+          {!esNombreVacio(c.nombre) && editando !== "nombre" ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, marginRight: 10 }}>
+              <h3>{c.nombre}</h3>
+              {botonEditar("nombre")}
+            </div>
           ) : (
             <div style={{ display: "flex", gap: 6, alignItems: "center", flex: 1, marginRight: 10 }}>
               <input
                 ref={nombreRef}
+                defaultValue={esNombreVacio(c.nombre) ? "" : c.nombre}
+                autoFocus={editando === "nombre"}
                 placeholder="Nombre del cliente"
                 style={{
                   flex: 1,
@@ -86,9 +120,7 @@ export default function OperadorFoundResult({
                   fontSize: 15,
                 }}
               />
-              <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={r.guardarNombre}>
-                Guardar
-              </button>
+              {botonesEdicion(r.guardarNombre, !esNombreVacio(c.nombre))}
             </div>
           )}
           <span className={`status-pill ${r.st.cls}`}>{r.st.label}</span>
@@ -143,15 +175,19 @@ export default function OperadorFoundResult({
             // Vacío también cuando el número no tenía WhatsApp (ver
             // vaciarTelefonoSinWhatsapp): si el cliente repite el mismo, se
             // vuelve a vaciar solo.
-            label={c.telefono && isValidTelefono(c.telefono) ? "Teléfono" : "Teléfono (pida un celular con WhatsApp)"}
+            label={telefonoValido ? "Teléfono" : "Teléfono (pida un celular con WhatsApp)"}
             value={
-              c.telefono && isValidTelefono(c.telefono) ? (
-                fmtTelefono(c.telefono)
+              telefonoValido && editando !== "telefono" ? (
+                <div className="flex items-center gap-1.5">
+                  {fmtTelefono(c.telefono)}
+                  {botonEditar("telefono")}
+                </div>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <input
                     ref={telefonoRef}
-                    defaultValue={c.telefono || "+569"}
+                    defaultValue={telefonoValido ? fmtTelefono(c.telefono) : c.telefono || "+569"}
+                    autoFocus={editando === "telefono"}
                     placeholder="+569 -1111 1111"
                     onBlur={r.onTelefonoBlur}
                     style={{
@@ -164,9 +200,7 @@ export default function OperadorFoundResult({
                       width: 140,
                     }}
                   />
-                  <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={r.guardarTelefono}>
-                    Guardar
-                  </button>
+                  {botonesEdicion(r.guardarTelefono, telefonoValido)}
                 </div>
               )
             }
@@ -174,13 +208,18 @@ export default function OperadorFoundResult({
           <DetailRow
             label="Correo electrónico"
             value={
-              c.email ? (
-                c.email
+              c.email && editando !== "email" ? (
+                <div className="flex items-center gap-1.5">
+                  {c.email}
+                  {botonEditar("email")}
+                </div>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <input
                     ref={emailRef}
                     type="email"
+                    defaultValue={c.email || ""}
+                    autoFocus={editando === "email"}
                     placeholder="correo@ejemplo.com"
                     style={{
                       background: "var(--bg)",
@@ -192,9 +231,7 @@ export default function OperadorFoundResult({
                       width: 140,
                     }}
                   />
-                  <button className="icon-btn" style={{ whiteSpace: "nowrap" }} onClick={r.guardarEmail}>
-                    Guardar
-                  </button>
+                  {botonesEdicion(r.guardarEmail, !!c.email)}
                 </div>
               )
             }
