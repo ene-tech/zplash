@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, disparosReglaWhatsapp, mensajesWhatsapp, reglasWhatsapp } from "@/db/schema";
 import type { DisparoReglaWhatsapp, EstadoDisparoReglaWhatsapp, HistorialReglaWhatsapp, OrigenTipoDisparoReglaWhatsapp } from "@/types";
@@ -89,9 +89,10 @@ export async function tomarDisparoProgramado(id: string): Promise<boolean> {
   return filas.length > 0;
 }
 
-// Solo disparos de venta con espera (enviarEn posterior a su alta): los
-// inmediatos y los de los crons diarios se mandan en el momento por quien los
-// registra, y tomarlos acá los mandaba dos veces si el cron pasaba justo
+// Solo disparos de venta con espera (enviarEn posterior a su alta) y avisos de
+// prórroga de tickets ("pack_extendido", siempre para la mañana siguiente):
+// los inmediatos y los de los crons diarios se mandan en el momento por quien
+// los registra, y tomarlos acá los mandaba dos veces si el cron pasaba justo
 // mientras se estaban enviando (o mandaba meses tarde uno que había fallado).
 export async function listarDisparosProgramadosVencidos(ahoraISO: string): Promise<DisparoReglaWhatsapp[]> {
   const rows = await getDb()
@@ -101,7 +102,7 @@ export async function listarDisparosProgramadosVencidos(ahoraISO: string): Promi
       and(
         eq(disparosReglaWhatsapp.estado, "programado"),
         lte(disparosReglaWhatsapp.enviarEn, ahoraISO),
-        eq(disparosReglaWhatsapp.origenTipo, "venta"),
+        inArray(disparosReglaWhatsapp.origenTipo, ["venta", "prorroga"]),
         sql`${disparosReglaWhatsapp.enviarEn} > ${disparosReglaWhatsapp.creadoEn} + interval '30 seconds'`
       )
     );

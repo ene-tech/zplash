@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt, gte, inArray, isNotNull, lt, lte, ne } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones, ingresos, ventas } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
@@ -12,7 +12,7 @@ import {
   registrarDisparoReglaWhatsapp,
   tomarDisparoProgramado,
 } from "@/lib/dataAccess/whatsapp";
-import { KEYS_PROMOS_LAVADOS, periodoPlan, planStatus, planVigente, uid } from "@/lib/helpers";
+import { finDelDiaSantiago, KEYS_PROMOS_LAVADOS, periodoPlan, planStatus, planVigente, uid } from "@/lib/helpers";
 import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
 import { LOTE_TICKET_REACTIVACION } from "@/lib/pagos/ticketReactivacion";
 import { buscarCliente, ejecutarAccionRegla, LOTE_CUPON_SIN_VISITA, MS_POR_DIA, promoVipParaCliente } from "./motor";
@@ -46,6 +46,25 @@ export async function procesarDisparosProgramados(): Promise<{ procesados: numbe
         await marcarDisparoReglaWhatsapp(disparo.id, { estado: "omitido" });
         continue;
       }
+      // El aviso de la prórroga es para el que no alcanzó a venir: si usó el
+      // ticket extendido el último día, no hay nada que avisar. Va con ese
+      // ticket para que {{fechaVencimientoCupon}} sea su fecha nueva y no la
+      // de otro pack que tenga vivo.
+      let ticketExtendido: { id: string; codigo: string; fechaCaducidad: string } | undefined;
+      if (regla.tipoEvento === "pack_extendido") {
+        const [t] = disparo.cuponId
+          ? await getDb()
+              .select({ id: cupones.id, codigo: cupones.codigo, fechaCaducidad: cupones.fechaCaducidad, usado: cupones.usado })
+              .from(cupones)
+              .where(eq(cupones.id, disparo.cuponId))
+              .limit(1)
+          : [];
+        if (!t || t.usado || new Date(t.fechaCaducidad) <= new Date()) {
+          await marcarDisparoReglaWhatsapp(disparo.id, { estado: "omitido" });
+          continue;
+        }
+        ticketExtendido = t;
+      }
       let monto: number | undefined;
       if (disparo.origenTipo === "venta") {
         const [venta] = await getDb()
@@ -68,7 +87,7 @@ export async function procesarDisparosProgramados(): Promise<{ procesados: numbe
           }
         }
       }
-      await ejecutarAccionRegla(regla, disparo.id, cliente, monto);
+      await ejecutarAccionRegla(regla, disparo.id, cliente, monto, undefined, ticketExtendido);
       procesados++;
     } catch (error) {
       console.error("Error procesando disparo programado de WhatsApp", disparo.id, error);
@@ -211,11 +230,103 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
 
   const sinVisita = await procesarSinVisita(ahoraISO);
   const porVencer = await procesarCuponesPorVencer(ahoraISO);
+  const packsPorVencer = await procesarPacksPorVencer(ahoraISO);
   const packsVencidos = await procesarPacksVencidos(ahoraISO);
   return {
-    procesados: procesados + sinVisita.procesados + porVencer.procesados + packsVencidos.procesados,
-    errores: errores + sinVisita.errores + porVencer.errores + packsVencidos.errores,
+    procesados: procesados + sinVisita.procesados + porVencer.procesados + packsPorVencer.procesados + packsVencidos.procesados,
+    errores: errores + sinVisita.errores + porVencer.errores + packsPorVencer.errores + packsVencidos.errores,
   };
+}
+
+// Días que se le alargan, una sola vez, a los tickets de un pack que vencen
+// sin usar ("pack_extendido", desde el 28-oct-2026).
+export const DIAS_PRORROGA_PACK = 2;
+// Horas después del fin del día chileno de la caducidad original a las que
+// sale el aviso: ~10:00 del día siguiente, ya vencido según la fecha que
+// conocía. Desde el fin del día y no desde la caducidad: los tickets emitidos
+// antes del 28-oct-2026 vencen a la hora de la compra, no a las 23:59.
+const HORAS_AVISO_PRORROGA = 10;
+
+// "pack_extendido": los tickets de pack (atados a la patente) que vencen hoy
+// sin usar y nunca se extendieron pasan a valer DIAS_PRORROGA_PACK días más.
+// Se extienden ANTES de vencer y no después: el cron corre a media mañana y
+// el mesón no recarga los cupones solo, así que un ticket extendido tarde se
+// vería vencido justo cuando llega el cliente con el aviso. El aviso
+// ("se te venció, te lo extendimos") queda programado para la mañana
+// siguiente y procesarDisparosProgramados lo omite si ya lo usó. Sin reglas
+// activas no se extiende nada: apagar las reglas apaga la prórroga. Cuando el
+// ticket extendido se vence de verdad, sale "pack_vencido" como siempre; si lo
+// usa y era el último, "ultimo_ticket_pack" (las promos de 2 y 5 lavados).
+async function procesarPacksPorVencer(ahoraISO: string): Promise<{ procesados: number; errores: number }> {
+  let procesados = 0;
+  let errores = 0;
+  let reglas: ReglaWhatsapp[] = [];
+  try {
+    reglas = await listarReglasWhatsappActivas("pack_extendido");
+  } catch (error) {
+    console.error("Error cargando reglas WhatsApp (pack_extendido)", error);
+  }
+  if (!reglas.length) return { procesados, errores };
+  const hastaISO = new Date(Date.now() + MS_POR_DIA).toISOString();
+  let filas: { cupon: typeof cupones.$inferSelect; cliente: typeof clientes.$inferSelect }[];
+  try {
+    filas = await getDb()
+      .select({ cupon: cupones, cliente: clientes })
+      .from(cupones)
+      .innerJoin(clientes, eq(clientes.patente, cupones.patenteAsignada))
+      .where(
+        and(
+          inArray(cupones.nombreLote, KEYS_PROMOS_LAVADOS),
+          eq(cupones.usado, false),
+          isNull(cupones.extendidoEn),
+          gte(cupones.fechaCaducidad, ahoraISO),
+          lt(cupones.fechaCaducidad, hastaISO)
+        )
+      );
+  } catch (error) {
+    console.error("Error buscando tickets de pack por vencer", error);
+    return { procesados, errores: errores + 1 };
+  }
+  // Un aviso por cliente aunque se le extiendan varios tickets.
+  const porCliente = new Map<string, { row: typeof clientes.$inferSelect; cuponId: string; original: string; nueva: string }>();
+  for (const { cupon, cliente } of filas) {
+    // El libre de una VIP no tiene patente autorizada: no es del auto.
+    if (!cupon.patentesAutorizadas?.length) continue;
+    const nueva = finDelDiaSantiago(new Date(new Date(cupon.fechaCaducidad).getTime() + DIAS_PRORROGA_PACK * MS_POR_DIA));
+    try {
+      const [extendido] = await getDb()
+        .update(cupones)
+        .set({ fechaCaducidad: nueva, extendidoEn: ahoraISO })
+        .where(and(eq(cupones.id, cupon.id), eq(cupones.usado, false), isNull(cupones.extendidoEn)))
+        .returning({ id: cupones.id });
+      if (extendido) porCliente.set(cliente.id, { row: cliente, cuponId: cupon.id, original: cupon.fechaCaducidad, nueva });
+    } catch (error) {
+      console.error("Error extendiendo ticket de pack", cupon.id, error);
+      errores++;
+    }
+  }
+  for (const { row, cuponId, original, nueva } of porCliente.values()) {
+    for (const regla of reglas) {
+      try {
+        const disparo = await registrarDisparoReglaWhatsapp({
+          id: uid(),
+          reglaId: regla.id,
+          origenTipo: "prorroga",
+          origenId: `${row.id}:${nueva}`,
+          clienteId: row.id,
+          patente: row.patente ?? undefined,
+          cuponId,
+          estado: "programado",
+          enviarEn: new Date(new Date(finDelDiaSantiago(new Date(original))).getTime() + HORAS_AVISO_PRORROGA * 3600_000).toISOString(),
+        });
+        if (disparo) procesados++;
+      } catch (error) {
+        console.error("Error programando aviso pack_extendido", regla.id, row.id, error);
+        errores++;
+      }
+    }
+  }
+  return { procesados, errores };
 }
 
 // Días hacia atrás en que se buscan tickets de pack vencidos: el cron corre

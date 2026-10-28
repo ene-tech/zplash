@@ -130,6 +130,7 @@ const ETIQUETA_ORIGEN: Record<OrigenTipoDisparoReglaWhatsapp, string> = {
   cobro: "Cobro",
   cliente: "Vencimiento",
   cupon: "Ticket",
+  prorroga: "Prórroga de ticket",
 };
 
 const COLOR_ESTADO: Record<EstadoDisparoReglaWhatsapp, string> = {

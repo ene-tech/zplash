@@ -197,7 +197,11 @@ export type TipoEventoReglaWhatsapp =
   | "cupon_por_vencer"
   // Cron diario: se le vencieron tickets de un pack sin usar y el mesón le
   // ofrece la recompra (ver procesarPacksVencidos).
-  | "pack_vencido";
+  | "pack_vencido"
+  // Cron diario: a los tickets de un pack que vencen hoy sin usar se les
+  // alargan DIAS_PRORROGA_PACK días (una sola vez); el aviso sale la mañana
+  // siguiente si siguen sin usarse (ver procesarPacksPorVencer).
+  | "pack_extendido";
 // "cupon_regalo": código de referido abierto, para regalárselo a un amigo (ver
 // rechazoCodigoReferido en @/lib/referidos); usa cuponValor/cuponValidezDias.
 // Conserva el nombre de antes (oct-2026, "regalo del lavado") porque es el
@@ -236,7 +240,8 @@ export interface ReglaWhatsapp {
   creadoPor?: string;
 }
 
-export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente" | "cobro" | "ingreso" | "cupon";
+// "prorroga": aviso de "pack_extendido", programado para la mañana siguiente.
+export type OrigenTipoDisparoReglaWhatsapp = "venta" | "cliente" | "cobro" | "ingreso" | "cupon" | "prorroga";
 // "procesando": el cron lo tomó (evita que dos crons lo manden dos veces).
 // "omitido": llegó la hora pero ya no correspondía (ej. el regalo del
 // lavado a quien compró tickets en esa hora).

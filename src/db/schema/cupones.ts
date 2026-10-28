@@ -9,6 +9,10 @@ export const cupones = pgTable("cupones", {
   numeroLote: integer("numero_lote").notNull().default(1),
   totalLote: integer("total_lote").notNull().default(1),
   fechaCaducidad: timestamptz("fecha_caducidad").notNull(),
+  // Se le alargó la caducidad una vez porque se iba a vencer sin usar (ticket
+  // de pack, ver procesarPacksPorVencer en @/lib/whatsapp/reglas/cron). Marca
+  // que ya tuvo su prórroga: la segunda vez se vence de verdad.
+  extendidoEn: timestamptz("extendido_en"),
   usado: boolean("usado").notNull().default(false),
   patenteUso: text("patente_uso"),
   fechaUso: timestamptz("fecha_uso"),
