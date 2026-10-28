@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDescartable } from "@/hooks/useDescartable";
-import { fmtCLP } from "@/lib/helpers";
+import { fmtCaducidad, fmtCLP } from "@/lib/helpers";
 
 const DISMISS_KEY = "zplash_popup_descuento_bienvenida";
 // El pop-up no salta encima del primer pantallazo: aparece cuando el visitante
@@ -94,7 +94,7 @@ export default function DescuentoBienvenidaModal({ valor, dias }: { valor: numbe
               </DialogHeader>
               <p className="promo-popup-codigo">{emitido.codigo}</p>
               <p className="hint" style={{ textAlign: "center" }}>
-                Tu código de respaldo · vence el {new Date(emitido.fechaCaducidad).toLocaleDateString("es-CL")}
+                Tu código de respaldo · válido hasta el {fmtCaducidad(emitido.fechaCaducidad)} (incluido)
               </p>
               <button type="button" className="btn" style={{ width: "100%" }} onClick={cerrar}>
                 Entendido

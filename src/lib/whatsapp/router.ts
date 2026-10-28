@@ -3,8 +3,8 @@ import { getDb } from "@/db";
 import { clientes, precios } from "@/db/schema";
 import {
   aplicarVariables,
+  fmtCaducidad,
   fmtCLP,
-  fmtFecha,
   isValidEmail,
   isValidPatente,
   LOTE_ANUNCIO_META,
@@ -67,7 +67,7 @@ const AGRADECIMIENTOS = new Set([
 ]);
 
 function textoConfirmacionDescuento(textos: TextosBotWhatsapp, codigo: string, fechaCaducidadISO: string, valor: number): string {
-  const fecha = new Date(fechaCaducidadISO).toLocaleDateString("es-CL");
+  const fecha = fmtCaducidad(fechaCaducidadISO);
   return aplicarVariables(textos.textoDescuentoConfirmacion, { codigo, fecha, monto: fmtCLP(valor) });
 }
 
@@ -333,7 +333,7 @@ async function manejarPasoRegistroDescuento(
   // si LabsMobile falla la respuesta del bot sale igual.
   await enviarSms({
     telefono,
-    texto: `ZPlash: tu codigo de primera vez es ${cupon.codigo}: ${fmtCLP(cupon.valor)} de descuento en tu primer lavado, vence el ${fmtFecha(cupon.fechaCaducidad)}. Muestralo en el meson.`,
+    texto: `ZPlash: tu codigo de primera vez es ${cupon.codigo}: ${fmtCLP(cupon.valor)} de descuento en tu primer lavado, valido hasta el ${fmtCaducidad(cupon.fechaCaducidad)} (incluido). Muestralo en el meson.`,
     campana: "bot-descuento-primera-vez",
     clienteId: nuevoCliente.id,
     enviadoPor: "whatsapp-bot",

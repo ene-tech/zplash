@@ -51,7 +51,7 @@ export function PausarTarjeta({ patente, pausada, onCambio }: { patente: string;
             <div style={{ color: "var(--white)", fontSize: 14, lineHeight: 1.5, marginBottom: 10 }}>
               {pausada
                 ? "Se vuelve a cobrar el plan automáticamente con tu tarjeta guardada. Si tu plan ya venció, el cobro se hace al día siguiente."
-                : "No se cobrará el plan automáticamente al vencer. Tu tarjeta queda guardada y puedes reanudar cuando quieras. El plan que ya pagaste sigue vigente hasta su vencimiento."}
+                : "No se cobrará el plan automáticamente al vencer. Tu tarjeta queda guardada y puedes reanudar cuando quieras. El plan que ya pagaste sigue válido hasta su fecha (incluida)."}
             </div>
             {error && <div className="err">{error}</div>}
             <div className="modal-actions">

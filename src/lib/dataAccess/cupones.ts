@@ -4,7 +4,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones } from "@/db/schema";
 import type { Cupon } from "@/types";
-import { KEYS_PROMOS_LAVADOS, PROMO_VIP_KEY, generarCodigoCupon, uid } from "@/lib/helpers";
+import { KEYS_PROMOS_LAVADOS, PROMO_VIP_KEY, finDelDiaSantiago, generarCodigoCupon, uid } from "@/lib/helpers";
 import { upsertRows } from "./shared";
 
 type CuponRow = typeof cupones.$inferSelect;
@@ -134,7 +134,7 @@ export async function emitirCuponDescuentoPrimeraVez(opts: {
     valor: opts.valor,
     numeroLote: 1,
     totalLote: 1,
-    fechaCaducidad: new Date(ahora.getTime() + opts.diasValidez * 86400000).toISOString(),
+    fechaCaducidad: finDelDiaSantiago(new Date(ahora.getTime() + opts.diasValidez * 86400000)),
     usado: false,
     creadoEn: ahora.toISOString(),
     creadoPor: opts.creadoPor,

@@ -1,6 +1,6 @@
 import type { Cliente, Cupon, Venta } from "@/types";
 import { findClient } from "./clientes";
-import { fmtFecha } from "./fechas";
+import { finDelDiaSantiago, fmtCaducidad, fmtFecha } from "./fechas";
 import {
   DIAS_PROMO_VIP,
   HORAS_VENTANA_RECOMPRA_PACK,
@@ -295,7 +295,7 @@ export function cuponesPromoLavados(p: {
   const ahora = p.ahora ?? new Date();
   const yaCanjeados = p.yaCanjeados ?? 0;
   const patente = normPlate(p.patente);
-  const fechaCaducidad = new Date((p.vigenciaDesde ?? ahora).getTime() + dias * 86400000).toISOString();
+  const fechaCaducidad = finDelDiaSantiago(new Date((p.vigenciaDesde ?? ahora).getTime() + dias * 86400000));
   const valor = Math.round(p.precio / lavados);
   return Array.from({ length: lavados - yaCanjeados }, (_, i) => {
     const codigo = generarCodigoCupon(p.existentes);
@@ -368,7 +368,7 @@ export function cuponesPromoVip(p: {
   const ahora = p.ahora ?? new Date();
   const patente = normPlate(p.patente);
   const total = TICKETS_VIP_PATENTE + 1;
-  const fechaCaducidad = new Date(ahora.getTime() + DIAS_PROMO_VIP * 86400000).toISOString();
+  const fechaCaducidad = finDelDiaSantiago(new Date(ahora.getTime() + DIAS_PROMO_VIP * 86400000));
   return Array.from({ length: total }, (_, i) => {
     const codigo = generarCodigoCupon(p.existentes);
     p.existentes.add(codigo);
@@ -556,7 +556,7 @@ export function detalleCupon(c: Cupon, ahora: Date = new Date()): string[] {
   }
 
   const dias = Math.ceil((new Date(c.fechaCaducidad).getTime() - ahora.getTime()) / 86400000);
-  out.push(`Vence ${fmtFecha(c.fechaCaducidad)} (en ${dias} ${dias === 1 ? "día" : "días"})`);
+  out.push(`Válido hasta el ${fmtCaducidad(c.fechaCaducidad)} (incluido, quedan ${dias} ${dias === 1 ? "día" : "días"})`);
   out.push(c.totalLote > 1 ? `${c.nombreLote} N° ${c.numeroLote}/${c.totalLote}` : `Lote "${c.nombreLote}"`);
   out.push(`Emitido ${fmtFecha(c.creadoEn)}${c.creadoPor ? ` por ${c.creadoPor}` : ""}`);
   if (c.email) out.push(`Correo ${c.email}`);

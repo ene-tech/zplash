@@ -131,6 +131,30 @@ export function diaEnSantiago(iso: string): Date | null {
   return new Date(`${diaCaja(iso)}T00:00:00`);
 }
 
+/** Último segundo (23:59:59 de Chile) del día chileno en que cae `fecha`, como
+ * ISO. Es la `fechaCaducidad` de todo cupón o ticket: en los mensajes se
+ * escribe "válido hasta el DD-MM-AAAA (incluido)", así que tiene que valer el
+ * día completo y no morir a la hora en que se emitió (oct-2026: emitido a las
+ * 15:00 con 7 días, el cliente que llegaba el último día a las 18:00 lo
+ * encontraba caducado). */
+export function finDelDiaSantiago(fecha: Date): string {
+  const [y, m, d] = diaCaja(fecha.toISOString()).split("-").map(Number);
+  const medianoche = Date.UTC(y, m - 1, d + 1);
+  const pared = fechaEnSantiago(new Date(medianoche));
+  const desfase =
+    Date.UTC(pared.getFullYear(), pared.getMonth(), pared.getDate(), pared.getHours(), pared.getMinutes(), pared.getSeconds()) -
+    medianoche;
+  return new Date(medianoche - desfase - 1000).toISOString();
+}
+
+/** Último día válido de un cupón o ticket (dd-mm-aaaa, día de Chile). fmtFecha
+ * a secas, en el server (UTC), mostraba un 23:59 de Chile como el día
+ * siguiente. Va siempre en "válido hasta el {fecha} (incluido)". */
+export function fmtCaducidad(iso: string): string {
+  const d = diaEnSantiago(iso);
+  return d ? d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }) : "-";
+}
+
 /** Primer día del mes actual, en formato YYYY-MM-DD. */
 export function primerDiaMesActualYMD(): string {
   const d = new Date();

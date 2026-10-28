@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
-import { beneficioCupon, cuponDescuentoDePatente, fmtFecha, fmtTelefono, fmtVencimiento, planStatus, plateEstadoCls } from "@/lib/helpers";
+import { beneficioCupon, cuponDescuentoDePatente, fmtCaducidad, fmtFecha, fmtTelefono, fmtVencimiento, planStatus, plateEstadoCls } from "@/lib/helpers";
 import type { Cliente, ConversacionWhatsapp } from "@/types";
 
 // Hoja de registro del cliente debajo del chat de WhatsApp: los datos que el
@@ -87,7 +87,7 @@ export function FichaClienteChat({ conversacion, fichas }: { conversacion: Conve
                 <div className="v">{c.plan || "Sin plan"}</div>
               </div>
               <div>
-                <div className="k">Vence</div>
+                <div className="k">Válido hasta (incluido)</div>
                 <div className="v">{c.vencimiento ? fmtVencimiento(c.vencimiento) : "-"}</div>
               </div>
               <div>
@@ -109,7 +109,7 @@ export function FichaClienteChat({ conversacion, fichas }: { conversacion: Conve
                 <div className="k">Descuento disponible</div>
                 <div className="v">
                   {descuento
-                    ? `${beneficioCupon(descuento)}${descuento.canal === "web" ? " (solo por la web)" : ""} — código ${descuento.codigo}, vence ${fmtFecha(descuento.fechaCaducidad)}`
+                    ? `${beneficioCupon(descuento)}${descuento.canal === "web" ? " (solo por la web)" : ""} — código ${descuento.codigo}, válido hasta el ${fmtCaducidad(descuento.fechaCaducidad)} (incluido)`
                     : "No tiene"}
                 </div>
               </div>

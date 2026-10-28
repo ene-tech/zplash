@@ -3,7 +3,7 @@ import { and, eq, or, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cupones } from "@/db/schema";
-import { esEmailEnviable, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
+import { esEmailEnviable, finDelDiaSantiago, fmtCaducidad, generarCodigoCupon, uid } from "@/lib/helpers";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { envolverHtmlBase } from "@/lib/mailing/plantillaBase";
 
@@ -20,7 +20,7 @@ function htmlTicket(nombre: string, codigo: string, caducidad: string): string {
     <p style="margin:0 0 20px;">Hola ${nombre}, gracias por reactivar tu plan. Te regalamos un <strong>lavado full túnel gratis</strong>.</p>
     <p style="margin:0 0 8px;">Tu ticket es:</p>
     <p style="margin:0 0 20px; font-size:32px; font-weight:bold; letter-spacing:8px; color:#262320;">${codigo}</p>
-    <p style="margin:0 0 20px;">Lo puedes usar en <strong>cualquier vehículo</strong> —el tuyo, o regálaselo a un amigo—: basta con mostrarlo en el local antes del <strong>${caducidad}</strong>.</p>
+    <p style="margin:0 0 20px;">Lo puedes usar en <strong>cualquier vehículo</strong> —el tuyo, o regálaselo a un amigo—: basta con mostrarlo en el local. Válido hasta el <strong>${caducidad} (incluido)</strong>.</p>
     <p style="margin:0;">También lo tienes siempre a mano en &quot;Mis tickets y cupones&quot;, dentro de Mi Cuenta.</p>
   `);
 }
@@ -88,7 +88,7 @@ export async function otorgarTicketReactivacion(opts: {
   const codigo = generarCodigoCupon(new Set(existentes.map((r) => r.codigo)));
 
   const ahora = new Date();
-  const fechaCaducidad = new Date(ahora.getTime() + DIAS_TICKET_REACTIVACION * 86400000).toISOString();
+  const fechaCaducidad = finDelDiaSantiago(new Date(ahora.getTime() + DIAS_TICKET_REACTIVACION * 86400000));
   await db.insert(cupones).values({
     id: uid(),
     codigo,
@@ -110,7 +110,7 @@ export async function otorgarTicketReactivacion(opts: {
       enviarCorreoTransaccional({
         to: email,
         subject: `Tu lavado full túnel gratis — ticket ${codigo}`,
-        html: htmlTicket(cliente?.nombre || "", codigo, fmtFecha(fechaCaducidad)),
+        html: htmlTicket(cliente?.nombre || "", codigo, fmtCaducidad(fechaCaducidad)),
         clienteId: cliente?.id,
       }).catch((error) => console.error("Error enviando el correo del ticket de reactivación", opts.patente, error))
     );

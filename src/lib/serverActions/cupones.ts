@@ -7,7 +7,7 @@ import * as dataAccess from "@/lib/dataAccess";
 import {
   beneficioCupon,
   esEmailEnviable,
-  fmtFecha,
+  fmtCaducidad,
   formatTelefono,
   isValidTelefono,
   MODULOS_BORRAN_CUPONES,
@@ -83,7 +83,8 @@ export async function enviarCuponAlCliente(clienteId: string, codigo: string, ca
   if (!cliente || !cupon) return ["Cupón no encontrado"];
 
   const beneficio = `${beneficioCupon(cupon)} (${condicionesCupon(cupon)})`;
-  const vence = fmtFecha(cupon.fechaCaducidad);
+  // Va en "válido hasta el {vence}" en los tres canales.
+  const vence = `${fmtCaducidad(cupon.fechaCaducidad)} (incluido)`;
   const nombre = cliente.nombre || "";
 
   const resultados: string[] = [];

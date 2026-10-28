@@ -21,8 +21,9 @@ import {
   ofertaPromoVip,
   planStatus,
   esEmailEnviable,
+  finDelDiaSantiago,
+  fmtCaducidad,
   fmtCLP,
-  fmtFecha,
   fmtVencimiento,
   generarCodigoCupon,
   normPlate,
@@ -126,7 +127,7 @@ export function construirVariables(opts: {
     plan: opts.cliente.plan || "",
     monto: opts.monto !== undefined ? fmtCLP(opts.monto) : "",
     fechaVencimiento: opts.cliente.vencimiento ? fmtVencimiento(opts.cliente.vencimiento) : "",
-    fechaVencimientoOferta: opts.diasValidez !== undefined ? fmtFecha(new Date(Date.now() + opts.diasValidez * MS_POR_DIA).toISOString()) : "",
+    fechaVencimientoOferta: opts.diasValidez !== undefined ? fmtCaducidad(new Date(Date.now() + opts.diasValidez * MS_POR_DIA).toISOString()) : "",
     montoOferta: opts.montoOferta !== undefined ? fmtCLP(opts.montoOferta) : "",
     montoDescuento: opts.montoDescuento !== undefined ? fmtCLP(opts.montoDescuento) : "",
     montoAPagar: opts.montoAPagar !== undefined ? fmtCLP(opts.montoAPagar) : "",
@@ -138,7 +139,7 @@ export function construirVariables(opts: {
     precioX5: opts.precioX5 !== undefined ? fmtCLP(opts.precioX5) : "",
     descuentoReferido: opts.descuentoReferido !== undefined ? fmtCLP(opts.descuentoReferido) : "",
     codigoCupon: opts.cupon?.codigo || "",
-    fechaVencimientoCupon: opts.cupon ? fmtFecha(opts.cupon.fechaCaducidad) : "",
+    fechaVencimientoCupon: opts.cupon ? fmtCaducidad(opts.cupon.fechaCaducidad) : "",
   };
 }
 
@@ -237,7 +238,7 @@ export function crearCuponDescuento(opts: {
     valor: opts.valor,
     numeroLote: 1,
     totalLote: 1,
-    fechaCaducidad: new Date(ahora.getTime() + opts.validezDias * MS_POR_DIA).toISOString(),
+    fechaCaducidad: finDelDiaSantiago(new Date(ahora.getTime() + opts.validezDias * MS_POR_DIA)),
     usado: false,
     creadoEn: ahora.toISOString(),
     creadoPor: opts.creadoPor,
@@ -354,12 +355,12 @@ async function variablesCalculadas(plantilla: PlantillaWhatsapp, cliente: Client
       );
     const tickets = ticketsVigentesDePatente(filas.map(cuponFromRow), cliente.patente).filter((c) => c.codigo !== ticketUsado);
     out.ticketsRestantes = String(tickets.length);
-    out.fechaVencimientoTickets = tickets.length ? fmtFecha(tickets[0].fechaCaducidad) : "";
+    out.fechaVencimientoTickets = tickets.length ? fmtCaducidad(tickets[0].fechaCaducidad) : "";
     out.resumenTickets = tickets.length
-      ? `Te ${tickets.length === 1 ? "queda 1 lavado" : `quedan ${tickets.length} lavados`} de tu pack, válidos hasta el ${out.fechaVencimientoTickets}.`
+      ? `Te ${tickets.length === 1 ? "queda 1 lavado" : `quedan ${tickets.length} lavados`} de tu pack, válidos hasta el ${out.fechaVencimientoTickets} (incluido).`
       : "Usaste el último lavado de tu pack.";
     out.resumenTicketsSms = tickets.length
-      ? `Te ${tickets.length === 1 ? "queda 1 lavado" : `quedan ${tickets.length} lavados`} para ${normPlate(cliente.patente)}, validos hasta el ${out.fechaVencimientoTickets}. Solo di tu patente en el meson.`
+      ? `Te ${tickets.length === 1 ? "queda 1 lavado" : `quedan ${tickets.length} lavados`} para ${normPlate(cliente.patente)}, validos hasta el ${out.fechaVencimientoTickets} (incluido). Solo di tu patente en el meson.`
       : "Usaste el ultimo lavado de tu pack.";
   }
   if (pideVariable(plantilla, "lavadosRestantes")) {

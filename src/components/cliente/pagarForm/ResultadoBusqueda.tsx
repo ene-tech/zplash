@@ -46,7 +46,7 @@ export function ResultadoBusqueda(p: Props) {
             </div>
             {r.vencimiento && (
               <div>
-                <div className="k">Vencimiento</div>
+                <div className="k">Válido hasta (incluido)</div>
                 <div className="v">{fmtVencimiento(r.vencimiento)}</div>
               </div>
             )}

@@ -34,7 +34,7 @@ export function ClientesTable({
             <TableHead>Plan</TableHead>
             <TableHead>Suscripción</TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => onSortHeader("vencimiento")}>
-              Vencimiento{flecha("vencimiento")}
+              Válido hasta (incluido){flecha("vencimiento")}
             </TableHead>
             <TableHead>Estado</TableHead>
             <TableHead className="cursor-pointer select-none" onClick={() => onSortHeader("visitas")}>

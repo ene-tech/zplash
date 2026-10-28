@@ -53,7 +53,7 @@ export const PLANTILLAS_CORREO_DEFAULT: PlantillaCorreo[] = [
     categoria: "Proceso de venta",
     nombre: "Recordatorio de vencimiento próximo",
     asunto: "Tu plan ZPlash está por vencer",
-    cuerpo: "Hola {{nombre}}, tu plan {{plan}} vence el {{fechaVencimiento}}. Renueva a tiempo para no perder tu beneficio.",
+    cuerpo: "Hola {{nombre}}, tu plan {{plan}} es válido hasta el {{fechaVencimiento}} (incluido). Renueva a tiempo para no perder tu beneficio.",
     activo: true,
   },
   {

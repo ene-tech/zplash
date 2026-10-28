@@ -35,7 +35,7 @@ describe("cuponesPromoVip", () => {
     expect(t.slice(0, 4).every((c) => c.patentesAutorizadas?.[0] === "AB1234")).toBe(true);
     expect(t[4].patentesAutorizadas).toBeUndefined();
     expect(t[4].patenteAsignada).toBe("AB1234");
-    expect(t[0].fechaCaducidad).toBe("2026-10-31T12:00:00.000Z");
+    expect(t[0].fechaCaducidad).toBe("2026-11-01T02:59:59.000Z"); // fin del 31-oct en Chile
     expect(new Set(t.map((c) => c.codigo)).size).toBe(5);
   });
 });
@@ -53,8 +53,10 @@ describe("ofertaPromoVip", () => {
   it("no se ofrece mientras le quede un ticket; si el resto venció sin usar, se abre 48 h desde el vencimiento", () => {
     const quedaUno = packDeCuatro().map((c, i) => (i < 3 ? usar(c, ultimoUso) : c));
     expect(ofertaPromoVip(quedaUno, "AB1234", new Date("2026-10-11T00:00:00.000Z"))).toBeUndefined();
-    expect(ofertaPromoVip(quedaUno, "AB1234", new Date("2026-11-01T00:00:00.000Z"))?.vence).toBe("2026-11-02T12:00:00.000Z");
-    expect(ofertaPromoVip(quedaUno, "AB1234", new Date("2026-11-03T00:00:00.000Z"))).toBeUndefined();
+    // El ticket vale todo el 31-oct: a las 21:00 de Chile todavía no hay oferta.
+    expect(ofertaPromoVip(quedaUno, "AB1234", new Date("2026-11-01T00:00:00.000Z"))).toBeUndefined();
+    expect(ofertaPromoVip(quedaUno, "AB1234", new Date("2026-11-01T12:00:00.000Z"))?.vence).toBe("2026-11-03T02:59:59.000Z");
+    expect(ofertaPromoVip(quedaUno, "AB1234", new Date("2026-11-03T03:00:00.000Z"))).toBeUndefined();
   });
 
   it("también se ofrece al terminar un pack de 2, pero no a otra patente", () => {
@@ -112,7 +114,7 @@ describe("Promo 2 Tickets 15 Días", () => {
     expect(t).toHaveLength(2);
     expect(t.map((c) => c.nombreLote)).toEqual([PROMO_RECOMPRA_2_KEY, PROMO_RECOMPRA_2_KEY]);
     expect(t.every((c) => c.patentesAutorizadas?.[0] === "AB1234")).toBe(true);
-    expect(t[0].fechaCaducidad).toBe("2026-10-16T12:00:00.000Z");
+    expect(t[0].fechaCaducidad).toBe("2026-10-17T02:59:59.000Z"); // fin del 16-oct en Chile
     expect(t[0].valor).toBe(4995);
   });
 
@@ -131,8 +133,9 @@ describe("Promo 2 Tickets 15 Días", () => {
   it("si el pack de 2 venció con tickets sin usar, se abre 48 h desde el vencimiento", () => {
     const unoSinUsar = dos().map((c, i) => (i === 0 ? usar(c, "2026-10-05T15:00:00.000Z") : c));
     expect(ventanaRecompraPack(unoSinUsar, "AB1234", new Date("2026-10-20T00:00:00.000Z"))).toBeUndefined();
-    expect(ventanaRecompraPack(unoSinUsar, "AB1234", new Date("2026-11-01T00:00:00.000Z"))?.vence).toBe("2026-11-02T12:00:00.000Z");
-    expect(ventanaRecompraPack(dos(), "AB1234", new Date("2026-11-01T00:00:00.000Z"))?.vence).toBe("2026-11-02T12:00:00.000Z");
-    expect(ventanaRecompraPack(unoSinUsar, "AB1234", new Date("2026-11-02T12:00:01.000Z"))).toBeUndefined();
+    expect(ventanaRecompraPack(unoSinUsar, "AB1234", new Date("2026-11-01T00:00:00.000Z"))).toBeUndefined();
+    expect(ventanaRecompraPack(unoSinUsar, "AB1234", new Date("2026-11-01T12:00:00.000Z"))?.vence).toBe("2026-11-03T02:59:59.000Z");
+    expect(ventanaRecompraPack(dos(), "AB1234", new Date("2026-11-01T12:00:00.000Z"))?.vence).toBe("2026-11-03T02:59:59.000Z");
+    expect(ventanaRecompraPack(unoSinUsar, "AB1234", new Date("2026-11-03T03:00:00.000Z"))).toBeUndefined();
   });
 });

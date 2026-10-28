@@ -21,6 +21,7 @@ import {
   cuponDescuentoDePatente,
   cuponesVigentesDeCliente,
   detalleCupon,
+  fmtCaducidad,
   fmtCLP,
   fmtDate,
   fmtFecha,
@@ -469,7 +470,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             <div className="font-medium">{c.fechaContratacion ? fmtDate(c.fechaContratacion) : "-"}</div>
           </div>
           <div>
-            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Vence</div>
+            <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Válido hasta (incluido)</div>
             <div className="font-medium">{c.vencimiento ? fmtVencimiento(c.vencimiento) : "Sin plan"}</div>
           </div>
           <div>
@@ -507,7 +508,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Descuento disponible</div>
             <div className="font-medium">
               {descuento
-                ? `${beneficioCupon(descuento)}${descuento.canal === "web" ? " (solo por la web)" : ""} — código ${descuento.codigo}, vence ${fmtDate(descuento.fechaCaducidad)}`
+                ? `${beneficioCupon(descuento)}${descuento.canal === "web" ? " (solo por la web)" : ""} — código ${descuento.codigo}, válido hasta el ${fmtCaducidad(descuento.fechaCaducidad)} (incluido)`
                 : "No tiene"}
             </div>
           </div>

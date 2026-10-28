@@ -3,7 +3,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
-import { DIAS_PROMO_RECOMPRA_2, DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, finGarantia, fmtCLP, fmtFecha, fmtHora, fmtVencimiento } from "@/lib/helpers";
+import { DIAS_PROMO_RECOMPRA_2, DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, finGarantia, fmtCaducidad, fmtCLP, fmtFecha, fmtHora, fmtVencimiento } from "@/lib/helpers";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
 // Lo que el operador tiene que contarle al cliente que todavía anda con el
@@ -119,8 +119,8 @@ export default function OperadorFoundOfertas(props: Props) {
           </div>
           <div className="msg">
             {c.nombre} tiene {tickets.length === 1 ? "un ticket" : `${tickets.length} tickets`} de &quot;{tickets[0].nombreLote}
-            &quot; para esta patente{tickets.length > 1 ? "; el más próximo" : ", que"} vence el{" "}
-            {new Date(tickets[0].fechaCaducidad).toLocaleDateString("es-CL")}. Úsalo para dejarlo entrar — no genera un
+            &quot; para esta patente{tickets.length > 1 ? "; el más próximo" : ", que"} es válido hasta el{" "}
+            {fmtCaducidad(tickets[0].fechaCaducidad)} (incluido). Úsalo para dejarlo entrar — no genera un
             cobro nuevo, ya se pagó.
           </div>
           {props.yaPasoHoy ? (
@@ -256,7 +256,7 @@ export default function OperadorFoundOfertas(props: Props) {
               Cuéntaselo antes de cobrarle: {c.nombre} tiene {fmtDescuento(props.cuponDescuentoSoloWeb)} de descuento{" "}
               <b>solo si contrata por la web</b> — acá no se puede aplicar. Entrando a su cuenta en la web con su patente{" "}
               <span className="plate-tag">{c.patente}</span> el descuento ya le sale restado del precio, sin necesidad de
-              código. Válido hasta el {new Date(props.cuponDescuentoSoloWeb.fechaCaducidad).toLocaleDateString("es-CL")}.
+              código. Válido hasta el {fmtCaducidad(props.cuponDescuentoSoloWeb.fechaCaducidad)} (incluido).
             </div>
             {!!props.precioPlanWeb && (
               <div className="price-row">
@@ -274,7 +274,7 @@ export default function OperadorFoundOfertas(props: Props) {
             <div className="msg">
               {c.nombre} tiene un descuento de {fmtDescuento(props.cuponDescuentoVigente)} en el Lavado Full Túnel, válido
               hasta el{" "}
-              {new Date(props.cuponDescuentoVigente.fechaCaducidad).toLocaleDateString("es-CL")}. Ya está
+              {fmtCaducidad(props.cuponDescuentoVigente.fechaCaducidad)} (incluido). Ya está
               restado en los precios de esta pantalla y se gasta con el primer cobro, sin necesidad de código.
             </div>
           </div>
@@ -461,7 +461,7 @@ export function QrPlanConTarjeta({
         acá</b>, solo por la web:{" "}
         {vence ? (
           <>
-            su plan sigue igual y desde el {fmtVencimiento(vence)} se le renueva solo cada mes.
+            su plan sigue igual, válido hasta el {fmtVencimiento(vence)} (incluido), y después se le renueva solo cada mes.
           </>
         ) : (
           <>el plan queda pagado y se le renueva solo cada mes.</>

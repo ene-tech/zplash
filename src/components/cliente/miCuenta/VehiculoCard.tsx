@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { MoreVertical } from "lucide-react";
-import { PASES_INCLUIDOS_X5, PLANES, fmtCLP, fmtFecha, fmtVencimiento, ilimitadoVencido } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, fmtCaducidad, fmtCLP, fmtFecha, fmtVencimiento, ilimitadoVencido } from "@/lib/helpers";
 import type { OfertaPlan } from "@/lib/helpers";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
 import { Button } from "@/components/ui/button";
@@ -179,7 +179,7 @@ export function VehiculoCard({
           </DropdownMenu>
         </div>
       </div>
-      {v.vencimiento && <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>{v.estado.cls === "bad" ? "Venció" : "Vence"} el {fmtVencimiento(v.vencimiento)}</div>}
+      {v.vencimiento && <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>{v.estado.cls === "bad" ? "Fue válido" : "Válido"} hasta el {fmtVencimiento(v.vencimiento)} (incluido)</div>}
       {/* Reemplaza a "Eliminar Plan" en el menú "⋮" para el cliente Woo: sin
           esto el botón no aparece y no queda ninguna salida a la vista. */}
       {planVencido && renovacionWoo && (
@@ -333,8 +333,8 @@ export function VehiculoCard({
             <h4>Completa tu Promo 4 lavados</h4>
           </div>
           <div className="msg">
-            Pagaste un lavado único hace poco. Suma {oferta.upgradePack.tickets} lavados más para esta patente, para usar
-            hasta el {fmtFecha(oferta.upgradePack.vence)}.
+            Pagaste un lavado único hace poco. Suma {oferta.upgradePack.tickets} lavados más para esta patente, válidos
+            hasta el {fmtCaducidad(oferta.upgradePack.vence)} (incluido).
           </div>
           <div className="price-row">
             <span className="new">+{fmtCLP(oferta.upgradePack.precio)}</span>

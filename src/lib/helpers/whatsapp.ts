@@ -86,7 +86,7 @@ Para generar su código, indíqueme primero su *nombre completo*.`,
 
   textoDescuentoConfirmacion: `🎉 ¡Listo! Su código de descuento es *{{codigo}}*
 
-Vale {{monto}} de descuento en su próximo lavado. Válido hasta el {{fecha}}.
+Vale {{monto}} de descuento en su próximo lavado. Válido hasta el {{fecha}} (incluido).
 
 Muéstrelo en el local al momento de pagar.`,
 
@@ -94,7 +94,7 @@ Muéstrelo en el local al momento de pagar.`,
   patenteEstadoPlan: `Plan: {{plan}}`,
   patenteEstadoPlanVacio: `Sin plan`,
   patenteEstadoLinea: `Estado: {{estado}}`,
-  patenteEstadoVencimiento: `Vencimiento: {{fecha}}`,
+  patenteEstadoVencimiento: `Válido hasta el {{fecha}} (incluido)`,
   patenteEstadoAvisoPorVencer: `⚠️ Vence en {{dias}} día(s).`,
   // Manda al 2 y no al 1: la opción 1 es la lista de precios (muestra el
   // valor del plan, pero sin link), y la 2 arma el checkout con la patente
@@ -231,7 +231,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     id: "wa-cobro-automatico-exitoso",
     categoria: "Proceso de venta",
     nombre: "Cobro automático (suscripción) exitoso",
-    mensaje: "Hola {{nombre}}, cobramos {{monto}} de tu suscripción del plan {{plan}}. Nuevo vencimiento: {{fechaVencimiento}}.",
+    mensaje: "Hola {{nombre}}, cobramos {{monto}} de tu suscripción del plan {{plan}}. Tu plan es válido hasta el {{fechaVencimiento}} (incluido).",
     activo: true,
     metaAprobado: false,
   },
@@ -247,7 +247,7 @@ export const PLANTILLAS_WHATSAPP_DEFAULT: PlantillaWhatsapp[] = [
     id: "wa-vencimiento-proximo",
     categoria: "Proceso de venta",
     nombre: "Recordatorio de vencimiento próximo",
-    mensaje: "Hola {{nombre}}, tu plan {{plan}} vence el {{fechaVencimiento}}. ¡Renueva a tiempo!",
+    mensaje: "Hola {{nombre}}, tu plan {{plan}} es válido hasta el {{fechaVencimiento}} (incluido). ¡Renueva a tiempo!",
     activo: true,
     metaAprobado: false,
   },

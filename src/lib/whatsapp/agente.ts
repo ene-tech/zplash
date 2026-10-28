@@ -6,7 +6,7 @@ import { getDb } from "@/db";
 import { clientes, cupones, ingresos, mensajesWhatsapp, plantillasWhatsapp, suscripcionesOneclick } from "@/db/schema";
 import { getConfig } from "@/lib/dataAccess/config";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
-import { KEYS_PROMOS_LAVADOS, fmtCLP, fmtFecha, fmtVencimiento, isValidPatente, normPlate, pasesIncluidos, periodoPlan, planStatus, planVigente } from "@/lib/helpers";
+import { KEYS_PROMOS_LAVADOS, fmtCaducidad, fmtCLP, fmtVencimiento, isValidPatente, normPlate, pasesIncluidos, periodoPlan, planStatus, planVigente } from "@/lib/helpers";
 import { cotizarPlanWeb } from "@/lib/pagos";
 import { POLITICAS } from "@/lib/politicas";
 import { invitarDescuentoPrimeraVez } from "@/lib/whatsapp/router";
@@ -188,7 +188,7 @@ async function fichaVehiculo(c: Cliente) {
     nombre: c.nombre || undefined,
     plan: plan ?? "Sin plan",
     estado: estado.label,
-    vencimiento: c.vencimiento ? fmtVencimiento(c.vencimiento) : undefined,
+    vencimiento: c.vencimiento ? `válido hasta el ${fmtVencimiento(c.vencimiento)} (incluido)` : undefined,
     lavadosDelMes,
     // El automático viejo (WooCommerce) no pasa por suscripcionesOneclick: sin
     // esto, al cliente que sí lo tiene se le decía que no.
@@ -199,10 +199,10 @@ async function fichaVehiculo(c: Cliente) {
           ? "activo en el sistema antiguo (WooCommerce)"
           : (suscripcion?.estado ?? "no inscrito"),
     cuponVigente: cupon
-      ? `${cupon.esPorcentaje ? `${cupon.valor}%` : fmtCLP(cupon.valor)} de descuento, vence ${fmtFecha(cupon.fechaCaducidad)}, se aplica solo al pagar el plan con tarjeta (link o QR en caja)`
+      ? `${cupon.esPorcentaje ? `${cupon.valor}%` : fmtCLP(cupon.valor)} de descuento, válido hasta el ${fmtCaducidad(cupon.fechaCaducidad)} (incluido), se aplica solo al pagar el plan con tarjeta (link o QR en caja)`
       : "ninguno",
     ticketsLavadoGratis: tickets.length
-      ? tickets.map((t) => `código ${t.codigo}, vence ${fmtFecha(t.fechaCaducidad)}`)
+      ? tickets.map((t) => `código ${t.codigo}, válido hasta el ${fmtCaducidad(t.fechaCaducidad)} (incluido)`)
       : "ninguno",
     pagandoConTarjetaAutomatico: `${fmtCLP(primerCobro)} el primer mes, después ${fmtCLP(cotizacion.precioAutoMensual)} al mes automático`,
     motivoDelPrecio:

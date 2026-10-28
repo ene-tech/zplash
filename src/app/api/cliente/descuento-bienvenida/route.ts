@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { origenValido } from "@/lib/csrf";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { emitirCuponDescuentoPrimeraVez, getConfig, patenteYaFueReferida } from "@/lib/dataAccess";
-import { fmtCLP, isValidEmail, isValidPatente, normPlate } from "@/lib/helpers";
+import { fmtCaducidad, fmtCLP, isValidEmail, isValidPatente, normPlate } from "@/lib/helpers";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
@@ -106,12 +106,12 @@ export async function POST(request: NextRequest) {
         "¡Bienvenido a ZPlash!\n\n" +
           "Tu descuento de **{{monto}}** ya quedó guardado en la patente {{patente}}.\n\n" +
           "Ahora solo llegar y pasar: lo aplicamos de forma automática en tu próxima visita, no tienes que mostrar nada.\n\n" +
-          "Código de respaldo: **{{codigo}}** — válido hasta el {{fecha}}.",
+          "Código de respaldo: **{{codigo}}** — válido hasta el {{fecha}} (incluido).",
         {
           monto: fmtCLP(cupon.valor),
           patente,
           codigo: cupon.codigo,
-          fecha: new Date(cupon.fechaCaducidad).toLocaleDateString("es-CL"),
+          fecha: fmtCaducidad(cupon.fechaCaducidad),
         }
       ),
     });
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     if (msisdn && !(await telefonoTieneSmsDeCampana(msisdn, CAMPANA_SMS))) {
       const sms = await enviarSms({
         telefono: msisdn,
-        texto: `ZPlash: tu descuento de ${fmtCLP(cupon.valor)} para la patente ${patente} ya quedo guardado. Codigo de respaldo ${cupon.codigo}, vence el ${new Date(cupon.fechaCaducidad).toLocaleDateString("es-CL")}.`,
+        texto: `ZPlash: tu descuento de ${fmtCLP(cupon.valor)} para la patente ${patente} ya quedo guardado. Codigo de respaldo ${cupon.codigo}, valido hasta el ${fmtCaducidad(cupon.fechaCaducidad)} (incluido).`,
         campana: CAMPANA_SMS,
         enviadoPor: "landing-web",
       }).catch((error) => {

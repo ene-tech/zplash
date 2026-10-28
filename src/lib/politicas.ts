@@ -29,7 +29,7 @@ export const POLITICAS: { titulo: string; puntos: string[] }[] = [
   {
     titulo: "1. Plan X5",
     puntos: [
-      "Tiene una vigencia de un mes: va desde la fecha de contratación hasta el día anterior en el mes siguiente (contratado el 23, vence el 22).",
+      "Tiene una vigencia de un mes: va desde la fecha de contratación hasta el día anterior en el mes siguiente (contratado el 23, es válido hasta el 22 incluido). En ZPlash toda fecha “válido hasta” incluye ese día completo.",
       "Incluye 5 lavados Full Túnel dentro de ese período, con un máximo de un ingreso cada 24 horas.",
       "Usadas las 5 pasadas, el lavado Full Túnel adicional tiene un precio preferencial de $3.990 por lo que queda del período. Ese valor es exclusivo para el vehículo que tiene el plan.",
       "Incluye el uso de las máquinas aspiradoras de autoservicio sin límite de tiempo, después de cada uno de los 5 lavados del plan. El aspirado va asociado a la pasada por el túnel, no es un acceso libre aparte.",

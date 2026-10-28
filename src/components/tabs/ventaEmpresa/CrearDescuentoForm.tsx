@@ -77,7 +77,7 @@ export default function CrearDescuentoForm({ dNombreRef, dCaducidadRef, dPatente
         </div>
       </div>
       <div className="field">
-        <label>Fecha de caducidad</label>
+        <label>Válido hasta (incluido)</label>
         <input ref={dCaducidadRef} type="date" />
       </div>
       <div className="field">

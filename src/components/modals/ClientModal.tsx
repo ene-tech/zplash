@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useAppUi } from "@/context/AppContext";
-import { PLANES, fmtTelefono, vencimientoPorDefectoISO } from "@/lib/helpers";
+import { PLANES, fmtTelefono, fmtVencimiento, vencimientoPorDefectoISO } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -215,7 +215,7 @@ export default function ClientModal({
                 <div className="grid gap-1.5">
                   <Label>Vigencia del plan</Label>
                   <div className="rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-primary">
-                    1 mes desde hoy — vence el {new Date(vencimientoPorDefectoISO()).toLocaleDateString("es-CL")}
+                    1 mes desde hoy — válido hasta el {fmtVencimiento(vencimientoPorDefectoISO())} (incluido)
                   </div>
                 </div>
               )

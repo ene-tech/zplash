@@ -663,7 +663,7 @@ export function RecorridoEtapas() {
                             <span style={{ fontWeight: 600, minWidth: 84 }}>{c.patente}</span>
                             <span style={{ flex: 1, minWidth: 120 }}>{c.nombre}</span>
                             <span style={{ fontSize: 12, color: "var(--gray)" }}>
-                              {c.vencimiento ? `vence ${fmtVencimiento(c.vencimiento)}` : `${c.visitas || 0} pasadas`} ·{" "}
+                              {c.vencimiento ? `válido hasta el ${fmtVencimiento(c.vencimiento)} (incluido)` : `${c.visitas || 0} pasadas`} ·{" "}
                               {planStatus(c).label}
                             </span>
                           </button>

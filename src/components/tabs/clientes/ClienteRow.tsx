@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { estadoRenovacion, fmtTelefono, planProgreso, planStatus, plateEstadoCls } from "@/lib/helpers";
+import { estadoRenovacion, fmtTelefono, fmtVencimiento, planProgreso, planStatus, plateEstadoCls } from "@/lib/helpers";
 import type { Cliente } from "@/types";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ export const ClienteRow = memo(function ClienteRow({
         <span className={`status-pill ${ra.cls}`}>{ra.label}</span>
       </TableCell>
       <TableCell>
-        <div>{c.vencimiento ? new Date(c.vencimiento).toLocaleDateString("es-CL") : "-"}</div>
+        <div>{c.vencimiento ? fmtVencimiento(c.vencimiento) : "-"}</div>
         {prog !== null && (
           <div className="mt-1 flex items-center gap-1.5">
             <ProgressBar value={prog} tone={st.cls} className="w-16" />

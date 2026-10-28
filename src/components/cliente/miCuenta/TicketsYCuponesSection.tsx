@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fmtCaducidad } from "@/lib/helpers";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
 import { AgregarCupon } from "./AgregarCupon";
 import { PacksTicketsGestion } from "./PacksTicketsGestion";
@@ -80,6 +81,7 @@ export function TicketsYCuponesSection({
                   <th>Beneficio</th>
                   <th>Lote</th>
                   <th>Estado</th>
+                  <th>Válido hasta (incluido)</th>
                   <th>Patente</th>
                   <th>Fecha de uso</th>
                 </tr>
@@ -114,6 +116,7 @@ export function TicketsYCuponesSection({
                         </button>
                       )}
                     </td>
+                    <td>{fmtCaducidad(c.fechaCaducidad)}</td>
                     <td>{c.patente || "-"}</td>
                     <td>{c.fechaUso ? new Date(c.fechaUso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" }) : "-"}</td>
                   </tr>

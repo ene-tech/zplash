@@ -16,6 +16,7 @@ import {
 import * as dataAccess from "@/lib/dataAccess";
 import {
   beneficioCupon,
+  finDelDiaSantiago,
   fmtCLP,
   generarCodigoCupon,
   generarFolioTraspaso,
@@ -493,7 +494,7 @@ export async function registrarDevolucionPos(input: DevolucionPosInput): Promise
       valor: Math.abs(armado.monto),
       numeroLote: 1,
       totalLote: 1,
-      fechaCaducidad: caduca.toISOString(),
+      fechaCaducidad: finDelDiaSantiago(caduca),
       usado: false,
       creadoEn: fecha,
       creadoPor: sesion.nombre,

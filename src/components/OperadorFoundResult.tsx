@@ -126,7 +126,7 @@ export default function OperadorFoundResult({
               guardado, pero hasta que termine el mes que ya tenía comprado
               sigue sin tope — es lo que tiene que leer el operador. */}
           <DetailRow label="Plan" value={planVigente(c) || "-"} />
-          <DetailRow label="Vence" value={c.vencimiento ? fmtVencimiento(c.vencimiento) : "-"} />
+          <DetailRow label="Válido hasta (incluido)" value={c.vencimiento ? fmtVencimiento(c.vencimiento) : "-"} />
           <DetailRow label="Visitas totales" value={c.visitas || 0} />
           {/* Solo para planes con tope (X5): el ilimitado viejo no tiene qué contar. */}
           {r.pasesQueQuedan !== null && (

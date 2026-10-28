@@ -67,7 +67,7 @@ export function SolicitudCambioPatente({
       <div style={{ marginTop: 8 }}>
         <p style={{ color: "var(--gray)", fontSize: 12.5, marginBottom: 6 }}>
           Solicitaste cambiar tu patente a <strong>{patentePendiente}</strong>. El cambio se aplicará
-          automáticamente a tu plan cuando termine tu mes actual{vencimiento ? ` (vence el ${fmtVencimiento(vencimiento)})` : ""} e
+          automáticamente a tu plan cuando termine tu mes actual{vencimiento ? ` (válido hasta el ${fmtVencimiento(vencimiento)}, incluido)` : ""} e
           inicie el próximo — hasta esa fecha tu plan sigue funcionando con la patente {patente}
           {patentePendienteDesde ? ` (solicitado el ${new Date(patentePendienteDesde).toLocaleDateString("es-CL")})` : ""}.
         </p>

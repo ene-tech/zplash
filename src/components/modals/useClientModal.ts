@@ -138,7 +138,7 @@ export function useClientModal(
     // propósito sigue siendo posible.
     if (!plan && cli.plan && sigueVigenteHoy(cli.vencimiento) && !bajaPlanConfirmada) {
       setBajaPlanConfirmada(true);
-      setErr(`${cli.nombre || "Este cliente"} tiene ${cli.plan} vigente hasta el ${fmtVencimiento(cli.vencimiento!)}. Guardar como "Lavado único" se lo quita. Presiona Guardar de nuevo para confirmar.`);
+      setErr(`${cli.nombre || "Este cliente"} tiene ${cli.plan} válido hasta el ${fmtVencimiento(cli.vencimiento!)} (incluido). Guardar como "Lavado único" se lo quita. Presiona Guardar de nuevo para confirmar.`);
       return;
     }
 
@@ -153,8 +153,8 @@ export function useClientModal(
     if (vencimiento && actual && sigueVigenteHoy(actual.vencimiento) && !sigueVigenteHoy(vencimiento) && !bajaPlanConfirmada) {
       setBajaPlanConfirmada(true);
       setErr(
-        `${cli.nombre || "Este cliente"} tiene el plan vigente hasta el ${fmtVencimiento(actual.vencimiento!)}. ` +
-          `Guardar con vencimiento ${fmtVencimiento(vencimiento)} se lo deja vencido. Presiona Guardar de nuevo para confirmar.`
+        `${cli.nombre || "Este cliente"} tiene el plan válido hasta el ${fmtVencimiento(actual.vencimiento!)} (incluido). ` +
+          `Guardarlo válido hasta el ${fmtVencimiento(vencimiento)} (incluido) se lo deja vencido. Presiona Guardar de nuevo para confirmar.`
       );
       return;
     }

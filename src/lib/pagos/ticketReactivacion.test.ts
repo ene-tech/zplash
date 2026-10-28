@@ -67,8 +67,9 @@ describe("otorgarTicketReactivacion", () => {
     // El correo de la ficha manda sobre el que se usó al inscribir la tarjeta.
     expect(fila.email).toBe("ficha@ejemplo.cl");
     const dias = (new Date(fila.fechaCaducidad as string).getTime() - antes) / 86400000;
+    // Vale hasta el fin (hora de Chile) del día DIAS_TICKET_REACTIVACION.
     expect(dias).toBeGreaterThan(DIAS_TICKET_REACTIVACION - 0.01);
-    expect(dias).toBeLessThan(DIAS_TICKET_REACTIVACION + 0.01);
+    expect(dias).toBeLessThan(DIAS_TICKET_REACTIVACION + 1);
 
     expect(mockEnviar).toHaveBeenCalledTimes(1);
     const envio = mockEnviar.mock.calls[0]![0];

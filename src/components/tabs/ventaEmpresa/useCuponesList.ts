@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAppData } from "@/context/AppContext";
-import { estadoCupon, fmtCLP } from "@/lib/helpers";
+import { estadoCupon, fmtCaducidad, fmtCLP } from "@/lib/helpers";
 import type { Cupon } from "@/types";
 
 export function valorCupon(c: Cupon): string {
@@ -49,7 +49,7 @@ export function useCuponesList() {
           "N°": `${c.numeroLote}/${c.totalLote}`,
           Lote: c.nombreLote,
           "Valor c/u": valorCupon(c),
-          Caducidad: new Date(c.fechaCaducidad).toLocaleDateString("es-CL"),
+          "Válido hasta (incluido)": fmtCaducidad(c.fechaCaducidad),
           Estado: est.label,
           "Un cupón por patente": c.unCuponPorPatente ? "Sí" : "",
           "Un uso por patente": c.unUsoPorPatente ? "Sí" : "",

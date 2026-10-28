@@ -103,7 +103,7 @@ export default function GenerarCuponesForm({
         </div>
       </div>
       <div className="field">
-        <label>Fecha de caducidad</label>
+        <label>Válido hasta (incluido)</label>
         <input ref={caducidadRef} type="date" />
       </div>
       <div className="field">

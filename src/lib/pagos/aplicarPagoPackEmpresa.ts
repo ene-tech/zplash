@@ -5,7 +5,7 @@ import { getDb, type DbOrTx } from "@/db";
 import { clientes, config, cupones, empresas, movimientosContables, pagosWebpayItems, ventas } from "@/db/schema";
 import { movimientoToRow } from "@/lib/dataAccess";
 import { emitirFacturasAutomaticas } from "@/lib/facturacion";
-import { generarCodigoCupon, movimientoContableDesdeVenta, uid } from "@/lib/helpers";
+import { finDelDiaSantiago, generarCodigoCupon, movimientoContableDesdeVenta, uid } from "@/lib/helpers";
 
 type PagoWebpayItemRow = typeof pagosWebpayItems.$inferSelect;
 
@@ -38,7 +38,7 @@ export async function aplicarPagoPackEmpresa(
   // `config` faltara por completo, pero antes de este ajuste quedó
   // desalineado con el nuevo default de vigencia del Pack de Tickets.
   const vigenciaDias = configRow?.vigenciaDiasPackEmpresa || 45;
-  const fechaCaducidad = new Date(Date.now() + vigenciaDias * 86400000).toISOString();
+  const fechaCaducidad = finDelDiaSantiago(new Date(Date.now() + vigenciaDias * 86400000));
 
   const existentesRows = await db.select({ codigo: cupones.codigo }).from(cupones);
   const existentes = new Set(existentesRows.map((r) => r.codigo));

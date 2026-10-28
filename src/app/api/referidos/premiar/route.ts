@@ -5,7 +5,7 @@ import { cupones } from "@/db/schema";
 import { rechazoSiNoEsCron } from "@/lib/cron";
 import { buscarClientePorPatente, cuponToRow, getConfig } from "@/lib/dataAccess";
 import { consumirCupon } from "@/lib/pagos";
-import { fmtCLP, fmtFecha, generarCodigoCupon, uid } from "@/lib/helpers";
+import { finDelDiaSantiago, fmtCaducidad, fmtCLP, generarCodigoCupon, uid } from "@/lib/helpers";
 import { envolverCorreoBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { acumularPremio, premiosPendientes } from "@/lib/referidos";
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
           valor,
           numeroLote: 1,
           totalLote: 1,
-          fechaCaducidad: new Date(ahora.getTime() + config.descuentoReferidoDiasValidez * 86400000).toISOString(),
+          fechaCaducidad: finDelDiaSantiago(new Date(ahora.getTime() + config.descuentoReferidoDiasValidez * 86400000)),
           usado: false,
           creadoEn: ahora.toISOString(),
           creadoPor: "referidos-cron",
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     if (referidor?.telefono && !referidor.sinComunicacionAuto) {
       const envio = await enviarSms({
         telefono: referidor.telefono,
-        texto: `ZPlash: tu amigo uso tu codigo. Ganaste ${fmtCLP(premio.valor)} de descuento en la patente ${p.patenteReferidor}, valido hasta el ${fmtFecha(premio.fechaCaducidad)}. Se aplica solo en tu proximo pago.`,
+        texto: `ZPlash: tu amigo uso tu codigo. Ganaste ${fmtCLP(premio.valor)} de descuento en la patente ${p.patenteReferidor}, valido hasta el ${fmtCaducidad(premio.fechaCaducidad)} (incluido). Se aplica solo en tu proximo pago.`,
         campana: "premio-referido",
         clienteId: referidor.id,
         enviadoPor: "referidos-cron",
@@ -122,12 +122,12 @@ export async function GET(request: NextRequest) {
           "¡Gracias por recomendarnos!\n\n" +
             "Tu amigo ya usó el descuento que le regalaste, así que te dejamos **{{monto}}** de descuento en la patente {{patente}}.\n\n" +
             "Se aplica solo en tu próximo pago, en el local o por la web.\n\n" +
-            "Código de respaldo: **{{codigo}}** — válido hasta el {{fecha}}.",
+            "Código de respaldo: **{{codigo}}** — válido hasta el {{fecha}} (incluido).",
           {
             monto: fmtCLP(premio.valor),
             patente: p.patenteReferidor,
             codigo,
-            fecha: new Date(premio.fechaCaducidad).toLocaleDateString("es-CL"),
+            fecha: fmtCaducidad(premio.fechaCaducidad),
           }
         ),
       });

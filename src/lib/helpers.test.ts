@@ -1469,7 +1469,7 @@ describe("detalleCupon", () => {
     expect(d).toContain("Abierto: cualquier patente");
     expect(d).toContain("Un uso por patente (ya lo usaron 1)");
     expect(d).toContain("Solo mesón");
-    expect(d.join(" ")).toContain("(en 10 días)");
+    expect(d.join(" ")).toContain("(incluido, quedan 10 días)");
     expect(d).toContain('Lote "Referido - AB1234"');
   });
 
@@ -1978,7 +1978,7 @@ describe("cuponesUpgradeDescuento", () => {
       [PROMO_2_LAVADOS_KEY, 1, 2],
       [PROMO_2_LAVADOS_KEY, 2, 2],
     ]);
-    expect(tickets[0].fechaCaducidad).toBe("2026-02-04T10:00:00.000Z");
+    expect(tickets[0].fechaCaducidad).toBe("2026-02-05T02:59:59.000Z"); // fin del 4-feb en Chile
     expect(tickets[0].patentesAutorizadas).toEqual(["AB1234"]);
   });
 });
@@ -2005,7 +2005,7 @@ describe("cuponesUpgradePack", () => {
     for (const t of tickets) {
       expect(t.nombreLote).toBe(PROMO_5_LAVADOS_KEY);
       expect(t.patentesAutorizadas).toEqual(["AB1234"]);
-      expect(t.fechaCaducidad).toBe("2026-02-04T10:00:00.000Z");
+      expect(t.fechaCaducidad).toBe("2026-02-05T02:59:59.000Z");
       expect(t.valor).toBe(4995);
       expect(t.email).toBe("a@b.cl");
     }
@@ -2758,7 +2758,7 @@ describe("Promo 2 Lavados — tickets por patente", () => {
       expect(t.patenteAsignada).toBe("AB1234");
       expect(t.email).toBe("ana@mail.cl");
       expect(t.valor).toBe(7495);
-      expect(t.fechaCaducidad).toBe("2026-10-07T15:00:00.000Z");
+      expect(t.fechaCaducidad).toBe("2026-10-08T02:59:59.000Z");
       expect(t.usado).toBe(false);
     }
   });
@@ -2778,8 +2778,9 @@ describe("Promo 2 Lavados — tickets por patente", () => {
     })[0];
     const lista = [tickets[0], tickets[1], otro, abierto, usado, antiguo];
     expect(ticketsVigentesDePatente(lista, "ab-1234", ahora).map((c) => c.id)).toEqual(["cup0-1", "cup1-1", "cup1-2"]);
-    // Pasados los 30 días no queda ninguno.
-    expect(ticketsVigentesDePatente(lista, "AB1234", new Date("2026-10-08T00:00:00.000Z"))).toEqual([]);
+    // El día 30 vale completo (7-oct 21:00 de Chile sigue vivo); al empezar el 8 no queda ninguno.
+    expect(ticketsVigentesDePatente(lista, "AB1234", new Date("2026-10-08T00:00:00.000Z"))).toHaveLength(2);
+    expect(ticketsVigentesDePatente(lista, "AB1234", new Date("2026-10-08T03:00:00.000Z"))).toEqual([]);
   });
 
   it("precioPromo2Lavados: sin fila o en $0 la promo está apagada", () => {
@@ -2797,7 +2798,7 @@ describe("Promo 2 Lavados — tickets por patente", () => {
       expect(t.totalLote).toBe(4);
       expect(t.valor).toBe(4998);
       expect(t.patentesAutorizadas).toEqual(["AB1234"]);
-      expect(t.fechaCaducidad).toBe("2026-10-07T15:00:00.000Z");
+      expect(t.fechaCaducidad).toBe("2026-10-08T02:59:59.000Z");
     }
     expect(ticketsVigentesDePatente(cinco, "AB1234", ahora)).toHaveLength(4);
     const precios = { [PROMO_2_LAVADOS_KEY]: { normal: 15990, promo: 0 }, [PROMO_5_LAVADOS_KEY]: { normal: 19990, promo: 0 } };

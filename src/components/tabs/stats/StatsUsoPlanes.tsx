@@ -125,7 +125,7 @@ export function StatsUsoPlanes({
             <th>Patente</th>
             <th>Cliente</th>
             <th>Pasadas del ciclo</th>
-            <th>Vence</th>
+            <th>Válido hasta (incluido)</th>
             <th>Cobro automático</th>
           </tr>
         </thead>

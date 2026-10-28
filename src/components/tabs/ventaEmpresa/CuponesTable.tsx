@@ -1,6 +1,6 @@
 "use client";
 
-import { estadoCupon } from "@/lib/helpers";
+import { estadoCupon, fmtCaducidad } from "@/lib/helpers";
 import type { Cupon } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -67,7 +67,7 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
                         <div className="text-muted-foreground">
                           {c.usado && c.fechaUso
                             ? `Usado ${new Date(c.fechaUso).toLocaleDateString("es-CL")}`
-                            : `Vence ${new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}`}
+                            : `Válido hasta el ${fmtCaducidad(c.fechaCaducidad)} (incluido)`}
                         </div>
                       </>
                     }
@@ -88,7 +88,7 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
               <TableHead>N°</TableHead>
               <TableHead className="max-w-[160px]">Lote</TableHead>
               <TableHead>Valor c/u</TableHead>
-              <TableHead>Caducidad</TableHead>
+              <TableHead>Válido hasta (incluido)</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Patente</TableHead>
               <TableHead>Fecha de uso</TableHead>
@@ -121,7 +121,7 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
                       ))}
                     </TableCell>
                     <TableCell>{valorCupon(c)}</TableCell>
-                    <TableCell>{new Date(c.fechaCaducidad).toLocaleDateString("es-CL")}</TableCell>
+                    <TableCell>{fmtCaducidad(c.fechaCaducidad)}</TableCell>
                     <TableCell>
                       <span className={`status-pill ${est.cls}`}>{est.label}</span>
                     </TableCell>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { fmtFecha, parsearPatentes } from "@/lib/helpers";
+import { fmtCaducidad, parsearPatentes } from "@/lib/helpers";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
 import type { CuponCuenta } from "./TicketsYCuponesSection";
 
@@ -38,7 +38,7 @@ async function descargarInforme(nombreLote: string, tickets: CuponCuenta[]) {
     "Patentes autorizadas": textoRegla(t.patentesAutorizadas),
     "Patente de uso": t.estado === "Usado" ? t.patente || "" : "",
     "Fecha de uso": t.fechaUso ? new Date(t.fechaUso).toLocaleString("es-CL") : "",
-    Vence: fmtFecha(t.fechaCaducidad),
+    "Válido hasta (incluido)": fmtCaducidad(t.fechaCaducidad),
   }));
   const usados = tickets.filter((t) => t.estado === "Usado").length;
   const resumen = [
@@ -177,8 +177,8 @@ function LoteCard({
         <div>
           <h4 style={{ margin: "0 0 4px" }}>{nombre}</h4>
           <div style={{ color: "var(--gray)", fontSize: 13 }}>
-            {usados} usados · {disponibles.length} disponibles · de {tickets.length} · vence{" "}
-            {fmtFecha(tickets[0].fechaCaducidad)}
+            {usados} usados · {disponibles.length} disponibles · de {tickets.length} · válido hasta el{" "}
+            {fmtCaducidad(tickets[0].fechaCaducidad)} (incluido)
           </div>
           <div style={{ fontSize: 13, marginTop: 4 }}>
             Regla de patentes: <strong>{reglaDelLote(tickets)}</strong>
