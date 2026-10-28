@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useState } from "react";
 import { estadoCupon, fmtCaducidad } from "@/lib/helpers";
 import type { Cupon } from "@/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -38,14 +39,20 @@ function reglasCupon(c: Cupon): string[] {
   ].filter((x): x is string => !!x);
 }
 
-export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon[]; eliminar: (c: Cupon) => void }) {
+// Con >10.000 cupones pintar todos (dos veces: tarjetas mobile + tabla) dejaba
+// la pestaña pegada; se muestran de a POR_PAGINA y el Excel baja el total.
+const POR_PAGINA = 100;
+
+export default memo(function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon[]; eliminar: (c: Cupon) => void }) {
+  const [limite, setLimite] = useState(POR_PAGINA);
+  const visibles = filtrados.slice(0, limite);
   return (
     <>
       <div className="flex flex-col gap-2 md:hidden [&>*]:rounded-lg [&>*]:border [&>*]:border-border [&>*]:bg-card">
         {filtrados.length === 0 ? (
           <div className="empty">Sin cupones</div>
         ) : (
-          filtrados.map((c) => {
+          visibles.map((c) => {
             const est = estadoCupon(c);
             return (
               <MobileRecordCard
@@ -103,7 +110,7 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
                 </TableCell>
               </TableRow>
             ) : (
-              filtrados.map((c) => {
+              visibles.map((c) => {
                 const est = estadoCupon(c);
                 return (
                   <TableRow key={c.id}>
@@ -148,6 +155,17 @@ export default function CuponesTable({ filtrados, eliminar }: { filtrados: Cupon
           </TableBody>
         </Table>
       </div>
+
+      {filtrados.length > limite && (
+        <div className="mt-3 flex items-center justify-center gap-3 text-sm text-muted-foreground">
+          <span>
+            Mostrando {limite} de {filtrados.length}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => setLimite((l) => l + POR_PAGINA)}>
+            Mostrar {POR_PAGINA} más
+          </Button>
+        </div>
+      )}
     </>
   );
-}
+});

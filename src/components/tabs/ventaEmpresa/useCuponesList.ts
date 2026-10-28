@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import { estadoCupon, fmtCaducidad, fmtCLP } from "@/lib/helpers";
 import type { Cupon } from "@/types";
@@ -20,7 +20,7 @@ export function useCuponesList() {
   // borrar un lote a clics seguidos, se llevó 8 tickets de la Promo
   // Reactivación ya enviados por correo. `email` solo lo tienen los que salieron
   // a un cliente (promo, Pack Empresa web), por eso el aviso extra.
-  const eliminar = (cup: Cupon) => {
+  const eliminar = useCallback((cup: Cupon) => {
     patchUi({
       modal: {
         type: "confirm",
@@ -32,12 +32,20 @@ export function useCuponesList() {
         },
       },
     });
-  };
+  }, [data.cupones, commit, patchUi]);
 
-  const q = busqueda.toLowerCase().trim();
-  const filtrados = data.cupones
-    .filter((c) => !q || c.nombreLote.toLowerCase().includes(q) || c.codigo.toLowerCase().includes(q))
-    .sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime());
+  // Hay >10.000 cupones (oct-2026): ordenar y filtrar en cada render hacía que
+  // escribir en cualquier campo de la pestaña tardara 15 s o más. Se ordena una
+  // vez por cambio de data y la búsqueda se difiere para no frenar el teclado.
+  const ordenados = useMemo(
+    () => data.cupones.slice().sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime()),
+    [data.cupones]
+  );
+  const q = useDeferredValue(busqueda).toLowerCase().trim();
+  const filtrados = useMemo(
+    () => (q ? ordenados.filter((c) => c.nombreLote.toLowerCase().includes(q) || c.codigo.toLowerCase().includes(q)) : ordenados),
+    [ordenados, q]
+  );
 
   const descargar = () => {
     import("xlsx").then((XLSX) => {
