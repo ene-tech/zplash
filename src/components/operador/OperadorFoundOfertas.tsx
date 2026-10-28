@@ -117,6 +117,20 @@ export default function OperadorFoundOfertas(props: Props) {
           <div className="offer-head">
             <h4>Tickets disponibles: {tickets.length}</h4>
           </div>
+          {/* Agrupados por fecha: un pack trae varios tickets que vencen el mismo día. */}
+          <div className="msg">
+            {Object.entries(
+              tickets.reduce<Record<string, number>>((acc, t) => {
+                const fecha = fmtCaducidad(t.fechaCaducidad);
+                acc[fecha] = (acc[fecha] ?? 0) + 1;
+                return acc;
+              }, {})
+            ).map(([fecha, n]) => (
+              <div key={fecha}>
+                {n === 1 ? "1 ticket válido" : `${n} tickets válidos`} hasta el {fecha} (incluido)
+              </div>
+            ))}
+          </div>
           {props.yaPasoHoy ? (
             <div className="msg">Ya pasó hoy: el próximo ticket se puede usar mañana.</div>
           ) : (
