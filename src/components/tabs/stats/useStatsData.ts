@@ -157,6 +157,11 @@ function calcularStats(data: AppData, desde: string, hasta: string, patentesOnec
     const tickets = data.cupones.filter((c) => c.tipo === "vale" && c.nombreLote === key && inRange(c.creadoEn, desde, hasta));
     const usados = tickets.filter((c) => c.usado).length;
     const caducados = tickets.filter((c) => !c.usado && new Date(c.fechaCaducidad) <= ahora).length;
+    // Otra lectura: tickets del pack que vencieron sin usar DENTRO del período,
+    // sin importar cuándo se vendió el pack (un pack de fin de mes vence el siguiente).
+    const vencidosEnPeriodo = data.cupones.filter(
+      (c) => c.tipo === "vale" && c.nombreLote === key && !c.usado && new Date(c.fechaCaducidad) <= ahora && inRange(c.fechaCaducidad, desde, hasta),
+    ).length;
     return {
       id,
       lavados,
@@ -167,6 +172,7 @@ function calcularStats(data: AppData, desde: string, hasta: string, patentesOnec
       usados,
       pendientes: tickets.length - usados - caducados,
       caducados,
+      vencidosEnPeriodo,
     };
   });
   const ventasUpgradePack = data.ventas.filter((v) => v.tipo.startsWith(UPGRADE_PACK_KEY) && inRange(v.fecha, desde, hasta));

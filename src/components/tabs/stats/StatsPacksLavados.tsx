@@ -7,6 +7,7 @@ type Props = Pick<ReturnType<typeof useStatsData>, "packsLavados" | "upgradesPac
 
 // Packs de 2 y 4 tickets vendidos en el período de arriba, y en qué quedaron
 // HOY sus tickets: usados, pendientes de uso (vivos) y caducados sin usar.
+// Aparte, los tickets que vencieron sin usar dentro del período, vendidos cuando sea.
 export function StatsPacksLavados(p: Props) {
   return (
     <>
@@ -45,6 +46,16 @@ export function StatsPacksLavados(p: Props) {
             <div className="stat-card bad">
               <div className="num">{pack.caducados}</div>
               <div className="lbl">Tickets caducados sin usar</div>
+              <div className="lbl" style={{ marginTop: 4 }}>
+                de los packs vendidos en el período
+              </div>
+            </div>
+            <div className="stat-card bad">
+              <div className="num">{pack.vencidosEnPeriodo}</div>
+              <div className="lbl">Tickets vencidos en el período</div>
+              <div className="lbl" style={{ marginTop: 4 }}>
+                sin usar, aunque el pack se haya vendido antes
+              </div>
             </div>
           </div>
         </div>
