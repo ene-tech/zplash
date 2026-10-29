@@ -238,12 +238,20 @@ export function precioConCupon(precio: number, cupon: Pick<Cupon, "esPorcentaje"
 export const LOTE_PRIMERA_VEZ_WHATSAPP = "WhatsApp - Primera vez";
 export const LOTE_ANUNCIO_META = "WhatsApp - Anuncio Meta";
 
+/** Lote del código abierto que llega una hora después de un lavado único
+ * (accion "cupon_abierto"): descuento para la próxima visita, de cualquier
+ * patente, sin premio de referido. */
+export const LOTE_CUPON_PROXIMA_VISITA = "Próxima visita";
+
+const LOTES_SOLO_TUNEL = [LOTE_PRIMERA_VEZ_WHATSAPP, LOTE_ANUNCIO_META, LOTE_CUPON_PROXIMA_VISITA];
+
 /** true si el cupón también rebaja el "Solo túnel (sin aspirado)". El resto
  * de los descuentos son para el Lavado Full Túnel; el de primera vez no,
  * porque el anuncio promete el exterior a $4.990 y el cliente elige si lo usa
- * con o sin aspirado (pedido del usuario, 26-oct-2026). */
+ * con o sin aspirado (pedido del usuario, 26-oct-2026). El de próxima visita
+ * tampoco: su SMS promete "$7.990 (o $4.990 sin aspirado)" (28-oct-2026). */
 export function cuponValeEnSoloTunel(cupon: Pick<Cupon, "nombreLote" | "esPorcentaje">): boolean {
-  return !cupon.esPorcentaje && (cupon.nombreLote === LOTE_PRIMERA_VEZ_WHATSAPP || cupon.nombreLote === LOTE_ANUNCIO_META);
+  return !cupon.esPorcentaje && LOTES_SOLO_TUNEL.includes(cupon.nombreLote);
 }
 
 /** true si la patente puede canjear este cupón: los cupones tipo "vale" de un

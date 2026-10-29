@@ -44,10 +44,9 @@ import type { Cliente, Cupon, Ingreso, PlantillaWhatsapp, ReglaWhatsapp } from "
 
 export const MS_POR_DIA = 86_400_000;
 
-/** Lote del código abierto que llega una hora después de un lavado único
- * (accion "cupon_abierto"): descuento para la próxima visita, de cualquier
- * patente, sin premio de referido. */
-export const LOTE_CUPON_PROXIMA_VISITA = "Próxima visita";
+// Vive en @/lib/helpers/cupones porque el mesón la usa (cuponValeEnSoloTunel).
+import { LOTE_CUPON_PROXIMA_VISITA } from "@/lib/helpers/cupones";
+export { LOTE_CUPON_PROXIMA_VISITA };
 
 /** Lote del descuento por días sin venir (tipoEvento "sin_visita"); lo usa
  * también el recordatorio "cupon_por_vencer" para encontrar esos cupones. */

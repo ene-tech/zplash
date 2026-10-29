@@ -112,6 +112,7 @@ describe("cuponValeEnSoloTunel", () => {
   it("solo el descuento de primera vez del bot, en monto fijo", () => {
     expect(cuponValeEnSoloTunel({ nombreLote: LOTE_ANUNCIO_META, esPorcentaje: false })).toBe(true);
     expect(cuponValeEnSoloTunel({ nombreLote: "WhatsApp - Primera vez", esPorcentaje: false })).toBe(true);
+    expect(cuponValeEnSoloTunel({ nombreLote: "Próxima visita", esPorcentaje: false })).toBe(true);
     expect(cuponValeEnSoloTunel({ nombreLote: LOTE_ANUNCIO_META, esPorcentaje: true })).toBe(false);
     expect(cuponValeEnSoloTunel({ nombreLote: "Campaña Vuelve", esPorcentaje: false })).toBe(false);
   });
