@@ -29,15 +29,23 @@ describe("armarFactura", () => {
     expect(doc.Encabezado.Receptor.CmnaRecep).toBe("Temuco");
   });
 
-  it("una venta de tickets detalla cuántos y, con orden de compra, lleva la referencia a continuación", () => {
+  it("una venta con orden de compra la lleva como referencia 801, no en el detalle", () => {
     const oc = venta(399900, { tipo: "Cupón Venta Empresa", patente: "", nombre: "Venta Empresa · SALFA", cantidadItems: 40, ordenCompra: "OC: 521518" });
     const doc = armarFactura([oc], receptor, "2026-10-03", "1-9").Documento;
-    expect(doc.Detalle[0].NmbItem).toBe("40 tickets de lavado de vehículo - Referencia: OC: 521518");
+    expect(doc.Detalle[0].NmbItem).toBe("40 tickets de lavado de vehículo");
+    expect(doc.Referencia).toEqual([{ NroLinRef: 1, TpoDocRef: "801", FolioRef: "521518", FchRef: "2026-10-01" }]);
   });
 
-  it("un pack de tickets web sin orden de compra solo lleva el detalle", () => {
+  it("varias ventas con la misma OC dan una sola referencia; distintas, una cada una", () => {
+    const doc = armarFactura([venta(1000, { ordenCompra: "4500" }), venta(1000, { ordenCompra: "OC 4500" }), venta(1000, { ordenCompra: "OC N° 77" })], receptor, "2026-10-03", "1-9").Documento;
+    expect(doc.Referencia?.map((r) => r.FolioRef)).toEqual(["4500", "77"]);
+  });
+
+  it("un pack de tickets web sin orden de compra solo lleva el detalle y no lleva referencia", () => {
     const web = venta(79990, { tipo: "10 Tickets (Web)", patente: "", cantidadItems: 10 });
-    expect(armarFactura([web], receptor, "2026-10-03", "1-9").Documento.Detalle[0].NmbItem).toBe("10 tickets de lavado de vehículo");
+    const doc = armarFactura([web], receptor, "2026-10-03", "1-9").Documento;
+    expect(doc.Detalle[0].NmbItem).toBe("10 tickets de lavado de vehículo");
+    expect(doc.Referencia).toBeUndefined();
   });
 
   it("usa comuna y ciudad de la empresa antes que la dirección", () => {

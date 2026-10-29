@@ -61,6 +61,7 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
   // última coma de la dirección ("Av. X 123, Las Condes"); sin coma, el SII
   // igual exige comuna: se usa la del local, donde están casi todos.
   const comuna = receptor.comuna?.trim() || (receptor.direccion?.includes(",") && receptor.direccion.split(",").pop()!.trim()) || "Temuco";
+  const referenciasOc = referenciasOrdenCompra(ventas);
   return {
     Documento: {
       Encabezado: {
@@ -86,16 +87,33 @@ export function armarFactura(ventas: Venta[], receptor: ReceptorFactura, fecha: 
         PrcItem: v.precio,
         MontoItem: v.precio,
       })),
+      ...(referenciasOc.length ? { Referencia: referenciasOc } : {}),
     },
   };
 }
 
+/** Referencia tipo 801 (Orden de Compra) por cada OC distinta de las ventas:
+ * así el SII y el PDF la muestran como OC y no como texto del detalle. La
+ * fecha de la OC no se registra; va la de la venta. */
+function referenciasOrdenCompra(ventas: Venta[]) {
+  const vistas = new Map<string, string>();
+  for (const v of ventas) {
+    const folio = folioOrdenCompra(v.ordenCompra);
+    if (folio && !vistas.has(folio)) vistas.set(folio, v.fecha.slice(0, 10));
+  }
+  return [...vistas].map(([folio, fecha], i) => ({ NroLinRef: i + 1, TpoDocRef: "801", FolioRef: folio, FchRef: fecha }));
+}
+
+// El operador escribe "OC: 521518" o "OC 521518"; el PDF ya dice "Orden de
+// Compra", así que se deja solo el número. FolioRef admite 18 caracteres.
+function folioOrdenCompra(oc: string | undefined): string {
+  return (oc ?? "").trim().replace(/^O\.?\s*C\.?\s*(N[°º]?)?\s*[:#.-]?\s*/i, "").slice(0, 18);
+}
+
 /** Nombre de la línea en la factura: qué se compró ("40 tickets de lavado de
- * vehículo") y, si la venta es contra orden de compra, su referencia, para que
- * la factura diga de qué OC nace. */
+ * vehículo"). La orden de compra va en Referencia, no aquí. */
 function nombreItem(v: Venta): string {
-  const producto = esVentaDeTickets(v) ? detalleTickets(v.cantidadItems ?? 1) : [v.tipo, v.patente].filter(Boolean).join(" - ");
-  return v.ordenCompra ? `${producto} - Referencia: ${v.ordenCompra}` : producto;
+  return esVentaDeTickets(v) ? detalleTickets(v.cantidadItems ?? 1) : [v.tipo, v.patente].filter(Boolean).join(" - ");
 }
 
 // Lote de tickets del mesón (Venta Empresa) o pack comprado por la web ("10 Tickets (Web)").
