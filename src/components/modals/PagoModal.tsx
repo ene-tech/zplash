@@ -13,6 +13,27 @@ import { Button } from "@/components/ui/button";
 // Valor del selector de empresa que usa los datos de la ficha del cliente.
 const FICHA = "__ficha__";
 
+// Minúsculas, sin tildes y sin puntos/guion/espacios: así "12.345.678-9",
+// "123456789" y "comercial ñuñoa" encuentran lo mismo que escribió Gerencia.
+const normalizar = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[.\-\s]/g, "");
+
+function filtrarEmpresas<T extends { id: string; razonSocial: string; rut: string }>(
+  empresas: T[],
+  busqueda: string,
+  elegidaId?: string,
+): T[] {
+  const q = normalizar(busqueda);
+  if (!q) return [...empresas];
+  return empresas.filter(
+    (e) => e.id === elegidaId || normalizar(e.razonSocial).includes(q) || normalizar(e.rut).includes(q),
+  );
+}
+
 export default function PagoModal({
   monto,
   descripcion,
@@ -44,6 +65,7 @@ export default function PagoModal({
   const fichaConFactura = cliente?.tipoDocumento === "Factura" && !!cliente.rut;
   const [documento, setDocumento] = useState<"Boleta" | "Factura" | null>(fichaConFactura ? "Factura" : null);
   const [empresaId, setEmpresaId] = useState(fichaConFactura ? FICHA : "");
+  const [busquedaEmpresa, setBusquedaEmpresa] = useState("");
 
   // El cierre lo hace Administración desde otra máquina y el mesón no se
   // entera (carga cierresCaja al entrar), así que se pregunta al servidor al
@@ -219,6 +241,21 @@ export default function PagoModal({
                 ))}
               </div>
               {documento === "Factura" && (
+                <input
+                  className="h-9 rounded-md border bg-background px-2 text-sm"
+                  placeholder="Buscar empresa por nombre o RUT…"
+                  value={busquedaEmpresa}
+                  onChange={(e) => {
+                    const q = e.target.value;
+                    setBusquedaEmpresa(q);
+                    setErr("");
+                    // Una sola coincidencia: queda elegida sin abrir la lista.
+                    const encontradas = filtrarEmpresas(data.empresas, q);
+                    if (q.trim() && encontradas.length === 1) setEmpresaId(encontradas[0].id);
+                  }}
+                />
+              )}
+              {documento === "Factura" && (
                 <select
                   className="h-9 rounded-md border bg-background px-2 text-sm"
                   value={empresaId}
@@ -233,7 +270,9 @@ export default function PagoModal({
                       {cliente.razonSocial || cliente.nombre} · {cliente.rut} (ficha del cliente)
                     </option>
                   )}
-                  {[...data.empresas]
+                  {/* La elegida se muestra aunque la búsqueda ya no la incluya,
+                      para que el select no aparezca en blanco. */}
+                  {filtrarEmpresas(data.empresas, busquedaEmpresa, empresaId)
                     .sort((a, b) => a.razonSocial.localeCompare(b.razonSocial))
                     .map((e) => (
                       <option key={e.id} value={e.id}>
