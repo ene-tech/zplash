@@ -29,6 +29,15 @@ export interface TurnoFuncionario {
   activo: boolean;
 }
 
+/** Quién registra ingresos ahora. perfilId null = sin restricción: todos los
+ * operadores registran. Lo fijan Gerencia o Administración desde "Operador
+ * en turno" (ver puedeRegistrarIngresos). */
+export interface OperadorIngresos {
+  perfilId: string | null;
+  cambiadoPor: string | null;
+  cambiadoEn: string | null; // ISO
+}
+
 /** El tope horario de un operador: los días en que APLICA y la ventana dentro
  * de la que puede trabajar esos días (los demás días trabaja sin tope). El id
  * ES el id del perfil (una regla por persona) y no tener regla es no tener

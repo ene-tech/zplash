@@ -1,10 +1,11 @@
 import "server-only";
 
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   contratosFuncionario,
   marcasAsistencia,
+  operadorIngresos,
   reglasOperador,
   tareasTurno,
   tareasTurnoHechas,
@@ -13,6 +14,7 @@ import {
 import type {
   ContratoFuncionario,
   MarcaAsistencia,
+  OperadorIngresos,
   ReglaOperador,
   TareaTurno,
   TareaTurnoHecha,
@@ -94,6 +96,29 @@ export async function upsertReglasOperador(rows: ReglaOperador[]): Promise<boole
     return true;
   } catch (error) {
     console.error("Error guardando reglas de operador", error);
+    return false;
+  }
+}
+
+/** Quién registra ingresos ahora (ver operadorIngresos en el schema). Sin
+ * fila = sin restricción. Lanza si la tabla no existe: el que llama decide. */
+export async function getOperadorIngresos(): Promise<OperadorIngresos> {
+  const [row] = await getDb().select().from(operadorIngresos).where(eq(operadorIngresos.id, true)).limit(1);
+  return {
+    perfilId: row?.perfilId ?? null,
+    cambiadoPor: row?.cambiadoPor ?? null,
+    cambiadoEn: row?.cambiadoEn ? new Date(row.cambiadoEn).toISOString() : null,
+  };
+}
+
+export async function setOperadorIngresos(perfilId: string | null, cambiadoPor: string): Promise<boolean> {
+  try {
+    await upsertRows(operadorIngresos, operadorIngresos.id, [
+      { id: true, perfilId, cambiadoPor, cambiadoEn: new Date().toISOString() },
+    ]);
+    return true;
+  } catch (error) {
+    console.error("Error guardando el operador habilitado para ingresos", error);
     return false;
   }
 }

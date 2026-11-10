@@ -24,6 +24,7 @@ import {
   esExentoBloqueoReingreso,
   esExentoFormatoCliente,
   esExentoHorarioOperador,
+  puedeRegistrarIngresos,
   esExentoValidacionRegistroOperador,
   esCorreoDeRelleno,
   esEmailEnviable,
@@ -1688,6 +1689,26 @@ describe("esExentoHorarioOperador", () => {
 
   it("un operador estándar sin acceso a Configuración no está exento", () => {
     expect(esExentoHorarioOperador(["operador", "servicios"])).toBe(false);
+  });
+});
+
+describe("puedeRegistrarIngresos", () => {
+  it("sin operador en turno registran todos", () => {
+    expect(puedeRegistrarIngresos("p1", "Christian", null)).toBe(true);
+  });
+
+  it("con operador en turno solo registra ese", () => {
+    expect(puedeRegistrarIngresos("p1", "Christian", "p1")).toBe(true);
+    expect(puedeRegistrarIngresos("p2", "Verónica", "p1")).toBe(false);
+  });
+
+  it("Gerencia y Administración registran siempre", () => {
+    expect(puedeRegistrarIngresos("p7", "Gerencia", "p1")).toBe(true);
+    expect(puedeRegistrarIngresos("p8", "Administración", "p1")).toBe(true);
+  });
+
+  it("sin sesión no registra si hay operador en turno", () => {
+    expect(puedeRegistrarIngresos(undefined, undefined, "p1")).toBe(false);
   });
 });
 

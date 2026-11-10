@@ -19,6 +19,7 @@ const MantencionView = dynamic(() => import("@/components/MantencionView"));
 const EstanquesView = dynamic(() => import("@/components/EstanquesView"));
 const FuncionarioView = dynamic(() => import("@/components/FuncionarioView"));
 const EquipoView = dynamic(() => import("@/components/EquipoView"));
+const OperadoresTurnoView = dynamic(() => import("@/components/OperadoresTurnoView"));
 const MensajesView = dynamic(() => import("@/components/MensajesView"));
 const CorreoView = dynamic(() => import("@/components/CorreoView"));
 const LibroView = dynamic(() => import("@/components/LibroView"));
@@ -49,6 +50,7 @@ const Vista = memo(function Vista({ view }: { view: string }) {
       {view === "estanques" && <EstanquesView />}
       {view === "funcionario" && <FuncionarioView />}
       {view === "equipo" && <EquipoView />}
+      {view === "operadores_turno" && <OperadoresTurnoView />}
       {view === "mensajes" && <MensajesView />}
       {view === "correo" && <CorreoView />}
       {view === "libro" && <LibroView />}

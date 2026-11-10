@@ -14,7 +14,15 @@ import {
   recalcularVisitasClientes,
   SERVICIOS_DEFAULT,
 } from "@/lib/helpers";
-import { hayAltaEnDiaCerrado, hayVentaPlanDuplicada, insertAuditoria, loadCore, loadHistorial, loadPerfilesLogin } from "@/lib/serverActions";
+import {
+  hayAltaEnDiaCerrado,
+  hayVentaPlanDuplicada,
+  insertAuditoria,
+  loadCore,
+  loadHistorial,
+  loadPerfilesLogin,
+  puedoRegistrarIngresosAhora,
+} from "@/lib/serverActions";
 import { diffPorId } from "./commit/shared";
 import {
   commitAlertasMantencion,
@@ -388,16 +396,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return diffPorId(previos, siguientes).cambiados.filter((x) => !prevIds.has(x.id)).map((x) => x.fecha);
     };
     const fechasAltas = [...altas(previous.ventas, patch.ventas), ...altas(previous.ingresos, patch.ingresos)];
-    const [ventaDuplicada, diaCerrado] = await Promise.all([
+    // Y para el operador en turno (ver "Operador en turno" en el hub): quien
+    // no está habilitado no registra ingresos, y si se le rechaza recién en
+    // insertIngresos la venta y el ticket ya quedaron grabados.
+    const hayIngresosNuevos = altas(previous.ingresos, patch.ingresos).length > 0;
+    const [ventaDuplicada, diaCerrado, enTurno] = await Promise.all([
       ventasNuevas.length ? hayVentaPlanDuplicada(ventasNuevas) : false,
       // Sin red no se frena acá: insertVentas/insertIngresos lo vuelven a mirar.
       fechasAltas.length ? hayAltaEnDiaCerrado(fechasAltas).catch(() => false) : false,
+      hayIngresosNuevos ? puedoRegistrarIngresosAhora().catch(() => true) : true,
     ]);
-    if (ventaDuplicada || diaCerrado) {
+    if (ventaDuplicada || diaCerrado || !enTurno) {
       console.error(
         ventaDuplicada
           ? "Venta de plan duplicada (otra máquina ya la registró): se aborta el commit completo"
-          : "Venta o ingreso nuevo en un día con la caja cerrada: se aborta el commit completo"
+          : diaCerrado
+            ? "Venta o ingreso nuevo en un día con la caja cerrada: se aborta el commit completo"
+            : "Ingreso nuevo de un operador que no está en turno: se aborta el commit completo"
       );
       dataRef.current = previous;
       setData(previous);

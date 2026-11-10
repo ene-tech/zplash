@@ -47,7 +47,21 @@ export default function OperadorView() {
               <div className="num">{ingresosHoy}</div>
               <div className="lbl">Autos ingresados hoy</div>
             </div>
-            {scan.bloqueado ? (
+            {scan.turnoCargando ? (
+              <div className="empty" style={{ marginTop: 20 }}>
+                Revisando quién está en turno…
+              </div>
+            ) : scan.fueraDeTurno ? (
+              <div className="scan-panel">
+                <h2>No estás en turno de ingresos</h2>
+                <div className="hint">
+                  {scan.operadorEnTurno
+                    ? `Ahora los ingresos los registra ${scan.operadorEnTurno}.`
+                    : "Ahora los ingresos los registra otro operador."}{" "}
+                  Si te toca a ti, pídele a Administración o Gerencia que te habilite.
+                </div>
+              </div>
+            ) : scan.bloqueado ? (
               <div className="scan-panel">
                 <h2>Registro fuera de horario</h2>
                 <div className="hint">

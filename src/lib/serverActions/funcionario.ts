@@ -6,6 +6,7 @@ import { sesionActual, tieneModulo } from "@/lib/session";
 import type {
   ContratoFuncionario,
   MarcaAsistencia,
+  OperadorIngresos,
   ReglaOperador,
   TareaTurno,
   TareaTurnoHecha,
@@ -68,6 +69,32 @@ export async function upsertReglasOperador(rows: ReglaOperador[]): Promise<boole
 export async function deleteReglasOperador(ids: string[]): Promise<boolean> {
   if (!(await tieneModulo("perfiles"))) return false;
   return dataAccess.deleteReglasOperador(ids);
+}
+
+/** Quién registra ingresos ahora. Lo lee cualquier sesión: el mesón lo
+ * consulta cada tanto para mostrar el aviso al operador que no está
+ * habilitado. null = no se pudo leer (p.ej. la tabla todavía no existe). */
+export async function obtenerOperadorIngresos(): Promise<OperadorIngresos | null> {
+  if (!(await sesionActual())) return null;
+  try {
+    return await dataAccess.getOperadorIngresos();
+  } catch (error) {
+    console.error("Error leyendo el operador habilitado para ingresos", error);
+    return null;
+  }
+}
+
+/** Habilita a un operador como el único que registra ingresos (o libera con
+ * null). Solo Gerencia y Administración. El perfil se valida contra la base:
+ * tiene que existir y tener el módulo Operador. */
+export async function fijarOperadorIngresos(perfilId: string | null): Promise<boolean> {
+  const sesion = await sesionActual();
+  if (!sesion || !esAdministracionOGerencia(sesion.nombre)) return false;
+  if (perfilId) {
+    const perfil = (await dataAccess.loadPerfilesLogin()).find((p) => p.id === perfilId);
+    if (!perfil || !perfil.modulos.includes("operador")) return false;
+  }
+  return dataAccess.setOperadorIngresos(perfilId, sesion.nombre);
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useApp } from "@/context/AppContext";
-import { fmtCLP, inRange, MODULOS_ADMIN, todayYMD } from "@/lib/helpers";
+import { esAdministracionOGerencia, fmtCLP, inRange, MODULOS_ADMIN, todayYMD } from "@/lib/helpers";
 
 export default function HubView() {
   const { data, ui, patchUi, logout, loadingHistorial } = useApp();
@@ -134,6 +134,15 @@ export default function HubView() {
             <div className="icon">🗓️</div>
             <div className="label">Gestión de Equipo</div>
             <div className="desc">Asignar horarios, encargados de zona, tareas y contratos</div>
+          </button>
+        )}
+        {/* Sin módulo propio: lo controlan solo los dos perfiles de gestión,
+            mismo criterio que el backstop en fijarOperadorIngresos. */}
+        {esAdministracionOGerencia(ui.perfilActual?.nombre) && (
+          <button className="role-btn" onClick={() => patchUi({ view: "operadores_turno" })}>
+            <div className="icon">🎛️</div>
+            <div className="label">Operador en turno</div>
+            <div className="desc">Habilitar o deshabilitar operadores para registrar ingresos</div>
           </button>
         )}
         {modulos.includes("mensajes") && (

@@ -136,6 +136,16 @@ export function esAdministracionOGerencia(nombre?: string): boolean {
   return nombre === "Gerencia" || nombre === "Administración";
 }
 
+/** Si este perfil puede registrar ingresos dado el operador habilitado del
+ * turno (ver OperadorIngresos y el módulo "Operador en turno"). Sin operador
+ * habilitado (null) registran todos; con uno, solo ese y los perfiles de
+ * gestión (Gerencia y Administración), que son quienes lo eligen. */
+export function puedeRegistrarIngresos(perfilId: string | undefined, nombre: string | undefined, habilitadoId: string | null): boolean {
+  if (!habilitadoId) return true;
+  if (esAdministracionOGerencia(nombre)) return true;
+  return !!perfilId && perfilId === habilitadoId;
+}
+
 /** Solo el perfil "Gerencia" puede borrar una categoría de producto o de
  * insumo (ver CategoriasProductoTab/CategoriasInsumoTab y el backstop en
  * deleteCategoriasProducto/deleteCategoriasInsumo en @/lib/serverActions) — el resto de

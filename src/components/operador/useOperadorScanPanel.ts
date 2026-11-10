@@ -15,12 +15,15 @@ import {
   fmtTelefono,
   isValidPatente,
   normPlate,
+  esAdministracionOGerencia,
+  puedeRegistrarIngresos,
   cuponDescuentoDePatente,
   patenteAutorizadaParaCupon,
   resolverDescuento,
   uid,
 } from "@/lib/helpers";
 import { registrarIngresoCupon } from "@/lib/logic";
+import { obtenerOperadorIngresos } from "@/lib/serverActions";
 import type { Cliente, Cupon } from "@/types";
 import { validarQuickAddCliente } from "./validarQuickAdd";
 import { conReglaVigente } from "./reglaVigente";
@@ -28,6 +31,9 @@ import { conReglaVigente } from "./reglaVigente";
 /** Refresco del reloj del bloqueo horario: no necesita mayor precisión que
  * "dentro del minuto", así que 30s alcanza sin recalcular en cada render. */
 const INTERVALO_RELOJ_MS = 30_000;
+
+/** Cada cuánto el mesón relee quién es el operador en turno. */
+const INTERVALO_OPERADOR_TURNO_MS = 30_000;
 
 /** El teléfono parte con el prefijo puesto, igual que en el alta rápida de
  * "patente no registrada" (ver OperadorNotFoundResult). */
@@ -101,6 +107,43 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
   }, []);
   const exento = esExentoHorarioOperador(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
   const bloqueado = !exento && !dentroDeHorarioOperador(data.config, ahora);
+
+  // Operador en turno (ver "Operador en turno" en el hub): si Gerencia o
+  // Administración dejaron a otro operador registrando ingresos, este mesón
+  // muestra el aviso en vez del panel. El backstop real es insertIngresos;
+  // esto se relee cada tanto para que el cambio de turno llegue sin recargar.
+  // undefined = todavía no se sabe: no se muestra el panel hasta la primera
+  // lectura, para que un operador fuera de turno no alcance a registrar.
+  // Gerencia y Administración registran siempre: no consultan.
+  const siempreRegistra = esAdministracionOGerencia(ui.perfilActual?.nombre);
+  const [operadorTurnoId, setOperadorTurnoId] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (siempreRegistra) return;
+    let vivo = true;
+    const leer = () =>
+      obtenerOperadorIngresos()
+        .then((r) => {
+          if (!vivo) return;
+          // Si la lectura falla se deja registrar (el servidor manda), pero
+          // sin tapar un turno ya conocido.
+          setOperadorTurnoId((prev) => (r ? r.perfilId : prev === undefined ? null : prev));
+        })
+        .catch(() => {
+          if (vivo) setOperadorTurnoId((prev) => (prev === undefined ? null : prev));
+        });
+    leer();
+    const id = setInterval(() => {
+      if (!document.hidden) leer();
+    }, INTERVALO_OPERADOR_TURNO_MS);
+    return () => {
+      vivo = false;
+      clearInterval(id);
+    };
+  }, [siempreRegistra]);
+  const turnoCargando = !siempreRegistra && operadorTurnoId === undefined;
+  const fueraDeTurno =
+    !siempreRegistra && !puedeRegistrarIngresos(ui.perfilActual?.id, ui.perfilActual?.nombre, operadorTurnoId ?? null);
+  const operadorEnTurno = operadorTurnoId ? data.perfiles.find((p) => p.id === operadorTurnoId)?.nombre || null : null;
 
   const clearPlate = () => {
     if (plateInputRef.current) plateInputRef.current.value = "";
@@ -336,6 +379,9 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
   return {
     cfg: data.config,
     bloqueado,
+    fueraDeTurno,
+    turnoCargando,
+    operadorEnTurno,
     cuponErr,
     plateErr,
     escaneando,

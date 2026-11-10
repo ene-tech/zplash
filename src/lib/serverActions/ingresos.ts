@@ -1,7 +1,7 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
-import { ahoraEnSantiago, dentroDeHorarioOperador, esExentoHorarioOperador, puedeBorrarIngreso } from "@/lib/helpers";
+import { ahoraEnSantiago, dentroDeHorarioOperador, esExentoHorarioOperador, puedeBorrarIngreso, puedeRegistrarIngresos } from "@/lib/helpers";
 import { sesionActual } from "@/lib/session";
 import type { ConfigGlobal, Ingreso } from "@/types";
 
@@ -12,6 +12,29 @@ import type { ConfigGlobal, Ingreso } from "@/types";
 // que de verdad puede impedirlo. Se exime a quien tenga acceso a Configuración
 // o sea el perfil "Administración" (ver esExentoHorarioOperador) y se relee
 // `config` desde la base en vez de confiar en el horario que traiga el cliente.
+// Operador en turno: si Gerencia o Administración dejaron a un solo operador
+// registrando ingresos, el resto queda fuera (ver puedeRegistrarIngresos). Si
+// la tabla no se puede leer no se bloquea: frenar el túnel entero por eso es
+// peor. No exportada: no es una Server Action.
+async function operadorEnTurno(): Promise<string | null> {
+  try {
+    return (await dataAccess.getOperadorIngresos()).perfilId;
+  } catch (error) {
+    console.error("Error leyendo el operador habilitado para ingresos", error);
+    return null;
+  }
+}
+
+/** Pregunta previa de commit(): insertIngresos es lo último que se graba
+ * (clientes y cupones van antes, ventas en paralelo), así que si rechazara
+ * recién ahí al operador fuera de turno, la venta y el ticket quedarían
+ * grabados sin el ingreso. Mismo criterio que hayAltaEnDiaCerrado. */
+export async function puedoRegistrarIngresosAhora(): Promise<boolean> {
+  const sesion = await sesionActual();
+  if (!sesion) return false;
+  return puedeRegistrarIngresos(sesion.id, sesion.nombre, await operadorEnTurno());
+}
+
 export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
   const sesion = await sesionActual();
   if (!sesion) return false;
@@ -31,6 +54,7 @@ export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
     // ahoraEnSantiago) para comparar contra el horario configurado.
     if (!dentroDeHorarioOperador(config, ahoraEnSantiago())) return false;
   }
+  if (!puedeRegistrarIngresos(sesion.id, sesion.nombre, await operadorEnTurno())) return false;
   // Un día con la caja ya cerrada no recibe más pasadas por el túnel: su
   // resumen quedó firmado y no se puede volver a mover (ver CierreCaja).
   if (await dataAccess.altaEnDiaCerrado(rows.map((i) => i.fecha))) return false;

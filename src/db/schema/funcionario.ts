@@ -60,6 +60,20 @@ export const reglasOperador = pgTable("reglas_operador", {
   notas: text("notas"),
 });
 
+// Quién registra ingresos ahora: una sola fila (id siempre true). Gerencia o
+// Administración elige al operador del turno y el resto de los operadores no
+// puede registrar pasadas por el túnel (ver puedeRegistrarIngresos y el
+// backstop en insertIngresos). perfil_id null = sin restricción, todos los
+// operadores registran, que es como funcionaba antes de esta tabla. Tabla
+// propia y no columna de `config` porque upsertConfig reescribe la fila
+// entera con lo que trae el navegador y pisaría el cambio de turno.
+export const operadorIngresos = pgTable("operador_ingresos", {
+  id: boolean("id").primaryKey().default(true),
+  perfilId: text("perfil_id").references(() => perfiles.id, { onDelete: "set null" }),
+  cambiadoPor: text("cambiado_por"),
+  cambiadoEn: timestamptz("cambiado_en").notNull().defaultNow(),
+});
+
 // Catálogo de tareas obligatorias de apertura y de cierre, administrable por
 // Gerencia. Son cuatro checklists, uno por turno y zona (apertura/cierre ×
 // prelavado/aspirados): "Purgar agua de compresores" al abrir prelavado,
