@@ -42,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { RecorridoCliente } from "@/components/modals/RecorridoCliente";
+import AdjuntosCliente from "@/components/AdjuntosCliente";
 import GenerarCuponesForm from "@/components/tabs/ventaEmpresa/GenerarCuponesForm";
 import CrearDescuentoForm from "@/components/tabs/ventaEmpresa/CrearDescuentoForm";
 import { useGenerarCupones } from "@/components/tabs/ventaEmpresa/useGenerarCupones";
@@ -896,6 +897,8 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           )}
           {errReembolso && <p className="mt-2 text-sm text-destructive">{errReembolso}</p>}
         </div>
+
+        <AdjuntosCliente key={c.id} clienteId={c.id} />
 
         {comentariosLibro.length > 0 && (
           <div className="border-t border-border pt-5">

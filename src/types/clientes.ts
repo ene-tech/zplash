@@ -67,3 +67,22 @@ export interface Cliente extends DatosFacturacion {
 // memoria del caso HERNAN, 2026-07-27). Un Cliente completo también es un
 // ClientePatch válido: es como se representa un alta nueva.
 export type ClientePatch = { id: string } & Partial<Omit<Cliente, "id">>;
+
+// Documento adjunto a la ficha (ver @/db/schema/clienteAdjuntos).
+export const TIPOS_ADJUNTO_CLIENTE = {
+  devolucion: "Comprobante de devolución",
+  otro: "Otro",
+} as const;
+export type TipoAdjuntoCliente = keyof typeof TIPOS_ADJUNTO_CLIENTE;
+
+export interface ClienteAdjunto {
+  id: string;
+  clienteId: string;
+  tipo: TipoAdjuntoCliente;
+  detalle?: string;
+  nombreArchivo: string;
+  tipoMime?: string;
+  tamano?: number;
+  subidoEn: string;
+  subidoPor?: string;
+}

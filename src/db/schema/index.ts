@@ -46,3 +46,5 @@ export * from "./ventaItems";
 export * from "./whatsapp";
 // Después de ./contabilidad: documentos_compra tiene FK a movimientos_contables.
 export * from "./documentosCompra";
+// Después de ./clientes: cliente_adjuntos tiene FK a clientes.id.
+export * from "./clienteAdjuntos";
