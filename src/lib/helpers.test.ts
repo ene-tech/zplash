@@ -1693,22 +1693,27 @@ describe("esExentoHorarioOperador", () => {
 });
 
 describe("puedeRegistrarIngresos", () => {
-  it("sin operador en turno registran todos", () => {
+  it("sin restricción registran todos", () => {
     expect(puedeRegistrarIngresos("p1", "Christian", null)).toBe(true);
   });
 
-  it("con operador en turno solo registra ese", () => {
-    expect(puedeRegistrarIngresos("p1", "Christian", "p1")).toBe(true);
-    expect(puedeRegistrarIngresos("p2", "Verónica", "p1")).toBe(false);
+  it("con operadores habilitados solo registran esos", () => {
+    expect(puedeRegistrarIngresos("p1", "Christian", ["p1", "p3"])).toBe(true);
+    expect(puedeRegistrarIngresos("p3", "Patricio", ["p1", "p3"])).toBe(true);
+    expect(puedeRegistrarIngresos("p2", "Verónica", ["p1", "p3"])).toBe(false);
+  });
+
+  it("con la lista vacía no registra ningún operador", () => {
+    expect(puedeRegistrarIngresos("p1", "Christian", [])).toBe(false);
   });
 
   it("Gerencia y Administración registran siempre", () => {
-    expect(puedeRegistrarIngresos("p7", "Gerencia", "p1")).toBe(true);
-    expect(puedeRegistrarIngresos("p8", "Administración", "p1")).toBe(true);
+    expect(puedeRegistrarIngresos("p7", "Gerencia", ["p1"])).toBe(true);
+    expect(puedeRegistrarIngresos("p8", "Administración", [])).toBe(true);
   });
 
-  it("sin sesión no registra si hay operador en turno", () => {
-    expect(puedeRegistrarIngresos(undefined, undefined, "p1")).toBe(false);
+  it("sin sesión no registra si hay restricción", () => {
+    expect(puedeRegistrarIngresos(undefined, undefined, ["p1"])).toBe(false);
   });
 });
 

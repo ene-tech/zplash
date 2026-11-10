@@ -1,4 +1,4 @@
-import { boolean, index, integer, numeric, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, numeric, pgTable, text } from "drizzle-orm/pg-core";
 import { perfiles } from "./perfiles";
 import { timestamptz } from "./shared";
 
@@ -61,15 +61,19 @@ export const reglasOperador = pgTable("reglas_operador", {
 });
 
 // Quién registra ingresos ahora: una sola fila (id siempre true). Gerencia o
-// Administración elige al operador del turno y el resto de los operadores no
-// puede registrar pasadas por el túnel (ver puedeRegistrarIngresos y el
-// backstop en insertIngresos). perfil_id null = sin restricción, todos los
-// operadores registran, que es como funcionaba antes de esta tabla. Tabla
+// Administración eligen a los operadores del turno y el resto de los
+// operadores no puede registrar pasadas por el túnel (ver
+// puedeRegistrarIngresos y el backstop en insertIngresos). Tabla
 // propia y no columna de `config` porque upsertConfig reescribe la fila
 // entera con lo que trae el navegador y pisaría el cambio de turno.
 export const operadorIngresos = pgTable("operador_ingresos", {
   id: boolean("id").primaryKey().default(true),
-  perfilId: text("perfil_id").references(() => perfiles.id, { onDelete: "set null" }),
+  // Los operadores habilitados. null = sin restricción (todos registran);
+  // una lista = solo esos (vacía = solo Gerencia y Administración). Reemplaza
+  // a perfil_id, que permitía uno solo: la columna sigue en la base pero ya
+  // no se lee. Sin FK (jsonb): un perfil borrado que siga en la lista no
+  // calza con nadie, así que no habilita a nadie.
+  perfilIds: jsonb("perfil_ids").$type<string[] | null>(),
   cambiadoPor: text("cambiado_por"),
   cambiadoEn: timestamptz("cambiado_en").notNull().defaultNow(),
 });

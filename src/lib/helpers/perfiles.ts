@@ -136,14 +136,14 @@ export function esAdministracionOGerencia(nombre?: string): boolean {
   return nombre === "Gerencia" || nombre === "Administración";
 }
 
-/** Si este perfil puede registrar ingresos dado el operador habilitado del
- * turno (ver OperadorIngresos y el módulo "Operador en turno"). Sin operador
- * habilitado (null) registran todos; con uno, solo ese y los perfiles de
- * gestión (Gerencia y Administración), que son quienes lo eligen. */
-export function puedeRegistrarIngresos(perfilId: string | undefined, nombre: string | undefined, habilitadoId: string | null): boolean {
-  if (!habilitadoId) return true;
+/** Si este perfil puede registrar ingresos dados los operadores habilitados
+ * del turno (ver OperadorIngresos y el módulo "Operador en turno"). Sin
+ * restricción (null) registran todos; con una lista, solo esos y los perfiles
+ * de gestión (Gerencia y Administración), que son quienes la arman. */
+export function puedeRegistrarIngresos(perfilId: string | undefined, nombre: string | undefined, habilitados: string[] | null): boolean {
+  if (!habilitados) return true;
   if (esAdministracionOGerencia(nombre)) return true;
-  return !!perfilId && perfilId === habilitadoId;
+  return !!perfilId && habilitados.includes(perfilId);
 }
 
 /** Solo el perfil "Gerencia" puede borrar una categoría de producto o de

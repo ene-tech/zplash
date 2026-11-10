@@ -5,20 +5,13 @@ import { ahoraEnSantiago, dentroDeHorarioOperador, esExentoHorarioOperador, pued
 import { sesionActual } from "@/lib/session";
 import type { ConfigGlobal, Ingreso } from "@/types";
 
-// El bloqueo horario del módulo Operador (ver ConfigGlobal/ConfigTab) se
-// revisa acá, no solo en la UI: la UI ya oculta los botones de registro fuera
-// de horario, pero como todo Server Action queda invocable por POST directo
-// (ver comentario al inicio de src/lib/serverActions/index.ts), este es el único lugar
-// que de verdad puede impedirlo. Se exime a quien tenga acceso a Configuración
-// o sea el perfil "Administración" (ver esExentoHorarioOperador) y se relee
-// `config` desde la base en vez de confiar en el horario que traiga el cliente.
-// Operador en turno: si Gerencia o Administración dejaron a un solo operador
-// registrando ingresos, el resto queda fuera (ver puedeRegistrarIngresos). Si
+// Operador en turno: si Gerencia o Administración dejaron solo a algunos
+// operadores registrando ingresos, el resto queda fuera (ver puedeRegistrarIngresos). Si
 // la tabla no se puede leer no se bloquea: frenar el túnel entero por eso es
 // peor. No exportada: no es una Server Action.
-async function operadorEnTurno(): Promise<string | null> {
+async function operadoresEnTurno(): Promise<string[] | null> {
   try {
-    return (await dataAccess.getOperadorIngresos()).perfilId;
+    return (await dataAccess.getOperadorIngresos()).perfilIds;
   } catch (error) {
     console.error("Error leyendo el operador habilitado para ingresos", error);
     return null;
@@ -32,9 +25,16 @@ async function operadorEnTurno(): Promise<string | null> {
 export async function puedoRegistrarIngresosAhora(): Promise<boolean> {
   const sesion = await sesionActual();
   if (!sesion) return false;
-  return puedeRegistrarIngresos(sesion.id, sesion.nombre, await operadorEnTurno());
+  return puedeRegistrarIngresos(sesion.id, sesion.nombre, await operadoresEnTurno());
 }
 
+// El bloqueo horario del módulo Operador (ver ConfigGlobal/ConfigTab) se
+// revisa acá, no solo en la UI: la UI ya oculta los botones de registro fuera
+// de horario, pero como todo Server Action queda invocable por POST directo
+// (ver comentario al inicio de src/lib/serverActions/index.ts), este es el único lugar
+// que de verdad puede impedirlo. Se exime a quien tenga acceso a Configuración
+// o sea el perfil "Administración" (ver esExentoHorarioOperador) y se relee
+// `config` desde la base en vez de confiar en el horario que traiga el cliente.
 export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
   const sesion = await sesionActual();
   if (!sesion) return false;
@@ -54,7 +54,7 @@ export async function insertIngresos(rows: Ingreso[]): Promise<boolean> {
     // ahoraEnSantiago) para comparar contra el horario configurado.
     if (!dentroDeHorarioOperador(config, ahoraEnSantiago())) return false;
   }
-  if (!puedeRegistrarIngresos(sesion.id, sesion.nombre, await operadorEnTurno())) return false;
+  if (!puedeRegistrarIngresos(sesion.id, sesion.nombre, await operadoresEnTurno())) return false;
   // Un día con la caja ya cerrada no recibe más pasadas por el túnel: su
   // resumen quedó firmado y no se puede volver a mover (ver CierreCaja).
   if (await dataAccess.altaEnDiaCerrado(rows.map((i) => i.fecha))) return false;

@@ -84,17 +84,22 @@ export async function obtenerOperadorIngresos(): Promise<OperadorIngresos | null
   }
 }
 
-/** Habilita a un operador como el único que registra ingresos (o libera con
- * null). Solo Gerencia y Administración. El perfil se valida contra la base:
- * tiene que existir y tener el módulo Operador. */
-export async function fijarOperadorIngresos(perfilId: string | null): Promise<boolean> {
+/** Fija qué operadores registran ingresos (null = todos, sin restricción).
+ * Solo Gerencia y Administración. Del payload se quedan solo los ids de
+ * perfiles que existen y tienen el módulo Operador: uno que ya no lo tenga se
+ * cae de la lista en vez de rechazar el guardado entero. */
+export async function fijarOperadorIngresos(perfilIds: string[] | null): Promise<boolean> {
   const sesion = await sesionActual();
   if (!sesion || !esAdministracionOGerencia(sesion.nombre)) return false;
-  if (perfilId) {
-    const perfil = (await dataAccess.loadPerfilesLogin()).find((p) => p.id === perfilId);
-    if (!perfil || !perfil.modulos.includes("operador")) return false;
-  }
-  return dataAccess.setOperadorIngresos(perfilId, sesion.nombre);
+  if (perfilIds === null) return dataAccess.setOperadorIngresos(null, sesion.nombre);
+  if (!Array.isArray(perfilIds)) return false;
+  const perfiles = await dataAccess.loadPerfilesLogin();
+  // loadPerfilesLogin devuelve [] si la base falla: filtrar contra eso dejaría
+  // la lista vacía y a todos los operadores fuera sin que nadie lo pidiera.
+  if (!perfiles.length) return false;
+  const validos = new Set(perfiles.filter((p) => p.modulos.includes("operador")).map((p) => p.id));
+  const lista = [...new Set(perfilIds.filter((id) => typeof id === "string" && validos.has(id)))];
+  return dataAccess.setOperadorIngresos(lista, sesion.nombre);
 }
 
 /**

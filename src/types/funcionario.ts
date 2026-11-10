@@ -29,11 +29,11 @@ export interface TurnoFuncionario {
   activo: boolean;
 }
 
-/** Quién registra ingresos ahora. perfilId null = sin restricción: todos los
- * operadores registran. Lo fijan Gerencia o Administración desde "Operador
- * en turno" (ver puedeRegistrarIngresos). */
+/** Quién registra ingresos ahora. perfilIds null = sin restricción: todos los
+ * operadores registran; una lista = solo esos. Lo fijan Gerencia o
+ * Administración desde "Operador en turno" (ver puedeRegistrarIngresos). */
 export interface OperadorIngresos {
-  perfilId: string | null;
+  perfilIds: string[] | null;
   cambiadoPor: string | null;
   cambiadoEn: string | null; // ISO
 }

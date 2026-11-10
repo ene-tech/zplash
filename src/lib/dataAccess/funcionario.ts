@@ -105,16 +105,16 @@ export async function upsertReglasOperador(rows: ReglaOperador[]): Promise<boole
 export async function getOperadorIngresos(): Promise<OperadorIngresos> {
   const [row] = await getDb().select().from(operadorIngresos).where(eq(operadorIngresos.id, true)).limit(1);
   return {
-    perfilId: row?.perfilId ?? null,
+    perfilIds: Array.isArray(row?.perfilIds) ? row.perfilIds : null,
     cambiadoPor: row?.cambiadoPor ?? null,
     cambiadoEn: row?.cambiadoEn ? new Date(row.cambiadoEn).toISOString() : null,
   };
 }
 
-export async function setOperadorIngresos(perfilId: string | null, cambiadoPor: string): Promise<boolean> {
+export async function setOperadorIngresos(perfilIds: string[] | null, cambiadoPor: string): Promise<boolean> {
   try {
     await upsertRows(operadorIngresos, operadorIngresos.id, [
-      { id: true, perfilId, cambiadoPor, cambiadoEn: new Date().toISOString() },
+      { id: true, perfilIds, cambiadoPor, cambiadoEn: new Date().toISOString() },
     ]);
     return true;
   } catch (error) {

@@ -109,14 +109,14 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
   const bloqueado = !exento && !dentroDeHorarioOperador(data.config, ahora);
 
   // Operador en turno (ver "Operador en turno" en el hub): si Gerencia o
-  // Administración dejaron a otro operador registrando ingresos, este mesón
+  // Administración dejaron a otros operadores registrando ingresos, este mesón
   // muestra el aviso en vez del panel. El backstop real es insertIngresos;
   // esto se relee cada tanto para que el cambio de turno llegue sin recargar.
   // undefined = todavía no se sabe: no se muestra el panel hasta la primera
   // lectura, para que un operador fuera de turno no alcance a registrar.
   // Gerencia y Administración registran siempre: no consultan.
   const siempreRegistra = esAdministracionOGerencia(ui.perfilActual?.nombre);
-  const [operadorTurnoId, setOperadorTurnoId] = useState<string | null | undefined>(undefined);
+  const [habilitados, setHabilitados] = useState<string[] | null | undefined>(undefined);
   useEffect(() => {
     if (siempreRegistra) return;
     let vivo = true;
@@ -126,10 +126,10 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
           if (!vivo) return;
           // Si la lectura falla se deja registrar (el servidor manda), pero
           // sin tapar un turno ya conocido.
-          setOperadorTurnoId((prev) => (r ? r.perfilId : prev === undefined ? null : prev));
+          setHabilitados((prev) => (r ? r.perfilIds : prev === undefined ? null : prev));
         })
         .catch(() => {
-          if (vivo) setOperadorTurnoId((prev) => (prev === undefined ? null : prev));
+          if (vivo) setHabilitados((prev) => (prev === undefined ? null : prev));
         });
     leer();
     const id = setInterval(() => {
@@ -140,10 +140,11 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       clearInterval(id);
     };
   }, [siempreRegistra]);
-  const turnoCargando = !siempreRegistra && operadorTurnoId === undefined;
+  const turnoCargando = !siempreRegistra && habilitados === undefined;
   const fueraDeTurno =
-    !siempreRegistra && !puedeRegistrarIngresos(ui.perfilActual?.id, ui.perfilActual?.nombre, operadorTurnoId ?? null);
-  const operadorEnTurno = operadorTurnoId ? data.perfiles.find((p) => p.id === operadorTurnoId)?.nombre || null : null;
+    !siempreRegistra && !puedeRegistrarIngresos(ui.perfilActual?.id, ui.perfilActual?.nombre, habilitados ?? null);
+  // Nombres de quienes sí registran, para decírselo al que quedó fuera.
+  const operadoresEnTurno = (habilitados ?? []).flatMap((id) => data.perfiles.find((p) => p.id === id)?.nombre ?? []);
 
   const clearPlate = () => {
     if (plateInputRef.current) plateInputRef.current.value = "";
@@ -381,7 +382,7 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
     bloqueado,
     fueraDeTurno,
     turnoCargando,
-    operadorEnTurno,
+    operadoresEnTurno,
     cuponErr,
     plateErr,
     escaneando,

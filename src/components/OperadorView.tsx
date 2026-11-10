@@ -55,9 +55,9 @@ export default function OperadorView() {
               <div className="scan-panel">
                 <h2>No estás en turno de ingresos</h2>
                 <div className="hint">
-                  {scan.operadorEnTurno
-                    ? `Ahora los ingresos los registra ${scan.operadorEnTurno}.`
-                    : "Ahora los ingresos los registra otro operador."}{" "}
+                  {scan.operadoresEnTurno.length
+                    ? `Ahora los ingresos los registra${scan.operadoresEnTurno.length > 1 ? "n" : ""} ${scan.operadoresEnTurno.join(", ")}.`
+                    : "Ahora los ingresos los registra Administración o Gerencia."}{" "}
                   Si te toca a ti, pídele a Administración o Gerencia que te habilite.
                 </div>
               </div>
