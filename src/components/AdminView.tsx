@@ -10,6 +10,7 @@ import {
   Users,
   Building2,
   FileText,
+  FileInput,
   RefreshCw,
   Ticket,
   CalendarDays,
@@ -33,6 +34,7 @@ const ConfigTab = dynamic(() => import("@/components/tabs/ConfigTab"));
 const VentaEmpresaTab = dynamic(() => import("@/components/tabs/VentaEmpresaTab"));
 const EmpresasTab = dynamic(() => import("@/components/tabs/EmpresasTab"));
 const FacturasTab = dynamic(() => import("@/components/tabs/FacturasTab"));
+const FacturasCompraTab = dynamic(() => import("@/components/tabs/FacturasCompraTab"));
 const AgendaTab = dynamic(() => import("@/components/tabs/AgendaTab"));
 
 // modulo: el que abre la pestaña cuando no es su mismo id (Facturas va con el
@@ -43,6 +45,8 @@ const TABS: { id: string; modulo?: Modulo; label: string; icon: LucideIcon }[] =
   { id: "clientes", label: "Clientes", icon: Users },
   { id: "empresas_facturacion", label: "Empresas", icon: Building2 },
   { id: "facturas", modulo: "empresas_facturacion", label: "Facturas", icon: FileText },
+  // Clasificarlas crea egresos: va con el módulo de Contabilidad.
+  { id: "facturas_compra", modulo: "contabilidad", label: "Facturas de compra", icon: FileInput },
   { id: "suscripciones", label: "Suscripciones", icon: RefreshCw },
   { id: "empresa", label: "B2B/Tickets/Dsctos", icon: Ticket },
   { id: "agenda", label: "Agenda", icon: CalendarDays },
@@ -84,6 +88,7 @@ export default function AdminView() {
         {ui.adminTab === "empresa" && <VentaEmpresaTab />}
         {ui.adminTab === "empresas_facturacion" && <EmpresasTab />}
         {ui.adminTab === "facturas" && <FacturasTab />}
+        {ui.adminTab === "facturas_compra" && <FacturasCompraTab />}
         {ui.adminTab === "perfiles" && <PerfilesTab />}
         {ui.adminTab === "stats" && <StatsTab />}
         {ui.adminTab === "agenda" && <AgendaTab />}

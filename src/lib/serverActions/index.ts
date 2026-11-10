@@ -22,6 +22,7 @@ export * from "./clientes";
 export * from "./config";
 export * from "./contabilidad";
 export * from "./cupones";
+export * from "./documentosCompra";
 export * from "./empresas";
 export * from "./estanques";
 export * from "./facturacion";

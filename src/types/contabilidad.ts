@@ -93,3 +93,37 @@ export interface CategoriaIngreso {
   nombre: string;
   activa: boolean;
 }
+
+// Documento tributario recibido de un proveedor en facturascompra@zplash.cl
+// (ver documentos_compra en @/db/schema y la pestaña Facturas de compra).
+export interface ItemDocumentoCompra {
+  nombre: string;
+  cantidad?: number;
+  precio?: number;
+  monto: number;
+}
+
+export interface DocumentoCompra {
+  id: string;
+  tipoDte: number;
+  folio: number;
+  fechaEmision: string;
+  fechaVencimiento?: string;
+  rutEmisor: string;
+  razonSocialEmisor: string;
+  giroEmisor?: string;
+  montoNeto: number;
+  montoExento: number;
+  iva: number;
+  montoTotal: number;
+  detalle: ItemDocumentoCompra[];
+  correoDe?: string;
+  correoAsunto?: string;
+  recibidoEn: string;
+  estado: "pendiente" | "contabilizado" | "ignorado";
+  clasificacion?: "gasto" | "activo";
+  categoria?: string;
+  movimientoContableId?: string;
+  clasificadoEn?: string;
+  clasificadoPor?: string;
+}
