@@ -17,7 +17,7 @@ export const SERVICIOS_DEFAULT: Servicio[] = [
   { id: "techo", categoria: "Servicios Adicionales", nombre: "Limpieza de Techo", duracionMinutos: 30, activo: true },
   { id: "motor", categoria: "Servicios Adicionales", nombre: "Lavado de Motor", duracionMinutos: 30, activo: true },
   { id: "chasis", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis", duracionMinutos: 30, activo: true },
-  { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis + Ducha Química", duracionMinutos: 30, activo: true },
+  { id: "chasis-grafitado", categoria: "Servicios Adicionales", nombre: "Lavado de Chasis con Ducha Química", duracionMinutos: 30, activo: true },
 ];
 
 /** Categoría del catálogo que implica que el vehículo pasa por el túnel.

@@ -32,7 +32,7 @@ export const PREGUNTAS: FaqPregunta[] = [
   },
   {
     q: "¿El lavado de chasis viene incluido?",
-    a: ["No, el Lavado de Chasis + Ducha Química se cobra aparte."],
+    a: ["No, el Lavado de Chasis con Ducha Química se cobra aparte."],
   },
   {
     q: "¿Puedo comprar lavados para mi empresa?",

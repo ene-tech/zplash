@@ -20,7 +20,7 @@ const PREGUNTAS_FULL_TUNNEL = [
     q: "¿Qué incluye el Lavado Full Tunnel?",
     a: [
       "Un pase completo por nuestro túnel de lavado automático: prelavado, jabón, cepillado, enjuague y secado.",
-      "El Lavado de Chasis + Ducha Química se cobra aparte.",
+      "El Lavado de Chasis con Ducha Química se cobra aparte.",
     ],
   },
   {
@@ -77,7 +77,7 @@ export default async function FullTunnelPage() {
           features={[
             { icon: <Droplets />, titulo: "Lavado completo", detalle: "Prelavado, jabón, cepillado, enjuague y secado en un solo pase." },
             { icon: <Clock />, titulo: "Sin reserva de hora", detalle: "Llega directo al local cuando quieras, sin agendar." },
-            { icon: <ListPlus />, titulo: "Chasis + Ducha Química aparte", detalle: "Si lo necesitas, el Lavado de Chasis + Ducha Química se cobra por separado." },
+            { icon: <ListPlus />, titulo: "Lavado de chasis aparte", detalle: "Si lo necesitas, el Lavado de Chasis con Ducha Química se cobra por separado." },
           ]}
         >
           <div className="price-row" style={{ marginTop: 20, marginBottom: 14 }}>

@@ -164,7 +164,7 @@ export const PRECIOS_DEFAULT: Precios = {
   alfombra: { normal: 19990, promo: 0 },
   techo: { normal: 19990, promo: 0 },
   motor: { normal: 29990, promo: 0 },
-  "chasis-grafitado": { normal: 59990, promo: 0 },
+  "chasis-grafitado": { normal: 29990, promo: 0 },
 };
 
 /** Precios por tamaño para el Lavado Completo Detailing (id "detailing-mediano",

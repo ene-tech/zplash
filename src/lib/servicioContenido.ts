@@ -33,7 +33,19 @@ export const SERVICIO_CONTENIDO: Record<string, ServicioContenido> = {
   },
   "chasis-grafitado": {
     descripcion:
-      "Lavado del chasis a presión más ducha química en los bajos del vehículo, que desprende grasa y suciedad adherida.",
+      "Levantamos el vehículo en elevador, lavamos los bajos con hidrolavadora y aplicamos una ducha química alcalina que retira barro, grasa y aceite, y luego una ducha química ácida que retira el óxido. Se termina con un enjuague.",
+  },
+  "ducha-grafitada": {
+    descripcion:
+      "Se agrega a un Lavado de Chasis: ducha grafitada de color negro que deja el chasis protegido contra la corrosión por 6 meses, y lubricación de los bujes de goma y los soportes bajo el motor y el chasis.",
+  },
+  "transformador-oxido-wurth": {
+    descripcion:
+      "Para vehículos con principios de óxido. Se agrega a un Lavado de Chasis: aplicamos el recubrimiento transformador de óxido Würth, que convierte el óxido superficial en una capa protectora.",
+  },
+  "antigravilla-bajos": {
+    descripcion:
+      "Se agrega a un Lavado de Chasis: aplicación de antigravilla y protector de bajos, que protege el chasis de los golpes de piedras y de la corrosión.",
   },
 };
 
