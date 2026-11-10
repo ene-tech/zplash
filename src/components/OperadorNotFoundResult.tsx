@@ -69,7 +69,7 @@ export default function OperadorNotFoundResult({
             style={{ marginTop: 0, flex: "1 1 160px" }}
             onClick={() => r.setTipoLavado("soloTunel")}
           >
-            Solo túnel, sin aspirado ({fmtCLP(r.precioSoloTunel)})
+            Solo túnel, sin aspirado ({fmtCLP(r.precioSoloTunelConDescuento ?? r.precioSoloTunel)})
           </button>
         )}
         {r.precioPromo2 > 0 && (
@@ -132,6 +132,10 @@ export default function OperadorNotFoundResult({
             <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginBottom: 14 }}>
               Beneficio: {beneficioCupon(r.cuponPrevio)}.
               Lavado Full Túnel queda en {fmtCLP(r.precioConDescuento!)} (antes {fmtCLP(r.precioBaseLavado)}).
+              {r.precioSoloTunel > 0 &&
+                (r.precioSoloTunelConDescuento !== null
+                  ? ` Solo túnel queda en ${fmtCLP(r.precioSoloTunelConDescuento)} (antes ${fmtCLP(r.precioSoloTunel)}).`
+                  : " No aplica al Solo túnel.")}
             </div>
           )}
           <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginTop: 14 }}>

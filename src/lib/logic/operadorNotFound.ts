@@ -4,7 +4,7 @@ import {
   PROMOS_LAVADOS,
   formatRut,
   marcarDescuentoUsado,
-  montoDescuento,
+  precioConCupon,
   precioContratacion,
   precioLavadoUnico,
   precioPromoLavados,
@@ -13,6 +13,7 @@ import {
   SOLO_TUNEL_KEY,
   uid,
   cicloPlanDesde,
+  cuponValeEnSoloTunel,
   type IdPromoLavados,
 } from "@/lib/helpers";
 import { entregarPromoLavados, registrarIngreso } from "./ingresos";
@@ -104,11 +105,18 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
           : precioLavadoUnico(data.precios);
   let precio = precioBase;
   let cuponAplicado: Cupon | undefined;
-  if (d.tipoCliente === "unico" && d.codigoCupon) {
+  // El código rebaja el Lavado Full Túnel y, si su lote lo permite (ver
+  // cuponValeEnSoloTunel), el Solo túnel. Un código que no vale para Solo
+  // túnel se rechaza con aviso: antes se descartaba en silencio y se cobraba
+  // el precio completo (cupón 396FQV, 10-nov-2026).
+  if ((d.tipoCliente === "unico" || d.tipoCliente === "soloTunel") && d.codigoCupon) {
     const resultado = resolverDescuento(d.codigoCupon, nuevo.patente, data.cupones, data.clientes);
     if (!resultado.ok) return { ok: false, error: resultado.msg };
+    if (d.tipoCliente === "soloTunel" && !cuponValeEnSoloTunel(resultado.cupon)) {
+      return { ok: false, error: "Este código es solo para el Lavado Full Túnel" };
+    }
     cuponAplicado = resultado.cupon;
-    precio = Math.max(0, precioBase - montoDescuento(resultado.cupon, precioBase));
+    precio = precioConCupon(precioBase, resultado.cupon);
   }
   const tipoVenta =
     d.tipoCliente === "plan"

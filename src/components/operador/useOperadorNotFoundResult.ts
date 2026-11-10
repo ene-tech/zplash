@@ -8,8 +8,9 @@ import {
   fmtTelefono,
   formatRut,
   isValidRut,
-  montoDescuento,
+  cuponValeEnSoloTunel,
   normPlate,
+  precioConCupon,
   precioLavadoUnico,
   precioPlanOneclick,
   precioPromoLavados,
@@ -90,13 +91,17 @@ export function useOperadorNotFoundResult(
 
   const exentoValidacion = esExentoValidacionRegistroOperador(ui.perfilActual?.modulos || [], ui.perfilActual?.nombre);
 
-  // Vista previa del beneficio mientras se tipea el código: solo aplica al
-  // Lavado Full Túnel (ver quickAdd), nunca a un plan.
+  // Vista previa del beneficio mientras se tipea el código: aplica al Lavado
+  // Full Túnel y, si el lote lo permite, al Solo túnel (ver
+  // prepararClienteRapido); nunca a un plan ni a un pack.
   const precioBaseLavado = precioLavadoUnico(data.precios);
+  const precioBaseSoloTunel = precioSoloTunel(data.precios);
   const codigoTrim = codigoInput.trim();
   const resultadoDescuento = codigoTrim ? resolverDescuento(codigoTrim, normPlate(plate), data.cupones, data.clientes) : null;
   const cuponPrevio = resultadoDescuento?.ok ? resultadoDescuento.cupon : null;
-  const precioConDescuento = cuponPrevio ? Math.max(0, precioBaseLavado - montoDescuento(cuponPrevio, precioBaseLavado)) : null;
+  const precioConDescuento = cuponPrevio ? precioConCupon(precioBaseLavado, cuponPrevio) : null;
+  const precioSoloTunelConDescuento =
+    cuponPrevio && cuponValeEnSoloTunel(cuponPrevio) ? precioConCupon(precioBaseSoloTunel, cuponPrevio) : null;
 
   const quickAdd = () => {
     if (tipoLavado === "plan") return;
@@ -130,7 +135,7 @@ export function useOperadorNotFoundResult(
       direccion: resultado.direccion,
       giro: resultado.giro,
       tipoCliente: tipoLavado,
-      codigoCupon: tipoLavado === "unico" ? qCuponRef.current?.value.trim() || "" : "",
+      codigoCupon: tipoLavado === "unico" || tipoLavado === "soloTunel" ? qCuponRef.current?.value.trim() || "" : "",
       perfilNombre: ui.perfilActual?.nombre,
     });
     if (!preparado.ok) {
@@ -166,9 +171,10 @@ export function useOperadorNotFoundResult(
     // $0 = pack apagado, su botón no se muestra (ver precioPromoLavados).
     precioPromo2: precioPromoLavados(data.precios, "promo_2_lavados"),
     precioPromo5: precioPromoLavados(data.precios, "promo_5_lavados"),
-    precioSoloTunel: precioSoloTunel(data.precios),
+    precioSoloTunel: precioBaseSoloTunel,
     cuponPrevio,
     precioConDescuento,
+    precioSoloTunelConDescuento,
     quickAdd,
     onTelefonoBlur,
     onRutBlur,
