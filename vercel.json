@@ -8,6 +8,7 @@
     { "path": "/api/correo/reglas/evaluar", "schedule": "0 14 * * *" },
     { "path": "/api/correo/filtros/evaluar", "schedule": "*/15 * * * *" },
     { "path": "/api/referidos/premiar", "schedule": "0 15 * * *" },
-    { "path": "/api/compras/recibir", "schedule": "*/15 * * * *" }
+    { "path": "/api/compras/recibir", "schedule": "*/15 * * * *" },
+    { "path": "/api/redes/publicar", "schedule": "*/15 * * * *" }
   ]
 }
