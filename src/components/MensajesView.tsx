@@ -156,7 +156,21 @@ export default function MensajesView() {
     };
   }, [seleccionada]);
 
+  // El poll de 10s reemplaza `mensajes` aunque no haya nada nuevo: bajar al
+  // fondo solo si el usuario ya estaba abajo, para no arrancarlo de donde está
+  // leyendo cuando hace scroll hacia arriba.
+  const pegadoAbajo = useRef(true);
   useEffect(() => {
+    pegadoAbajo.current = true;
+  }, [seleccionada]);
+  const alHacerScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    pegadoAbajo.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
+  useEffect(() => {
+    if (!pegadoAbajo.current) return;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [mensajes]);
 
@@ -176,6 +190,7 @@ export default function MensajesView() {
     const ok = await enviarMensajeManual(conversacionActual.id, conversacionActual.telefono, texto);
     if (ok) {
       setTexto("");
+      pegadoAbajo.current = true;
       const rows = await listarMensajes(conversacionActual.id);
       setMensajes(rows);
     }
@@ -284,7 +299,7 @@ export default function MensajesView() {
                   </div>
                 </div>
 
-                <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+                <div ref={scrollRef} onScroll={alHacerScroll} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
                   {agruparPorDireccion(mensajes).map((grupo) => {
                     const saliente = grupo[0].direccion === "saliente";
                     return (
