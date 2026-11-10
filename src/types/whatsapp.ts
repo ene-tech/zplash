@@ -44,6 +44,7 @@ export interface ConversacionWhatsapp {
   flowState?: FlowStateWhatsapp | null;
   ultimoMensajeEn: string;
   noLeidos: number;
+  etiquetas: string[];
   creadoEn: string;
 }
 

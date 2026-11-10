@@ -18,6 +18,7 @@ export function conversacionFromRow(r: ConversacionRow): ConversacionWhatsapp {
     flowState: r.flowState || undefined,
     ultimoMensajeEn: r.ultimoMensajeEn,
     noLeidos: r.noLeidos,
+    etiquetas: r.etiquetas ?? [],
     creadoEn: r.creadoEn,
   };
 }
@@ -195,6 +196,10 @@ export async function listarMensajes(conversacionId: string, limite = 100): Prom
     .orderBy(desc(mensajesWhatsapp.creadoEn))
     .limit(limite);
   return rows.map(mensajeFromRow).reverse();
+}
+
+export async function actualizarEtiquetasConversacion(conversacionId: string, etiquetas: string[]): Promise<void> {
+  await getDb().update(conversacionesWhatsapp).set({ etiquetas }).where(eq(conversacionesWhatsapp.id, conversacionId));
 }
 
 export async function marcarConversacionLeida(conversacionId: string): Promise<void> {

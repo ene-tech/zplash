@@ -32,6 +32,10 @@ export const conversacionesWhatsapp = pgTable("conversaciones_whatsapp", {
   anuncioOrigenEn: timestamptz("anuncio_origen_en"),
   ultimoMensajeEn: timestamptz("ultimo_mensaje_en").notNull().defaultNow(),
   noLeidos: integer("no_leidos").notNull().default(0),
+  // Etiquetas de texto libre que el equipo le pone al chat desde Mensajes
+  // para saber de qué se trata ("reembolso", "cambio de patente"); se quitan
+  // cuando el tema se resuelve. No las lee el bot.
+  etiquetas: text("etiquetas").array().notNull().default(sql`'{}'::text[]`),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
 });
 

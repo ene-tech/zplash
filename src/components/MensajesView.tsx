@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent, BubbleGroup } from "@/components/ui/bubble";
 import { FichaClienteChat } from "@/components/mensajes/FichaClienteChat";
+import { ChipEtiqueta, EtiquetasChat } from "@/components/mensajes/EtiquetasChat";
 import { BotonCopiar } from "@/components/ui/boton-copiar";
-import { enviarMensajeManual, listarConversaciones, listarMensajes, marcarLeida, probarPushGerencia } from "@/lib/serverActions";
+import { enviarMensajeManual, guardarEtiquetas, listarConversaciones, listarMensajes, marcarLeida, probarPushGerencia } from "@/lib/serverActions";
 import { fmtFecha, fmtHora, formatTelefono, indexarClientesPorTelefono } from "@/lib/helpers";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import type { Cliente, ConversacionWhatsapp, MensajeWhatsapp } from "@/types";
@@ -179,6 +180,19 @@ export default function MensajesView() {
   const clienteActual = fichasActuales[0];
   const puedeEnviarLibre = !fueraDeVentana24h(mensajes);
 
+  const sugerenciasEtiquetas = useMemo(
+    () => [...new Set(conversaciones.flatMap((c) => c.etiquetas))].sort((a, b) => a.localeCompare(b)),
+    [conversaciones]
+  );
+
+  const cambiarEtiquetas = async (conversacionId: string, etiquetas: string[]) => {
+    const fijar = (lista: string[]) =>
+      setConversaciones((prev) => prev.map((x) => (x.id === conversacionId ? { ...x, etiquetas: lista } : x)));
+    fijar(etiquetas);
+    const guardadas = await guardarEtiquetas(conversacionId, etiquetas);
+    if (guardadas) fijar(guardadas);
+  };
+
   const seleccionar = (c: ConversacionWhatsapp) => {
     setSeleccionada(c.id);
     setConversaciones((prev) => prev.map((x) => (x.id === c.id ? { ...x, noLeidos: 0 } : x)));
@@ -260,6 +274,13 @@ export default function MensajesView() {
                     <span className="truncate">{cliente?.patente || c.telefono}</span>
                     <span className="shrink-0">{fmtHora(c.ultimoMensajeEn)}</span>
                   </div>
+                  {c.etiquetas.length > 0 && (
+                    <div className="mt-0.5 flex flex-wrap gap-1">
+                      {c.etiquetas.map((e) => (
+                        <ChipEtiqueta key={e} etiqueta={e} />
+                      ))}
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -295,6 +316,13 @@ export default function MensajesView() {
                         {conversacionActual.telefono}
                       </a>
                       <BotonCopiar texto={conversacionActual.telefono} />
+                    </div>
+                    <div className="mt-1">
+                      <EtiquetasChat
+                        etiquetas={conversacionActual.etiquetas}
+                        sugerencias={sugerenciasEtiquetas}
+                        onCambiar={(etiquetas) => cambiarEtiquetas(conversacionActual.id, etiquetas)}
+                      />
                     </div>
                   </div>
                 </div>

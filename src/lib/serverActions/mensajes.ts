@@ -22,6 +22,16 @@ export async function marcarLeida(conversacionId: string): Promise<boolean> {
   return true;
 }
 
+// Reemplaza la lista completa: la UI manda cómo quedó tras agregar o quitar.
+// Se normaliza acá (sin vacías, sin repetidas, largo acotado) para no depender
+// del cliente.
+export async function guardarEtiquetas(conversacionId: string, etiquetas: string[]): Promise<string[] | null> {
+  if (!(await tieneModulo("mensajes"))) return null;
+  const limpias = [...new Set(etiquetas.map((e) => e.trim().slice(0, 30)).filter(Boolean))].slice(0, 10);
+  await dataAccess.actualizarEtiquetasConversacion(conversacionId, limpias);
+  return limpias;
+}
+
 export async function enviarMensajeManual(conversacionId: string, telefono: string, texto: string): Promise<boolean> {
   if (!(await tieneModulo("mensajes"))) return false;
   const sesion = await sesionActual();
