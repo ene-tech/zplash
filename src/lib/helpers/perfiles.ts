@@ -145,6 +145,14 @@ export function puedeBorrarCategoriaInventario(nombre?: string): boolean {
   return nombre === "Gerencia";
 }
 
+/** Solo el perfil "Gerencia" puede borrar un documento adjunto de la ficha
+ * del cliente (ver AdjuntosCliente y el backstop en eliminarAdjuntoCliente
+ * en @/lib/serverActions): el resto de los perfiles con módulo Clientes solo
+ * sube y mira. Mismo criterio por nombre exacto que puedeBorrarCategoriaInventario. */
+export function puedeBorrarAdjuntoCliente(nombre?: string): boolean {
+  return nombre === "Gerencia";
+}
+
 /** Borrar una fila ya guardada de Historial de Ingresos (ver botón
  * "Eliminar" en IngresosTab y el backstop en deleteIngresos en
  * @/lib/serverActions) queda reservado a "Gerencia" y a quien tenga el módulo

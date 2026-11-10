@@ -1,6 +1,7 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
+import { puedeBorrarAdjuntoCliente } from "@/lib/helpers";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import { TIPOS_ADJUNTO_CLIENTE, type ClienteAdjunto, type TipoAdjuntoCliente } from "@/types";
 
@@ -77,6 +78,16 @@ export async function registrarAdjuntoCliente(datos: {
     subidoPor: sesion.nombre,
   });
   return adjunto ? { ok: true, adjunto } : { ok: false, error: "No se pudo guardar" };
+}
+
+// Solo Gerencia (ver puedeBorrarAdjuntoCliente); el botón de la ficha usa el
+// mismo helper, esto es el backstop porque la action es invocable por POST.
+export async function eliminarAdjuntoCliente(clienteId: string, id: string): Promise<{ ok: boolean; error?: string }> {
+  const sesion = await sesionActual();
+  if (!sesion || !sesion.modulos.includes("clientes") || !puedeBorrarAdjuntoCliente(sesion.nombre))
+    return { ok: false, error: "Solo Gerencia puede borrar adjuntos" };
+  const ok = await dataAccess.eliminarAdjuntoCliente(String(clienteId), String(id));
+  return ok ? { ok } : { ok, error: "No se pudo borrar" };
 }
 
 export async function urlAdjuntoCliente(clienteId: string, id: string): Promise<string | null> {

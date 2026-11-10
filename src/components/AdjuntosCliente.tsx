@@ -4,8 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { listarAdjuntosCliente, prepararAdjuntoCliente, registrarAdjuntoCliente, urlAdjuntoCliente } from "@/lib/serverActions";
-import { fmtDate } from "@/lib/helpers";
+import { useApp } from "@/context/AppContext";
+import {
+  eliminarAdjuntoCliente,
+  listarAdjuntosCliente,
+  prepararAdjuntoCliente,
+  registrarAdjuntoCliente,
+  urlAdjuntoCliente,
+} from "@/lib/serverActions";
+import { fmtDate, puedeBorrarAdjuntoCliente } from "@/lib/helpers";
 import { TIPOS_ADJUNTO_CLIENTE, type ClienteAdjunto, type TipoAdjuntoCliente } from "@/types";
 
 function fmtTamano(b?: number) {
@@ -27,7 +34,10 @@ export default function AdjuntosCliente({ clienteId }: { clienteId: string }) {
   const [detalle, setDetalle] = useState("");
   const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState("");
+  const [borrando, setBorrando] = useState<string | null>(null);
   const inputArchivo = useRef<HTMLInputElement>(null);
+  const { ui } = useApp();
+  const puedeBorrar = puedeBorrarAdjuntoCliente(ui.perfilActual?.nombre);
 
   useEffect(() => {
     let obsoleto = false;
@@ -80,6 +90,21 @@ export default function AdjuntosCliente({ clienteId }: { clienteId: string }) {
     }
   }
 
+  async function borrar(a: ClienteAdjunto) {
+    if (!window.confirm(`¿Borrar "${a.nombreArchivo}"? No se puede deshacer.`)) return;
+    setErr("");
+    setBorrando(a.id);
+    try {
+      const res = await eliminarAdjuntoCliente(clienteId, a.id);
+      if (!res.ok) return setErr(res.error ?? "No se pudo borrar.");
+      setAdjuntos((prev) => (Array.isArray(prev) ? prev.filter((x) => x.id !== a.id) : prev));
+    } catch {
+      setErr("No se pudo borrar (sin conexión).");
+    } finally {
+      setBorrando(null);
+    }
+  }
+
   async function ver(a: ClienteAdjunto) {
     setErr("");
     // La pestaña se abre antes del await: si se abre después, el navegador
@@ -118,9 +143,16 @@ export default function AdjuntosCliente({ clienteId }: { clienteId: string }) {
                   {a.tamano ? ` · ${fmtTamano(a.tamano)}` : ""} · {a.subidoPor || "sin perfil"} · {fmtDate(a.subidoEn)}
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => ver(a)}>
-                Ver
-              </Button>
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="outline" onClick={() => ver(a)}>
+                  Ver
+                </Button>
+                {puedeBorrar && (
+                  <Button size="sm" variant="ghost" onClick={() => borrar(a)} disabled={borrando === a.id}>
+                    {borrando === a.id ? "Borrando…" : "Borrar"}
+                  </Button>
+                )}
+              </div>
             </li>
           ))}
         </ul>

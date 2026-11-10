@@ -70,6 +70,31 @@ export async function insertarAdjuntoCliente(fila: typeof clienteAdjuntos.$infer
   }
 }
 
+/** Borra el archivo del bucket y su fila. Primero el archivo: si falla, la
+ * fila queda y se puede reintentar; al revés quedaría un archivo con datos
+ * del cliente sin nada que lo apunte. */
+export async function eliminarAdjuntoCliente(clienteId: string, id: string): Promise<boolean> {
+  try {
+    const [fila] = await getDb()
+      .select({ ruta: clienteAdjuntos.ruta })
+      .from(clienteAdjuntos)
+      .where(and(eq(clienteAdjuntos.id, id), eq(clienteAdjuntos.clienteId, clienteId)));
+    if (!fila) return false;
+    const { error } = await getSupabaseAdmin().storage.from(BUCKET).remove([fila.ruta]);
+    if (error) {
+      console.error("Error borrando archivo adjunto", error);
+      return false;
+    }
+    await getDb()
+      .delete(clienteAdjuntos)
+      .where(and(eq(clienteAdjuntos.id, id), eq(clienteAdjuntos.clienteId, clienteId)));
+    return true;
+  } catch (error) {
+    console.error("Error borrando adjunto del cliente", error);
+    return false;
+  }
+}
+
 /** URL firmada de 5 minutos para ver/descargar el adjunto, o null si no existe. */
 export async function urlAdjuntoCliente(clienteId: string, id: string): Promise<string | null> {
   const [fila] = await getDb()

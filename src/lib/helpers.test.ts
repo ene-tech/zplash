@@ -94,6 +94,7 @@ import {
   tramoRenovacionVigente,
   proximoIngresoPermitido,
   puedeBorrarCategoriaInventario,
+  puedeBorrarAdjuntoCliente,
   puedeBorrarIngreso,
   soloCambiosSinPlata,
   beneficioCupon,
@@ -1710,6 +1711,15 @@ describe("puedeBorrarCategoriaInventario", () => {
   it("otros perfiles, incluido Administración, no pueden", () => {
     expect(puedeBorrarCategoriaInventario("Administración")).toBe(false);
     expect(puedeBorrarCategoriaInventario(undefined)).toBe(false);
+  });
+});
+
+describe("puedeBorrarAdjuntoCliente", () => {
+  it("solo el perfil Gerencia puede borrar adjuntos de la ficha", () => {
+    expect(puedeBorrarAdjuntoCliente("Gerencia")).toBe(true);
+    expect(puedeBorrarAdjuntoCliente("Administración")).toBe(false);
+    expect(puedeBorrarAdjuntoCliente("gerencia")).toBe(false);
+    expect(puedeBorrarAdjuntoCliente(undefined)).toBe(false);
   });
 });
 
