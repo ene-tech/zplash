@@ -142,7 +142,18 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
                           : "-"
                         : lote
                           ? `${fmtCLP(lote.costoUnitario)} / ${m.unidad}`
-                          : "-"}
+                          : (() => {
+                              // Sin stock: el costo de la ficha (valor + flete), que es el que usan las fórmulas.
+                              const ficha = costoCompraConFlete(m);
+                              return ficha === undefined ? (
+                                "-"
+                              ) : (
+                                <>
+                                  {fmtCLP(Math.round(ficha * 100) / 100)} / {m.unidad}
+                                  <div className="text-xs text-muted-foreground">de la ficha</div>
+                                </>
+                              );
+                            })()}
                     </TableCell>
                     <TableCell>
                       {manoObra ? (
