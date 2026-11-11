@@ -1,6 +1,6 @@
 "use server";
 
-import { asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   formulaComponentes,
@@ -189,10 +189,14 @@ class OperacionInvalida extends Error {}
  * botón de ajuste, para que lotes, historial y costo sigan cuadrando.
  * `anterior` es el stock que vio la pantalla: si otra compra o recepción lo
  * movió mientras se editaba, no se adivina, se rechaza (si no, guardar la
- * ficha deshacía ese movimiento). */
+ * ficha deshacía ese movimiento).
+ * `revalorizar` (costo neto por unidad) deja todo el stock que queda (lotes
+ * con saldo) a ese costo: es cómo la ficha aplica su valor + flete al stock
+ * que ya existía. No toca recepciones ni movimientos ya registrados. */
 export async function guardarMateriaPrima(
   mp: MateriaPrima,
-  stock?: { anterior: number; existente: number; costoUnitario?: number }
+  stock?: { anterior: number; existente: number; costoUnitario?: number },
+  revalorizar?: number
 ): Promise<Resultado> {
   const sesion = await sesionActual();
   if (!sesion?.modulos.includes("fabricacion")) return SIN_ACCESO;
@@ -213,6 +217,7 @@ export async function guardarMateriaPrima(
   const manoObra = mp.tipo === "mano_obra";
   if (manoObra && !(mp.costoManoObra !== undefined && mp.costoManoObra >= 0)) return { ok: false, error: "Indica el costo neto de la mano de obra" };
   if (manoObra && stock) return { ok: false, error: "La mano de obra no tiene stock" };
+  if (revalorizar !== undefined && (manoObra || !(revalorizar >= 0))) return { ok: false, error: "Costo para revalorizar el stock inválido" };
   const id = mp.id || uid();
   // La mano de obra no lleva formato, precio de fábrica ni mínimo: no tiene stock.
   const campos = {
@@ -246,9 +251,16 @@ export async function guardarMateriaPrima(
         throw new OperacionInvalida("El stock cambió mientras editabas (otra compra o recepción). Cierra, revisa el stock nuevo y vuelve a intentar");
       }
       await tx.insert(materiasPrimas).values({ id, ...campos }).onConflictDoUpdate({ target: materiasPrimas.id, set: campos });
-      if (!stock) return;
-      const delta = redondearCantidad(stock.existente - (actual?.stock ?? 0));
-      if (delta) await moverStockTx(tx, id, "ajuste", delta, delta > 0 ? stock.costoUnitario : undefined, "Stock existente (ficha)", sesion.nombre);
+      if (stock) {
+        const delta = redondearCantidad(stock.existente - (actual?.stock ?? 0));
+        if (delta) await moverStockTx(tx, id, "ajuste", delta, delta > 0 ? stock.costoUnitario : undefined, "Stock existente (ficha)", sesion.nombre);
+      }
+      if (revalorizar !== undefined) {
+        await tx
+          .update(lotesMateriaPrima)
+          .set({ costoUnitario: revalorizar })
+          .where(and(eq(lotesMateriaPrima.materiaPrimaId, id), gt(lotesMateriaPrima.restante, 0)));
+      }
     });
     return { ok: true };
   } catch (error) {

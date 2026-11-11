@@ -106,7 +106,7 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
               <TableHead>Nombre</TableHead>
               <TableHead>Formato compra</TableHead>
               <TableHead>Nuestro stock</TableHead>
-              <TableHead className="text-right">Monto en stock</TableHead>
+              <TableHead className="text-center">Monto en stock</TableHead>
               <TableHead>Costo actual (FIFO)</TableHead>
               <TableHead>Precio fábrica</TableHead>
               <TableHead>Mínimo</TableHead>
@@ -134,7 +134,7 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
                     <TableCell style={m.stockMin > 0 && m.stock < m.stockMin ? { color: "var(--red)", fontWeight: 600 } : undefined}>
                       {manoObra ? <span className="text-muted-foreground">Sin stock (inagotable)</span> : `${fmtCantidad(m.stock)} ${m.unidad}`}
                     </TableCell>
-                    <TableCell className="text-right">{manoObra ? <span className="text-muted-foreground">-</span> : fmtCLP(Math.round(montoPorMp.get(m.id) ?? 0))}</TableCell>
+                    <TableCell className="text-center">{manoObra ? <span className="text-muted-foreground">-</span> : fmtCLP(Math.round(montoPorMp.get(m.id) ?? 0))}</TableCell>
                     <TableCell>
                       {manoObra
                         ? m.costoManoObra !== undefined
@@ -196,7 +196,7 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
                   Total {filtroTipo === "todos" ? "" : TIPOS.find((t) => t.value === filtroTipo)?.plural.toLowerCase()}
                   {q ? " (filtrado)" : ""}
                 </TableCell>
-                <TableCell className="text-right font-semibold">{fmtCLP(Math.round(montoLista))}</TableCell>
+                <TableCell className="text-center font-semibold">{fmtCLP(Math.round(montoLista))}</TableCell>
                 <TableCell colSpan={4} />
               </TableRow>
             </TableFooter>
@@ -204,7 +204,14 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
         </Table>
       </div>
 
-      {editando && <MateriaPrimaDialog mp={editando} onClose={() => setEditando(null)} recargar={recargar} />}
+      {editando && (
+        <MateriaPrimaDialog
+          mp={editando}
+          lotes={datos.lotes.filter((l) => l.materiaPrimaId === editando.id && l.restante > 0)}
+          onClose={() => setEditando(null)}
+          recargar={recargar}
+        />
+      )}
       {moviendo && <MovimientoDialog mp={moviendo.mp} tipo={moviendo.tipo} onClose={() => setMoviendo(null)} recargar={recargar} />}
       {historial && <HistorialDialog mp={historial} datos={datos} onClose={() => setHistorial(null)} />}
     </div>
@@ -273,7 +280,18 @@ const MEDIDAS_MANO_OBRA = [
   { value: "un", label: "Por unidad producida" },
 ];
 
-function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClose: () => void; recargar: () => Promise<void> }) {
+function MateriaPrimaDialog({
+  mp,
+  lotes,
+  onClose,
+  recargar,
+}: {
+  mp: MateriaPrima;
+  /** Lotes con saldo de esta materia prima. */
+  lotes: FabricacionTabProps["datos"]["lotes"];
+  onClose: () => void;
+  recargar: () => Promise<void>;
+}) {
   const [form, setForm] = useState({
     nombre: mp.nombre,
     tipo: mp.tipo,
@@ -293,6 +311,7 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
     fleteTotal: mp.fleteTotal !== undefined ? String(mp.fleteTotal) : "",
     fleteCantidad: mp.fleteCantidad ? aTexto(mp.fleteCantidad) : "",
     activa: mp.activa,
+    revalorizar: true,
   });
   const [guardando, setGuardando] = useState(false);
 
@@ -328,6 +347,12 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
   // El stock que entra se costea con el valor de compra de la ficha más el flete prorrateado de la ficha.
   const cantidadEntra = sube ? stockNuevo - mp.stock : 0;
   const costoEntra = costoCompra(cantidadEntra, precioCompra ?? 0, fleteUnidad * cantidadEntra);
+  // El monto en stock sale de los lotes; si su costo no es el de la ficha (valor + flete), se ofrece dejarlo a ese costo.
+  const montoActual = lotes.reduce((s, l) => s + l.restante * l.costoUnitario, 0);
+  const stockLotes = lotes.reduce((s, l) => s + l.restante, 0);
+  const ofreceRevalorizar =
+    !manoObra && costoConFlete !== undefined && form.unidad === mp.unidad && lotes.some((l) => Math.abs(l.costoUnitario - costoConFlete) > 0.005);
+  const revalorizar = ofreceRevalorizar && form.revalorizar ? costoConFlete : undefined;
 
   const guardar = async () => {
     if (manoObra) {
@@ -369,7 +394,8 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
         stockMin: parseDecimal(form.minimo),
         activa: form.activa,
       },
-      stockTocado ? { anterior: mp.stock, existente: stockNuevo, costoUnitario: sube ? costoEntra.unitario : undefined } : undefined
+      stockTocado ? { anterior: mp.stock, existente: stockNuevo, costoUnitario: sube ? costoEntra.unitario : undefined } : undefined,
+      revalorizar
     );
     setGuardando(false);
     if (!r.ok) return toast.error(r.error);
@@ -527,6 +553,17 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
                   )}
                   <span className="text-xs text-muted-foreground">Es el costo que usan las fórmulas cuando no hay lote, y el del stock que agregues aquí.</span>
                 </div>
+              )}
+              {ofreceRevalorizar && (
+                <label className="flex items-start gap-2 rounded-lg border border-border p-2 text-sm">
+                  <Checkbox className="mt-0.5" checked={form.revalorizar} onCheckedChange={(c) => setForm({ ...form, revalorizar: c === true })} />
+                  <span>
+                    Dejar el stock actual ({fmtCantidad(stockLotes)} {form.unidad}) a {fmtCLP(Math.round(costoConFlete! * 100) / 100)} por {form.unidad}
+                    <span className="block text-xs text-muted-foreground">
+                      Monto en stock: {fmtCLP(Math.round(montoActual))} → {fmtCLP(Math.round(stockLotes * costoConFlete!))}. No cambia recepciones ya registradas.
+                    </span>
+                  </span>
+                </label>
               )}
 
               <div className="grid gap-1.5">
