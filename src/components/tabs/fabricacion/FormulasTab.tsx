@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP } from "@/lib/helpers";
-import { compararCategoria, costoEstimadoPorUnidad, redondearCantidad, SIN_CATEGORIA } from "@/lib/logic";
+import { compararCategoria, costoEstimadoPorUnidad, costoMezclaPorLitro, redondearCantidad, SIN_CATEGORIA } from "@/lib/logic";
 import { eliminarFormula, eliminarPresentacion, guardarFormula, guardarPresentacion } from "@/lib/serverActions";
 import type { Formula, Presentacion } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, X } from "lucide-react";
 import SelectFab from "./SelectFab";
-import { aTexto, fmtCantidad, fmtFormato, parseDecimal, type FabricacionTabProps } from "./shared";
+import { aTexto, fmtCantidad, fmtFormato, fmtFormatoCompra, parseDecimal, type FabricacionTabProps } from "./shared";
 
 export default function FormulasTab({ datos, recargar }: FabricacionTabProps) {
   const { data, patchUi } = useApp();
@@ -66,6 +66,7 @@ export default function FormulasTab({ datos, recargar }: FabricacionTabProps) {
                 {g.formulas.map((f) => {
                   const suma = f.componentes.reduce((s, c) => s + c.porcentaje, 0);
                   const pres = datos.presentaciones.filter((p) => p.formulaId === f.id);
+                  const porLitro = costoMezclaPorLitro(f, datos.materiasPrimas, datos.lotes);
                   return (
                     <div key={f.id} className="rounded-lg border border-border bg-card p-3 text-sm">
                       <div className="mb-2 flex items-center justify-between gap-2">
@@ -86,13 +87,35 @@ export default function FormulasTab({ datos, recargar }: FabricacionTabProps) {
                           </Button>
                         </div>
                       </div>
-                      {f.componentes.map((c) => (
-                        <div key={c.id} className="flex justify-between">
-                          <span>{mpPorId.get(c.materiaPrimaId)?.nombre || "?"}</span>
-                          <span>{fmtCantidad(c.porcentaje)}%</span>
-                        </div>
-                      ))}
-                      <div className={`text-right ${Math.abs(suma - 100) > 0.01 ? "text-destructive" : "text-muted-foreground"}`}>Suma {fmtCantidad(suma)}%</div>
+                      <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+                        <span>Producto</span>
+                        <span className="flex gap-3">
+                          <span className="w-14 text-right">%</span>
+                          <span className="w-20 text-right">Costo por L</span>
+                        </span>
+                      </div>
+                      {f.componentes.map((c) => {
+                        const linea = porLitro.detalle.find((d) => d.materiaPrimaId === c.materiaPrimaId);
+                        return (
+                          <div key={c.id} className="flex justify-between gap-2">
+                            <span>{mpPorId.get(c.materiaPrimaId)?.nombre || "?"}</span>
+                            <span className="flex gap-3">
+                              <span className="w-14 text-right">{fmtCantidad(c.porcentaje)}%</span>
+                              <span className={`w-20 text-right ${linea?.sinPrecio ? "text-destructive" : ""}`}>
+                                {linea?.sinPrecio ? "sin costo" : fmtCLP(Math.round(linea?.costo ?? 0))}
+                              </span>
+                            </span>
+                          </div>
+                        );
+                      })}
+                      <div className="flex justify-between gap-2 border-t border-border pt-1">
+                        <span className="font-medium">Total mezcla</span>
+                        <span className="flex gap-3">
+                          <span className={`w-14 text-right ${Math.abs(suma - 100) > 0.01 ? "text-destructive" : "text-muted-foreground"}`}>{fmtCantidad(suma)}%</span>
+                          <strong className="w-20 text-right">{fmtCLP(porLitro.total)}</strong>
+                        </span>
+                      </div>
+                      {porLitro.sinPrecio && <div className="text-right text-xs text-destructive">Total incompleto: falta costo de algún producto</div>}
                       {f.notas && <div className="mt-1 text-muted-foreground">{f.notas}</div>}
 
                       <div className="mt-3 border-t border-border pt-2">
@@ -111,18 +134,31 @@ export default function FormulasTab({ datos, recargar }: FabricacionTabProps) {
                           const costo = costoEstimadoPorUnidad(p, f, datos.materiasPrimas, datos.lotes);
                           return (
                             <div key={p.id} className={`flex items-start justify-between gap-2 border-b border-border py-1.5 ${p.activa ? "" : "opacity-50"}`}>
-                              <div>
+                              <div className="min-w-0 flex-1">
                                 <div>
                                   {destinoNombre(p)} <span className="text-muted-foreground">· {fmtFormato(p.mlPorUnidad)} · {p.productoId ? "tienda" : "insumo"}</span>
                                 </div>
-                                <div className="text-muted-foreground">
-                                  Maquila {fmtCLP(p.maquilaPorUnidad)}
-                                  {p.componentes.length > 0 &&
-                                    ` · ${p.componentes.map((c) => `${fmtCantidad(c.cantidadPorUnidad)} ${mpPorId.get(c.materiaPrimaId)?.nombre || "?"}`).join(", ")}`}
-                                </div>
-                                <div className="text-muted-foreground">
-                                  Costo estimado por unidad: <strong className="text-foreground">{fmtCLP(costo.total)}</strong>
-                                  {costo.sinPrecio && <span className="text-destructive"> (falta costo de alguna materia prima)</span>}
+                                <div className="mt-1 grid gap-0.5 text-muted-foreground">
+                                  {costo.detalle.map((d) => {
+                                    const mp = mpPorId.get(d.materiaPrimaId);
+                                    return (
+                                      <div key={`${d.parte}-${d.materiaPrimaId}`} className="flex justify-between gap-3">
+                                        <span>
+                                          {mp?.nombre || "?"} · {fmtFormatoCompra(d.cantidad, mp?.unidad || "")}
+                                        </span>
+                                        <span className={d.sinPrecio ? "text-destructive" : ""}>{d.sinPrecio ? "sin costo" : fmtCLP(Math.round(d.costo))}</span>
+                                      </div>
+                                    );
+                                  })}
+                                  <div className="flex justify-between gap-3">
+                                    <span>Maquila</span>
+                                    <span>{fmtCLP(p.maquilaPorUnidad)}</span>
+                                  </div>
+                                  <div className="flex justify-between gap-3 border-t border-border pt-0.5">
+                                    <span>Costo estimado por unidad</span>
+                                    <strong className="text-foreground">{fmtCLP(costo.total)}</strong>
+                                  </div>
+                                  {costo.sinPrecio && <span className="text-destructive">Falta costo de algún producto</span>}
                                 </div>
                               </div>
                               <div className="flex gap-1">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Formula, LoteMateriaPrima, MateriaPrima, Presentacion } from "@/types";
-import { calcularRecepcion, compararCategoria, consumirFifo, costoEstimadoPorUnidad, filasProductosTerminados, totalesConIva, validarFormula, validarPresentacion } from "./fabricacion";
+import { calcularRecepcion, compararCategoria, consumirFifo, costoEstimadoPorUnidad, costoMezclaPorLitro, filasProductosTerminados, totalesConIva, validarFormula, validarPresentacion } from "./fabricacion";
 
 const mp = (id: string, precioFabrica?: number, unidad = "L"): MateriaPrima => ({
   id,
@@ -121,7 +121,26 @@ describe("costoEstimadoPorUnidad", () => {
   it("usa el lote más antiguo o el precio de fábrica, y avisa si falta precio", () => {
     const c = costoEstimadoPorUnidad(pres[0], formulas[0], materias, [lote("fragA", "fragancia", 1, 20000)]);
     // fragancia 0,01 L × 20.000 + alcohol 0,09 L × 2.500 = 425; frasco sin lote ni precio
-    expect(c).toEqual({ maquila: 200, mezcla: 425, envases: 0, materias: 425, total: 625, sinPrecio: true });
+    expect(c).toMatchObject({ maquila: 200, mezcla: 425, envases: 0, materias: 425, total: 625, sinPrecio: true });
+    // El detalle trae el costo de cada producto usado y marca el que no tiene costo.
+    expect(c.detalle.map((d) => [d.materiaPrimaId, d.parte, Math.round(d.costo), d.sinPrecio])).toEqual([
+      ["fragancia", "mezcla", 200, false],
+      ["alcohol", "mezcla", 225, false],
+      ["frasco", "envase", 0, true],
+    ]);
+  });
+
+  it("sin lote ni precio de fábrica, valoriza al valor neto de compra de la ficha", () => {
+    const conCompra = materias.map((m) => (m.id === "frasco" ? { ...m, precioCompra: 150 } : m));
+    const c = costoEstimadoPorUnidad(pres[0], formulas[0], conCompra, [lote("fragA", "fragancia", 1, 20000)]);
+    expect(c).toMatchObject({ envases: 150, total: 775, sinPrecio: false });
+  });
+
+  it("costea 1 litro de la mezcla por producto", () => {
+    const c = costoMezclaPorLitro(formulas[0], materias, [lote("fragA", "fragancia", 1, 20000)]);
+    // fragancia 0,1 L × 20.000 + alcohol 0,9 L × 2.500
+    expect(c.total).toBe(4250);
+    expect(c.detalle.map((d) => Math.round(d.costo))).toEqual([2000, 2250]);
   });
 });
 

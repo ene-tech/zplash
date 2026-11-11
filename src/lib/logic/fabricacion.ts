@@ -38,21 +38,35 @@ export function requerimientoPorUnidad(p: Presentacion, formula: Formula): Map<s
   return req;
 }
 
+/** Costo de un producto usado en una unidad (mezcla o envase), sin redondear. */
+export interface CostoComponente {
+  materiaPrimaId: string;
+  parte: "mezcla" | "envase";
+  /** En la unidad de la materia prima (L, kg, un, hr). */
+  cantidad: number;
+  costo: number;
+  /** No alcanza lo nuestro y no hay precio de fábrica ni de compra: costo incompleto. */
+  sinPrecio: boolean;
+}
+
 /** Costo estimado de una unidad con los lotes y precios de hoy, con el
  * mismo criterio que una recepción: lo nuestro sale de los lotes en orden
- * FIFO y lo que falta lo pone la fábrica a su precio. Es una referencia; el
- * costo real queda en cada recepción. `sinPrecio` = alguna materia prima no
- * alcanza con lo nuestro y la fábrica no la pone (costo incompleto). */
+ * FIFO y lo que falta lo pone la fábrica a su precio. Si la fábrica no la
+ * pone, lo que falta se valoriza al valor neto de compra de la ficha (lo que
+ * costaría comprarla). Es una referencia; el costo real queda en cada
+ * recepción. `sinPrecio` = a alguna materia prima le falta costo (incompleto).
+ * `detalle` trae el costo de cada producto usado. */
 export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materias: MateriaPrima[], lotes: LoteMateriaPrima[]) {
   const mpPorId = new Map(materias.map((m) => [m.id, m]));
-  let sinPrecio = false;
-  const costear = (req: Map<string, number>) => {
-    let total = 0;
+  const detalle: CostoComponente[] = [];
+  const costear = (req: Map<string, number>, parte: CostoComponente["parte"]) => {
     for (const [id, cantidad] of req) {
       const mp = mpPorId.get(id);
+      const linea: CostoComponente = { materiaPrimaId: id, parte, cantidad, costo: 0, sinPrecio: false };
+      detalle.push(linea);
       if (mp?.tipo === "mano_obra") {
-        if (mp.costoManoObra === undefined) sinPrecio = true;
-        else total += cantidad * mp.costoManoObra;
+        if (mp.costoManoObra === undefined) linea.sinPrecio = true;
+        else linea.costo = cantidad * mp.costoManoObra;
         continue;
       }
       let pendiente = cantidad;
@@ -60,27 +74,37 @@ export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materi
         if (pendiente <= 0) break;
         if (l.materiaPrimaId !== id || l.restante <= 0) continue;
         const toma = Math.min(l.restante, pendiente);
-        total += toma * l.costoUnitario;
+        linea.costo += toma * l.costoUnitario;
         pendiente -= toma;
       }
       if (pendiente > 1e-9) {
-        const precio = mpPorId.get(id)?.precioFabrica;
-        if (precio === undefined) sinPrecio = true;
-        else total += pendiente * precio;
+        const precio = mp?.precioFabrica ?? mp?.precioCompra;
+        if (precio === undefined) linea.sinPrecio = true;
+        else linea.costo += pendiente * precio;
       }
     }
-    return Math.round(total);
   };
-  const mezcla = costear(requerimientoMezcla(p, formula));
-  const envases = costear(requerimientoEnvases(p));
+  costear(requerimientoMezcla(p, formula), "mezcla");
+  costear(requerimientoEnvases(p), "envase");
+  const suma = (parte: CostoComponente["parte"]) => Math.round(detalle.filter((d) => d.parte === parte).reduce((s, d) => s + d.costo, 0));
+  const mezcla = suma("mezcla");
+  const envases = suma("envase");
   return {
     maquila: p.maquilaPorUnidad,
     mezcla,
     envases,
     materias: mezcla + envases,
     total: p.maquilaPorUnidad + mezcla + envases,
-    sinPrecio,
+    sinPrecio: detalle.some((d) => d.sinPrecio),
+    detalle,
   };
+}
+
+/** Costo estimado de 1 litro de la mezcla (sin envases ni maquila), con el detalle por producto. */
+export function costoMezclaPorLitro(formula: Formula, materias: MateriaPrima[], lotes: LoteMateriaPrima[]) {
+  const litro: Presentacion = { id: "", formulaId: formula.id, mlPorUnidad: 1000, maquilaPorUnidad: 0, activa: true, componentes: [] };
+  const c = costoEstimadoPorUnidad(litro, formula, materias, lotes);
+  return { total: c.mezcla, sinPrecio: c.sinPrecio, detalle: c.detalle };
 }
 
 /** Una fila de la planilla "Productos terminados": una por presentación. */
