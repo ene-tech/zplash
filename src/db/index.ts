@@ -40,7 +40,13 @@ export function getDb(): PostgresJsDatabase<typeof schema> {
     // tabla; es seguro porque el pooler en modo transacción está hecho para
     // absorber muchas conexiones cliente concurrentes (a diferencia del modo
     // sesión).
-    const client = postgres(url, { prepare: false, max: 64 });
+    //
+    // idle_timeout:20 (segundos): sin esto postgres.js nunca cierra una
+    // conexión ociosa, y cada instancia de Vercel que siguió viva retiene sus
+    // hasta 64 conexiones. Con varias instancias a la vez (p. ej. tras varios
+    // deploys seguidos) se llenaron los 200 clientes del pooler de Supabase
+    // (EMAXCONN, 11-nov-2026). Solo cierra conexiones sin query en curso.
+    const client = postgres(url, { prepare: false, max: 64, idle_timeout: 20 });
     globalForDb.db = drizzle(client, { schema });
   }
   return globalForDb.db;
