@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAppData } from "@/context/AppContext";
+import { useAppData, useAppUi } from "@/context/AppContext";
 import {
   anularSuscripcion,
   cobrarSuscripcionManual,
@@ -28,7 +28,9 @@ import {
   fmtVencimiento,
   formatTelefono,
   isValidTelefono,
+  MODULOS_BORRAN_CUPONES,
   periodoPlan,
+  tieneAlgunoDe,
   visitasDesdeContratacion,
   visitasPeriodoPlan,
   TIPO_VENTA_REEMBOLSO,
@@ -103,14 +105,17 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
     }
   }
 
-  // Quitarle un descuento mal emitido sin ir a B2B/Tickets: mismo commit que
-  // usa esa tabla (useCuponesList.eliminar), que se lleva la fila de la base.
-  // Solo descuentos: los "vale" pueden venir de un Pack Empresa pagado, y esos
-  // se siguen borrando desde B2B/Tickets. Confirmación en dos pasos acá mismo
-  // (como "Cobrar ahora"): el ConfirmModal global reemplazaría esta ficha.
+  // Quitarle un descuento o ticket de lavado mal emitido sin ir a B2B/Tickets:
+  // mismo commit que usa esa tabla (useCuponesList.eliminar), que se lleva la
+  // fila de la base. Confirmación en dos pasos acá mismo (como "Cobrar
+  // ahora"): el ConfirmModal global reemplazaría esta ficha.
   const [confirmarBorrar, setConfirmarBorrar] = useState("");
+  // El servidor solo deja borrar cupones a MODULOS_BORRAN_CUPONES (un perfil
+  // solo "operador" no puede): sin esto el botón terminaría en "sin conexión".
+  const { ui } = useAppUi();
+  const puedeBorrarCupones = tieneAlgunoDe(ui.perfilActual?.modulos, MODULOS_BORRAN_CUPONES);
 
-  function eliminarDescuento(cup: Cupon) {
+  function eliminarCupon(cup: Cupon) {
     setConfirmarBorrar("");
     commit({ cupones: appData.cupones.filter((x) => x.id !== cup.id) });
   }
@@ -692,10 +697,12 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                       </Button>
                     ))
                   )}
-                  {cup.tipo === "descuento" &&
-                    (confirmarBorrar === cup.id ? (
+                  {!puedeBorrarCupones ? null : confirmarBorrar === cup.id ? (
                       <>
-                        <Button size="sm" variant="destructive" onClick={() => eliminarDescuento(cup)}>
+                        <span className="text-xs text-muted-foreground">
+                          ¿Eliminar {cup.tipo === "descuento" ? "este descuento" : "este ticket"}? Deja de funcionar en el local y la web.
+                        </span>
+                        <Button size="sm" variant="destructive" onClick={() => eliminarCupon(cup)}>
                           Sí, eliminar
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => setConfirmarBorrar("")}>
@@ -711,7 +718,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                       >
                         Eliminar
                       </Button>
-                    ))}
+                    )}
                   {envios[cup.codigo] && <span className="text-xs text-muted-foreground">{envios[cup.codigo]}</span>}
                   <span className="w-full text-xs text-muted-foreground">{detalleCupon(cup).join(" · ")}</span>
                 </div>
