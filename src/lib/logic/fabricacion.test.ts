@@ -143,6 +143,17 @@ describe("costoEstimadoPorUnidad", () => {
     expect(c).toMatchObject({ envases: 200, sinPrecio: false });
   });
 
+  it("los insumos de la fórmula van por unidad, no en %, y se suman a la presentación", () => {
+    const conItems: Formula = { ...formulas[0], componentes: [...formulas[0].componentes, { id: "c3", materiaPrimaId: "frasco", porcentaje: 0, cantidadPorUnidad: 1 }] };
+    const conCompra = materias.map((m) => (m.id === "frasco" ? { ...m, precioCompra: 150 } : m));
+    // la presentación ya trae 1 frasco: con el de la fórmula son 2 (300); la mezcla no cambia
+    const c = costoEstimadoPorUnidad(pres[0], conItems, conCompra, [lote("fragA", "fragancia", 1, 20000)]);
+    expect(c).toMatchObject({ mezcla: 425, envases: 300 });
+    expect(validarFormula(conItems)).toEqual([]);
+    const litro = costoMezclaPorLitro(conItems, conCompra, [lote("fragA", "fragancia", 1, 20000)]);
+    expect(litro).toMatchObject({ total: 4250, totalItems: 150, sinPrecio: false });
+  });
+
   it("costea 1 litro de la mezcla por producto", () => {
     const c = costoMezclaPorLitro(formulas[0], materias, [lote("fragA", "fragancia", 1, 20000)]);
     // fragancia 0,1 L × 20.000 + alcohol 0,9 L × 2.500

@@ -47,7 +47,11 @@ export interface LoteMateriaPrima {
 export interface FormulaComponente {
   id: string;
   materiaPrimaId: string;
+  /** % del volumen de la mezcla (0 si es un ítem por unidad). */
   porcentaje: number;
+  /** Insumo o mano de obra: cantidad por unidad producida (1 frasco, 0,05 hr),
+   * se suma a todas las presentaciones de la fórmula. Sin valor = mezcla en %. */
+  cantidadPorUnidad?: number;
 }
 
 export interface Formula {

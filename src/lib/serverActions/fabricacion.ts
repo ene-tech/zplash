@@ -108,7 +108,7 @@ function formulasFromRows(fs: (typeof formulas.$inferSelect)[], comps: (typeof f
     notas: f.notas || undefined,
     componentes: comps
       .filter((c) => c.formulaId === f.id)
-      .map((c) => ({ id: c.id, materiaPrimaId: c.materiaPrimaId, porcentaje: c.porcentaje })),
+      .map((c) => ({ id: c.id, materiaPrimaId: c.materiaPrimaId, porcentaje: c.porcentaje, cantidadPorUnidad: c.cantidadPorUnidad ?? undefined })),
   }));
 }
 
@@ -403,7 +403,15 @@ export async function guardarFormula(formula: Formula): Promise<Resultado> {
       if (formula.componentes.length) {
         await tx
           .insert(formulaComponentes)
-          .values(formula.componentes.map((c, i) => ({ id: `${id}-${i}-${uid()}`, formulaId: id, materiaPrimaId: c.materiaPrimaId, porcentaje: c.porcentaje })));
+          .values(
+            formula.componentes.map((c, i) => ({
+              id: `${id}-${i}-${uid()}`,
+              formulaId: id,
+              materiaPrimaId: c.materiaPrimaId,
+              porcentaje: c.cantidadPorUnidad !== undefined ? 0 : c.porcentaje,
+              cantidadPorUnidad: c.cantidadPorUnidad ?? null,
+            }))
+          );
       }
     });
     return { ok: true };

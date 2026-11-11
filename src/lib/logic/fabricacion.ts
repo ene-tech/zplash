@@ -19,13 +19,20 @@ export function compararCategoria(a: string, b: string): number {
 function requerimientoMezcla(p: Presentacion, formula: Formula): Map<string, number> {
   const req = new Map<string, number>();
   const litros = p.mlPorUnidad / 1000;
-  for (const c of formula.componentes) req.set(c.materiaPrimaId, (req.get(c.materiaPrimaId) ?? 0) + litros * (c.porcentaje / 100));
+  for (const c of formula.componentes) {
+    if (c.cantidadPorUnidad !== undefined) continue;
+    req.set(c.materiaPrimaId, (req.get(c.materiaPrimaId) ?? 0) + litros * (c.porcentaje / 100));
+  }
   return req;
 }
 
-/** Cuánto de cada envase (u otro ítem fijo) lleva UNA unidad. */
-function requerimientoEnvases(p: Presentacion): Map<string, number> {
+/** Cuánto de cada envase (u otro ítem fijo) lleva UNA unidad: los ítems por
+ * unidad de la fórmula más los de la presentación. */
+function requerimientoEnvases(p: Presentacion, formula: Formula): Map<string, number> {
   const req = new Map<string, number>();
+  for (const c of formula.componentes) {
+    if (c.cantidadPorUnidad !== undefined) req.set(c.materiaPrimaId, (req.get(c.materiaPrimaId) ?? 0) + c.cantidadPorUnidad);
+  }
   for (const c of p.componentes) req.set(c.materiaPrimaId, (req.get(c.materiaPrimaId) ?? 0) + c.cantidadPorUnidad);
   return req;
 }
@@ -34,7 +41,7 @@ function requerimientoEnvases(p: Presentacion): Map<string, number> {
  * mezcla + los envases fijos. */
 export function requerimientoPorUnidad(p: Presentacion, formula: Formula): Map<string, number> {
   const req = requerimientoMezcla(p, formula);
-  for (const [id, cantidad] of requerimientoEnvases(p)) req.set(id, (req.get(id) ?? 0) + cantidad);
+  for (const [id, cantidad] of requerimientoEnvases(p, formula)) req.set(id, (req.get(id) ?? 0) + cantidad);
   return req;
 }
 
@@ -95,7 +102,7 @@ export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materi
     }
   };
   costear(requerimientoMezcla(p, formula), "mezcla");
-  costear(requerimientoEnvases(p), "envase");
+  costear(requerimientoEnvases(p, formula), "envase");
   const suma = (parte: CostoComponente["parte"]) => Math.round(detalle.filter((d) => d.parte === parte).reduce((s, d) => s + d.costo, 0));
   const mezcla = suma("mezcla");
   const envases = suma("envase");
@@ -110,11 +117,21 @@ export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materi
   };
 }
 
-/** Costo estimado de 1 litro de la mezcla (sin envases ni maquila), con el detalle por producto. */
+/** Costo estimado de 1 litro de la mezcla (sin envases ni maquila), con el
+ * detalle por producto; aparte, los ítems por unidad de la fórmula. */
 export function costoMezclaPorLitro(formula: Formula, materias: MateriaPrima[], lotes: LoteMateriaPrima[]) {
   const litro: Presentacion = { id: "", formulaId: formula.id, mlPorUnidad: 1000, maquilaPorUnidad: 0, activa: true, componentes: [] };
   const c = costoEstimadoPorUnidad(litro, formula, materias, lotes);
-  return { total: c.mezcla, sinPrecio: c.sinPrecio, detalle: c.detalle };
+  const detalle = c.detalle.filter((d) => d.parte === "mezcla");
+  const items = c.detalle.filter((d) => d.parte === "envase");
+  return {
+    total: c.mezcla,
+    sinPrecio: detalle.some((d) => d.sinPrecio),
+    detalle,
+    items,
+    totalItems: c.envases,
+    itemsSinPrecio: items.some((d) => d.sinPrecio),
+  };
 }
 
 /** Una fila de la planilla "Productos terminados": una por presentación. */
@@ -388,6 +405,10 @@ export function validarFormula(formula: Formula): string[] {
     if (!c.materiaPrimaId) errores.push("Hay un componente sin materia prima");
     else if (ids.has(c.materiaPrimaId)) errores.push("Una materia prima está repetida en la fórmula");
     ids.add(c.materiaPrimaId);
+    if (c.cantidadPorUnidad !== undefined) {
+      if (!(c.cantidadPorUnidad > 0)) errores.push("Cada insumo o mano de obra necesita una cantidad por unidad mayor a 0");
+      continue;
+    }
     if (!(c.porcentaje > 0)) errores.push("Cada componente necesita un % mayor a 0");
     suma += c.porcentaje || 0;
   }

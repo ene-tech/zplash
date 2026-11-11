@@ -64,7 +64,9 @@ export default function FormulasTab({ datos, recargar }: FabricacionTabProps) {
               </h3>
               <div className="grid gap-3 lg:grid-cols-2">
                 {g.formulas.map((f) => {
-                  const suma = f.componentes.reduce((s, c) => s + c.porcentaje, 0);
+                  const mezcla = f.componentes.filter((c) => c.cantidadPorUnidad === undefined);
+                  const items = f.componentes.filter((c) => c.cantidadPorUnidad !== undefined);
+                  const suma = mezcla.reduce((s, c) => s + c.porcentaje, 0);
                   const pres = datos.presentaciones.filter((p) => p.formulaId === f.id);
                   const porLitro = costoMezclaPorLitro(f, datos.materiasPrimas, datos.lotes);
                   return (
@@ -94,7 +96,7 @@ export default function FormulasTab({ datos, recargar }: FabricacionTabProps) {
                           <span className="w-20 text-right">Costo por L</span>
                         </span>
                       </div>
-                      {f.componentes.map((c) => {
+                      {mezcla.map((c) => {
                         const linea = porLitro.detalle.find((d) => d.materiaPrimaId === c.materiaPrimaId);
                         return (
                           <div key={c.id} className="flex justify-between gap-2">
@@ -116,6 +118,39 @@ export default function FormulasTab({ datos, recargar }: FabricacionTabProps) {
                         </span>
                       </div>
                       {porLitro.sinPrecio && <div className="text-right text-xs text-destructive">Total incompleto: falta costo de algún producto</div>}
+                      {items.length > 0 && (
+                        <div className="mt-2">
+                          <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+                            <span>Insumos y mano de obra</span>
+                            <span className="flex gap-3">
+                              <span className="w-14 text-right">Cant.</span>
+                              <span className="w-20 text-right">Costo por un.</span>
+                            </span>
+                          </div>
+                          {items.map((c) => {
+                            const mp = mpPorId.get(c.materiaPrimaId);
+                            const linea = porLitro.items.find((d) => d.materiaPrimaId === c.materiaPrimaId);
+                            return (
+                              <div key={c.id} className="flex justify-between gap-2">
+                                <span>{mp?.nombre || "?"}</span>
+                                <span className="flex gap-3">
+                                  <span className="w-14 text-right">
+                                    {fmtCantidad(c.cantidadPorUnidad!)} {mp?.unidad}
+                                  </span>
+                                  <span className={`w-20 text-right ${linea?.sinPrecio ? "text-destructive" : ""}`}>
+                                    {linea?.sinPrecio ? "sin costo" : fmtCLP(Math.round(linea?.costo ?? 0))}
+                                  </span>
+                                </span>
+                              </div>
+                            );
+                          })}
+                          <div className="flex justify-between gap-2 border-t border-border pt-1">
+                            <span className="font-medium">Total por unidad</span>
+                            <strong className="w-20 text-right">{fmtCLP(porLitro.totalItems)}</strong>
+                          </div>
+                          {porLitro.itemsSinPrecio && <div className="text-right text-xs text-destructive">Total incompleto: falta costo de algún ítem</div>}
+                        </div>
+                      )}
                       {f.notas && <div className="mt-1 text-muted-foreground">{f.notas}</div>}
 
                       <div className="mt-3 border-t border-border pt-2">
@@ -257,9 +292,19 @@ function FormulaDialog({ formula, onClose, datos, recargar }: { formula: Formula
   const [categoria, setCategoria] = useState(formula.categoria || "");
   const [notas, setNotas] = useState(formula.notas || "");
   const categorias = [...new Set(datos.formulas.flatMap((f) => (f.categoria ? [f.categoria] : [])))].sort((a, b) => a.localeCompare(b));
-  const [filas, setFilas] = useState<FilaComponente[]>(formula.componentes.map((c) => ({ materiaPrimaId: c.materiaPrimaId, valor: aTexto(c.porcentaje) })));
+  // Mezcla en % (materias primas) e ítems por unidad (insumos y mano de obra).
+  const [filas, setFilas] = useState<FilaComponente[]>(
+    formula.componentes.filter((c) => c.cantidadPorUnidad === undefined).map((c) => ({ materiaPrimaId: c.materiaPrimaId, valor: aTexto(c.porcentaje) }))
+  );
+  const [filasItems, setFilasItems] = useState<FilaComponente[]>(
+    formula.componentes.filter((c) => c.cantidadPorUnidad !== undefined).map((c) => ({ materiaPrimaId: c.materiaPrimaId, valor: aTexto(c.cantidadPorUnidad!) }))
+  );
   const [guardando, setGuardando] = useState(false);
-  const materias = datos.materiasPrimas.filter((m) => m.activa || filas.some((f) => f.materiaPrimaId === m.id));
+  const usadas = new Set([...filas, ...filasItems].map((f) => f.materiaPrimaId));
+  const disponibles = datos.materiasPrimas.filter((m) => m.activa || usadas.has(m.id));
+  const materias = disponibles.filter((m) => m.tipo === "materia_prima" || filas.some((f) => f.materiaPrimaId === m.id));
+  const materiasItems = disponibles.filter((m) => m.tipo !== "materia_prima" || filasItems.some((f) => f.materiaPrimaId === m.id));
+  const unidad = (id: string) => datos.materiasPrimas.find((m) => m.id === id)?.unidad || "";
   const suma = filas.reduce((s, f) => s + parseDecimal(f.valor), 0);
 
   const guardar = async () => {
@@ -269,7 +314,10 @@ function FormulaDialog({ formula, onClose, datos, recargar }: { formula: Formula
       nombre,
       categoria,
       notas,
-      componentes: filas.map((f) => ({ id: "", materiaPrimaId: f.materiaPrimaId, porcentaje: parseDecimal(f.valor) })),
+      componentes: [
+        ...filas.map((f) => ({ id: "", materiaPrimaId: f.materiaPrimaId, porcentaje: parseDecimal(f.valor) })),
+        ...filasItems.map((f) => ({ id: "", materiaPrimaId: f.materiaPrimaId, porcentaje: 0, cantidadPorUnidad: parseDecimal(f.valor) })),
+      ],
     });
     setGuardando(false);
     if (!r.ok) return toast.error(r.error);
@@ -305,6 +353,11 @@ function FormulaDialog({ formula, onClose, datos, recargar }: { formula: Formula
             <Label>Mezcla (% del volumen)</Label>
             <FilasComponentes filas={filas} setFilas={setFilas} materias={materias} sufijo={() => "%"} agregar="+ Componente" />
             <span className={`text-right text-sm ${suma > 100 ? "text-destructive" : "text-muted-foreground"}`}>Suma: {fmtCantidad(suma)}%</span>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Insumos y mano de obra (por unidad producida)</Label>
+            <FilasComponentes filas={filasItems} setFilas={setFilasItems} materias={materiasItems} sufijo={unidad} agregar="+ Insumo o mano de obra" />
+            <span className="text-xs text-muted-foreground">Ej: 1 un de frasco, 1 un de etiqueta, 0,05 hr de mano de obra. Se suman a todas las presentaciones de esta fórmula.</span>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="f-notas">Notas</Label>

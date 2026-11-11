@@ -80,6 +80,9 @@ export const formulaComponentes = pgTable(
       .notNull()
       .references(() => materiasPrimas.id, { onDelete: "restrict" }),
     porcentaje: numeric("porcentaje", { mode: "number" }).notNull(),
+    // Con valor, la fila es un ítem por unidad producida (insumo o mano de
+    // obra: 1 frasco, 0,05 hr) y `porcentaje` va en 0; sin valor, es mezcla en %.
+    cantidadPorUnidad: numeric("cantidad_por_unidad", { mode: "number" }),
   },
   (t) => [index("formula_componentes_formula_idx").on(t.formulaId)]
 );
