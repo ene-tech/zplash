@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import PriceInput from "@/components/PriceInput";
 import { useApp } from "@/context/AppContext";
 import { fmtCLP } from "@/lib/helpers";
-import { compararCategoria, costoEstimadoPorUnidad, SIN_CATEGORIA } from "@/lib/logic";
+import { compararCategoria, costoEstimadoPorUnidad, redondearCantidad, SIN_CATEGORIA } from "@/lib/logic";
 import { eliminarFormula, eliminarPresentacion, guardarFormula, guardarPresentacion } from "@/lib/serverActions";
 import type { Formula, Presentacion } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -291,7 +291,16 @@ function FormulaDialog({ formula, onClose, datos, recargar }: { formula: Formula
 function PresentacionDialog({ pres, onClose, datos, recargar }: { pres: Presentacion; onClose: () => void } & FabricacionTabProps) {
   const { data } = useApp();
   const [destino, setDestino] = useState(pres.productoId ? `p:${pres.productoId}` : pres.insumoId ? `i:${pres.insumoId}` : "");
-  const [ml, setMl] = useState(pres.mlPorUnidad ? aTexto(pres.mlPorUnidad) : "");
+  // El tamaño se escribe en litros o ml (desde 1 L arranca en litros) y se guarda en ml.
+  const [enL, setEnL] = useState(pres.mlPorUnidad >= 1000);
+  const [tamano, setTamano] = useState(pres.mlPorUnidad ? aTexto(redondearCantidad(pres.mlPorUnidad >= 1000 ? pres.mlPorUnidad / 1000 : pres.mlPorUnidad)) : "");
+  const ml = redondearCantidad(parseDecimal(tamano) * (enL ? 1000 : 1));
+  // Cambiar litros <-> ml convierte lo escrito, para no reinterpretarlo.
+  const cambiarEnL = (v: boolean) => {
+    if (v === enL) return;
+    if (ml > 0) setTamano(aTexto(redondearCantidad(v ? ml / 1000 : ml)));
+    setEnL(v);
+  };
   const [maquila, setMaquila] = useState(pres.maquilaPorUnidad ? String(pres.maquilaPorUnidad) : "");
   const [activa, setActiva] = useState(pres.activa);
   const [filas, setFilas] = useState<FilaComponente[]>(pres.componentes.map((c) => ({ materiaPrimaId: c.materiaPrimaId, valor: aTexto(c.cantidadPorUnidad) })));
@@ -311,7 +320,7 @@ function PresentacionDialog({ pres, onClose, datos, recargar }: { pres: Presenta
       formulaId: pres.formulaId,
       productoId: destino.startsWith("p:") ? destino.slice(2) : undefined,
       insumoId: destino.startsWith("i:") ? destino.slice(2) : undefined,
-      mlPorUnidad: parseDecimal(ml),
+      mlPorUnidad: ml,
       maquilaPorUnidad: Number(maquila) || 0,
       activa,
       componentes: filas.map((f) => ({ id: "", materiaPrimaId: f.materiaPrimaId, cantidadPorUnidad: parseDecimal(f.valor) })),
@@ -343,15 +352,27 @@ function PresentacionDialog({ pres, onClose, datos, recargar }: { pres: Presenta
             />
             <span className="text-xs text-muted-foreground">Si no está, créalo primero en Inventario (Productos o Insumos).</span>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[1fr_7rem] gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="p-ml">Formato (ml por unidad)</Label>
-              <Input id="p-ml" inputMode="decimal" value={ml} onChange={(e) => setMl(e.target.value)} placeholder="120, 500, 1000, 20000" />
+              <Label htmlFor="p-ml">Tamaño de la presentación ({enL ? "litros" : "ml"} por unidad)</Label>
+              <Input id="p-ml" inputMode="decimal" value={tamano} onChange={(e) => setTamano(e.target.value)} placeholder={enL ? "Ej: 1, 5, 20" : "Ej: 120, 500"} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Maquila neta por unidad</Label>
-              <PriceInput value={maquila} onChange={setMaquila} className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm" />
+              <Label htmlFor="p-ml-unidad">Unidad</Label>
+              <SelectFab
+                id="p-ml-unidad"
+                value={enL ? "L" : "ml"}
+                onChange={(v) => cambiarEnL(v === "L")}
+                opciones={[
+                  { value: "L", label: "Litros" },
+                  { value: "ml", label: "ml" },
+                ]}
+              />
             </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Maquila neta por unidad</Label>
+            <PriceInput value={maquila} onChange={setMaquila} className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm" />
           </div>
           <div className="grid gap-1.5">
             <Label>Insumos y mano de obra por unidad (frasco, atomizador, etiqueta, horas…)</Label>
