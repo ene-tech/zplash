@@ -73,6 +73,7 @@ function materiaPrimaFromRow(m: typeof materiasPrimas.$inferSelect): MateriaPrim
     unidad: m.unidad,
     formatoCompra: m.formatoCompra ?? undefined,
     precioFabrica: m.precioFabrica ?? undefined,
+    precioCompra: m.precioCompra ?? undefined,
     stock: m.stock,
     stockMin: m.stockMin,
     activa: m.activa,
@@ -196,6 +197,7 @@ export async function guardarMateriaPrima(
   const nombre = mp.nombre.trim();
   if (!nombre) return { ok: false, error: "Falta el nombre" };
   if (mp.precioFabrica !== undefined && mp.precioFabrica < 0) return { ok: false, error: "El precio de la fábrica no puede ser negativo" };
+  if (mp.precioCompra !== undefined && mp.precioCompra < 0) return { ok: false, error: "El valor neto de compra no puede ser negativo" };
   if (mp.formatoCompra !== undefined && !(mp.formatoCompra > 0)) return { ok: false, error: "El formato de compra tiene que ser mayor a 0" };
   if (stock && !(stock.existente >= 0)) return { ok: false, error: "El stock existente no puede ser negativo" };
   if (stock && stock.existente > stock.anterior && !(stock.costoUnitario !== undefined && stock.costoUnitario >= 0)) {
@@ -214,6 +216,7 @@ export async function guardarMateriaPrima(
     unidad: mp.unidad.trim() || "L",
     formatoCompra: manoObra ? null : (mp.formatoCompra ?? null),
     precioFabrica: manoObra ? null : (mp.precioFabrica ?? null),
+    precioCompra: manoObra ? null : (mp.precioCompra ?? null),
     stockMin: Math.max(0, mp.stockMin || 0),
     activa: mp.activa,
   };

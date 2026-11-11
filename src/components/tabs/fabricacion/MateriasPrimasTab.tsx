@@ -261,8 +261,13 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
     tipo: mp.tipo,
     costoManoObra: mp.costoManoObra !== undefined ? String(mp.costoManoObra) : "",
     unidad: mp.unidad,
-    // El formato se escribe en ml / g / un (ver unidadFormato), se guarda en L / kg / un.
-    formato: mp.formatoCompra ? aTexto(redondearCantidad(mp.formatoCompra * unidadFormato(mp.unidad).factor)) : "",
+    // El formato se escribe en ml / g / un (ver unidadFormato), o en litros si
+    // se elige, y se guarda en L / kg / un.
+    formatoEnL: mp.unidad === "L" && (mp.formatoCompra ?? 1) >= 1,
+    formato: mp.formatoCompra
+      ? aTexto(redondearCantidad(mp.formatoCompra * (mp.unidad === "L" && mp.formatoCompra >= 1 ? 1 : unidadFormato(mp.unidad).factor)))
+      : "",
+    precioCompra: mp.precioCompra !== undefined ? String(mp.precioCompra) : "",
     laPone: mp.precioFabrica !== undefined,
     precio: mp.precioFabrica ? String(mp.precioFabrica) : "",
     minimo: mp.stockMin ? aTexto(mp.stockMin) : "",
@@ -273,8 +278,19 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
   const [guardando, setGuardando] = useState(false);
 
   const uf = unidadFormato(form.unidad);
+  const enL = form.unidad === "L" && form.formatoEnL;
+  const sufijoFormato = enL ? "L" : uf.sufijo;
+  const factorFormato = enL ? 1 : uf.factor;
   const formatoValido = form.formato.trim() === "" || (esNumero(form.formato) && parseDecimal(form.formato) > 0);
-  const formatoCompra = form.formato.trim() && formatoValido ? Math.round((parseDecimal(form.formato) / uf.factor) * 1e6) / 1e6 : undefined;
+  const formatoCompra = form.formato.trim() && formatoValido ? Math.round((parseDecimal(form.formato) / factorFormato) * 1e6) / 1e6 : undefined;
+  const precioCompra = form.precioCompra === "" ? undefined : Number(form.precioCompra) || 0;
+  const nombreUnidad = form.unidad === "L" ? "litro" : form.unidad;
+  // Cambiar litros <-> ml convierte lo escrito, para no reinterpretarlo.
+  const cambiarEnL = (v: boolean) => {
+    if (v === form.formatoEnL) return;
+    const formato = formatoCompra ? aTexto(redondearCantidad(v ? formatoCompra : formatoCompra * 1000)) : form.formato;
+    setForm({ ...form, formatoEnL: v, formato });
+  };
   // El stock solo se ajusta si el usuario tocó el campo: guardar la ficha por
   // otro motivo no debe mover stock.
   const stockTocado = form.stock.trim() !== aTexto(mp.stock);
@@ -307,9 +323,11 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
     }
     if (!formatoValido) return toast.error("El formato de compra tiene que ser un número mayor a 0 (o déjalo vacío)");
     if (stockTocado && !stockValido) return toast.error("El stock existente tiene que ser un número (0 o más)");
-    if (sube && form.costoStock === "") return toast.error("Indica el costo neto del stock que agregas");
+    if (sube && form.costoStock === "" && precioCompra === undefined) return toast.error("Indica el costo neto del stock que agregas");
     setGuardando(true);
     const costo = Number(form.costoStock) || 0;
+    // Sin costo escrito, el stock que entra toma el valor neto de compra de la ficha.
+    const costoStockUnitario = form.costoStock === "" ? precioCompra : formatoCompra ? costo / formatoCompra : costo;
     const r = await guardarMateriaPrima(
       {
         ...mp,
@@ -319,10 +337,11 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
         unidad: form.unidad,
         formatoCompra,
         precioFabrica: form.laPone ? Number(form.precio) || 0 : undefined,
+        precioCompra,
         stockMin: parseDecimal(form.minimo),
         activa: form.activa,
       },
-      stockTocado ? { anterior: mp.stock, existente: stockNuevo, costoUnitario: sube ? (formatoCompra ? costo / formatoCompra : costo) : undefined } : undefined
+      stockTocado ? { anterior: mp.stock, existente: stockNuevo, costoUnitario: sube ? costoStockUnitario : undefined } : undefined
     );
     setGuardando(false);
     if (!r.ok) return toast.error(r.error);
@@ -394,15 +413,52 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
                 )}
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="mp-formato">Formato de compra ({uf.sufijo} por envase)</Label>
-                <Input
-                  id="mp-formato"
-                  inputMode="decimal"
-                  value={form.formato}
-                  onChange={(e) => setForm({ ...form, formato: e.target.value })}
-                  placeholder={form.unidad === "un" ? "Ej: 100 (caja de 100)" : form.unidad === "kg" ? "Ej: 25000 (saco de 25 kg)" : "Ej: 5000 (bidón de 5 L)"}
-                />
-                <span className="text-xs text-muted-foreground">Opcional. Con formato, las compras se cargan por envase y el sistema calcula el costo por {form.unidad}.</span>
+                <div className={form.unidad === "L" ? "grid grid-cols-[1fr_7rem] gap-3" : "grid"}>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="mp-formato">Presentación de compra ({sufijoFormato} por envase)</Label>
+                    <Input
+                      id="mp-formato"
+                      inputMode="decimal"
+                      value={form.formato}
+                      onChange={(e) => setForm({ ...form, formato: e.target.value })}
+                      placeholder={
+                        form.unidad === "un"
+                          ? "Ej: 100 (caja de 100)"
+                          : form.unidad === "kg"
+                            ? "Ej: 25000 (saco de 25 kg)"
+                            : enL
+                              ? "Ej: 5 (bidón de 5 L)"
+                              : "Ej: 5000 (bidón de 5 L)"
+                      }
+                    />
+                  </div>
+                  {form.unidad === "L" && (
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="mp-formato-unidad">Se compra en</Label>
+                      <SelectFab
+                        id="mp-formato-unidad"
+                        value={form.formatoEnL ? "L" : "ml"}
+                        onChange={(v) => cambiarEnL(v === "L")}
+                        opciones={[
+                          { value: "L", label: "Litros" },
+                          { value: "ml", label: "ml" },
+                        ]}
+                      />
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground">Opcional. Con presentación, las compras se cargan por envase y el sistema calcula el costo por {form.unidad}.</span>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label>Valor neto de compra por {nombreUnidad}</Label>
+                <PriceInput value={form.precioCompra} onChange={(v) => setForm({ ...form, precioCompra: v })} className={INPUT_PRECIO} />
+                <span className="text-xs text-muted-foreground">
+                  {precioCompra !== undefined && formatoCompra
+                    ? `= ${fmtCLP(Math.round(precioCompra * formatoCompra))} neto por envase de ${fmtFormatoCompra(formatoCompra, form.unidad)}. `
+                    : "Opcional. "}
+                  Se precarga al registrar compras.
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -417,6 +473,9 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
                   <div className="grid gap-1.5">
                     <Label>Costo neto por {formatoCompra ? `envase (${fmtFormatoCompra(formatoCompra, form.unidad)})` : form.unidad}</Label>
                     <PriceInput value={form.costoStock} onChange={(v) => setForm({ ...form, costoStock: v })} className={INPUT_PRECIO} />
+                    {form.costoStock === "" && precioCompra !== undefined && (
+                      <span className="text-xs text-muted-foreground">Vacío = {fmtCLP(precioCompra)} por {form.unidad} (valor de compra)</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -475,11 +534,14 @@ function MovimientoDialog({
   recargar: () => Promise<void>;
 }) {
   const [cantidad, setCantidad] = useState("");
-  const [costo, setCosto] = useState("");
-  const [notas, setNotas] = useState("");
-  const [guardando, setGuardando] = useState(false);
   // Con formato, la compra se escribe en envases y su costo es por envase.
   const porEnvase = tipo === "compra" && !!mp.formatoCompra;
+  // El costo arranca en el valor neto de compra de la ficha (por envase si hay formato).
+  const [costo, setCosto] = useState(
+    tipo === "compra" && mp.precioCompra !== undefined ? String(Math.round(porEnvase ? mp.precioCompra * mp.formatoCompra! : mp.precioCompra)) : ""
+  );
+  const [notas, setNotas] = useState("");
+  const [guardando, setGuardando] = useState(false);
   const cantidadEnUnidad = porEnvase ? parseDecimal(cantidad) * mp.formatoCompra! : parseDecimal(cantidad);
   const costoUnitario = costo === "" ? undefined : porEnvase ? Number(costo) / mp.formatoCompra! : Number(costo);
 

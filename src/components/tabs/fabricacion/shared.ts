@@ -42,8 +42,9 @@ export function unidadFormato(unidad: string): { sufijo: string; factor: number 
   return { sufijo: unidad, factor: 1 };
 }
 
-/** 5 L → "5.000 ml", 100 un → "100 un". */
+/** 5 L → "5 L", 0,5 L → "500 ml", 25 kg → "25.000 g", 100 un → "100 un". */
 export function fmtFormatoCompra(formato: number, unidad: string): string {
+  if (unidad === "L") return fmtFormato(formato * 1000);
   const { sufijo, factor } = unidadFormato(unidad);
   return `${fmtCantidad(formato * factor)} ${sufijo}`;
 }

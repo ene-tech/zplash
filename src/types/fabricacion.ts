@@ -21,6 +21,9 @@ export interface MateriaPrima {
   formatoCompra?: number;
   /** Neto por unidad. undefined = la fábrica no la pone. */
   precioFabrica?: number;
+  /** Lo que nos cuesta comprarla, neto por `unidad` (ej. valor del litro).
+   * Solo precarga el costo de las compras; el costo real queda en el lote. */
+  precioCompra?: number;
   /** Lo nuestro guardado en la fábrica (suma de lotes). */
   stock: number;
   stockMin: number;

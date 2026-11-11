@@ -24,6 +24,9 @@ export const materiasPrimas = pgTable("materias_primas", {
   formatoCompra: numeric("formato_compra", { mode: "number" }),
   // null = la fábrica no la pone. Neto, por unidad.
   precioFabrica: numeric("precio_fabrica", { mode: "number" }),
+  // Lo que nos cuesta comprarla, neto por `unidad` (valor del litro). Solo
+  // precarga el costo de compras y del stock de la ficha; el costo real es el del lote.
+  precioCompra: numeric("precio_compra", { mode: "number" }),
   // Suma de `restante` de sus lotes: se mantiene en la misma transacción
   // que mueve los lotes, para no recalcularla en cada pantalla.
   stock: numeric("stock", { mode: "number" }).notNull().default(0),
