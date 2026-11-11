@@ -136,6 +136,13 @@ describe("costoEstimadoPorUnidad", () => {
     expect(c).toMatchObject({ envases: 150, total: 775, sinPrecio: false });
   });
 
+  it("sin stock, el costo de la ficha manda aunque la ponga la fábrica", () => {
+    // alcohol: la fábrica lo pone a 2.500, pero la ficha dice 3.000 → 0,09 L × 3.000 = 270
+    const conFicha = materias.map((m) => (m.id === "alcohol" ? { ...m, precioCompra: 3000 } : m));
+    const c = costoEstimadoPorUnidad(pres[0], formulas[0], conFicha, [lote("fragA", "fragancia", 1, 20000)]);
+    expect(c.mezcla).toBe(470);
+  });
+
   it("al valor de compra le suma el flete prorrateado de la ficha", () => {
     // frasco 150 + flete 5.000 / 100 un = 200 por frasco
     const conFlete = materias.map((m) => (m.id === "frasco" ? { ...m, precioCompra: 150, fleteTotal: 5000, fleteCantidad: 100 } : m));

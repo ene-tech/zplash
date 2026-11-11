@@ -66,12 +66,11 @@ export interface CostoComponente {
   sinPrecio: boolean;
 }
 
-/** Costo estimado de una unidad con los lotes y precios de hoy, con el
- * mismo criterio que una recepción: lo nuestro sale de los lotes en orden
- * FIFO y lo que falta lo pone la fábrica a su precio. Si la fábrica no la
- * pone, lo que falta se valoriza al valor neto de compra de la ficha más su
- * flete prorrateado (lo que costaría comprarla). Es una referencia; el costo real queda en cada
- * recepción. `sinPrecio` = a alguna materia prima le falta costo (incompleto).
+/** Costo estimado de una unidad con los lotes y precios de hoy: lo nuestro
+ * sale de los lotes en orden FIFO; lo que falta se valoriza al costo de la
+ * ficha (valor neto de compra + flete prorrateado) si lo tiene, aunque la
+ * ponga la fábrica, y si no, al precio de la fábrica. Es una referencia; el
+ * costo real queda en cada recepción (ahí lo de la fábrica se cobra a su precio). `sinPrecio` = a alguna materia prima le falta costo (incompleto).
  * `detalle` trae el costo de cada producto usado. */
 export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materias: MateriaPrima[], lotes: LoteMateriaPrima[]) {
   const mpPorId = new Map(materias.map((m) => [m.id, m]));
@@ -95,7 +94,7 @@ export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materi
         pendiente -= toma;
       }
       if (pendiente > 1e-9) {
-        const precio = mp?.precioFabrica ?? (mp ? costoCompraConFlete(mp) : undefined);
+        const precio = (mp ? costoCompraConFlete(mp) : undefined) ?? mp?.precioFabrica;
         if (precio === undefined) linea.sinPrecio = true;
         else linea.costo += pendiente * precio;
       }
