@@ -20,6 +20,7 @@ import {
   cuponDescuentoDePatente,
   patenteAutorizadaParaCupon,
   resolverDescuento,
+  ticketsVigentesDePatente,
   uid,
 } from "@/lib/helpers";
 import { registrarIngresoCupon } from "@/lib/logic";
@@ -86,7 +87,9 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
   const [codigoDescuento, setCodigoDescuento] = useState("");
   // Canje frenado a la espera de los datos del cliente: el cupón ya pasó
   // todas sus validaciones, pero la patente no tiene ficha (ver canjearCupon).
-  const [cuponPendiente, setCuponPendiente] = useState<{ cupon: Cupon; patente: string } | null>(null);
+  // `disponibles` viene solo cuando el ticket se detectó por la patente, sin
+  // tipear código (ver ticketDeFlotaSinFicha): cuántos le quedan a ese auto.
+  const [cuponPendiente, setCuponPendiente] = useState<{ cupon: Cupon; patente: string; disponibles?: number } | null>(null);
   const [datosCliente, setDatosCliente] = useState(DATOS_CLIENTE_VACIOS);
 
   // Bloqueo horario del registro de vehículos (ver ConfigTab → "Horario de
@@ -271,7 +274,42 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
     await registrarCanje(cuponPendiente.cupon, nuevo, [...data.clientes, nuevo]);
   };
 
-  const doValidate = () => {
+  // Patente sin ficha que está en la lista autorizada de un lote de tickets
+  // (Pack de Tickets B2B con flota): se le ofrece al tiro el ticket que vence
+  // antes, sin que el operador tenga que pedir el código. Mismo canje que
+  // tipear el código (canjearCupon): se valida contra la regla vigente en la
+  // base y queda esperando los datos del cliente. true = se hizo cargo.
+  const ticketDeFlotaSinFicha = async (patente: string): Promise<boolean> => {
+    const tickets = ticketsVigentesDePatente(data.cupones, patente).filter(
+      (t) => !cuponDelLoteUsadoPorPatente(t, patente, data.cupones)
+    );
+    if (!tickets.length) return false;
+    if (patenteYaPasoHoy(data.ingresos, patente)) {
+      // Se avisa, pero sigue al resultado normal: igual puede pagar un lavado.
+      setCuponErr({ msg: `${MSG_TICKET_YA_PASO_HOY} (le quedan ${tickets.length} ticket${tickets.length === 1 ? "" : "s"})`, ok: false });
+      return false;
+    }
+    // El primero que la regla vigente en la base todavía autoriza (el dueño
+    // pudo sacar la patente de algún ticket desde Mi Cuenta).
+    let cupon: Cupon | undefined;
+    for (const t of tickets) {
+      const vigente = await conReglaVigente(t);
+      if (patenteAutorizadaParaCupon(vigente, patente)) {
+        cupon = vigente;
+        break;
+      }
+    }
+    if (!cupon) return false;
+    patchUi({ operResult: null });
+    setCuponPendiente({ cupon, patente, disponibles: tickets.length });
+    setCuponErr({
+      msg: `La patente ${patente} tiene ${tickets.length === 1 ? "1 ticket disponible" : `${tickets.length} tickets disponibles`}: completa los datos del cliente para usar uno`,
+      ok: true,
+    });
+    return true;
+  };
+
+  const doValidate = async () => {
     const plate = plateInputRef.current?.value.trim();
     if (!plate) return;
     if (!isValidPatente(plate)) {
@@ -279,6 +317,8 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       return;
     }
     setPlateErr("");
+    // Un canje esperando datos de otra patente no puede quedar colgado abajo.
+    setCuponPendiente(null);
     const codigo = (codigoCuponRef.current?.value.trim() || "").toUpperCase();
     const cupon = codigo ? data.cupones.find((x) => x.codigo === codigo) : undefined;
     // Un código de cupón de entrada (o uno inexistente/inválido) se resuelve
@@ -316,6 +356,9 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       }
     }
     const c = findClient(data.clientes, plate);
+    // Con ficha, sus tickets ya salen en el resultado (ver ticketsPatente en
+    // useOperadorFoundResult). Sin ficha, se buscan acá.
+    if (!c && !codigo && (await ticketDeFlotaSinFicha(normPlate(plate)))) return;
     patchUi({ operResult: c ? { found: true, cliente: c } : { found: false, plate } });
   };
 
@@ -392,6 +435,9 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
     setDatosCliente,
     onTelefonoBlur: () => setDatosCliente((d) => (d.telefono.trim() ? { ...d, telefono: fmtTelefono(d.telefono) } : d)),
     cancelarCanjePendiente: () => {
+      // El ticket detectado por patente no lo pidió nadie: si no lo quiere
+      // usar, sigue al resultado normal de patente no registrada.
+      if (cuponPendiente?.disponibles) patchUi({ operResult: { found: false, plate: cuponPendiente.patente } });
       setCuponPendiente(null);
       setDatosCliente(DATOS_CLIENTE_VACIOS);
       setCuponErr(null);

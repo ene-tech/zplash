@@ -2,7 +2,7 @@
 
 import { useMemo, useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import { normPlate, todayStr } from "@/lib/helpers";
+import { fmtCaducidad, normPlate, todayStr } from "@/lib/helpers";
 import Topbar from "@/components/Topbar";
 import OperadorResult from "@/components/OperadorResult";
 import TodayLog from "@/components/TodayLog";
@@ -148,9 +148,21 @@ export default function OperadorView() {
                   {scan.cuponPendiente && (
                     <div className="quick-form" style={{ maxWidth: 340, margin: "14px auto 0" }}>
                       <div className="hint" style={{ textAlign: "left", marginBottom: 0 }}>
-                        Cupón {scan.cuponPendiente.cupon.codigo} · {scan.cuponPendiente.cupon.nombreLote} para{" "}
-                        {scan.cuponPendiente.patente}. Registra al cliente para completar el canje — los campos con * son
-                        obligatorios.
+                        {scan.cuponPendiente.disponibles ? (
+                          <>
+                            {scan.cuponPendiente.patente} puede usar{" "}
+                            {scan.cuponPendiente.disponibles === 1 ? "1 ticket" : `${scan.cuponPendiente.disponibles} tickets`} de{" "}
+                            {scan.cuponPendiente.cupon.nombreLote}. Se usa el {scan.cuponPendiente.cupon.codigo}, válido hasta el{" "}
+                            {fmtCaducidad(scan.cuponPendiente.cupon.fechaCaducidad)} (incluido). Registra al cliente para
+                            ingresar — los campos con * son obligatorios.
+                          </>
+                        ) : (
+                          <>
+                            Cupón {scan.cuponPendiente.cupon.codigo} · {scan.cuponPendiente.cupon.nombreLote} para{" "}
+                            {scan.cuponPendiente.patente}. Registra al cliente para completar el canje — los campos con * son
+                            obligatorios.
+                          </>
+                        )}
                       </div>
                       <div>
                         <label>Nombre *</label>
@@ -188,7 +200,7 @@ export default function OperadorView() {
                       </div>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                         <button className="btn" style={{ marginTop: 0, flex: "2 1 200px" }} onClick={scan.canjearConClienteNuevo}>
-                          Registrar y canjear cupón
+                          {scan.cuponPendiente.disponibles ? "Registrar y usar 1 ticket" : "Registrar y canjear cupón"}
                         </button>
                         <button
                           className="btn ghost"
