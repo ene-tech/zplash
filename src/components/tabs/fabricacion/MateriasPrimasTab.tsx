@@ -272,7 +272,7 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
     precio: mp.precioFabrica ? String(mp.precioFabrica) : "",
     minimo: mp.stockMin ? aTexto(mp.stockMin) : "",
     stock: aTexto(mp.stock),
-    costoStock: "",
+    flete: "",
     activa: mp.activa,
   });
   const [guardando, setGuardando] = useState(false);
@@ -300,6 +300,8 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
   // Con stock cargado no se cambia la unidad ni se pasa a mano de obra: los lotes quedarían colgando.
   const unidadFija = mp.stock > 0;
   const manoObra = form.tipo === "mano_obra";
+  // El stock que entra se costea con el valor de compra de la ficha más el flete prorrateado.
+  const costoEntra = costoCompra(sube ? stockNuevo - mp.stock : 0, precioCompra ?? 0, Number(form.flete) || 0);
 
   const guardar = async () => {
     if (manoObra) {
@@ -323,11 +325,8 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
     }
     if (!formatoValido) return toast.error("El formato de compra tiene que ser un número mayor a 0 (o déjalo vacío)");
     if (stockTocado && !stockValido) return toast.error("El stock existente tiene que ser un número (0 o más)");
-    if (sube && form.costoStock === "" && precioCompra === undefined) return toast.error("Indica el costo neto del stock que agregas");
+    if (sube && precioCompra === undefined) return toast.error(`Indica el valor neto de compra por ${nombreUnidad} para costear el stock que agregas`);
     setGuardando(true);
-    const costo = Number(form.costoStock) || 0;
-    // Sin costo escrito, el stock que entra toma el valor neto de compra de la ficha.
-    const costoStockUnitario = form.costoStock === "" ? precioCompra : formatoCompra ? costo / formatoCompra : costo;
     const r = await guardarMateriaPrima(
       {
         ...mp,
@@ -341,7 +340,7 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
         stockMin: parseDecimal(form.minimo),
         activa: form.activa,
       },
-      stockTocado ? { anterior: mp.stock, existente: stockNuevo, costoUnitario: sube ? costoStockUnitario : undefined } : undefined
+      stockTocado ? { anterior: mp.stock, existente: stockNuevo, costoUnitario: sube ? costoEntra.unitario : undefined } : undefined
     );
     setGuardando(false);
     if (!r.ok) return toast.error(r.error);
@@ -471,14 +470,23 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
                 </div>
                 {sube && (
                   <div className="grid gap-1.5">
-                    <Label>Costo neto por {formatoCompra ? `envase (${fmtFormatoCompra(formatoCompra, form.unidad)})` : form.unidad}</Label>
-                    <PriceInput value={form.costoStock} onChange={(v) => setForm({ ...form, costoStock: v })} className={INPUT_PRECIO} />
-                    {form.costoStock === "" && precioCompra !== undefined && (
-                      <span className="text-xs text-muted-foreground">Vacío = {fmtCLP(precioCompra)} por {form.unidad} (valor de compra)</span>
-                    )}
+                    <Label>Flete / transporte neto</Label>
+                    <PriceInput value={form.flete} onChange={(v) => setForm({ ...form, flete: v })} className={INPUT_PRECIO} />
                   </div>
                 )}
               </div>
+              {sube &&
+                (precioCompra === undefined ? (
+                  <p className="text-xs text-destructive">Para costear el stock que agregas, indica arriba el valor neto de compra por {nombreUnidad}.</p>
+                ) : (
+                  <ResumenCostoCompra
+                    cantidad={stockNuevo - mp.stock}
+                    unidad={form.unidad}
+                    formatoCompra={formatoCompra}
+                    precio={precioCompra}
+                    costo={costoEntra}
+                  />
+                ))}
               {mp.id && stockTocado && stockValido && stockNuevo !== mp.stock && (
                 <p className="text-xs text-muted-foreground">
                   {sube
@@ -536,14 +544,15 @@ function MovimientoDialog({
   const [cantidad, setCantidad] = useState("");
   // Con formato, la compra se escribe en envases y su costo es por envase.
   const porEnvase = tipo === "compra" && !!mp.formatoCompra;
-  // El costo arranca en el valor neto de compra de la ficha (por envase si hay formato).
-  const [costo, setCosto] = useState(
-    tipo === "compra" && mp.precioCompra !== undefined ? String(Math.round(porEnvase ? mp.precioCompra * mp.formatoCompra! : mp.precioCompra)) : ""
-  );
+  // El valor por unidad arranca en el de la ficha; el costo por envase sale
+  // de multiplicarlo por la presentación, y el flete se prorratea en lo comprado.
+  const [valor, setValor] = useState(mp.precioCompra !== undefined ? String(mp.precioCompra) : "");
+  const [flete, setFlete] = useState("");
   const [notas, setNotas] = useState("");
   const [guardando, setGuardando] = useState(false);
   const cantidadEnUnidad = porEnvase ? parseDecimal(cantidad) * mp.formatoCompra! : parseDecimal(cantidad);
-  const costoUnitario = costo === "" ? undefined : porEnvase ? Number(costo) / mp.formatoCompra! : Number(costo);
+  const costo = costoCompra(cantidadEnUnidad, Number(valor) || 0, Number(flete) || 0);
+  const costoUnitario = valor === "" ? undefined : costo.unitario;
 
   const guardar = async () => {
     setGuardando(true);
@@ -586,16 +595,19 @@ function MovimientoDialog({
             />
           </div>
           {tipo === "compra" && (
-            <div className="grid gap-1.5">
-              <Label>Costo neto por {porEnvase ? "envase" : mp.unidad}</Label>
-              <PriceInput value={costo} onChange={setCosto} className={INPUT_PRECIO} />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Valor neto por {mp.unidad === "L" ? "litro" : mp.unidad}</Label>
+                <PriceInput value={valor} onChange={setValor} className={INPUT_PRECIO} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Flete / transporte neto</Label>
+                <PriceInput value={flete} onChange={setFlete} className={INPUT_PRECIO} />
+              </div>
             </div>
           )}
-          {porEnvase && cantidadEnUnidad > 0 && (
-            <p className="text-sm">
-              = {fmtCantidad(cantidadEnUnidad)} {mp.unidad}
-              {costoUnitario !== undefined && ` · ${fmtCLP(Math.round(costoUnitario * 100) / 100)} por ${mp.unidad} · total ${fmtCLP(Math.round(costoUnitario * cantidadEnUnidad))}`}
-            </p>
+          {tipo === "compra" && valor !== "" && cantidadEnUnidad > 0 && (
+            <ResumenCostoCompra cantidad={cantidadEnUnidad} unidad={mp.unidad} formatoCompra={mp.formatoCompra} precio={Number(valor) || 0} costo={costo} />
           )}
           <div className="grid gap-1.5">
             <Label htmlFor="mov-notas">Nota</Label>
@@ -617,5 +629,48 @@ function MovimientoDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Costo de una compra: valor neto por unidad × cantidad, más el flete
+ * prorrateado. `unitario` es el costo final por unidad (va al lote). */
+function costoCompra(cantidad: number, precio: number, flete: number) {
+  const subtotal = precio * cantidad;
+  const total = subtotal + flete;
+  return { subtotal, flete, total, unitario: cantidad > 0 ? total / cantidad : precio };
+}
+
+function ResumenCostoCompra({
+  cantidad,
+  unidad,
+  formatoCompra,
+  precio,
+  costo,
+}: {
+  cantidad: number;
+  unidad: string;
+  formatoCompra?: number;
+  precio: number;
+  costo: ReturnType<typeof costoCompra>;
+}) {
+  const fila = (etiqueta: string, valor: string, fuerte = false) => (
+    <div className={`flex justify-between gap-3 ${fuerte ? "border-t border-border pt-1 font-semibold" : ""}`}>
+      <span className={fuerte ? "" : "text-muted-foreground"}>{etiqueta}</span>
+      <span>{valor}</span>
+    </div>
+  );
+  const centavos = (n: number) => fmtCLP(Math.round(n * 100) / 100);
+  return (
+    <div className="grid gap-0.5 rounded-lg border border-border p-2 text-sm">
+      {formatoCompra
+        ? fila(`Costo neto por envase (${fmtFormatoCompra(formatoCompra, unidad)})`, fmtCLP(Math.round(precio * formatoCompra)))
+        : null}
+      {fila(`${fmtCantidad(cantidad)} ${unidad} × ${fmtCLP(precio)}`, fmtCLP(Math.round(costo.subtotal)))}
+      {costo.flete > 0 && fila(`Flete (+${centavos(costo.flete / cantidad)} por ${unidad})`, fmtCLP(Math.round(costo.flete)))}
+      {fila("Costo total neto", fmtCLP(Math.round(costo.total)), true)}
+      <div className="text-xs text-muted-foreground">
+        Queda a {centavos(costo.unitario)} por {unidad} con flete incluido.
+      </div>
+    </div>
   );
 }
