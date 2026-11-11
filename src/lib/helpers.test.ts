@@ -502,12 +502,12 @@ describe("estadoReingresoPlan", () => {
     expect(estadoReingresoPlan([], "c1", ahora)).toBe("libre");
   });
 
-  it("garantia si el último ingreso fue hace 1 hora o menos", () => {
+  it("garantia si el último ingreso fue hace 2 horas o menos", () => {
     const haceMediaHora = new Date("2026-01-02T09:30:00Z").toISOString();
     expect(estadoReingresoPlan([ingreso("c1", haceMediaHora)], "c1", ahora)).toBe("garantia");
   });
 
-  it("bloqueado si el último ingreso fue hace más de 1 hora y menos de 24:30", () => {
+  it("bloqueado si el último ingreso fue hace más de 2 horas y menos de 24:30", () => {
     const haceVeinteHoras = new Date("2026-01-01T14:00:00Z").toISOString();
     expect(estadoReingresoPlan([ingreso("c1", haceVeinteHoras)], "c1", ahora)).toBe("bloqueado");
   });
@@ -522,16 +522,16 @@ describe("estadoReingresoPlan", () => {
     expect(estadoReingresoPlan([ingreso("otro", haceUnaHora)], "c1", ahora)).toBe("libre");
   });
 
-  it("la hora de garantía corre desde el ingreso original, no desde la garantía", () => {
-    const original = ingreso("c1", new Date("2026-01-02T08:50:00Z").toISOString());
+  it("el plazo de garantía corre desde el ingreso original, no desde la garantía", () => {
+    const original = ingreso("c1", new Date("2026-01-02T07:50:00Z").toISOString());
     const garantia = { ...ingreso("c1", new Date("2026-01-02T09:40:00Z").toISOString()), esGarantia: true };
     expect(estadoReingresoPlan([garantia, original], "c1", ahora)).toBe("bloqueado");
   });
 
   it("respeta las horas de bloqueo configuradas en vez del default de 24:30", () => {
-    const haceDosHoras = new Date("2026-01-02T08:00:00Z").toISOString();
-    expect(estadoReingresoPlan([ingreso("c1", haceDosHoras)], "c1", ahora, 1)).toBe("libre");
-    expect(estadoReingresoPlan([ingreso("c1", haceDosHoras)], "c1", ahora, 3)).toBe("bloqueado");
+    const haceTresHoras = new Date("2026-01-02T07:00:00Z").toISOString();
+    expect(estadoReingresoPlan([ingreso("c1", haceTresHoras)], "c1", ahora, 1)).toBe("libre");
+    expect(estadoReingresoPlan([ingreso("c1", haceTresHoras)], "c1", ahora, 4)).toBe("bloqueado");
   });
 });
 
@@ -547,15 +547,15 @@ describe("ingresoConGarantia", () => {
   });
   const ahora = new Date("2026-10-27T23:00:00Z");
 
-  it("da garantía hasta 1 hora después del ingreso, con o sin plan", () => {
+  it("da garantía hasta 2 horas después del ingreso, con o sin plan", () => {
     const i = ingreso("2026-10-27T22:31:00Z");
     expect(ingresoConGarantia([i], "c1", ahora)).toBe(i);
-    expect(ingresoConGarantia([i], "c1", new Date("2026-10-27T23:31:00Z"))).toBe(i);
-    expect(ingresoConGarantia([i], "c1", new Date("2026-10-27T23:32:00Z"))).toBeUndefined();
+    expect(ingresoConGarantia([i], "c1", new Date("2026-10-28T00:31:00Z"))).toBe(i);
+    expect(ingresoConGarantia([i], "c1", new Date("2026-10-28T00:32:00Z"))).toBeUndefined();
   });
 
-  it("repasar no alarga la hora: cuenta desde el ingreso original", () => {
-    const original = ingreso("2026-10-27T21:50:00Z");
+  it("repasar no alarga el plazo: cuenta desde el ingreso original", () => {
+    const original = ingreso("2026-10-27T20:50:00Z");
     const garantia = ingreso("2026-10-27T22:40:00Z", true);
     expect(ingresoConGarantia([garantia, original], "c1", ahora)).toBeUndefined();
     expect(ingresoConGarantia([garantia, original], "c1", new Date("2026-10-27T22:45:00Z"))).toBe(original);

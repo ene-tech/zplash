@@ -220,7 +220,7 @@ export function useOperadorFoundResult(
   // Ya pasó hoy (p. ej. con un cupón y le ofrecen un pack en el aspirado): el
   // pack no canjea ningún ticket ahora (ver entregarPromoLavados).
   const yaPasoHoy = yaIngresoHoy(ingresosCliente, c.id);
-  // Pasó hace menos de 1 hora: puede repasar sin cobro (ver ingresoConGarantia).
+  // Pasó hace menos de 2 horas: puede repasar sin cobro (ver ingresoConGarantia).
   const ingresoEnGarantia = ingresoConGarantia(ingresosCliente, c.id);
   // Upgrade a Promo 4 Lavados: pagó un lavado único dentro de la ventana y
   // sigue sin plan — mismo criterio que Mi Cuenta (ver calcularOfertasPlan).

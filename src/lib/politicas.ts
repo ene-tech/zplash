@@ -62,7 +62,7 @@ export const POLITICAS: { titulo: string; puntos: string[] }[] = [
     titulo: "4. Garantía de relavado",
     puntos: [
       "Si el resultado del lavado no te dejó conforme, avísale al operador en el momento y repasamos tu vehículo sin costo.",
-      "La garantía se hace efectiva en el local, el mismo día y dentro de la primera hora desde el lavado. Pasado ese plazo, el vehículo ya estuvo en circulación y el nuevo lavado se considera una pasada nueva.",
+      "La garantía se hace efectiva en el local, el mismo día y dentro de las 2 horas siguientes al lavado. Pasado ese plazo, el vehículo ya estuvo en circulación y el nuevo lavado se considera una pasada nueva.",
       "El relavado no tiene costo, no descuenta del plan y no requiere pagar un lavado único.",
       "La garantía cubre el resultado del lavado, es decir suciedad que no salió. No cubre daños previos ni suciedad adherida que requiera un tratamiento de Detailing (alquitrán, savia, pintura, cemento, adhesivos, manchas incrustadas).",
     ],

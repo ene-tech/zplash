@@ -27,12 +27,13 @@ export function ultimoIngresoCliente(ingresos: Ingreso[], clienteId: string): In
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())[0];
 }
 
-const HORAS_VENTANA_GARANTIA = 1;
+const HORAS_VENTANA_GARANTIA = 2;
 
 /**
  * El ingreso pagado (o por plan/ticket) que todavía da derecho a garantía:
- * todo auto que pasó por el túnel puede repasar sin cobro hasta 1 hora
- * después de ese ingreso (regla del dueño, oct-2026). La hora corre desde el
+ * todo auto que pasó por el túnel puede repasar sin cobro hasta 2 horas
+ * después de ese ingreso (regla del dueño, oct-2026; de 1 a 2 horas el
+ * 11-nov-2026). El plazo corre desde el
  * ingreso original, no desde una garantía: repasar no alarga la ventana.
  */
 export function ingresoConGarantia(ingresos: Ingreso[], clienteId: string, ahora: Date = new Date()): Ingreso | undefined {
@@ -64,7 +65,7 @@ function fmtHorasBloqueo(horas: number): string {
  * Un vehículo con plan solo puede pasar 1 vez cada `horasBloqueo` horas (ver
  * horasBloqueoReingresoPlan en ConfigGlobal, editable en Configuración). La
  * garantía (repasar el mismo lavado sin cobrar de nuevo) solo se puede hacer
- * efectiva hasta 1 hora después del ingreso anterior; pasada esa hora y hasta
+ * efectiva hasta 2 horas después del ingreso anterior; pasado ese plazo y hasta
  * que se cumpla `horasBloqueo`, el reingreso queda bloqueado (ni garantía ni
  * pasada nueva, salvo pagando un lavado único — ver `precioLavadoUnico`).
  */

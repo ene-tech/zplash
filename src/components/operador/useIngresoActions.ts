@@ -57,7 +57,7 @@ export function useIngresoActions(
       patchUi({
         modal: {
           type: "confirm",
-          mensaje: `Vehiculo ingresó hace menos de 1 hora. ¿Desea que pase nuevamente por garantía?`,
+          mensaje: `Vehiculo ingresó hace menos de 2 horas. ¿Desea que pase nuevamente por garantía?`,
           confirmLabel: "Sí, ingresar por garantía",
           danger: false,
           onConfirm: () => hacerRegistro(true, cliente),
@@ -150,13 +150,13 @@ export function useIngresoActions(
   const registrarGarantia = (cliente: Cliente = c) => hacerRegistro(true, cliente);
 
   const registrarPagado = (cliente: Cliente = c) => {
-    // Dentro de la hora de garantía, "Lavado Full Túnel" no vuelve a cobrar
+    // Dentro del plazo de garantía, "Lavado Full Túnel" no vuelve a cobrar
     // sin preguntar: lo más probable es que venga a repasar.
     if (ingresoConGarantia(data.ingresos, cliente.id)) {
       patchUi({
         modal: {
           type: "confirm",
-          mensaje: `Este vehículo pasó hace menos de 1 hora. ¿Desea que pase nuevamente por garantía, sin cobro?`,
+          mensaje: `Este vehículo pasó hace menos de 2 horas. ¿Desea que pase nuevamente por garantía, sin cobro?`,
           confirmLabel: "Sí, ingresar por garantía",
           danger: false,
           onConfirm: () => hacerRegistro(true, cliente),
