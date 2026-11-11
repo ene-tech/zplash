@@ -38,6 +38,16 @@ export function requerimientoPorUnidad(p: Presentacion, formula: Formula): Map<s
   return req;
 }
 
+/** Flete prorrateado por unidad de la materia prima (0 sin flete). */
+export function fletePorUnidad(mp: Pick<MateriaPrima, "fleteTotal" | "fleteCantidad">): number {
+  return mp.fleteTotal && mp.fleteCantidad ? mp.fleteTotal / mp.fleteCantidad : 0;
+}
+
+/** Valor neto de compra más el flete prorrateado, por unidad. undefined sin valor de compra. */
+export function costoCompraConFlete(mp: Pick<MateriaPrima, "precioCompra" | "fleteTotal" | "fleteCantidad">): number | undefined {
+  return mp.precioCompra === undefined ? undefined : mp.precioCompra + fletePorUnidad(mp);
+}
+
 /** Costo de un producto usado en una unidad (mezcla o envase), sin redondear. */
 export interface CostoComponente {
   materiaPrimaId: string;
@@ -52,8 +62,8 @@ export interface CostoComponente {
 /** Costo estimado de una unidad con los lotes y precios de hoy, con el
  * mismo criterio que una recepción: lo nuestro sale de los lotes en orden
  * FIFO y lo que falta lo pone la fábrica a su precio. Si la fábrica no la
- * pone, lo que falta se valoriza al valor neto de compra de la ficha (lo que
- * costaría comprarla). Es una referencia; el costo real queda en cada
+ * pone, lo que falta se valoriza al valor neto de compra de la ficha más su
+ * flete prorrateado (lo que costaría comprarla). Es una referencia; el costo real queda en cada
  * recepción. `sinPrecio` = a alguna materia prima le falta costo (incompleto).
  * `detalle` trae el costo de cada producto usado. */
 export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materias: MateriaPrima[], lotes: LoteMateriaPrima[]) {
@@ -78,7 +88,7 @@ export function costoEstimadoPorUnidad(p: Presentacion, formula: Formula, materi
         pendiente -= toma;
       }
       if (pendiente > 1e-9) {
-        const precio = mp?.precioFabrica ?? mp?.precioCompra;
+        const precio = mp?.precioFabrica ?? (mp ? costoCompraConFlete(mp) : undefined);
         if (precio === undefined) linea.sinPrecio = true;
         else linea.costo += pendiente * precio;
       }

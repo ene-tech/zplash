@@ -136,6 +136,13 @@ describe("costoEstimadoPorUnidad", () => {
     expect(c).toMatchObject({ envases: 150, total: 775, sinPrecio: false });
   });
 
+  it("al valor de compra le suma el flete prorrateado de la ficha", () => {
+    // frasco 150 + flete 5.000 / 100 un = 200 por frasco
+    const conFlete = materias.map((m) => (m.id === "frasco" ? { ...m, precioCompra: 150, fleteTotal: 5000, fleteCantidad: 100 } : m));
+    const c = costoEstimadoPorUnidad(pres[0], formulas[0], conFlete, [lote("fragA", "fragancia", 1, 20000)]);
+    expect(c).toMatchObject({ envases: 200, sinPrecio: false });
+  });
+
   it("costea 1 litro de la mezcla por producto", () => {
     const c = costoMezclaPorLitro(formulas[0], materias, [lote("fragA", "fragancia", 1, 20000)]);
     // fragancia 0,1 L × 20.000 + alcohol 0,9 L × 2.500

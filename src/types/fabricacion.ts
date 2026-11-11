@@ -24,6 +24,10 @@ export interface MateriaPrima {
   /** Lo que nos cuesta comprarla, neto por `unidad` (ej. valor del litro).
    * Solo precarga el costo de las compras; el costo real queda en el lote. */
   precioCompra?: number;
+  /** Flete del transporte: costo total neto y cantidad transportada (en
+   * `unidad`). Se prorratea: flete por unidad = fleteTotal / fleteCantidad. */
+  fleteTotal?: number;
+  fleteCantidad?: number;
   /** Lo nuestro guardado en la fábrica (suma de lotes). */
   stock: number;
   stockMin: number;

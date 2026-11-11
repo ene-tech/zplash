@@ -7,7 +7,7 @@ import { useAppUi } from "@/context/AppContext";
 import { fmtCLP, fmtFecha } from "@/lib/helpers";
 import { eliminarMateriaPrima, guardarMateriaPrima, moverStockMateriaPrima } from "@/lib/serverActions";
 import type { MateriaPrima, TipoMateriaPrima } from "@/types";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowDownUp, History, Pencil, ShoppingCart, Trash2 } from "lucide-react";
 import SelectFab from "./SelectFab";
 import { aTexto, esNumero, fmtCantidad, fmtFormatoCompra, parseDecimal, unidadFormato, type FabricacionTabProps } from "./shared";
-import { redondearCantidad } from "@/lib/logic";
+import { costoCompraConFlete, fletePorUnidad, redondearCantidad } from "@/lib/logic";
 
 const NUEVA: MateriaPrima = { id: "", nombre: "", tipo: "materia_prima", unidad: "L", stock: 0, stockMin: 0, activa: true };
 
@@ -44,6 +44,10 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
   const bajoMinimo = datos.materiasPrimas.filter((m) => m.activa && m.stockMin > 0 && m.stock < m.stockMin).length;
   const sinOrigen = datos.materiasPrimas.filter((m) => m.activa && m.tipo !== "mano_obra" && m.stock <= 0 && m.precioFabrica === undefined).length;
   const valorizado = datos.lotes.reduce((s, l) => s + l.restante * l.costoUnitario, 0);
+  // Monto que tenemos en cada una (suma de sus lotes a costo FIFO).
+  const montoPorMp = new Map<string, number>();
+  for (const l of datos.lotes) montoPorMp.set(l.materiaPrimaId, (montoPorMp.get(l.materiaPrimaId) ?? 0) + l.restante * l.costoUnitario);
+  const montoLista = lista.reduce((s, m) => s + (montoPorMp.get(m.id) ?? 0), 0);
 
   const eliminar = (m: MateriaPrima) => {
     patchUi({
@@ -102,6 +106,7 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
               <TableHead>Nombre</TableHead>
               <TableHead>Formato compra</TableHead>
               <TableHead>Nuestro stock</TableHead>
+              <TableHead className="text-right">Monto en stock</TableHead>
               <TableHead>Costo actual (FIFO)</TableHead>
               <TableHead>Precio fábrica</TableHead>
               <TableHead>Mínimo</TableHead>
@@ -111,7 +116,7 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
           <TableBody>
             {lista.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={8}>
                   <div className="empty">No hay nada que coincida</div>
                 </TableCell>
               </TableRow>
@@ -129,6 +134,7 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
                     <TableCell style={m.stockMin > 0 && m.stock < m.stockMin ? { color: "var(--red)", fontWeight: 600 } : undefined}>
                       {manoObra ? <span className="text-muted-foreground">Sin stock (inagotable)</span> : `${fmtCantidad(m.stock)} ${m.unidad}`}
                     </TableCell>
+                    <TableCell className="text-right">{manoObra ? <span className="text-muted-foreground">-</span> : fmtCLP(Math.round(montoPorMp.get(m.id) ?? 0))}</TableCell>
                     <TableCell>
                       {manoObra
                         ? m.costoManoObra !== undefined
@@ -183,6 +189,18 @@ export default function MateriasPrimasTab({ datos, recargar }: FabricacionTabPro
               })
             )}
           </TableBody>
+          {lista.length > 0 && (
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={3} className="font-semibold">
+                  Total {filtroTipo === "todos" ? "" : TIPOS.find((t) => t.value === filtroTipo)?.plural.toLowerCase()}
+                  {q ? " (filtrado)" : ""}
+                </TableCell>
+                <TableCell className="text-right font-semibold">{fmtCLP(Math.round(montoLista))}</TableCell>
+                <TableCell colSpan={4} />
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </div>
 
@@ -272,7 +290,8 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
     precio: mp.precioFabrica ? String(mp.precioFabrica) : "",
     minimo: mp.stockMin ? aTexto(mp.stockMin) : "",
     stock: aTexto(mp.stock),
-    flete: "",
+    fleteTotal: mp.fleteTotal !== undefined ? String(mp.fleteTotal) : "",
+    fleteCantidad: mp.fleteCantidad ? aTexto(mp.fleteCantidad) : "",
     activa: mp.activa,
   });
   const [guardando, setGuardando] = useState(false);
@@ -285,6 +304,12 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
   const formatoCompra = form.formato.trim() && formatoValido ? Math.round((parseDecimal(form.formato) / factorFormato) * 1e6) / 1e6 : undefined;
   const precioCompra = form.precioCompra === "" ? undefined : Number(form.precioCompra) || 0;
   const nombreUnidad = form.unidad === "L" ? "litro" : form.unidad;
+  const fleteTotal = form.fleteTotal === "" ? undefined : Number(form.fleteTotal) || 0;
+  const fleteCantidadValida = esNumero(form.fleteCantidad) && parseDecimal(form.fleteCantidad) > 0;
+  const fleteCantidad = fleteCantidadValida ? parseDecimal(form.fleteCantidad) : undefined;
+  const flete = { fleteTotal, fleteCantidad };
+  const fleteUnidad = fletePorUnidad(flete);
+  const costoConFlete = costoCompraConFlete({ precioCompra, ...flete });
   // Cambiar litros <-> ml convierte lo escrito, para no reinterpretarlo.
   const cambiarEnL = (v: boolean) => {
     if (v === form.formatoEnL) return;
@@ -300,8 +325,9 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
   // Con stock cargado no se cambia la unidad ni se pasa a mano de obra: los lotes quedarían colgando.
   const unidadFija = mp.stock > 0;
   const manoObra = form.tipo === "mano_obra";
-  // El stock que entra se costea con el valor de compra de la ficha más el flete prorrateado.
-  const costoEntra = costoCompra(sube ? stockNuevo - mp.stock : 0, precioCompra ?? 0, Number(form.flete) || 0);
+  // El stock que entra se costea con el valor de compra de la ficha más el flete prorrateado de la ficha.
+  const cantidadEntra = sube ? stockNuevo - mp.stock : 0;
+  const costoEntra = costoCompra(cantidadEntra, precioCompra ?? 0, fleteUnidad * cantidadEntra);
 
   const guardar = async () => {
     if (manoObra) {
@@ -325,6 +351,7 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
     }
     if (!formatoValido) return toast.error("El formato de compra tiene que ser un número mayor a 0 (o déjalo vacío)");
     if (stockTocado && !stockValido) return toast.error("El stock existente tiene que ser un número (0 o más)");
+    if (fleteTotal !== undefined && !fleteCantidadValida) return toast.error("Indica la cantidad transportada (mayor a 0) para prorratear el flete");
     if (sube && precioCompra === undefined) return toast.error(`Indica el valor neto de compra por ${nombreUnidad} para costear el stock que agregas`);
     setGuardando(true);
     const r = await guardarMateriaPrima(
@@ -337,6 +364,8 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
         formatoCompra,
         precioFabrica: form.laPone ? Number(form.precio) || 0 : undefined,
         precioCompra,
+        fleteTotal,
+        fleteCantidad: fleteTotal === undefined ? undefined : fleteCantidad,
         stockMin: parseDecimal(form.minimo),
         activa: form.activa,
       },
@@ -462,17 +491,49 @@ function MateriaPrimaDialog({ mp, onClose, recargar }: { mp: MateriaPrima; onClo
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="mp-stock">Stock existente ({form.unidad})</Label>
-                  <Input id="mp-stock" inputMode="decimal" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-                  {formatoCompra && stockNuevo > 0 && (
-                    <span className="text-xs text-muted-foreground">= {fmtCantidad(Math.round((stockNuevo / formatoCompra) * 100) / 100)} envases</span>
-                  )}
+                  <Label>Costo total del flete (neto)</Label>
+                  <PriceInput value={form.fleteTotal} onChange={(v) => setForm({ ...form, fleteTotal: v })} className={INPUT_PRECIO} />
                 </div>
-                {sube && (
-                  <div className="grid gap-1.5">
-                    <Label>Flete / transporte neto</Label>
-                    <PriceInput value={form.flete} onChange={(v) => setForm({ ...form, flete: v })} className={INPUT_PRECIO} />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="mp-flete-cant">Cantidad transportada ({form.unidad})</Label>
+                  <Input
+                    id="mp-flete-cant"
+                    inputMode="decimal"
+                    value={form.fleteCantidad}
+                    onChange={(e) => setForm({ ...form, fleteCantidad: e.target.value })}
+                    placeholder={form.unidad === "L" ? "Ej: 200" : ""}
+                  />
+                </div>
+              </div>
+              {costoConFlete !== undefined && (
+                <div className="grid gap-0.5 rounded-lg border border-border p-2 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Valor neto por {nombreUnidad}</span>
+                    <span>{fmtCLP(precioCompra!)}</span>
                   </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Flete prorrateado por {nombreUnidad}</span>
+                    <span>{fleteUnidad ? `+${fmtCLP(Math.round(fleteUnidad * 100) / 100)}` : "-"}</span>
+                  </div>
+                  <div className="flex justify-between gap-3 border-t border-border pt-1 font-semibold">
+                    <span>Costo con flete por {nombreUnidad}</span>
+                    <span>{fmtCLP(Math.round(costoConFlete * 100) / 100)}</span>
+                  </div>
+                  {formatoCompra && (
+                    <div className="flex justify-between gap-3 text-muted-foreground">
+                      <span>Por envase de {fmtFormatoCompra(formatoCompra, form.unidad)}</span>
+                      <span>{fmtCLP(Math.round(costoConFlete * formatoCompra))}</span>
+                    </div>
+                  )}
+                  <span className="text-xs text-muted-foreground">Es el costo que usan las fórmulas cuando no hay lote, y el del stock que agregues aquí.</span>
+                </div>
+              )}
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="mp-stock">Stock existente ({form.unidad})</Label>
+                <Input id="mp-stock" inputMode="decimal" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+                {formatoCompra && stockNuevo > 0 && (
+                  <span className="text-xs text-muted-foreground">= {fmtCantidad(Math.round((stockNuevo / formatoCompra) * 100) / 100)} envases</span>
                 )}
               </div>
               {sube &&
@@ -551,7 +612,9 @@ function MovimientoDialog({
   const [notas, setNotas] = useState("");
   const [guardando, setGuardando] = useState(false);
   const cantidadEnUnidad = porEnvase ? parseDecimal(cantidad) * mp.formatoCompra! : parseDecimal(cantidad);
-  const costo = costoCompra(cantidadEnUnidad, Number(valor) || 0, Number(flete) || 0);
+  // Flete vacío = el prorrateo de la ficha por lo que se compra.
+  const fleteFicha = fletePorUnidad(mp);
+  const costo = costoCompra(cantidadEnUnidad, Number(valor) || 0, flete === "" ? fleteFicha * cantidadEnUnidad : Number(flete) || 0);
   const costoUnitario = valor === "" ? undefined : costo.unitario;
 
   const guardar = async () => {
@@ -603,6 +666,11 @@ function MovimientoDialog({
               <div className="grid gap-1.5">
                 <Label>Flete / transporte neto</Label>
                 <PriceInput value={flete} onChange={setFlete} className={INPUT_PRECIO} />
+                {flete === "" && fleteFicha > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    Vacío = flete de la ficha ({fmtCLP(Math.round(fleteFicha * 100) / 100)} por {mp.unidad})
+                  </span>
+                )}
               </div>
             </div>
           )}
