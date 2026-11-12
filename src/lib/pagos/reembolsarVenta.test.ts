@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // (venta viva, sin contra-asiento previo, monto pedido dentro de lo cobrado),
 // el contra-asiento que inserta queda con precio NEGATIVO, tipo "Reembolso" y
 // el motivo en las notas — de eso depende que Cierre de Caja lo descuente en
-// el día correcto — y al cliente con correo se le avisa de la devolución.
+// el día correcto — y al cliente se le manda el comprobante por correo y SMS.
 
 let respuestas: unknown[][] = [];
 const inserts: Record<string, unknown>[] = [];
@@ -58,6 +58,15 @@ vi.mock("@/lib/mailing/proveedor", () => ({
   },
 }));
 
+const smss: { telefono: string; texto: string; sinPieBaja?: boolean }[] = [];
+vi.mock("@/lib/sms/enviar", () => ({
+  msisdnChile: (t: string) => (/^\+?569\d{8}$/.test(t.replace(/\s/g, "")) ? t : null),
+  enviarSms: (envio: { telefono: string; texto: string; sinPieBaja?: boolean }) => {
+    smss.push(envio);
+    return Promise.resolve({ ok: true });
+  },
+}));
+
 import { reembolsarVentaTarjeta } from "./reembolsarVenta";
 
 const venta = {
@@ -70,7 +79,7 @@ const venta = {
   tipo: "Renovación (Web)",
   fecha: "2026-09-01T12:00:00.000Z",
 };
-const cliente = { id: "c1", nombre: "Juan", email: "juan@correo.cl" };
+const cliente = { id: "c1", nombre: "Juan", email: "juan@correo.cl", telefono: "+56912345678" };
 
 describe("reembolsarVentaTarjeta", () => {
   beforeEach(() => {
@@ -78,6 +87,7 @@ describe("reembolsarVentaTarjeta", () => {
     inserts.length = 0;
     updates.length = 0;
     correos.length = 0;
+    smss.length = 0;
   });
 
   it("venta ya reembolsada -> error sin llamar a Transbank ni insertar nada", async () => {
@@ -90,7 +100,7 @@ describe("reembolsarVentaTarjeta", () => {
   });
 
   it("pago Webpay -> devuelve el monto del ítem, inserta el contra-asiento negativo y avisa por correo", async () => {
-    respuestas = [[venta], [], [{ monto: 21990, token: "tok1" }], [], [cliente]];
+    respuestas = [[venta], [], [{ monto: 21990, token: "tok1", buyOrder: "bo1" }], [], [cliente]];
     const r = await reembolsarVentaTarjeta("v1", "cobro duplicado", "Gerencia");
     expect(r.ok).toBe(true);
     expect(refundWebpay).toHaveBeenCalledWith("tok1", 21990);
@@ -114,12 +124,27 @@ describe("reembolsarVentaTarjeta", () => {
       }),
     ]);
     expect(correos).toEqual([
-      expect.objectContaining({ to: "juan@correo.cl", subject: expect.stringContaining("21.990") }),
+      expect.objectContaining({ to: "juan@correo.cl", subject: expect.stringContaining("21.990"), html: expect.stringContaining("bo1") }),
     ]);
+    expect(correos[0].html).toContain("r1");
+    expect(correos[0].html).toContain("cobro duplicado");
+    expect(smss).toEqual([expect.objectContaining({ telefono: "+56912345678", sinPieBaja: true })]);
+    expect(smss[0].texto).toContain("21.990");
+    expect(smss[0].texto).toContain("r1");
+    expect(smss[0].texto).toContain("bo1");
+    expect(smss[0].texto).not.toContain("\n");
+  });
+
+  it("cliente sin correo ni celular -> el reembolso se hace igual, sin avisos", async () => {
+    respuestas = [[venta], [], [{ monto: 21990, token: "tok1", buyOrder: "bo1" }], [], [{ ...cliente, email: "", telefono: "" }]];
+    const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia");
+    expect(r.ok).toBe(true);
+    expect(correos).toEqual([]);
+    expect(smss).toEqual([]);
   });
 
   it("devolución parcial -> cobra a Transbank solo el monto pedido y lo anota como parcial", async () => {
-    respuestas = [[venta], [], [{ monto: 21990, token: "tok1" }], [], [cliente]];
+    respuestas = [[venta], [], [{ monto: 21990, token: "tok1", buyOrder: "bo1" }], [], [cliente]];
     const r = await reembolsarVentaTarjeta("v1", "diferencia de precio", "Gerencia", 5000);
     expect(r.ok).toBe(true);
     expect(refundWebpay).toHaveBeenCalledWith("tok1", 5000);
@@ -131,7 +156,7 @@ describe("reembolsarVentaTarjeta", () => {
   });
 
   it("monto pedido mayor a lo cobrado -> error sin llamar a Transbank", async () => {
-    respuestas = [[venta], [], [{ monto: 21990, token: "tok1" }]];
+    respuestas = [[venta], [], [{ monto: 21990, token: "tok1", buyOrder: "bo1" }]];
     const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia", 30000);
     expect(r.ok).toBe(false);
     expect(refundWebpay).not.toHaveBeenCalled();
@@ -139,7 +164,7 @@ describe("reembolsarVentaTarjeta", () => {
   });
 
   it("Transbank rechaza -> error y no se inserta contra-asiento", async () => {
-    respuestas = [[venta], [], [{ monto: 21990, token: "tok1" }]];
+    respuestas = [[venta], [], [{ monto: 21990, token: "tok1", buyOrder: "bo1" }]];
     refundWebpay.mockResolvedValueOnce({ type: "NULLIFIED", response_code: -1, authorization_code: "" });
     const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia");
     expect(r.ok).toBe(false);
@@ -148,7 +173,7 @@ describe("reembolsarVentaTarjeta", () => {
   });
 
   it("Transbank tira excepción -> no se escribe ni el contra-asiento ni el asiento contable", async () => {
-    respuestas = [[venta], [], [{ monto: 21990, token: "tok1" }]];
+    respuestas = [[venta], [], [{ monto: 21990, token: "tok1", buyOrder: "bo1" }]];
     refundWebpay.mockRejectedValueOnce(new Error("timeout"));
     const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia");
     expect(r.ok).toBe(false);
@@ -156,27 +181,29 @@ describe("reembolsarVentaTarjeta", () => {
   });
 
   it("el asiento va al canal del asiento de la venta original (ej. reclasificado)", async () => {
-    respuestas = [[venta], [], [{ monto: 21990, token: "tok1" }], [{ categoria: "Otros" }], [cliente]];
+    respuestas = [[venta], [], [{ monto: 21990, token: "tok1", buyOrder: "bo1" }], [{ categoria: "Otros" }], [cliente]];
     await reembolsarVentaTarjeta("v1", "motivo", "Gerencia");
     expect(inserts[1]).toEqual(expect.objectContaining({ categoria: "Otros", monto: -21990 }));
   });
 
   it("venta de productos sin asiento original -> canal Venta de Productos", async () => {
-    respuestas = [[{ ...venta, tipo: "Venta de productos", patente: "" }], [], [{ monto: 5000, token: "tok1" }], [], [cliente]];
+    respuestas = [[{ ...venta, tipo: "Venta de productos", patente: "" }], [], [{ monto: 5000, token: "tok1", buyOrder: "bo1" }], [], [cliente]];
     await reembolsarVentaTarjeta("v1", "motivo", "Gerencia");
     expect(inserts[1]).toEqual(expect.objectContaining({ categoria: "Venta de Productos", monto: -5000 }));
   });
 
   it("sin pago Webpay -> cae al cobro Oneclick y reembolsa con su buyOrder", async () => {
-    respuestas = [[venta], [], [], [{ id: "oc123", monto: 19990 }], [], [cliente]];
+    respuestas = [[venta], [], [], [{ id: "oc123", monto: 19990, cardTipo: "Visa", cardUltimosDigitos: "XXXX4321" }], [], [cliente]];
     const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia");
     expect(r.ok).toBe(true);
+    expect(smss[0].texto).not.toContain("4321");
+    expect(smss[0].texto).toContain("Reversa Oneclick");
     expect(refundOneclick).toHaveBeenCalledWith("oc123", "597055555543", "oc123", 19990);
     expect(inserts).toEqual([expect.objectContaining({ precio: -19990 }), expect.objectContaining({ monto: -19990 })]);
   });
 
   it("anularVigencia en venta de plan -> resta un mes al vencimiento y lo anota", async () => {
-    respuestas = [[venta], [], [{ monto: 21990, token: "tok1" }], [{ vencimiento: "2026-10-15T12:00:00.000Z" }], [], [cliente]];
+    respuestas = [[venta], [], [{ monto: 21990, token: "tok1", buyOrder: "bo1" }], [{ vencimiento: "2026-10-15T12:00:00.000Z" }], [], [cliente]];
     const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia", undefined, true);
     expect(r.ok && r.vencimiento?.slice(0, 10)).toBe("2026-09-15");
     expect(updates).toEqual([{ vencimiento: r.ok ? r.vencimiento : null }]);
@@ -187,7 +214,7 @@ describe("reembolsarVentaTarjeta", () => {
   });
 
   it("anularVigencia en venta que no es plan -> no toca el vencimiento", async () => {
-    respuestas = [[{ ...venta, tipo: "Lavado único" }], [], [{ monto: 21990, token: "tok1" }], [], [cliente]];
+    respuestas = [[{ ...venta, tipo: "Lavado único" }], [], [{ monto: 21990, token: "tok1", buyOrder: "bo1" }], [], [cliente]];
     const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia", undefined, true);
     expect(r.ok).toBe(true);
     expect(updates).toEqual([]);

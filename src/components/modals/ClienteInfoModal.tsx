@@ -8,16 +8,20 @@ import {
   enviarCuponAlCliente,
   fusionarClientes,
   obtenerDetallePagosVentas,
+  obtenerComprobanteReembolso,
   obtenerLibroComentarios,
   obtenerSuscripcionOneclick,
   reactivarSuscripcionOneclick,
   reembolsarVenta,
+  reenviarComprobanteReembolsoPorCorreo,
   suspenderSuscripcionOneclick,
 } from "@/lib/serverActions";
 import type { DetallePagoVenta, SuscripcionOneclickInfo } from "@/lib/dataAccess";
 import type { CanalEnvioCupon } from "@/lib/serverActions/cupones";
 import {
   beneficioCupon,
+  CREADO_POR_REEMBOLSO,
+  puedeEnviarDocumentosCliente,
   cuponDescuentoDePatente,
   cuponesVigentesDeCliente,
   detalleCupon,
@@ -208,6 +212,49 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   const [anularVigencia, setAnularVigencia] = useState(false);
   const [reembolsando, setReembolsando] = useState(false);
   const [errReembolso, setErrReembolso] = useState("");
+  // Comprobante de una devolución ya hecha: el mismo HTML del correo que le
+  // llegó al cliente (ver obtenerComprobanteReembolso), en un iframe para
+  // verlo e imprimirlo/guardarlo como PDF.
+  const [comprobanteReembolso, setComprobanteReembolso] = useState<{ ventaId: string; html: string } | null>(null);
+  const iframeComprobante = useRef<HTMLIFrameElement>(null);
+  // Reenvío del comprobante abierto por correo: por defecto al de la ficha,
+  // editable por si el cliente pide otra dirección.
+  const [correoComprobante, setCorreoComprobante] = useState("");
+  const [enviandoComprobante, setEnviandoComprobante] = useState(false);
+  const [avisoComprobante, setAvisoComprobante] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function reenviarComprobante() {
+    if (!comprobanteReembolso) return;
+    setEnviandoComprobante(true);
+    setAvisoComprobante(null);
+    try {
+      const r = await reenviarComprobanteReembolsoPorCorreo(comprobanteReembolso.ventaId, correoComprobante);
+      setAvisoComprobante(r.ok ? { ok: true, texto: `Enviado a ${correoComprobante.trim()}.` } : { ok: false, texto: r.error });
+    } catch {
+      setAvisoComprobante({ ok: false, texto: "No se pudo enviar (sin conexión)." });
+    } finally {
+      setEnviandoComprobante(false);
+    }
+  }
+
+  // El último clic manda: si llegan respuestas desordenadas, las viejas se
+  // descartan para que el visor (y el reenvío) no queden en otra devolución.
+  const ultimoComprobantePedido = useRef("");
+  async function verComprobanteReembolso(v: Venta) {
+    ultimoComprobantePedido.current = v.id;
+    setComprobanteReembolso(null);
+    setErrReembolso("");
+    setAvisoComprobante(null);
+    setCorreoComprobante(cliente.email || "");
+    try {
+      const r = await obtenerComprobanteReembolso(v.id);
+      if (ultimoComprobantePedido.current !== v.id) return;
+      if ("html" in r) setComprobanteReembolso({ ventaId: v.id, html: r.html });
+      else setErrReembolso(r.error);
+    } catch {
+      if (ultimoComprobantePedido.current === v.id) setErrReembolso("No se pudo cargar el comprobante (sin conexión).");
+    }
+  }
 
   const filasHistorial = useMemo(() => [...reembolsosHechos, ...ventasCliente], [reembolsosHechos, ventasCliente]);
   // Ids de ventas que ya tienen su contra-asiento (id "reembolso-<ventaId>",
@@ -818,6 +865,11 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                           )}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
+                          {v.tipo === TIPO_VENTA_REEMBOLSO && v.creadoPor === CREADO_POR_REEMBOLSO && (
+                            <Button size="sm" variant="ghost" onClick={() => verComprobanteReembolso(v)}>
+                              Comprobante
+                            </Button>
+                          )}
                           {reembolsable &&
                             (ventasReembolsadas.has(v.id) ? (
                               <span className="text-xs text-muted-foreground">Reembolsada</span>
@@ -903,9 +955,50 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
             </div>
           )}
           {errReembolso && <p className="mt-2 text-sm text-destructive">{errReembolso}</p>}
+          {comprobanteReembolso && (
+            <div className="mt-3 rounded-md border border-border">
+              <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+                <span className="text-sm font-medium">Comprobante de devolución</span>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => iframeComprobante.current?.contentWindow?.print()}>
+                    Imprimir / PDF
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setComprobanteReembolso(null)}>
+                    Cerrar
+                  </Button>
+                </div>
+              </div>
+              {puedeEnviarDocumentosCliente(ui.perfilActual?.modulos) && (
+              <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+                <input
+                  type="email"
+                  className="h-8 w-64 max-w-full rounded-md border border-border bg-transparent px-2 text-sm"
+                  placeholder="correo@cliente.cl"
+                  value={correoComprobante}
+                  onChange={(e) => setCorreoComprobante(e.target.value)}
+                  disabled={enviandoComprobante}
+                />
+                <Button size="sm" variant="outline" onClick={reenviarComprobante} disabled={enviandoComprobante || !correoComprobante.trim()}>
+                  {enviandoComprobante ? "Enviando…" : "Reenviar por correo"}
+                </Button>
+                {avisoComprobante && (
+                  <span className={`text-xs ${avisoComprobante.ok ? "text-muted-foreground" : "text-destructive"}`}>{avisoComprobante.texto}</span>
+                )}
+              </div>
+              )}
+              <iframe
+                key={comprobanteReembolso.ventaId}
+                ref={iframeComprobante}
+                title="Comprobante de devolución"
+                srcDoc={comprobanteReembolso.html}
+                sandbox="allow-modals allow-same-origin"
+                className="h-[560px] w-full rounded-b-md bg-white"
+              />
+            </div>
+          )}
         </div>
 
-        <AdjuntosCliente key={c.id} clienteId={c.id} />
+        <AdjuntosCliente key={c.id} clienteId={c.id} email={cliente.email} />
 
         {comentariosLibro.length > 0 && (
           <div className="border-t border-border pt-5">

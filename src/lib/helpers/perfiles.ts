@@ -184,6 +184,13 @@ export function puedeCerrarCaja(modulos?: Modulo[]): boolean {
   return !!modulos?.includes("arqueo");
 }
 
+/** Quién puede mandar por correo comprobantes y documentos de la ficha a la
+ * dirección que escriba: la ficha de clientes y, como al reembolsar, Gerencia
+ * o cierre de caja. Lo usan las Server Actions y los botones de la ficha. */
+export function puedeEnviarDocumentosCliente(modulos?: Modulo[]): boolean {
+  return !!modulos?.includes("clientes") && (modulos.includes("permisos") || puedeCerrarCaja(modulos));
+}
+
 /** Reabrir la caja de hoy (deshacer el cierre) queda solo para "Gerencia":
  * quien cierra (módulo "arqueo") puede pedirlo, no hacerlo — ver
  * solicitarReaperturaCaja/reabrirCaja en @/lib/serverActions/cierre. */

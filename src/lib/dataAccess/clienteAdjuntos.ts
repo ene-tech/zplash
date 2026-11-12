@@ -51,6 +51,40 @@ export async function urlSubidaAdjuntoCliente(ruta: string): Promise<{ ruta: str
   return { ruta: data.path, token: data.token };
 }
 
+/** Sube desde el servidor un archivo que arma el sistema (ej. el PDF del
+ * comprobante de devolución). upsert: reintentar pisa el mismo archivo. */
+export async function subirArchivoAdjuntoCliente(ruta: string, contenido: Buffer, tipoMime: string): Promise<boolean> {
+  const { error } = await getSupabaseAdmin().storage.from(BUCKET).upload(ruta, contenido, { contentType: tipoMime, upsert: true });
+  if (error) console.error("Error subiendo adjunto generado", ruta, error);
+  return !error;
+}
+
+export async function borrarArchivoAdjuntoCliente(ruta: string): Promise<void> {
+  const { error } = await getSupabaseAdmin().storage.from(BUCKET).remove([ruta]);
+  if (error) console.error("Error borrando archivo adjunto huérfano", ruta, error);
+}
+
+/** El archivo de un adjunto, para mandarlo por correo; null si no existe o
+ * falló la lectura (queda en el log con su id). */
+export async function descargarAdjuntoCliente(clienteId: string, id: string): Promise<{ adjunto: ClienteAdjunto; contenido: Buffer } | null> {
+  try {
+    const [fila] = await getDb()
+      .select()
+      .from(clienteAdjuntos)
+      .where(and(eq(clienteAdjuntos.id, id), eq(clienteAdjuntos.clienteId, clienteId)));
+    if (!fila) return null;
+    const { data, error } = await getSupabaseAdmin().storage.from(BUCKET).download(fila.ruta);
+    if (error || !data) {
+      console.error("Error descargando adjunto del cliente", id, error);
+      return null;
+    }
+    return { adjunto: adjuntoFromRow(fila), contenido: Buffer.from(await data.arrayBuffer()) };
+  } catch (error) {
+    console.error("Error leyendo adjunto del cliente", id, error);
+    return null;
+  }
+}
+
 /** true si el archivo ya está en el bucket (se revisa antes de anotarlo en la tabla). */
 export async function existeArchivoAdjunto(ruta: string): Promise<boolean> {
   const corte = ruta.lastIndexOf("/");

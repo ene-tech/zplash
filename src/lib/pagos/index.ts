@@ -3,6 +3,7 @@ export * from "./aplicarPagoPackEmpresa";
 export * from "./aplicarRetornoWebpay";
 export * from "./cancelarSuscripcionWooCommerceLegacy";
 export * from "./cobrarOfertaOneclick";
+export * from "./comprobanteReembolso";
 export * from "./cobrarSuscripcion";
 export * from "./cotizarPlan";
 export * from "./cuponPlan";

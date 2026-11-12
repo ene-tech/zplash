@@ -1,7 +1,10 @@
 "use server";
 
 import * as dataAccess from "@/lib/dataAccess";
-import { puedeBorrarAdjuntoCliente } from "@/lib/helpers";
+import { esEmailEnviable, puedeBorrarAdjuntoCliente, puedeEnviarDocumentosCliente } from "@/lib/helpers";
+import { reembolsoIdDeAdjunto, reenviarComprobanteReembolso } from "@/lib/pagos";
+import { envolverHtmlBase } from "@/lib/mailing/plantillaBase";
+import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import { TIPOS_ADJUNTO_CLIENTE, type ClienteAdjunto, type TipoAdjuntoCliente } from "@/types";
 
@@ -88,6 +91,48 @@ export async function eliminarAdjuntoCliente(clienteId: string, id: string): Pro
     return { ok: false, error: "Solo Gerencia puede borrar adjuntos" };
   const ok = await dataAccess.eliminarAdjuntoCliente(String(clienteId), String(id));
   return ok ? { ok } : { ok, error: "No se pudo borrar" };
+}
+
+// Manda el archivo adjunto por correo (ej. el comprobante de devolución, el
+// automático o uno subido a mano). Mismo gate que reembolsar: manda datos del
+// cliente a la dirección que se escriba. El "detalle" no va en el correo: es
+// la nota interna de quien lo subió.
+export async function enviarAdjuntoClientePorCorreo(
+  clienteId: string,
+  id: string,
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sesion = await sesionActual();
+  if (!sesion || !puedeEnviarDocumentosCliente(sesion.modulos))
+    return { ok: false, error: "Necesitas permisos de Gerencia o de cierre de caja para enviar documentos." };
+  const destino = String(email ?? "").trim();
+  if (!esEmailEnviable(destino)) return { ok: false, error: "El correo no es válido." };
+  // El comprobante que dejó el reembolso sale con el mismo correo completo
+  // que el botón del historial, no con el genérico de abajo.
+  const reembolsoId = reembolsoIdDeAdjunto(String(id));
+  if (reembolsoId) {
+    const r = await reenviarComprobanteReembolso(reembolsoId, destino);
+    if (r.ok) console.info("Comprobante de reembolso reenviado", reembolsoId, "por", sesion.nombre);
+    return r;
+  }
+  const archivo = await dataAccess.descargarAdjuntoCliente(String(clienteId), String(id));
+  if (!archivo) return { ok: false, error: "No se encontró el archivo." };
+  const esDevolucion = archivo.adjunto.tipo === "devolucion";
+  const r = await enviarCorreoTransaccional({
+    to: destino,
+    subject: esDevolucion ? "Tu comprobante de devolución — ZPlash" : "Documento de ZPlash",
+    html: envolverHtmlBase(
+      `<p style="margin:0 0 16px;">Hola,</p>
+       <p style="margin:0 0 16px;">Te adjuntamos ${esDevolucion ? "el comprobante de tu devolución" : "el documento"} (${archivo.adjunto.nombreArchivo.replace(/[&<>"']/g, "")}).</p>
+       <p style="margin:0;">Cualquier duda, escríbenos a info@zplash.cl.</p>`,
+      { boton: false },
+    ),
+    adjuntos: [{ nombre: archivo.adjunto.nombreArchivo, contenido: archivo.contenido }],
+    clienteId: archivo.adjunto.clienteId,
+  });
+  if (!r.ok) return { ok: false, error: "No se pudo enviar el correo." };
+  console.info("Adjunto enviado por correo", archivo.adjunto.id, "por", sesion.nombre);
+  return { ok: true };
 }
 
 export async function urlAdjuntoCliente(clienteId: string, id: string): Promise<string | null> {

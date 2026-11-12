@@ -6,8 +6,6 @@ import { clientes, cobrosOneclick, movimientosContables, pagosWebpay, pagosWebpa
 import { movimientoToRow } from "@/lib/dataAccess/contabilidad";
 import {
   esEmailEnviable,
-  fmtCLP,
-  fmtFecha,
   idMovimientoContableDeVenta,
   movimientoContableDeReembolso,
   PREFIJO_VENTA_REEMBOLSO,
@@ -15,25 +13,21 @@ import {
   TIPO_VENTA_REEMBOLSO,
   TIPOS_VENTA_PLAN,
 } from "@/lib/helpers";
-import { envolverHtmlBase } from "@/lib/mailing/plantillaBase";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
+import { enviarSms, msisdnChile } from "@/lib/sms/enviar";
 import { oneclickChildCommerceCode, oneclickTransaction, webpayTransaction } from "@/lib/transbank";
 import type { Venta } from "@/types";
-
-// El motivo es texto libre del operador y va incrustado en el HTML del
-// correo: se escapa para que no pueda meter markup (nombre y tipo por si
-// acaso, mismo costo).
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
-function htmlReembolso(nombre: string, monto: number, compra: string, fechaCompra: string, motivo: string): string {
-  return envolverHtmlBase(`
-    <p style="margin:0 0 20px;">Hola ${esc(nombre)}, te hicimos una devolución a tu tarjeta.</p>
-    <p style="margin:0 0 8px;">Monto devuelto:</p>
-    <p style="margin:0 0 20px; font-size:32px; font-weight:bold; color:#262320;">${fmtCLP(monto)}</p>
-    <p style="margin:0 0 20px;">Corresponde a tu compra <strong>${esc(compra)}</strong> del ${fechaCompra}. Motivo: ${esc(motivo)}.</p>
-    <p style="margin:0;">El abono lo verás reflejado en tu tarjeta dentro de los próximos días, según los plazos de tu banco. Cualquier duda, respóndenos a este correo.</p>
-  `);
-}
+import {
+  adjuntarComprobanteReembolso,
+  armarComprobanteReembolso,
+  asuntoComprobanteReembolso,
+  CREADO_POR_REEMBOLSO,
+  htmlComprobanteReembolso,
+  nombreArchivoComprobante,
+  pdfComprobanteReembolso,
+  smsComprobanteReembolso,
+  type PagoReembolsado,
+} from "./comprobanteReembolso";
 
 /** Id determinístico del contra-asiento: además de enlazar reembolso y venta
  * original sin columna nueva, la PK impide reembolsar dos veces la misma
@@ -75,11 +69,11 @@ export async function reembolsarVentaTarjeta(
   montoPedido?: number,
   anularVigencia = false
 ): Promise<ResultadoReembolso> {
-  // Qué compra se devolvió, para el correo al cliente (el contra-asiento solo
-  // lo lleva en prosa dentro de `notas`). Objeto mutable y no un `let` directo:
-  // TS no ve las asignaciones dentro del callback de la transacción y a la
-  // variable la estrecharía a null acá afuera.
-  const captura: { original?: { tipo: string; fecha: string } } = {};
+  // Qué compra y qué pago se devolvieron, para el comprobante al cliente (el
+  // contra-asiento solo lo lleva en prosa dentro de `notas`). Objeto mutable y
+  // no un `let` directo: TS no ve las asignaciones dentro del callback de la
+  // transacción y a la variable la estrecharía a null acá afuera.
+  const captura: { original?: { tipo: string; fecha: string }; pago?: PagoReembolsado } = {};
 
   const resultado = await getDb().transaction(async (tx): Promise<ResultadoReembolso> => {
     // Mismo patrón que cobrarSuscripcion: el chequeo "¿ya reembolsada?", la
@@ -101,7 +95,7 @@ export async function reembolsarVentaTarjeta(
     // El pago Transbank detrás de la venta: mismo par de fuentes que
     // listarDetallePagosVentas (ver @/lib/dataAccess/pagos).
     const [itemWebpay] = await tx
-      .select({ monto: pagosWebpayItems.monto, token: pagosWebpay.token })
+      .select({ monto: pagosWebpayItems.monto, token: pagosWebpay.token, buyOrder: pagosWebpay.buyOrder })
       .from(pagosWebpayItems)
       .innerJoin(pagosWebpay, eq(pagosWebpay.buyOrder, pagosWebpayItems.buyOrder))
       .where(and(eq(pagosWebpayItems.ventaId, ventaId), eq(pagosWebpay.estado, "aprobada")))
@@ -132,6 +126,7 @@ export async function reembolsarVentaTarjeta(
           return { ok: false, error: "Transbank rechazó el reembolso." };
         }
         comprobante = r.authorization_code || r.type;
+        captura.pago = { medio: "Webpay", ordenCompra: itemWebpay.buyOrder, cobrado: itemWebpay.monto };
       } else {
         const [cobro] = await tx
           .select({ id: cobrosOneclick.id, monto: cobrosOneclick.monto })
@@ -150,6 +145,9 @@ export async function reembolsarVentaTarjeta(
           return { ok: false, error: "Transbank rechazó el reembolso." };
         }
         comprobante = r.authorization_code || r.type;
+        // Sin tarjeta: el cobro no guarda con cuál se cobró y la de la
+        // suscripción puede ser otra (el cliente re-inscribió después).
+        captura.pago = { medio: "Oneclick", ordenCompra: cobro.id, cobrado: cobro.monto };
       }
     } catch (error) {
       console.error("Error pidiendo el reembolso a Transbank", ventaId, error);
@@ -167,7 +165,7 @@ export async function reembolsarVentaTarjeta(
       fecha: new Date().toISOString(),
       // "Automático" al inicio a propósito: esTarjetaWeb lo lee como cobro
       // web Transbank y el Cierre de Caja lo resta de "Tarjetas Transbank".
-      creadoPor: "Automático (Reembolso)",
+      creadoPor: CREADO_POR_REEMBOLSO,
       metodoPago: "tarjeta",
       voucher: comprobante,
       notas: `Reembolso${monto < cobradoTotal ? " parcial" : ""} de "${venta.tipo}" del ${venta.fecha.slice(0, 10)} — ${motivo} (por ${operador})`,
@@ -204,29 +202,56 @@ export async function reembolsarVentaTarjeta(
     return { ok: true, venta: filaReembolso, vencimiento };
   });
 
-  // Correo de confirmación al cliente, con el mismo criterio que el ticket de
-  // reactivación (ver otorgarTicketReactivacion): la plata ya se devolvió y el
-  // contra-asiento ya está escrito, así que un fallo de Resend no puede hacer
-  // fallar el reembolso — va por after() y solo se loguea. Es transaccional
-  // (confirma algo que ya pasó con su plata), no una campaña: no mira
-  // sinComunicacionAuto.
-  const compra = captura.original;
-  if (resultado.ok && resultado.venta.clienteId && compra) {
+  // Comprobante al cliente por correo y SMS, con el mismo criterio que el
+  // ticket de reactivación (ver otorgarTicketReactivacion): la plata ya se
+  // devolvió y el contra-asiento ya está escrito, así que un fallo de Resend o
+  // LabsMobile no puede hacer fallar el reembolso — va por after() y solo se
+  // loguea. Es transaccional (confirma algo que ya pasó con su plata), no una
+  // campaña: no mira sinComunicacionAuto. El mismo comprobante queda a la vista
+  // en la ficha del cliente (ver cargarComprobanteReembolso).
+  const { original: compra, pago } = captura;
+  if (resultado.ok && resultado.venta.clienteId && compra && pago) {
     const [cliente] = await getDb()
-      .select({ id: clientes.id, nombre: clientes.nombre, email: clientes.email })
+      .select({ id: clientes.id, nombre: clientes.nombre, email: clientes.email, telefono: clientes.telefono })
       .from(clientes)
       .where(eq(clientes.id, resultado.venta.clienteId))
       .limit(1);
-    const email = (cliente?.email || "").trim();
-    if (cliente && esEmailEnviable(email)) {
+    if (cliente) {
+      // Con el nombre de la venta, igual que al rearmarlo en la ficha
+      // (cargarComprobanteReembolso), para que el correo y la ficha coincidan.
+      const comprobante = armarComprobanteReembolso(resultado.venta, compra, pago);
+      // El PDF queda en "Documentos adjuntos" de la ficha, haya correo o no.
       after(() =>
-        enviarCorreoTransaccional({
-          to: email,
-          subject: `Te devolvimos ${fmtCLP(-resultado.venta.precio)} a tu tarjeta`,
-          html: htmlReembolso(cliente.nombre, -resultado.venta.precio, compra.tipo, fmtFecha(compra.fecha), motivo),
-          clienteId: cliente.id,
-        }).catch((error) => console.error("Error enviando el correo de reembolso", ventaId, error))
+        adjuntarComprobanteReembolso(resultado.venta.id)
+          .then((ok) => ok || console.error("No se pudo adjuntar el comprobante de reembolso", ventaId))
+          .catch((error) => console.error("Error adjuntando el comprobante de reembolso", ventaId, error))
       );
+      const email = (cliente.email || "").trim();
+      if (esEmailEnviable(email)) {
+        after(() =>
+          enviarCorreoTransaccional({
+            to: email,
+            subject: asuntoComprobanteReembolso(comprobante),
+            html: htmlComprobanteReembolso(comprobante),
+            adjuntos: [{ nombre: nombreArchivoComprobante(comprobante), contenido: pdfComprobanteReembolso(comprobante) }],
+            clienteId: cliente.id,
+          }).catch((error) => console.error("Error enviando el correo de reembolso", ventaId, error))
+        );
+      }
+      if (cliente.telefono && msisdnChile(cliente.telefono)) {
+        after(() =>
+          enviarSms({
+            telefono: cliente.telefono!,
+            texto: smsComprobanteReembolso(comprobante),
+            campana: "comprobante-reembolso",
+            clienteId: cliente.id,
+            enviadoPor: operador,
+            sinPieBaja: true,
+          })
+            .then((r) => r.ok || console.error("No se pudo mandar el SMS de reembolso", ventaId, r.error))
+            .catch((error) => console.error("Error enviando el SMS de reembolso", ventaId, error))
+        );
+      }
     }
   }
 

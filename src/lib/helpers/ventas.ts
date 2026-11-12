@@ -55,6 +55,11 @@ export function esCuentaPorCobrar(v: { metodoPago?: string; estadoPago?: string 
  * ata a su original cuando la venta web no traía cliente en la ficha. */
 export const PREFIJO_VENTA_REEMBOLSO = "reembolso-";
 
+/** creadoPor del contra-asiento de una devolución a la tarjeta por Transbank
+ * (reembolsarVentaTarjeta); la reversa de una nota de crédito en efectivo
+ * también es tipo "Reembolso" pero no lleva este creadoPor ni comprobante. */
+export const CREADO_POR_REEMBOLSO = "Automático (Reembolso)";
+
 /** Tipos de venta que nadie tipea en el mesón: los generan el checkout web /
  * el webhook de WooCommerce (los "(Web)") o el módulo de Venta Empresa al
  * emitir un lote de cupones. */

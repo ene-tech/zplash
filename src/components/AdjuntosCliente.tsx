@@ -7,12 +7,13 @@ import { supabase } from "@/lib/supabase";
 import { useApp } from "@/context/AppContext";
 import {
   eliminarAdjuntoCliente,
+  enviarAdjuntoClientePorCorreo,
   listarAdjuntosCliente,
   prepararAdjuntoCliente,
   registrarAdjuntoCliente,
   urlAdjuntoCliente,
 } from "@/lib/serverActions";
-import { fmtDate, puedeBorrarAdjuntoCliente } from "@/lib/helpers";
+import { fmtDate, puedeBorrarAdjuntoCliente, puedeEnviarDocumentosCliente } from "@/lib/helpers";
 import { TIPOS_ADJUNTO_CLIENTE, type ClienteAdjunto, type TipoAdjuntoCliente } from "@/types";
 
 function fmtTamano(b?: number) {
@@ -26,7 +27,7 @@ function fmtTamano(b?: number) {
 // Sin módulo "clientes" la lista vuelve null y la sección no se muestra. La
 // ficha lo monta con key={clienteId}: al cambiar de cliente se descarta el
 // archivo elegido, para no adjuntarlo en la ficha equivocada.
-export default function AdjuntosCliente({ clienteId }: { clienteId: string }) {
+export default function AdjuntosCliente({ clienteId, email }: { clienteId: string; email?: string }) {
   // undefined = cargando; null = sin permiso; "error" = no se pudo leer.
   const [adjuntos, setAdjuntos] = useState<ClienteAdjunto[] | null | "error" | undefined>(undefined);
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -35,9 +36,16 @@ export default function AdjuntosCliente({ clienteId }: { clienteId: string }) {
   const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState("");
   const [borrando, setBorrando] = useState<string | null>(null);
+  // "Enviar por correo": qué adjunto tiene abierta la casilla, a qué correo
+  // (por defecto el de la ficha) y cómo salió.
+  const [envioAbierto, setEnvioAbierto] = useState<string | null>(null);
+  const [correoEnvio, setCorreoEnvio] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [avisoEnvio, setAvisoEnvio] = useState<{ ok: boolean; texto: string } | null>(null);
   const inputArchivo = useRef<HTMLInputElement>(null);
   const { ui } = useApp();
   const puedeBorrar = puedeBorrarAdjuntoCliente(ui.perfilActual?.nombre);
+  const puedeEnviar = puedeEnviarDocumentosCliente(ui.perfilActual?.modulos);
 
   useEffect(() => {
     let obsoleto = false;
@@ -105,6 +113,25 @@ export default function AdjuntosCliente({ clienteId }: { clienteId: string }) {
     }
   }
 
+  function abrirEnvio(a: ClienteAdjunto) {
+    setEnvioAbierto(envioAbierto === a.id ? null : a.id);
+    setCorreoEnvio(email || "");
+    setAvisoEnvio(null);
+  }
+
+  async function enviar(a: ClienteAdjunto) {
+    setEnviando(true);
+    setAvisoEnvio(null);
+    try {
+      const r = await enviarAdjuntoClientePorCorreo(clienteId, a.id, correoEnvio);
+      setAvisoEnvio(r.ok ? { ok: true, texto: `Enviado a ${correoEnvio.trim()}.` } : { ok: false, texto: r.error });
+    } catch {
+      setAvisoEnvio({ ok: false, texto: "No se pudo enviar (sin conexión)." });
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   async function ver(a: ClienteAdjunto) {
     setErr("");
     // La pestaña se abre antes del await: si se abre después, el navegador
@@ -134,7 +161,8 @@ export default function AdjuntosCliente({ clienteId }: { clienteId: string }) {
       {Array.isArray(adjuntos) && adjuntos.length > 0 && (
         <ul className="mb-3 space-y-2 text-sm">
           {adjuntos.map((a) => (
-            <li key={a.id} className="flex items-start justify-between gap-3 rounded-md border border-border p-3">
+            <li key={a.id} className="rounded-md border border-border p-3">
+             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-medium">{TIPOS_ADJUNTO_CLIENTE[a.tipo] ?? a.tipo}</div>
                 {a.detalle && <p className="whitespace-pre-wrap">{a.detalle}</p>}
@@ -147,12 +175,36 @@ export default function AdjuntosCliente({ clienteId }: { clienteId: string }) {
                 <Button size="sm" variant="outline" onClick={() => ver(a)}>
                   Ver
                 </Button>
+                {puedeEnviar && (
+                  <Button size="sm" variant="outline" onClick={() => abrirEnvio(a)}>
+                    Enviar por correo
+                  </Button>
+                )}
                 {puedeBorrar && (
                   <Button size="sm" variant="ghost" onClick={() => borrar(a)} disabled={borrando === a.id}>
                     {borrando === a.id ? "Borrando…" : "Borrar"}
                   </Button>
                 )}
               </div>
+             </div>
+              {envioAbierto === a.id && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Input
+                    type="email"
+                    className="h-8 w-64 max-w-full"
+                    placeholder="correo@cliente.cl"
+                    value={correoEnvio}
+                    onChange={(e) => setCorreoEnvio(e.target.value)}
+                    disabled={enviando}
+                  />
+                  <Button size="sm" onClick={() => enviar(a)} disabled={enviando || !correoEnvio.trim()}>
+                    {enviando ? "Enviando…" : "Enviar"}
+                  </Button>
+                  {avisoEnvio && (
+                    <span className={`text-xs ${avisoEnvio.ok ? "text-muted-foreground" : "text-destructive"}`}>{avisoEnvio.texto}</span>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>

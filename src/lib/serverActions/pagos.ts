@@ -2,8 +2,14 @@
 
 import * as dataAccess from "@/lib/dataAccess";
 import type { DetallePagoVenta } from "@/lib/dataAccess";
-import { puedeCerrarCaja } from "@/lib/helpers";
-import { reembolsarVentaTarjeta, type ResultadoReembolso } from "@/lib/pagos";
+import { puedeCerrarCaja, puedeEnviarDocumentosCliente } from "@/lib/helpers";
+import {
+  cargarComprobanteReembolso,
+  htmlComprobanteReembolso,
+  reembolsarVentaTarjeta,
+  reenviarComprobanteReembolso,
+  type ResultadoReembolso,
+} from "@/lib/pagos";
 import { sesionActual, tieneModulo } from "@/lib/session";
 
 // Detalle real de Transbank (voucher/comprobante) para el historial de
@@ -36,4 +42,25 @@ export async function reembolsarVenta(
     return { ok: false, error: "La caja de hoy ya está cerrada: el reembolso quedaría fuera del cierre." };
   }
   return reembolsarVentaTarjeta(ventaId, motivo.trim(), sesion.nombre, monto, anularVigencia === true);
+}
+
+// El comprobante de una devolución, el mismo que le llegó al cliente por
+// correo, para verlo e imprimirlo desde el historial de la ficha. null si esa
+// fila no es una devolución por Transbank.
+export async function obtenerComprobanteReembolso(reembolsoId: string): Promise<{ html: string } | { error: string }> {
+  if (!(await tieneModulo("clientes"))) return { error: "No tienes acceso a la ficha de clientes." };
+  const comprobante = await cargarComprobanteReembolso(reembolsoId);
+  return comprobante ? { html: htmlComprobanteReembolso(comprobante) } : { error: "Esta devolución no se hizo por Transbank: no tiene comprobante." };
+}
+
+// Reenvía ese mismo comprobante por correo, desde el visor de la ficha. Mismo
+// gate que reembolsar: manda datos del cliente a la dirección que se escriba.
+export async function reenviarComprobanteReembolsoPorCorreo(reembolsoId: string, email: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sesion = await sesionActual();
+  if (!sesion || !puedeEnviarDocumentosCliente(sesion.modulos)) {
+    return { ok: false, error: "Necesitas permisos de Gerencia o de cierre de caja para reenviar el comprobante." };
+  }
+  const r = await reenviarComprobanteReembolso(reembolsoId, email);
+  if (r.ok) console.info("Comprobante de reembolso reenviado", reembolsoId, "por", sesion.nombre);
+  return r;
 }
