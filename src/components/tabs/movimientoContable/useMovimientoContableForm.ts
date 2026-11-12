@@ -52,6 +52,16 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
   const [subiendo, setSubiendo] = useState(false);
   const [err, setErr] = useState<{ msg: string; ok: boolean } | null>(null);
   const [proveedorHint, setProveedorHint] = useState<{ msg: string; ok: boolean } | null>(null);
+  // Proveedor internacional sin RUT: se esconde el campo RUT (no hay nada que
+  // buscar en el directorio) y el nombre del proveedor se escribe a mano.
+  const [proveedorInternacional, setProveedorInternacionalState] = useState(false);
+  const setProveedorInternacional = (v: boolean) => {
+    setProveedorInternacionalState(v);
+    if (v) {
+      if (rutProveedorRef.current) rutProveedorRef.current.value = "";
+      setProveedorHint(null);
+    }
+  };
   // Borradores de Egresos/Gastos (ver @/lib/borradoresGasto). Se leen en el
   // inicializador del useState y no en un efecto: Contabilidad se monta con
   // next/dynamic recién después del login (ver app/admin/page.tsx), o sea
@@ -98,7 +108,8 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
     setCategoriaIngreso("");
     setComentarioOtros("");
     if (contraparteRef.current) contraparteRef.current.value = b?.contraparte || "";
-    if (rutProveedorRef.current) rutProveedorRef.current.value = b?.rutProveedor || "";
+    setProveedorInternacionalState(!!b?.proveedorInternacional);
+    if (rutProveedorRef.current) rutProveedorRef.current.value = b?.proveedorInternacional ? "" : b?.rutProveedor || "";
     if (numeroFacturaRef.current) numeroFacturaRef.current.value = b?.numeroFactura || "";
     setMontoTexto(b?.montoTexto || "");
     if (notasRef.current) notasRef.current.value = b?.notas || "";
@@ -120,7 +131,8 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
       descripcion: descripcionRef.current?.value.trim() || "",
       categoriaGasto: categoriaGasto.trim(),
       contraparte: contraparteRef.current?.value.trim() || "",
-      rutProveedor: rutProveedorRef.current?.value.trim() || "",
+      rutProveedor: proveedorInternacional ? "" : rutProveedorRef.current?.value.trim() || "",
+      proveedorInternacional,
       numeroFactura: numeroFacturaRef.current?.value.trim() || "",
       tipoDocumento,
       montoTexto,
@@ -169,13 +181,17 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
     const contraparte = contraparteRef.current?.value.trim() || "";
     const descripcion =
       tipo === "ingreso" ? categoria + (contraparte ? ` – ${contraparte}` : "") : descripcionRef.current?.value.trim() || "";
-    const rutProveedor = tipo === "egreso" ? rutProveedorRef.current?.value.trim() || "" : "";
+    const rutProveedor = tipo === "egreso" && !proveedorInternacional ? rutProveedorRef.current?.value.trim() || "" : "";
     const numeroFactura = tipo === "egreso" ? numeroFacturaRef.current?.value.trim() || "" : "";
     const monto = Number(montoTexto || 0);
     const notas = notasRef.current?.value.trim() || "";
 
     if (tipo === "egreso" && !descripcion) {
       setErr({ msg: "Completa la descripción", ok: false });
+      return;
+    }
+    if (tipo === "egreso" && proveedorInternacional && !contraparte) {
+      setErr({ msg: "Escribe el nombre del proveedor internacional", ok: false });
       return;
     }
     if (tipo === "egreso" && !glosasGasto.some((g) => g.categoria === categoria)) {
@@ -275,6 +291,8 @@ export function useMovimientoContableForm(tipo: MovimientoContable["tipo"], refs
     err,
     buscarProveedor,
     proveedorHint,
+    proveedorInternacional,
+    setProveedorInternacional,
     estadoBloqueadoPagado,
     agregar,
     borradores,

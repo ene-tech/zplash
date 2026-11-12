@@ -78,8 +78,29 @@ export default function MovimientoContableForm({
       {tipo === "egreso" && (
         <div className="field">
           <label>Rut proveedor</label>
-          <input ref={rutProveedorRef} placeholder="Ej: 76.543.210-K" onBlur={p.buscarProveedor} />
-          {p.proveedorHint && (
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              style={{ width: "auto", margin: 0 }}
+              checked={p.proveedorInternacional}
+              onChange={(e) => p.setProveedorInternacional(e.target.checked)}
+            />
+            Proveedor internacional sin RUT
+          </label>
+          {/* Se esconde en vez de desmontarse: retomar un borrador escribe el
+              RUT por ref y necesita el input montado. */}
+          <input
+            ref={rutProveedorRef}
+            placeholder="Ej: 76.543.210-K"
+            onBlur={p.buscarProveedor}
+            style={p.proveedorInternacional ? { display: "none" } : undefined}
+          />
+          {p.proveedorInternacional && (
+            <div style={{ fontSize: 12, marginTop: 6, color: "var(--gray)" }}>
+              Sin RUT — escribe el nombre del proveedor a mano más abajo.
+            </div>
+          )}
+          {!p.proveedorInternacional && p.proveedorHint && (
             <div style={{ fontSize: 12, marginTop: 6, color: p.proveedorHint.ok ? "var(--green)" : "var(--gray)" }}>
               {p.proveedorHint.msg}
             </div>

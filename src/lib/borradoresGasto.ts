@@ -12,6 +12,9 @@ export interface BorradorGasto {
   categoriaGasto: string;
   contraparte: string;
   rutProveedor: string;
+  /** Proveedor internacional sin RUT: el nombre va a mano. Opcional para
+   * leer los borradores guardados antes de que existiera. */
+  proveedorInternacional?: boolean;
   numeroFactura: string;
   tipoDocumento: "Boleta" | "Factura" | null;
   montoTexto: string;
