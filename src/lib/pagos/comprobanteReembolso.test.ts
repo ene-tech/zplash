@@ -2,12 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db", () => ({ getDb: () => ({}) }));
 
-import { segmentosSms, normalizarSms, MAX_SEGMENTOS_SMS } from "@/lib/sms/texto";
-import { armarComprobanteReembolso, htmlComprobanteReembolso, motivoDeNotasReembolso, smsComprobanteReembolso } from "./comprobanteReembolso";
+import { armarComprobanteReembolso, htmlComprobanteReembolso, motivoDeNotasReembolso } from "./comprobanteReembolso";
 
 // Lo que se fija acá: el comprobante sale de lo que quedó escrito en el
-// contra-asiento (así correo, SMS y ficha muestran lo mismo) y el SMS entra en
-// el tope de segmentos aun con la compra y la tarjeta más largas.
+// contra-asiento, así el correo, el PDF y la ficha muestran lo mismo.
 
 const reembolso = {
   id: "reembolso-v1",
@@ -39,16 +37,5 @@ describe("comprobante de reembolso", () => {
     expect(html).not.toContain("Juan <b>");
     expect(html).toContain("12:30");
     expect(html).toContain("cobro (doble)");
-  });
-
-  it("el SMS va en una línea y cabe en el tope de segmentos", () => {
-    const c = armarComprobanteReembolso(
-      { ...reembolso, voucher: "1234567890" },
-      { tipo: "Promo 5 Tickets VIP (Web) con nombre largo", fecha: compra.fecha },
-      { medio: "Oneclick", ordenCompra: "oc-1730000000000-ABCDEFGH", cobrado: 21990, tarjeta: "MasterCard **** 1234" }
-    );
-    const sms = smsComprobanteReembolso(c);
-    expect(sms).not.toContain("\n");
-    expect(segmentosSms(normalizarSms(sms))).toBeLessThanOrEqual(MAX_SEGMENTOS_SMS);
   });
 });

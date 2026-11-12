@@ -14,7 +14,6 @@ import {
   TIPOS_VENTA_PLAN,
 } from "@/lib/helpers";
 import { enviarCorreoTransaccional } from "@/lib/mailing/proveedor";
-import { enviarSms, msisdnChile } from "@/lib/sms/enviar";
 import { oneclickChildCommerceCode, oneclickTransaction, webpayTransaction } from "@/lib/transbank";
 import type { Venta } from "@/types";
 import {
@@ -25,7 +24,6 @@ import {
   htmlComprobanteReembolso,
   nombreArchivoComprobante,
   pdfComprobanteReembolso,
-  smsComprobanteReembolso,
   type PagoReembolsado,
 } from "./comprobanteReembolso";
 
@@ -202,17 +200,17 @@ export async function reembolsarVentaTarjeta(
     return { ok: true, venta: filaReembolso, vencimiento };
   });
 
-  // Comprobante al cliente por correo y SMS, con el mismo criterio que el
-  // ticket de reactivación (ver otorgarTicketReactivacion): la plata ya se
-  // devolvió y el contra-asiento ya está escrito, así que un fallo de Resend o
-  // LabsMobile no puede hacer fallar el reembolso — va por after() y solo se
-  // loguea. Es transaccional (confirma algo que ya pasó con su plata), no una
-  // campaña: no mira sinComunicacionAuto. El mismo comprobante queda a la vista
-  // en la ficha del cliente (ver cargarComprobanteReembolso).
+  // Comprobante al cliente SOLO por correo (decisión del 12-nov-2026: ni SMS
+  // ni WhatsApp), con el mismo criterio que el ticket de reactivación (ver
+  // otorgarTicketReactivacion): la plata ya se devolvió y el contra-asiento ya
+  // está escrito, así que un fallo de Resend no puede hacer fallar el
+  // reembolso — va por after() y solo se loguea. Es transaccional (confirma
+  // algo que ya pasó con su plata), no una campaña: no mira
+  // sinComunicacionAuto. El PDF queda además en los adjuntos de la ficha.
   const { original: compra, pago } = captura;
   if (resultado.ok && resultado.venta.clienteId && compra && pago) {
     const [cliente] = await getDb()
-      .select({ id: clientes.id, nombre: clientes.nombre, email: clientes.email, telefono: clientes.telefono })
+      .select({ id: clientes.id, email: clientes.email })
       .from(clientes)
       .where(eq(clientes.id, resultado.venta.clienteId))
       .limit(1);
@@ -236,20 +234,6 @@ export async function reembolsarVentaTarjeta(
             adjuntos: [{ nombre: nombreArchivoComprobante(comprobante), contenido: pdfComprobanteReembolso(comprobante) }],
             clienteId: cliente.id,
           }).catch((error) => console.error("Error enviando el correo de reembolso", ventaId, error))
-        );
-      }
-      if (cliente.telefono && msisdnChile(cliente.telefono)) {
-        after(() =>
-          enviarSms({
-            telefono: cliente.telefono!,
-            texto: smsComprobanteReembolso(comprobante),
-            campana: "comprobante-reembolso",
-            clienteId: cliente.id,
-            enviadoPor: operador,
-            sinPieBaja: true,
-          })
-            .then((r) => r.ok || console.error("No se pudo mandar el SMS de reembolso", ventaId, r.error))
-            .catch((error) => console.error("Error enviando el SMS de reembolso", ventaId, error))
         );
       }
     }

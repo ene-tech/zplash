@@ -128,11 +128,8 @@ describe("reembolsarVentaTarjeta", () => {
     ]);
     expect(correos[0].html).toContain("r1");
     expect(correos[0].html).toContain("cobro duplicado");
-    expect(smss).toEqual([expect.objectContaining({ telefono: "+56912345678", sinPieBaja: true })]);
-    expect(smss[0].texto).toContain("21.990");
-    expect(smss[0].texto).toContain("r1");
-    expect(smss[0].texto).toContain("bo1");
-    expect(smss[0].texto).not.toContain("\n");
+    // Solo por correo: aunque el cliente tenga celular, no sale SMS.
+    expect(smss).toEqual([]);
   });
 
   it("cliente sin correo ni celular -> el reembolso se hace igual, sin avisos", async () => {
@@ -196,8 +193,9 @@ describe("reembolsarVentaTarjeta", () => {
     respuestas = [[venta], [], [], [{ id: "oc123", monto: 19990, cardTipo: "Visa", cardUltimosDigitos: "XXXX4321" }], [], [cliente]];
     const r = await reembolsarVentaTarjeta("v1", "motivo", "Gerencia");
     expect(r.ok).toBe(true);
-    expect(smss[0].texto).not.toContain("4321");
-    expect(smss[0].texto).toContain("Reversa Oneclick");
+    expect(correos[0].html).not.toContain("4321");
+    expect(correos[0].html).toContain("Reversa Oneclick");
+    expect(smss).toEqual([]);
     expect(refundOneclick).toHaveBeenCalledWith("oc123", "597055555543", "oc123", 19990);
     expect(inserts).toEqual([expect.objectContaining({ precio: -19990 }), expect.objectContaining({ monto: -19990 })]);
   });

@@ -159,20 +159,6 @@ function filasComprobante(c: ComprobanteReembolso): [string, string][] {
   ];
 }
 
-/** Una sola línea: a LabsMobile no le llegan los saltos de línea. */
-export function smsComprobanteReembolso(c: ComprobanteReembolso): string {
-  // Sin tildes en todo el texto (también "Anulación" y el tipo de compra): un
-  // solo carácter fuera de GSM-7 pasa el SMS a UCS-2 y triplica los segmentos.
-  return (
-    `ZPlash: comprobante de devolucion. Te devolvimos ${fmtCLP(c.monto)} a tu tarjeta${c.tarjeta ? ` ${c.tarjeta}` : ""} ` +
-    `por tu compra ${c.compra.tipo} del ${fmtFechaChile(c.compra.fecha)}. ${c.operacion} ${c.medio} ${fmtFechaHoraChile(c.fecha)}` +
-    `${c.codigoAutorizacion ? `, cod. autorizacion ${c.codigoAutorizacion}` : ""}, orden de compra ${c.ordenCompra}. ` +
-    `El abono se refleja segun los plazos de tu banco.`
-  )
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
-}
-
 /** Rearma el comprobante de un contra-asiento ya escrito (ficha del cliente).
  * null si no es un reembolso a la tarjeta por Transbank (ej. la reversa de una
  * nota de crédito en efectivo, que también es tipo "Reembolso"). */
