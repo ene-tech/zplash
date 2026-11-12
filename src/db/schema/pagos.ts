@@ -26,6 +26,10 @@ export const pagosWebpay = pgTable("pagos_webpay", {
   // cada ítem se registra en `pagosWebpayItems.ventaId`, no acá, para no
   // tener dos fuentes de verdad cuando una compra tiene varios ítems.
   ventaId: text("venta_id").references(() => ventas.id, { onDelete: "set null" }),
+  // Celular que pidió /pagar (+569XXXXXXXX): viaja hasta /retorno y rellena
+  // clientes.telefono si la ficha no tenía, que es por donde el bot de
+  // WhatsApp sabe de qué auto le está hablando (ver aplicarPagoAprobado).
+  telefono: text("telefono"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   actualizadoEn: timestamptz("actualizado_en"),
 });
@@ -115,6 +119,9 @@ export const suscripcionesOneclick = pgTable("suscripciones_oneclick", {
   // (null si vino de otra puerta). Lo escribe /inscribir y /inscripcion/retorno
   // lo copia a ventas.operadorQr del primer cobro aprobado.
   operadorQr: text("operador_qr"),
+  // Celular que pidió /pagar al inscribir (+569XXXXXXXX). Lo usa
+  // aplicarPagoAprobado para rellenar clientes.telefono si estaba vacío.
+  telefono: text("telefono"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   actualizadoEn: timestamptz("actualizado_en"),
 });

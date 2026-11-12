@@ -92,6 +92,12 @@ interface AplicarPagoParams {
   direccion?: string | null;
   giro?: string | null;
   email?: string | null;
+  // Celular que dio el comprador en /pagar (+569XXXXXXXX, ya validado por el
+  // endpoint que lo recibió). Solo rellena una ficha SIN teléfono, nunca pisa
+  // uno existente: /pagar es público y pide solo la patente, así que pisarlo
+  // dejaría a cualquiera quedarse con el WhatsApp de un auto ajeno (el bot
+  // reconoce al cliente por clientes.telefono).
+  telefono?: string | null;
   // Cupón de descuento ya aplicado a `monto` por quien resolvió el precio (ver
   // buscarCuponDescuentoPlan): acá solo se sella la venta y se quema el cupón,
   // en esta misma transacción — nunca se vuelve a calcular el descuento, que a
@@ -181,6 +187,11 @@ export async function aplicarPagoAprobado(
   if (p.esServicioAdicional) {
     if (existente) {
       clienteId = existente.id;
+      // Lavado único / aspirado / packs no tocan el plan, pero sí dejan el
+      // celular en la ficha que no lo tenía (ver AplicarPagoParams.telefono).
+      if (p.telefono && !existente.telefono) {
+        await db.update(clientes).set({ telefono: p.telefono }).where(eq(clientes.id, clienteId));
+      }
     } else {
       clienteId = uid();
       await db.insert(clientes).values({
@@ -191,6 +202,7 @@ export async function aplicarPagoAprobado(
         // único dato de contacto que el flujo web pide, y sin esto la ficha
         // nacía vacía aunque el dato existiera (ver suscripcionesOneclick.email).
         email: p.email || null,
+        telefono: p.telefono || null,
         origen: "WEB",
         visitas: 0,
         creadoEn: new Date().toISOString(),
@@ -261,6 +273,7 @@ export async function aplicarPagoAprobado(
         // además de en los dos insert de abajo porque la ficha que ya existe es
         // justo la que puede llevar años sin dato de contacto.
         ...(anterior.email ? {} : { email: p.email || null }),
+        ...(anterior.telefono || !p.telefono ? {} : { telefono: p.telefono }),
         vencimiento: nuevoVencimiento,
         // Reiniciar el ciclo mueve también la contratación: es el ancla con
         // que periodoPlan cuenta las pasadas incluidas (ver anclaCicloPlan) y
@@ -303,6 +316,7 @@ export async function aplicarPagoAprobado(
       patente: p.patente,
       // Mismo criterio que la rama de arriba: el correo del checkout va a la ficha.
       email: p.email || null,
+      telefono: p.telefono || null,
       plan: PLANES[0],
       vencimiento: vencimientoResultante,
       fechaContratacion: new Date().toISOString(),

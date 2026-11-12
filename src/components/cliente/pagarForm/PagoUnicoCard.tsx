@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { fmtCLP, isValidPatente, normPlate } from "@/lib/helpers";
+import { CampoCelular } from "./CampoCelular";
 import { CamposDocumento } from "./CamposDocumento";
 import { useDatosDocumento } from "./useDatosDocumento";
 import type { DatosDocumento, TipoPago } from "./usePagarForm";
@@ -19,6 +20,8 @@ export function PagoUnicoCard({
   tipo,
   patente,
   setPatente,
+  telefono,
+  setTelefono,
   err,
   pagando,
   onPagar,
@@ -29,6 +32,8 @@ export function PagoUnicoCard({
   tipo: TipoPago;
   patente: string;
   setPatente: (v: string) => void;
+  telefono: string;
+  setTelefono: (v: string) => void;
   err: string;
   pagando: string | null;
   onPagar: (tipo: TipoPago, datosDocumento: DatosDocumento) => void;
@@ -95,6 +100,7 @@ export function PagoUnicoCard({
             </div>
           </div>
 
+          <CampoCelular value={telefono} onChange={setTelefono} />
           <CamposDocumento d={doc} />
 
           <div className="err">{doc.error || err}</div>

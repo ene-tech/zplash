@@ -5,10 +5,12 @@ import { fmtCLP, isValidPatente, normPlate } from "@/lib/helpers";
 import { redirigirAWebpay } from "@/lib/webpayClient";
 import { useCarrito } from "@/hooks/useCarrito";
 import VolverBoton from "@/components/cliente/VolverBoton";
+import { CampoCelular, CELULAR_INICIAL, errorCelular } from "@/components/cliente/pagarForm/CampoCelular";
 
 export default function CarritoPage() {
   const { items, total, quitar, vaciar } = useCarrito();
   const [patente, setPatente] = useState("");
+  const [telefono, setTelefono] = useState(CELULAR_INICIAL);
   const [err, setErr] = useState("");
   const [pagando, setPagando] = useState(false);
 
@@ -16,6 +18,11 @@ export default function CarritoPage() {
     const p = normPlate(patente);
     if (!isValidPatente(p)) {
       setErr("Patente inválida. Ej: AB1234 o ABCD12.");
+      return;
+    }
+    const errTel = errorCelular(telefono);
+    if (errTel) {
+      setErr(errTel);
       return;
     }
     setErr("");
@@ -26,6 +33,7 @@ export default function CarritoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patente: p,
+          telefono,
           items: items.map((i) => ({ tipo: i.tipo, servicioId: i.servicioId })),
         }),
       });
@@ -88,6 +96,7 @@ export default function CarritoPage() {
               maxLength={6}
               style={{ marginBottom: 10 }}
             />
+            <CampoCelular value={telefono} onChange={setTelefono} />
             <div className="err">{err}</div>
             <button className="btn" onClick={pagarTodo} disabled={pagando}>
               {pagando ? "Redirigiendo..." : `Pagar todo — ${fmtCLP(total)}`}

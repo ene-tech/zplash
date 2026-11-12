@@ -13,6 +13,8 @@ function render(resultado: EstadoPlan) {
       resultado={resultado}
       email=""
       setEmail={() => {}}
+      telefono="+569"
+      setTelefono={() => {}}
       inscribiendo={false}
       activarAutomatica={async () => {}}
       precios={{ planOneclick: { nombre: "Plan X5", precio: 21990 } } as never}

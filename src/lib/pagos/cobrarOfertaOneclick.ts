@@ -149,6 +149,7 @@ export async function cobrarOfertaOneclick(patente: string, tipo: TipoOfertaCuen
               // Mismo criterio que cobrarSuscripcion: si el cobro crea la
               // ficha, hereda el correo de la suscripción.
               email: suscripcion.email,
+              telefono: suscripcion.telefono,
               reiniciarCiclo: tipo === "reactivacion",
               cuponCodigo: cupon?.codigo,
             },

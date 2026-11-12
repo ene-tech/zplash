@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { perfiles, suscripcionesOneclick } from "@/db/schema";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { conservaTarjetaAlReinscribir, isValidEmail, isValidPatente, MARCA_SOLO_TARJETA, MENSAJE_PAGO_NON_GRATO, normPlate, uid } from "@/lib/helpers";
+import { telefonoDeCompra } from "@/lib/pagos/telefonoCompra";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { oneclickInscription } from "@/lib/transbank";
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 
-    let body: { patente?: string; email?: string; soloGuardar?: boolean; operador?: string };
+    let body: { patente?: string; email?: string; telefono?: string; soloGuardar?: boolean; operador?: string };
     try {
       body = await request.json();
     } catch {
@@ -35,6 +36,10 @@ export async function POST(request: NextRequest) {
     const email = (body.email || "").trim().toLowerCase();
     if (!isValidEmail(email)) {
       return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+    }
+    const { telefono, error: errorTelefono } = await telefonoDeCompra(body.telefono, patente);
+    if (errorTelefono) {
+      return NextResponse.json({ error: errorTelefono }, { status: 400 });
     }
     // "pendiente_solo_tarjeta" viaja hasta /inscripcion/retorno (vía la misma
     // fila) para que ese callback sepa que esto vino de "Mis tarjetas" y no
@@ -112,6 +117,9 @@ export async function POST(request: NextRequest) {
           // y, vía aplicarPagoAprobado, con el acceso a Mi Cuenta de una ficha
           // sin correo. Una fila sin tarjeta viva no tiene nada que robar.
           ...(conservaTarjeta ? {} : { email }),
+          // Mismo criterio que el correo; además, aplicarPagoAprobado solo lo
+          // usa para rellenar una ficha sin teléfono, nunca para pisarlo.
+          ...(conservaTarjeta || !telefono ? {} : { telefono }),
           tokenInscripcion: conservaTarjeta && body.soloGuardar ? respuesta.token + MARCA_SOLO_TARJETA : respuesta.token,
           ...(conservaTarjeta ? {} : { estado: estadoPendiente }),
           operadorQr,
@@ -124,6 +132,7 @@ export async function POST(request: NextRequest) {
         patente,
         username: patente,
         email,
+        telefono,
         tokenInscripcion: respuesta.token,
         estado: estadoPendiente,
         operadorQr,

@@ -1,6 +1,7 @@
 "use client";
 
 import { fmtCLP } from "@/lib/helpers";
+import { CampoCelular } from "./CampoCelular";
 import { CamposDocumento } from "./CamposDocumento";
 import { useDatosDocumento } from "./useDatosDocumento";
 import type { AccionServicio, DatosDocumento } from "./usePagarForm";
@@ -11,12 +12,16 @@ import type { AccionServicio, DatosDocumento } from "./usePagarForm";
 // ResultadoBusqueda) y que PagoUnicoCard.
 export function ServicioDocumentoCard({
   accionServicio,
+  telefono,
+  setTelefono,
   pagando,
   err,
   onCancelar,
   onConfirmar,
 }: {
   accionServicio: AccionServicio;
+  telefono: string;
+  setTelefono: (v: string) => void;
   pagando: string | null;
   err: string;
   onCancelar: () => void;
@@ -36,6 +41,7 @@ export function ServicioDocumentoCard({
       <h3 style={{ marginBottom: 10 }}>
         {accionServicio.nombre} — {fmtCLP(accionServicio.precio)}
       </h3>
+      <CampoCelular value={telefono} onChange={setTelefono} />
       <CamposDocumento d={doc} />
       <div className="err">{doc.error || err}</div>
       <button className="btn" onClick={confirmar} disabled={pagando !== null}>

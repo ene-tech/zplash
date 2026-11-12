@@ -24,9 +24,9 @@ import {
 } from "@/lib/helpers";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
-import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { getConfig } from "@/lib/dataAccess/config";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos";
+import { esPatenteDeLaSesion, telefonoDeCompra } from "@/lib/pagos/telefonoCompra";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { webpayTransaction } from "@/lib/transbank";
 
@@ -112,23 +112,13 @@ function resolverDocumento(item: BodyItem): { doc: DatosDocumento; error?: strin
   return { doc: { tipoDocumento: "Factura", razonSocial, rut: formatRut(rutCrudo), direccion, giro, email } };
 }
 
-// ¿La patente es de la cuenta que mandó el request? La cookie firmada se lee
-// primero porque no pega a la base: el comprador anónimo de /pagar —el caso
-// normal de esta ruta, que es pública— no gasta una consulta de más.
-async function esPatenteDeLaSesion(patente: string): Promise<boolean> {
-  const sesion = await leerSesionCliente();
-  if (!sesion) return false;
-  const cliente = await buscarClientePorPatente(patente);
-  return !!cliente && sesion.clienteIds.includes(cliente.id);
-}
-
 export async function POST(request: NextRequest) {
   try {
     if (await rateLimited(`pagos-crear:${clienteIp(request)}`, LIMITE_REQUESTS, VENTANA_MS)) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 
-    let body: { patente?: string; items?: BodyItem[] };
+    let body: { patente?: string; telefono?: string; items?: BodyItem[] };
     try {
       body = await request.json();
     } catch {
@@ -138,6 +128,11 @@ export async function POST(request: NextRequest) {
     const patente = normPlate(body.patente);
     if (!isValidPatente(patente)) {
       return NextResponse.json({ error: "Patente inválida" }, { status: 400 });
+    }
+
+    const { telefono, error: errorTelefono } = await telefonoDeCompra(body.telefono, patente);
+    if (errorTelefono) {
+      return NextResponse.json({ error: errorTelefono }, { status: 400 });
     }
 
     if (!Array.isArray(body.items) || body.items.length === 0 || body.items.length > MAX_ITEMS) {
@@ -294,6 +289,7 @@ export async function POST(request: NextRequest) {
       servicioId: items.length === 1 ? items[0].servicioId : null,
       monto: montoTotal,
       estado: "iniciada",
+      telefono,
     });
     await db.insert(pagosWebpayItems).values(
       items.map((item, i) => ({

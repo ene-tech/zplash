@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { isValidEmail, isValidPatente, normPlate } from "@/lib/helpers";
 import { redirigirAInscripcionOneclick, redirigirAWebpay } from "@/lib/webpayClient";
+import { CELULAR_INICIAL, errorCelular } from "./CampoCelular";
 
 export interface EstadoPlan {
   encontrado: boolean;
@@ -73,6 +74,7 @@ export function usePagarForm() {
   const [resultado, setResultado] = useState<EstadoPlan | null>(null);
   const [pagando, setPagando] = useState<string | null>(null);
   const [email, setEmail] = useState("");
+  const [telefono, setTelefono] = useState(CELULAR_INICIAL);
   const [inscribiendo, setInscribiendo] = useState(false);
   const [accionServicio, setAccionServicio] = useState<AccionServicio | null>(null);
 
@@ -106,13 +108,18 @@ export function usePagarForm() {
       setErr("Patente inválida. Ej: AB1234 o ABCD12.");
       return;
     }
+    const errTel = errorCelular(telefono);
+    if (errTel) {
+      setErr(errTel);
+      return;
+    }
     setErr("");
     setPagando(key || tipo);
     try {
       const res = await fetch("/api/pagos/webpay/crear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patente: p, items: [{ tipo, servicioId, ...datosDocumento }] }),
+        body: JSON.stringify({ patente: p, telefono, items: [{ tipo, servicioId, ...datosDocumento }] }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -153,6 +160,11 @@ export function usePagarForm() {
       setErr("Email inválido.");
       return;
     }
+    const errTel = errorCelular(telefono);
+    if (errTel) {
+      setErr(errTel);
+      return;
+    }
     setErr("");
     setInscribiendo(true);
     try {
@@ -161,7 +173,7 @@ export function usePagarForm() {
         headers: { "Content-Type": "application/json" },
         // op: perfil que mostró el QR del mesón (ver QrPlanConTarjeta); el
         // servidor lo valida contra los perfiles, acá viaja tal cual.
-        body: JSON.stringify({ patente: p, email, operador: params.get("op") || undefined }),
+        body: JSON.stringify({ patente: p, email, telefono, operador: params.get("op") || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -186,6 +198,8 @@ export function usePagarForm() {
     pagando,
     email,
     setEmail,
+    telefono,
+    setTelefono,
     inscribiendo,
     accionServicio,
     buscar,

@@ -4,11 +4,12 @@ import { useState } from "react";
 import { PLANES, fmtCLP, fmtVencimiento, precioConHeredado } from "@/lib/helpers";
 import { AvisoPasaAX5 } from "@/components/cliente/AvisoPasaAX5";
 import type { PreciosPublicos } from "@/components/cliente/types";
+import { CampoCelular } from "./CampoCelular";
 import type { usePagarForm } from "./usePagarForm";
 
 type Props = Pick<
   ReturnType<typeof usePagarForm>,
-  "resultado" | "email" | "setEmail" | "inscribiendo" | "activarAutomatica"
+  "resultado" | "email" | "setEmail" | "telefono" | "setTelefono" | "inscribiendo" | "activarAutomatica"
 > & { precios: PreciosPublicos };
 
 // Todo lo que aparece después de buscar una patente: el estado del plan (o
@@ -70,6 +71,7 @@ export function ResultadoBusqueda(p: Props) {
       <div className="field" style={{ marginTop: 14 }}>
         <label>Email (para confirmar la inscripción de tu tarjeta)</label>
         <input type="email" value={p.email} onChange={(e) => p.setEmail(e.target.value)} placeholder="tu@email.cl" />
+        <CampoCelular value={p.telefono} onChange={p.setTelefono} />
         {(promoPrimerMes || r.ticketReactivacion) && (
           <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginTop: 8 }}>
             {promoPrimerMes && (

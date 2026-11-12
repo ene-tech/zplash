@@ -149,6 +149,7 @@ export async function aplicarRetornoWebpay(
               esServicioAdicional,
               tipoVentaNuevo: esServicioAdicional ? tipoVentaServicio : "Plan nuevo (Web)",
               tipoVentaExistente: esServicioAdicional ? tipoVentaServicio : "Renovación (Web)",
+              telefono: pago.telefono,
             },
             tx2
           );
@@ -266,6 +267,7 @@ export async function aplicarRetornoWebpay(
               giro: item.giro,
               email: item.email,
               cuponCodigo: item.cuponCodigo,
+              telefono: pago.telefono,
             },
             tx2
           );

@@ -44,19 +44,34 @@ describe("POST /api/pagos/webpay/crear", () => {
   });
 
   it("ignora el monto que manda el cliente y cobra el precio de la base", async () => {
-    const res = await pedir({ patente: "AB1234", items: [{ tipo: "lavado_unico", monto: 1 }] });
+    const res = await pedir({ patente: "AB1234", telefono: "+56912345678", items: [{ tipo: "lavado_unico", monto: 1 }] });
     expect(res.status).toBe(200);
     expect(create.mock.calls[0][2]).toBe(precioLavadoUnicoWeb(preciosMap));
   });
 
   it("el carrito cobra la suma de sus ítems", async () => {
-    await pedir({ patente: "AB1234", items: [{ tipo: "lavado_unico" }, { tipo: "aspirado" }] });
+    await pedir({ patente: "AB1234", telefono: "+56912345678", items: [{ tipo: "lavado_unico" }, { tipo: "aspirado" }] });
     expect(create.mock.calls[0][2]).toBe(precioLavadoUnicoWeb(preciosMap) + precioZonaAspirado(preciosMap));
   });
 
   it("rechaza dos planes en la misma transacción", async () => {
-    const res = await pedir({ patente: "AB1234", items: [{ tipo: "renovacion" }, { tipo: "renovacion" }] });
+    const res = await pedir({ patente: "AB1234", telefono: "+56912345678", items: [{ tipo: "renovacion" }, { tipo: "renovacion" }] });
     expect(res.status).toBe(400);
     expect(create).not.toHaveBeenCalled();
+  });
+
+  // Sin celular el comprador web no queda asociado a su auto cuando después
+  // escribe por WhatsApp (el bot busca la ficha por clientes.telefono).
+  it("sin celular (o solo con el +569 precargado) no inicia el pago", async () => {
+    for (const telefono of [undefined, "+569", "123"]) {
+      const res = await pedir({ patente: "AB1234", telefono, items: [{ tipo: "lavado_unico" }] });
+      expect(res.status).toBe(400);
+    }
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("guarda el celular en formato canónico para que /retorno lo pase a la ficha", async () => {
+    await pedir({ patente: "AB1234", telefono: "9 1234 5678", items: [{ tipo: "lavado_unico" }] });
+    expect(insertados[0]).toMatchObject({ telefono: "+56912345678" });
   });
 });

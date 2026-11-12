@@ -125,6 +125,7 @@ export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOne
           tipoVentaNuevo: "Renovación automática (Oneclick)",
           tipoVentaExistente: "Renovación automática (Oneclick)",
           email: suscripcion.email,
+          telefono: suscripcion.telefono,
         },
         tx2
       ));
@@ -451,6 +452,7 @@ export async function cobrarSuscripcion(
               // El correo con que se inscribió la tarjeta: si este cobro crea
               // la ficha (primer cobro de una patente nueva), queda de contacto.
               email: suscripcion.email,
+              telefono: suscripcion.telefono,
               cuponCodigo: aplicaCupon ? cupon?.codigo : undefined,
               // Solo en el automático: ahí el plan sale de la política de
               // rescate en vez de migrar a ciegas al X5. undefined en los

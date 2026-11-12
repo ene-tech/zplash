@@ -54,6 +54,8 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
           tipo="lavado_unico"
           patente={r.patente}
           setPatente={r.setPatente}
+          telefono={r.telefono}
+          setTelefono={r.setTelefono}
           err={r.err}
           pagando={r.pagando}
           onPagar={(tipo, datosDocumento) => r.pagar(tipo, undefined, undefined, datosDocumento)}
@@ -68,6 +70,8 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
           tipo="aspirado"
           patente={r.patente}
           setPatente={r.setPatente}
+          telefono={r.telefono}
+          setTelefono={r.setTelefono}
           err={r.err}
           pagando={r.pagando}
           onPagar={(tipo, datosDocumento) => r.pagar(tipo, undefined, undefined, datosDocumento)}
@@ -82,6 +86,8 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
           tipo={r.item as "promo_2_lavados" | "promo_5_lavados"}
           patente={r.patente}
           setPatente={r.setPatente}
+          telefono={r.telefono}
+          setTelefono={r.setTelefono}
           err={r.err}
           pagando={r.pagando}
           onPagar={(tipo, datosDocumento) => r.pagar(tipo, undefined, undefined, datosDocumento)}
@@ -113,6 +119,8 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
             resultado={r.resultado}
             email={r.email}
             setEmail={r.setEmail}
+            telefono={r.telefono}
+            setTelefono={r.setTelefono}
             inscribiendo={r.inscribiendo}
             activarAutomatica={r.activarAutomatica}
           />
@@ -162,6 +170,8 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
           {r.accionServicio && (
             <ServicioDocumentoCard
               accionServicio={r.accionServicio}
+              telefono={r.telefono}
+              setTelefono={r.setTelefono}
               pagando={r.pagando}
               err={r.err}
               onCancelar={r.cancelarServicio}
