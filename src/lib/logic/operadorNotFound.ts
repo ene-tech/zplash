@@ -11,6 +11,8 @@ import {
   precioSoloTunel,
   resolverDescuento,
   SOLO_TUNEL_KEY,
+  ZONA_ASPIRADO_KEY,
+  precioZonaAspirado,
   uid,
   cicloPlanDesde,
   cuponValeEnSoloTunel,
@@ -20,7 +22,9 @@ import { entregarPromoLavados, registrarIngreso } from "./ingresos";
 import type { AppData, Cliente, Cupon, Empresa, PagoInfo, Venta } from "@/types";
 
 // "soloTunel" = Solo túnel sin aspirado (ver SOLO_TUNEL_KEY): un lavado suelto más barato.
-export type TipoClienteRapido = "plan" | "unico" | "soloTunel" | "promo2" | "promo5";
+// "aspirado" = Solo aspirado autoservicio (ver ZONA_ASPIRADO_KEY): venta sin
+// paso por el túnel, no registra Ingreso (ver finalizarClienteRapido).
+export type TipoClienteRapido = "plan" | "unico" | "soloTunel" | "aspirado" | "promo2" | "promo5";
 const PROMO_DE_TIPO: Partial<Record<TipoClienteRapido, IdPromoLavados>> = {
   promo2: "promo_2_lavados",
   promo5: "promo_5_lavados",
@@ -102,7 +106,9 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
         ? precioPromoLavados(data.precios, promo)
         : d.tipoCliente === "soloTunel"
           ? precioSoloTunel(data.precios)
-          : precioLavadoUnico(data.precios);
+          : d.tipoCliente === "aspirado"
+            ? precioZonaAspirado(data.precios)
+            : precioLavadoUnico(data.precios);
   let precio = precioBase;
   let cuponAplicado: Cupon | undefined;
   // El código rebaja el Lavado Full Túnel y, si su lote lo permite (ver
@@ -125,7 +131,9 @@ export function prepararClienteRapido(data: AppData, d: DatosClienteRapido): Pre
         ? PROMOS_LAVADOS[promo].key
         : d.tipoCliente === "soloTunel"
           ? SOLO_TUNEL_KEY
-          : "Lavado único";
+          : d.tipoCliente === "aspirado"
+            ? ZONA_ASPIRADO_KEY
+            : "Lavado único";
   const descripcion =
     d.tipoCliente === "plan"
       ? `Contratación de plan para ${d.nombre}`

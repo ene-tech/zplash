@@ -15,6 +15,7 @@ import {
   precioPlanOneclick,
   precioPromoLavados,
   precioSoloTunel,
+  precioZonaAspirado,
   resolverDescuento,
 } from "@/lib/helpers";
 import type { PagoInfo } from "@/types";
@@ -52,7 +53,7 @@ export function useOperadorNotFoundResult(
   // "plan" no registra nada acá: el Plan X5 se vende solo por la web, así que
   // muestra el QR para que el cliente lo pague en su celular (ver
   // OperadorNotFoundResult).
-  const [tipoLavado, setTipoLavado] = useState<"plan" | "unico" | "soloTunel" | "promo2" | "promo5">("unico");
+  const [tipoLavado, setTipoLavado] = useState<"plan" | "unico" | "soloTunel" | "aspirado" | "promo2" | "promo5">("unico");
   const [err, setErr] = useState("");
   const [codigoInput, setCodigoInput] = useState(codigoDescuento || "");
 
@@ -172,6 +173,7 @@ export function useOperadorNotFoundResult(
     precioPromo2: precioPromoLavados(data.precios, "promo_2_lavados"),
     precioPromo5: precioPromoLavados(data.precios, "promo_5_lavados"),
     precioSoloTunel: precioBaseSoloTunel,
+    precioSoloAspirado: precioZonaAspirado(data.precios),
     cuponPrevio,
     precioConDescuento,
     precioSoloTunelConDescuento,

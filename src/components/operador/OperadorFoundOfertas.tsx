@@ -58,6 +58,8 @@ type Props = Pick<
   | "cobrarPromoLavados"
   | "precioSoloTunel"
   | "cobrarSoloTunel"
+  | "precioSoloAspirado"
+  | "cobrarSoloAspirado"
   | "upgradePack"
   | "cobrarUpgradePack"
   | "upgradeDescuento"
@@ -93,7 +95,8 @@ export default function OperadorFoundOfertas(props: Props) {
   // primer cobro llega recién a su vencimiento (ver inscripcion/retorno).
   const qr = (sinPlan || props.showOffer) && props.precioQrTarjeta ? props.precioQrTarjeta : undefined;
   const sinIngreso = props.planVigente && (props.estadoIngreso === "sin_pases" || props.estadoIngreso === "bloqueado");
-  const esLavado = (el: ReactNode) => ["lavado", "solo-tunel", "lavado-extra"].includes((el as ReactElement).key as string);
+  const esLavado = (el: ReactNode) =>
+    ["lavado", "solo-tunel", "solo-aspirado", "lavado-extra"].includes((el as ReactElement).key as string);
   return (
     <div className="ofertas-operador">
       {/* Ingresos ya pagados: no son venta, van antes que las opciones. El
@@ -397,6 +400,22 @@ export default function OperadorFoundOfertas(props: Props) {
             </div>
             <button className="btn secondary" onClick={props.cobrarLavadoUnico} disabled={guardando}>
               Comprar lavado por {fmtCLP(props.precioLavadoUnicoFinal)} e ingresar
+            </button>
+          </div>
+        )],
+        // Solo aspirado: venta sin paso por el túnel (no registra ingreso),
+        // con o sin plan. Último de los sueltos.
+        [props.precioSoloAspirado, (props.precioSoloAspirado ?? 0) > 0 && (
+          <div key="solo-aspirado" className="offer-card">
+            <div className="offer-head">
+              <h4>Solo aspirado autoservicio (sin lavado)</h4>
+            </div>
+            <div className="msg">Usa la zona de aspirado autoservicio sin pasar por el túnel. No registra ingreso.</div>
+            <div className="price-row">
+              <span className="new">{fmtCLP(props.precioSoloAspirado)}</span>
+            </div>
+            <button className="btn secondary" onClick={() => props.cobrarSoloAspirado()} disabled={guardando}>
+              Cobrar Solo aspirado ({fmtCLP(props.precioSoloAspirado)})
             </button>
           </div>
         )],

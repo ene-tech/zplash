@@ -72,6 +72,15 @@ export default function OperadorNotFoundResult({
             Solo túnel, sin aspirado ({fmtCLP(r.precioSoloTunelConDescuento ?? r.precioSoloTunel)})
           </button>
         )}
+        {r.precioSoloAspirado > 0 && (
+          <button
+            className={r.tipoLavado === "aspirado" ? "btn" : "btn secondary"}
+            style={{ marginTop: 0, flex: "1 1 160px" }}
+            onClick={() => r.setTipoLavado("aspirado")}
+          >
+            Solo aspirado autoservicio ({fmtCLP(r.precioSoloAspirado)})
+          </button>
+        )}
         {r.precioPromo2 > 0 && (
           <button
             className={r.tipoLavado === "promo2" ? "btn" : "btn secondary"}
@@ -104,6 +113,12 @@ export default function OperadorNotFoundResult({
         </>
       ) : (
         <>
+          {r.tipoLavado === "aspirado" && (
+            <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
+              Solo la zona de aspirado autoservicio, sin pasar por el túnel: no registra ingreso. Los códigos de
+              descuento no aplican.
+            </div>
+          )}
           {r.tipoLavado === "promo2" && (
             <div className="hint" style={{ textAlign: "left", color: "var(--gray)", fontSize: 13, marginBottom: 14 }}>
               2 lavados Full Túnel para esta patente, válidos 30 días: pasa ahora con el primero y el segundo queda como

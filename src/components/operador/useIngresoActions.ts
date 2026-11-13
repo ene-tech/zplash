@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { entregarPromoLavados, entregarPromoRecompra2, entregarPromoVip, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, ingresoConGarantia, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, ZONA_ASPIRADO_KEY, precioZonaAspirado, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, ingresoConGarantia, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
 import { conReglaVigente } from "./reglaVigente";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -221,6 +221,46 @@ export function useIngresoActions(
     });
   };
 
+  // Solo aspirado (ver ZONA_ASPIRADO_KEY): uso de la zona de aspirado
+  // autoservicio sin lavado. Es solo una venta: el auto no pasa por el túnel,
+  // así que no registra Ingreso ni suma visita. Sin cupón: los descuentos de
+  // la patente son para el Lavado Full Túnel.
+  const cobrarSoloAspirado = (cliente: Cliente) => {
+    const precio = precioZonaAspirado(data.precios);
+    if (precio <= 0) return;
+    patchUi({
+      modal: {
+        type: "pago",
+        monto: precio,
+        descripcion: `Solo aspirado autoservicio (sin lavado) para ${cliente.nombre} (${cliente.patente})`,
+        cliente,
+        onConfirm: async (pago: PagoInfo) => {
+          const venta: Venta = {
+            id: uidVenta(),
+            clienteId: cliente.id,
+            patente: cliente.patente,
+            nombre: cliente.nombre,
+            plan: cliente.plan || "",
+            precio,
+            tipo: ZONA_ASPIRADO_KEY,
+            fecha: new Date().toISOString(),
+            creadoPor: ui.perfilActual?.nombre || "",
+            metodoPago: pago.metodo,
+            voucher: pago.voucher,
+            ...pago.documento,
+          };
+          const ok = await commit({ ventas: [venta, ...data.ventas] });
+          if (!ok) {
+            setGuardarErr(ERROR_GUARDADO_INGRESO);
+            return;
+          }
+          clearPlate();
+          patchUi({ operResult: null });
+        },
+      },
+    });
+  };
+
   // Pack de lavados en el mesón (Promo 2 o 5 Lavados, ver PROMOS_LAVADOS):
   // cobra, deja la Venta y entrega los tickets con el primero ya canjeado —
   // el auto entra ahora (ver entregarPromoLavados), salvo que ya haya pasado
@@ -428,6 +468,7 @@ export function useIngresoActions(
     registrarGarantia,
     cobrarLavadoUnico,
     cobrarSoloTunel,
+    cobrarSoloAspirado,
     cobrarPromoLavados,
     cobrarUpgradePack,
     cobrarUpgradeDescuento,
