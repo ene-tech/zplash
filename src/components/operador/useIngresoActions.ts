@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { entregarPromoLavados, entregarPromoRecompra2, entregarPromoVip, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, ZONA_ASPIRADO_KEY, precioZonaAspirado, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, yaIngresoHoy, ingresoConGarantia, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, ZONA_ASPIRADO_KEY, precioZonaAspirado, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, ingresoConGarantia, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
 import { conReglaVigente } from "./reglaVigente";
 import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
@@ -262,23 +262,18 @@ export function useIngresoActions(
   };
 
   // Pack de lavados en el mesón (Promo 2 o 5 Lavados, ver PROMOS_LAVADOS):
-  // cobra, deja la Venta y entrega los tickets con el primero ya canjeado —
-  // el auto entra ahora (ver entregarPromoLavados), salvo que ya haya pasado
-  // hoy o tenga el plan vigente (entra con su plan): ahí se lleva todos los
-  // tickets sin usar. El cupón de descuento de la patente no se le resta: ya
-  // es una promoción.
+  // cobra, deja la Venta y entrega todos los tickets sin usar. La venta no
+  // registra ingreso (ver entregarPromoLavados): al guardar queda abierta la
+  // ficha, y si el auto entra ahora se usa "Usar 1 ticket e ingresar". El
+  // cupón de descuento de la patente no se le resta: ya es una promoción.
   const cobrarPromoLavados = (cliente: Cliente, promo: IdPromoLavados) => {
     const precio = precioPromoLavados(data.precios, promo);
     if (precio <= 0) return;
-    const conPlan = planStatus(cliente).cls !== "bad";
-    const yaPasoHoy = yaIngresoHoy(data.ingresos, cliente.id);
     patchUi({
       modal: {
         type: "pago",
         monto: precio,
-        descripcion:
-          `Promo ${PROMOS_LAVADOS[promo].lavados} lavados para ${cliente.nombre} (${cliente.patente})` +
-          (conPlan ? " — tiene plan, se lleva todos para después" : yaPasoHoy ? " — ya pasó hoy, se lleva todos para después" : ""),
+        descripcion: `Promo ${PROMOS_LAVADOS[promo].lavados} lavados para ${cliente.nombre} (${cliente.patente}) — solo la venta, no registra ingreso`,
         cliente,
         onConfirm: async (pago: PagoInfo) => {
           const venta: Venta = {
@@ -295,14 +290,13 @@ export function useIngresoActions(
             voucher: pago.voucher,
             ...pago.documento,
           };
-          const patch = entregarPromoLavados(data, cliente, precio, ui.perfilActual?.nombre, promo, yaPasoHoy || conPlan);
+          const patch = entregarPromoLavados(data, cliente, precio, ui.perfilActual?.nombre, promo);
           const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
             return;
           }
-          clearPlate();
-          patchUi({ operResult: null });
+          // Queda la ficha abierta con los tickets nuevos a la vista.
         },
       },
     });
@@ -319,14 +313,11 @@ export function useIngresoActions(
     entregar: typeof entregarPromoVip
   ) => {
     if (precio <= 0) return;
-    const yaPasoHoy = yaIngresoHoy(data.ingresos, cliente.id);
     patchUi({
       modal: {
         type: "pago",
         monto: precio,
-        descripcion:
-          `${tipo} para ${cliente.nombre} (${cliente.patente}): ${detalle}` +
-          (yaPasoHoy ? " — ya pasó hoy, se lleva todos para después" : ""),
+        descripcion: `${tipo} para ${cliente.nombre} (${cliente.patente}): ${detalle} — solo la venta, no registra ingreso`,
         cliente,
         onConfirm: async (pago: PagoInfo) => {
           const venta: Venta = {
@@ -343,14 +334,13 @@ export function useIngresoActions(
             voucher: pago.voucher,
             ...pago.documento,
           };
-          const patch = entregar(data, cliente, precio, ui.perfilActual?.nombre, yaPasoHoy);
+          const patch = entregar(data, cliente, precio, ui.perfilActual?.nombre);
           const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
             return;
           }
-          clearPlate();
-          patchUi({ operResult: null });
+          // Queda la ficha abierta con los tickets nuevos a la vista.
         },
       },
     });

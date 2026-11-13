@@ -55,29 +55,21 @@ describe("OperadorFoundOfertas — orden", () => {
   });
 });
 
-// Caso SPRH85 (oct-2026): pasó con un cupón y en el aspirado le ofrecen el
-// pack. No puede decirle "pasa ahora": ya pasó, y se lleva todos los lavados.
-describe("OperadorFoundOfertas — pack al que ya pasó hoy", () => {
-  it("dice que se lleva todos los lavados para después", () => {
-    const html = render({ planVigente: false, precioPromo2: 12990, precioPromo5: 24990, yaPasoHoy: true });
-    expect(html).not.toContain("Pasa ahora");
-    expect(html).toContain("se lleva los 4 lavados para los próximos 30 días");
-    expect(html).toContain("se lleva los 2 lavados para después");
-  });
-
-  it("también se le ofrecen al que tiene el plan vigente", () => {
-    const html = render({ planVigente: true, precioPromo2: 12990, precioPromo5: 24990 });
+// Venta e ingreso van separados (13-nov-2026, PDHT18): vender un pack nunca
+// canjea un ticket, haya pasado hoy o no, tenga plan o no.
+describe("OperadorFoundOfertas — packs: la venta no es un ingreso", () => {
+  it.each([
+    ["sin plan, sin pasar hoy", { planVigente: false }],
+    ["ya pasó hoy", { planVigente: false, yaPasoHoy: true }],
+    ["con plan vigente", { planVigente: true }],
+  ])("%s: se lleva todos los lavados y el ingreso va aparte", (_, extra) => {
+    const html = render({ precioPromo2: 12990, precioPromo5: 24990, ...extra });
     expect(html).toContain("Cobrar Promo 2 lavados");
     expect(html).toContain("Cobrar Promo 4 lavados");
-    // Entra con su plan: el pack no canjea ningún ticket ahora.
     expect(html).not.toContain("Pasa ahora");
-    expect(html).toContain("Entra con su plan: se lleva los 2 lavados para después");
-    expect(html).toContain("Entra con su plan: se lleva los 4 lavados");
-  });
-
-  it("si no ha pasado, el primero es el de ahora", () => {
-    const html = render({ planVigente: false, precioPromo5: 24990 });
-    expect(html).toContain("Pasa ahora y le quedan 3 lavados");
+    expect(html).toContain("Se lleva 2 lavados");
+    expect(html).toContain("Se lleva 4 lavados para los próximos 30 días");
+    expect(html).toContain("Cobrar no registra el paso por el túnel");
   });
 });
 

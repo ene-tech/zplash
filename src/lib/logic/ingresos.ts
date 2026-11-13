@@ -22,24 +22,18 @@ import {
 } from "@/lib/helpers";
 
 // Venta en el mesón de un pack de lavados (Promo 2 o 5 Lavados, ver
-// PROMOS_LAVADOS): emite los tickets para la patente del cliente y canjea el
-// primero ahora mismo — en el local el pack se vende con el auto entrando al
-// túnel, así que el paso de hoy es el primero. Deja `cupones` completo (los 2, el primero
-// ya usado) más el Ingreso y la visita sumada a la ficha, igual que cualquier
-// canje de ticket (ver registrarIngresoCupon). La Venta la arma quien llama:
-// los datos de boleta/factura cambian entre cliente encontrado y registro
-// rápido.
-//
-// `yaPasoHoy`: el auto ya pasó hoy (p. ej. con un cupón, y el pack se lo
-// venden después en la zona de aspirado). Entonces no se registra Ingreso ni
-// se canjea ningún ticket: se lleva todos los lavados del pack para después.
+// PROMOS_LAVADOS): emite los tickets para la patente del cliente, todos sin
+// usar. La venta y el ingreso al túnel van SIEMPRE separados (13-nov-2026: a
+// PDHT18 le quemaron un ticket al comprar la VIP sin lavar): si el auto entra
+// ahora, el operador canjea un ticket aparte con "Usar 1 ticket e ingresar"
+// (ver registrarIngresoCupon). La Venta la arma quien llama: los datos de
+// boleta/factura cambian entre cliente encontrado y registro rápido.
 export function entregarPromoLavados(
   data: AppData,
   cliente: Cliente,
   precio: number,
   operadorActual: string | null | undefined,
-  promo: IdPromoLavados,
-  yaPasoHoy = false
+  promo: IdPromoLavados
 ): Partial<AppData> {
   const nuevos = cuponesPromoLavados({
     promo,
@@ -50,31 +44,22 @@ export function entregarPromoLavados(
     creadoPor: operadorActual || "",
     idBase: "cup" + Date.now(),
   });
-  return entregarTickets(data, cliente, nuevos, operadorActual, yaPasoHoy);
+  return entregarTickets(data, nuevos);
 }
 
-// Lo común a todo pack vendido en el mesón: suma los tickets nuevos y, si el
-// auto no pasó hoy, canjea el primero con el ingreso de ahora.
-function entregarTickets(
-  data: AppData,
-  cliente: Cliente,
-  nuevos: Cupon[],
-  operadorActual: string | null | undefined,
-  yaPasoHoy: boolean
-): Partial<AppData> {
-  if (yaPasoHoy) return { cupones: [...nuevos, ...data.cupones] };
-  return registrarIngresoCupon({ ...data, cupones: [...nuevos, ...data.cupones] }, cliente, nuevos[0], operadorActual);
+// Lo común a todo pack vendido en el mesón: suma los tickets nuevos, sin
+// canjear ninguno (ver entregarPromoLavados).
+function entregarTickets(data: AppData, nuevos: Cupon[]): Partial<AppData> {
+  return { cupones: [...nuevos, ...data.cupones] };
 }
 
 // Promo 5 Tickets VIP en el mesón (ver PROMO_VIP_KEY, ofertaPromoVip): igual
-// que entregarPromoLavados, con el primer ticket de la patente canjeado ahora
-// salvo que ya haya pasado hoy. El libre queda sin usar.
+// que entregarPromoLavados, los 5 tickets sin usar.
 export function entregarPromoVip(
   data: AppData,
   cliente: Cliente,
   precio: number,
-  operadorActual: string | null | undefined,
-  yaPasoHoy = false
+  operadorActual: string | null | undefined
 ): Partial<AppData> {
   const nuevos = cuponesPromoVip({
     patente: cliente.patente,
@@ -84,17 +69,16 @@ export function entregarPromoVip(
     creadoPor: operadorActual || "",
     idBase: "cup" + Date.now(),
   });
-  return entregarTickets(data, cliente, nuevos, operadorActual, yaPasoHoy);
+  return entregarTickets(data, nuevos);
 }
 
 // Promo 2 Tickets 15 Días en el mesón (ver PROMO_RECOMPRA_2_KEY): igual que
-// entregarPromoLavados, con el primero canjeado ahora salvo que ya haya pasado hoy.
+// entregarPromoLavados, los 2 tickets sin usar.
 export function entregarPromoRecompra2(
   data: AppData,
   cliente: Cliente,
   precio: number,
-  operadorActual: string | null | undefined,
-  yaPasoHoy = false
+  operadorActual: string | null | undefined
 ): Partial<AppData> {
   const nuevos = cuponesPromoRecompra2({
     patente: cliente.patente,
@@ -104,7 +88,7 @@ export function entregarPromoRecompra2(
     creadoPor: operadorActual || "",
     idBase: "cup" + Date.now(),
   });
-  return entregarTickets(data, cliente, nuevos, operadorActual, yaPasoHoy);
+  return entregarTickets(data, nuevos);
 }
 
 // Upgrade a Promo 4 Lavados en el mesón (ver UPGRADE_PACK_KEY): los 3 tickets

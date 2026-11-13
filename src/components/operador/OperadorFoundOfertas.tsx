@@ -355,11 +355,7 @@ export default function OperadorFoundOfertas(props: Props) {
               <h4>Promo 2 lavados</h4>
             </div>
             <div className="msg">
-              {props.planVigente
-                ? "Entra con su plan: se lleva los 2 lavados para después."
-                : props.yaPasoHoy
-                ? "Ya pasó hoy: se lleva los 2 lavados para después."
-                : "Pasa ahora y le queda 1 lavado para después."}
+              Se lleva 2 lavados. Cobrar no registra el paso por el túnel: si entra ahora, después usa 1 ticket.
             </div>
             <div className="price-row">
               <span className="new">{fmtCLP(props.precioPromo2)}</span>
@@ -375,11 +371,8 @@ export default function OperadorFoundOfertas(props: Props) {
               <h4>Promo 4 lavados</h4>
             </div>
             <div className="msg">
-              {props.planVigente
-                ? "Entra con su plan: se lleva los 4 lavados para los próximos 30 días."
-                : props.yaPasoHoy
-                ? "Ya pasó hoy: se lleva los 4 lavados para los próximos 30 días. Sin plan ni renovación."
-                : "Pasa ahora y le quedan 3 lavados para los próximos 30 días. Sin plan ni renovación."}
+              Se lleva 4 lavados para los próximos 30 días. Sin plan ni renovación. Cobrar no registra el paso por el
+              túnel: si entra ahora, después usa 1 ticket.
             </div>
             <div className="price-row">
               <span className="new">{fmtCLP(props.precioPromo5)}</span>

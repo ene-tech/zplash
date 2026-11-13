@@ -196,8 +196,8 @@ export function finalizarClienteRapido(
   };
   const clientesConNuevo = [...data.clientes, nuevo];
   const ventasConNueva = [venta, ...data.ventas];
-  // Un pack de lavados también es un paso físico: se entrega con el primero
-  // de sus tickets ya canjeado (ver entregarPromoLavados).
+  // Un pack de lavados es solo una venta: entrega todos los tickets sin usar
+  // (ver entregarPromoLavados). Si entra ahora, se canjea uno aparte.
   const datosConNuevo = { ...data, clientes: clientesConNuevo, ventas: ventasConNueva };
   const promo = IDS_PROMOS_LAVADOS.find((id) => PROMOS_LAVADOS[id].key === tipoVenta);
   const ingresoPatch: Partial<AppData> =

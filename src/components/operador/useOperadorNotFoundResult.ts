@@ -7,7 +7,9 @@ import {
   esExentoValidacionRegistroOperador,
   fmtTelefono,
   formatRut,
+  IDS_PROMOS_LAVADOS,
   isValidRut,
+  PROMOS_LAVADOS,
   cuponValeEnSoloTunel,
   normPlate,
   precioConCupon,
@@ -149,6 +151,12 @@ export function useOperadorNotFoundResult(
       const ok = await commit(patch);
       if (!ok) {
         setErr(ERROR_GUARDADO);
+        return;
+      }
+      // Un pack no registra ingreso: queda abierta la ficha del cliente nuevo
+      // para canjear un ticket aparte si entra ahora.
+      if (IDS_PROMOS_LAVADOS.some((id) => PROMOS_LAVADOS[id].key === preparado.tipoVenta)) {
+        patchUi({ operResult: { found: true, cliente: preparado.nuevo } });
         return;
       }
       clearPlate();
