@@ -21,6 +21,31 @@ function fmtTamano(b?: number) {
   return b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`;
 }
 
+// Los mismos tipos que acepta el bucket (supabase/cliente-adjuntos-2026-11-10.sql).
+// El navegador a veces no informa el tipo (ej. .heic en Windows, archivos
+// renombrados) o lo informa con un nombre que el bucket no conoce
+// ("image/jpg"); Storage rechaza esas subidas, así que se decide por la
+// extensión.
+const MIME_POR_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  heic: "image/heic",
+  heif: "image/heif",
+  gif: "image/gif",
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+function tipoMimeAdjunto(f: File): string | null {
+  const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_POR_EXTENSION[ext] ?? (Object.values(MIME_POR_EXTENSION).includes(f.type) ? f.type : null);
+}
+
 // Documentos adjuntos de la ficha (comprobantes de devolución u otros), con
 // a qué corresponde cada uno. Ver @/lib/serverActions/clienteAdjuntos: el
 // archivo sube directo del navegador al bucket privado con una URL firmada.
@@ -67,15 +92,25 @@ export default function AdjuntosCliente({ clienteId, email }: { clienteId: strin
   async function subir() {
     if (!archivo) return setErr("Elige un archivo.");
     if (tipo === "otro" && !detalle.trim()) return setErr("Escribe a qué corresponde el documento.");
+    const mime = tipoMimeAdjunto(archivo);
+    if (!mime) return setErr("Ese tipo de archivo no se puede adjuntar. Usa PDF, foto (JPG, PNG, HEIC), Word o Excel.");
     setErr("");
     setSubiendo(true);
     try {
       const prep = await prepararAdjuntoCliente(clienteId, archivo.name, archivo.size);
       if (!prep.ok) return setErr(prep.error);
-      const { error } = await supabase.storage.from("adjuntos-clientes").uploadToSignedUrl(prep.ruta, prep.token, archivo, {
-        contentType: archivo.type || undefined,
-      });
-      if (error) return setErr("No se pudo subir el archivo. Intenta de nuevo.");
+      // Con un Blob, uploadToSignedUrl ignora contentType y manda el tipo del
+      // propio Blob: se re-etiqueta con slice (no copia el contenido).
+      const cuerpo = archivo.slice(0, archivo.size, mime);
+      const { error } = await supabase.storage.from("adjuntos-clientes").uploadToSignedUrl(prep.ruta, prep.token, cuerpo);
+      if (error) {
+        console.error("Error subiendo adjunto", error);
+        return setErr(
+          /mime type/i.test(error.message)
+            ? "Ese tipo de archivo no se puede adjuntar. Usa PDF, foto (JPG, PNG, HEIC), Word o Excel."
+            : "No se pudo subir el archivo. Intenta de nuevo.",
+        );
+      }
       const res = await registrarAdjuntoCliente({
         id: prep.id,
         clienteId,
@@ -83,7 +118,7 @@ export default function AdjuntosCliente({ clienteId, email }: { clienteId: strin
         tipo,
         detalle,
         nombreArchivo: archivo.name,
-        tipoMime: archivo.type,
+        tipoMime: mime,
         tamano: archivo.size,
       });
       if (!res.ok) return setErr(res.error);
