@@ -22,6 +22,7 @@ import { AvisoPoliticas } from "@/components/cliente/miCuenta/AvisoPoliticas";
 import { LibroComentarios } from "@/components/cliente/miCuenta/LibroComentarios";
 import { PromoModal } from "@/components/cliente/miCuenta/PromoModal";
 import { InvitarAmigo, type ReferidosPatente } from "@/components/cliente/miCuenta/InvitarAmigo";
+import { EliminarCuenta } from "@/components/cliente/miCuenta/EliminarCuenta";
 
 interface Tarjeta {
   patente: string;
@@ -389,18 +390,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
               <button type="button" className="btn ghost" style={{ marginTop: 0 }} onClick={cerrar}>
                 Cerrar sesión
               </button>
-              {/* Google Play exige una forma de pedir que se borre la cuenta. Por
-                  ahora es a mano por WhatsApp: la ficha tiene ventas, planes y
-                  tarjetas que hay que revisar antes de borrar. */}
-              <a
-                className="btn ghost"
-                style={{ marginTop: 0, color: "var(--red)", textAlign: "center", textDecoration: "none" }}
-                href={`https://wa.me/56957969446?text=${encodeURIComponent(`Hola, quiero eliminar mi cuenta de ZPlash (${sesion.email})`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Eliminar mi cuenta
-              </a>
+              <EliminarCuenta onEliminada={refrescar} />
             </div>
           </>
         )}
@@ -431,6 +421,9 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
         sinVehiculos
       )}
       {resto}
+      <div style={{ marginTop: 10 }}>
+        <EliminarCuenta onEliminada={refrescar} />
+      </div>
     </div>
   );
 }

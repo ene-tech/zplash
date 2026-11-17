@@ -82,12 +82,12 @@ const SECCIONES: { id?: string; titulo: string; puntos: React.ReactNode[] }[] = 
     id: "eliminar-cuenta",
     titulo: "Eliminar tu cuenta",
     puntos: [
-      "Desde la app: Cuenta → Eliminar mi cuenta.",
+      "En la app: Cuenta → Eliminar mi cuenta. En la web: Mi Cuenta → Eliminar mi cuenta, al final de la página. La cuenta se elimina en el momento y te llega un correo de confirmación.",
       <>
-        Desde cualquier lugar: escríbenos a <a href={`mailto:${CORREO}`}>{CORREO}</a> desde el correo de tu cuenta, con el asunto
-        &quot;Eliminar mi cuenta&quot;.
+        Si no puedes entrar a tu cuenta, escríbenos a <a href={`mailto:${CORREO}`}>{CORREO}</a> desde el correo de tu cuenta, con el
+        asunto &quot;Eliminar mi cuenta&quot;, y la eliminamos en un máximo de 2 días hábiles.
       </>,
-      "Eliminamos tus datos de cuenta (correo, nombre, teléfono, vehículos, notificaciones y tarjeta guardada) en un máximo de 30 días. Si tienes un plan con cobro automático, se cancela. Solo conservamos las ventas, boletas y facturas que la ley obliga a guardar, sin usarlas para nada más.",
+      "Se eliminan tu correo, nombre, teléfono, datos de factura, notificaciones y tarjeta guardada, y se cancela el cobro automático de tu plan. Solo conservamos las ventas, boletas y facturas que la ley obliga a guardar, sin usarlas para nada más.",
     ],
   },
 ];
