@@ -45,8 +45,15 @@ export function VehiculoCard({
   renovacionWoo,
   email,
   onActualizado,
+  vista = "completa",
+  onVerOpciones,
 }: {
   v: VehiculoSesion;
+  // App nativa (ver MiCuentaTab): "estado" va en Inicio (sin las tarjetas de
+  // compra, con un botón a Comprar) y "ofertas" en Comprar (solo la venta).
+  // La web sigue con "completa".
+  vista?: "completa" | "estado" | "ofertas";
+  onVerOpciones?: () => void;
   oferta?: OfertaPlan;
   // Le queda el lavado full túnel gratis de la promo de reactivación (una
   // sola vez por cliente, ver otorgarTicketReactivacion).
@@ -110,6 +117,11 @@ export function VehiculoCard({
   // tachar y que explicar.
   const co = oferta?.contratacion;
   const conDescuento = !!co && co.primerCobro < co.mensual;
+  const verEstado = vista !== "ofertas";
+  const verOfertas = vista !== "estado";
+  // Mismas condiciones que pintan cada tarjeta de compra más abajo.
+  const hayOfertas =
+    !!(ra && !(sinOfertaReal && tarjeta)) || !!oferta?.reactivacion || !!oferta?.pagoVencido || !!oferta?.upgradePack || !!co;
 
   const [inscribiendo, setInscribiendo] = useState(false);
   const [errInscripcion, setErrInscripcion] = useState("");
@@ -159,6 +171,7 @@ export function VehiculoCard({
         </div>
         <div className="cabecera-acciones">
           <span className={`status-pill ${v.estado.cls}`}>{v.estado.label}</span>
+          {verEstado && (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Más acciones" />}>
               <MoreVertical size={16} />
@@ -177,9 +190,12 @@ export function VehiculoCard({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
       </div>
-      {v.vencimiento && <div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>{v.estado.cls === "bad" ? "Fue válido" : "Válido"} hasta el {fmtVencimiento(v.vencimiento)} (incluido)</div>}
+      {verEstado && (
+        <>
+      {v.vencimiento &&<div style={{ color: "var(--gray)", fontSize: 12.5, marginTop: 6 }}>{v.estado.cls === "bad" ? "Fue válido" : "Válido"} hasta el {fmtVencimiento(v.vencimiento)} (incluido)</div>}
       {/* Reemplaza a "Eliminar Plan" en el menú "⋮" para el cliente Woo: sin
           esto el botón no aparece y no queda ninguna salida a la vista. */}
       {planVencido && renovacionWoo && (
@@ -203,10 +219,24 @@ export function VehiculoCard({
 
       {descuento && (
         <div style={{ color: "var(--green)", fontSize: 12.5, marginTop: 6 }}>
-          Cupón {descuento.codigo} ({descuento.beneficio}) — ya aplicado en los precios de abajo.
+          Cupón {descuento.codigo} ({descuento.beneficio}) — ya aplicado en los precios de {vista === "estado" ? "Comprar" : "abajo"}.
         </div>
       )}
+      {vista === "estado" && hayOfertas && onVerOpciones && (
+        <button type="button" className="btn" style={{ width: "100%", marginTop: 12 }} onClick={onVerOpciones}>
+          Ver opciones para esta patente
+        </button>
+      )}
+        </>
+      )}
 
+      {verOfertas && (
+        <>
+      {vista === "ofertas" && !hayOfertas && (
+        <div style={{ color: "var(--gray)", fontSize: 13, marginTop: 10 }}>
+          Por ahora no hay compras disponibles para esta patente: su plan está al día.
+        </div>
+      )}
       {oferta && <AvisoPasaAX5 plan={v.plan} vencimiento={v.estado.cls !== "bad" ? v.vencimiento : null} />}
 
       {ra && !(sinOfertaReal && tarjeta) && (
@@ -426,6 +456,8 @@ export function VehiculoCard({
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {tieneCambioPatente && (

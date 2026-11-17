@@ -1274,6 +1274,48 @@ tr:hover td {
 }
 
 /* ---------- PORTAL CLIENTE (público) ---------- */
+/* App nativa: Mi Cuenta en 4 pestañas con barra fija abajo (ver MiCuentaTab). */
+.app-tabs-contenido {
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+}
+.app-tabs-barra {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  display: flex;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  padding: 6px 4px calc(8px + env(safe-area-inset-bottom));
+}
+.app-tabs-barra button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: 0;
+  color: var(--gray);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.app-tabs-barra button.on {
+  color: var(--gold);
+  font-weight: 700;
+}
+.app-tabs-barra svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .cliente-header {
   position: sticky;
   top: 0;

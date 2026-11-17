@@ -14,10 +14,14 @@ export function InvitarAmigo({
   patentes,
   valor,
   referidos,
+  resumen = false,
 }: {
   patentes: string[];
   valor: number;
   referidos: Record<string, ReferidosPatente>;
+  // App nativa: un solo total en vez de una fila por patente (que con varios
+  // autos sin invitados era una lista de "$0").
+  resumen?: boolean;
 }) {
   const [patente, setPatente] = useState(patentes[0] || "");
   const [copiado, setCopiado] = useState(false);
@@ -39,7 +43,7 @@ export function InvitarAmigo({
   return (
     <div className="card" style={{ marginBottom: 26 }}>
       <h3 style={{ marginTop: 0 }}>Regala {fmtCLP(valor)}, gana {fmtCLP(valor)}</h3>
-      <ContadorReferidos patentes={patentes} referidos={referidos} />
+      <ContadorReferidos patentes={resumen ? [] : patentes} referidos={referidos} total={resumen ? patentes : undefined} />
       <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 14px" }}>
         <Billete etiqueta="Regalas" valor={valor} />
         <span aria-hidden style={{ fontSize: 22, fontWeight: 800, color: "#1f7a3d" }}>
@@ -123,14 +127,37 @@ export function InvitarAmigo({
 
 // Lo ganado por patente: el premio va atado a la patente que invitó y se
 // descuenta solo en su próximo pago, así que con varios autos va uno por fila.
-function ContadorReferidos({ patentes, referidos }: { patentes: string[]; referidos: Record<string, ReferidosPatente> }) {
+// Con `total` se suman todas esas patentes en una sola fila.
+function ContadorReferidos({
+  patentes,
+  referidos,
+  total,
+}: {
+  patentes: string[];
+  referidos: Record<string, ReferidosPatente>;
+  total?: string[];
+}) {
+  const vacio = { acumulado: 0, llegaron: 0, usaron: 0 };
+  const filas: [string, ReferidosPatente][] = total
+    ? [
+        [
+          "",
+          total.reduce(
+            (s, p) => {
+              const r = referidos[p] || vacio;
+              return { acumulado: s.acumulado + r.acumulado, llegaron: s.llegaron + r.llegaron, usaron: s.usaron + r.usaron };
+            },
+            { ...vacio }
+          ),
+        ],
+      ]
+    : patentes.map((p) => [p, referidos[p] || vacio]);
   return (
     <div style={{ display: "grid", gap: 8, margin: "4px 0 14px" }}>
-      {patentes.map((p) => {
-        const r = referidos[p] || { acumulado: 0, llegaron: 0, usaron: 0 };
+      {filas.map(([p, r]) => {
         return (
           <div
-            key={p}
+            key={p || "total"}
             style={{
               border: "1.5px solid rgba(31, 122, 61, 0.35)",
               borderRadius: 10,
@@ -144,7 +171,7 @@ function ContadorReferidos({ patentes, referidos }: { patentes: string[]; referi
           >
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: "#1f7a3d" }}>
-                Descuento acumulado{patentes.length > 1 ? ` · ${p}` : ""}
+                {total ? "Llevas ganado" : `Descuento acumulado${patentes.length > 1 ? ` · ${p}` : ""}`}
               </div>
               <div style={{ fontSize: 13, opacity: 0.75 }}>
                 {r.llegaron === 0

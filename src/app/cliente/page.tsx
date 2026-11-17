@@ -1,6 +1,7 @@
 import Link from "next/link";
 import MiCuentaTab from "@/components/cliente/MiCuentaTab";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
+import { SoloWeb } from "@/components/cliente/SoloWeb";
 
 // Antes esta página era una segunda "home" pública con pestañas (Ubicación,
 // Lavados, Detailing, Empresa, FAQ) que duplicaba el contenido de / y había
@@ -20,9 +21,11 @@ export default async function ClientePage({ searchParams }: { searchParams: Prom
       <div className="content">
         {/* Plano (.btn), no el look skeuomórfico de VolverBoton: acá comparte
             fila visual con "Agenda un Servicio de Detailing" (mismo .btn). */}
-        <Link href="/" className="btn" style={{ textDecoration: "none", display: "inline-block", marginBottom: 18 }}>
-          Volver al inicio
-        </Link>
+        <SoloWeb>
+          <Link href="/" className="btn" style={{ textDecoration: "none", display: "inline-block", marginBottom: 18 }}>
+            Volver al inicio
+          </Link>
+        </SoloWeb>
         <MiCuentaTab registro={registro} />
       </div>
     </div>
