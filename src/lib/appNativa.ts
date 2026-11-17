@@ -51,18 +51,24 @@ async function tokenPush(pedirPermiso: boolean): Promise<string | null> {
   if (receive !== "granted" && pedirPermiso) ({ receive } = await push.requestPermissions());
   if (receive !== "granted") return null;
   return new Promise((resolve) => {
-    const listeners: Promise<Listener>[] = [];
+    const listeners: (Promise<Listener> | Listener | undefined)[] = [];
     // Si Firebase está mal configurado puede no llegar ningún evento: a los
     // 15 s se da por fallido para que el botón no quede pegado.
     const reloj = setTimeout(() => terminar(null), 15_000);
     const terminar = (t: string | null) => {
       clearTimeout(reloj);
-      listeners.forEach((l) => l.then((x) => x.remove()));
       resolve(t);
+      // Sin el paquete de Capacitor en la web, addListener del puente nativo
+      // no siempre devuelve una promesa: se envuelve para no reventar acá.
+      listeners.forEach((l) =>
+        Promise.resolve(l)
+          .then((x) => x?.remove?.())
+          .catch(() => {}),
+      );
     };
     listeners.push(push.addListener("registration", (t) => terminar(t.value)));
     listeners.push(push.addListener("registrationError", () => terminar(null)));
-    push.register().catch(() => terminar(null));
+    Promise.resolve(push.register()).catch(() => terminar(null));
   });
 }
 
