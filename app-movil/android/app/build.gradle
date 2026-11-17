@@ -1,6 +1,22 @@
 apply plugin: 'com.android.application'
 
+// Llave de subida a Google Play: vive en android/keystore/ (fuera de git, ver
+// app-movil/.gitignore). Sin ese archivo el build de release sale sin firmar.
+def firma = new Properties()
+def archivoFirma = rootProject.file('keystore/keystore.properties')
+if (archivoFirma.exists()) archivoFirma.withInputStream { firma.load(it) }
+
 android {
+    signingConfigs {
+        release {
+            if (archivoFirma.exists()) {
+                storeFile rootProject.file(firma['storeFile'])
+                storePassword firma['storePassword']
+                keyAlias firma['keyAlias']
+                keyPassword firma['keyPassword']
+            }
+        }
+    }
     namespace = "cl.zplash.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
@@ -18,6 +34,7 @@ android {
     }
     buildTypes {
         release {
+            if (archivoFirma.exists()) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

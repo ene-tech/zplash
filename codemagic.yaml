@@ -1,0 +1,54 @@
+# Build en la nube de la app iPhone (app-movil/ios): acá no hay Mac.
+# Codemagic compila con Xcode, firma con la cuenta de Apple Developer de la
+# empresa y sube el build a TestFlight / App Store Connect.
+#
+# Configurar una vez en codemagic.io (ver app-movil/README.md):
+# - Integración "App Store Connect" con una API key de la cuenta Apple,
+#   con nombre "ZPlash App Store Connect".
+# - Grupo de variables "firebase_ios" con GOOGLE_SERVICE_INFO_PLIST = el
+#   GoogleService-Info.plist de Firebase (app iOS cl.zplash.app) en base64.
+workflows:
+  ios-app-store:
+    name: iOS → TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: ZPlash App Store Connect
+    environment:
+      groups:
+        - firebase_ios
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: cl.zplash.app
+      node: 22
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Dependencias y sync de Capacitor
+        working_directory: app-movil
+        script: |
+          npm ci
+          npx cap sync ios
+      - name: Config de Firebase
+        script: echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > app-movil/ios/App/App/GoogleService-Info.plist
+      - name: Pods
+        working_directory: app-movil/ios/App
+        script: pod install
+      - name: Firma
+        script: xcode-project use-profiles
+      - name: Número de build
+        working_directory: app-movil/ios/App
+        script: |
+          ULTIMO=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          agvtool new-version -all $((ULTIMO + 1))
+      - name: Compilar .ipa
+        script: |
+          xcode-project build-ipa \
+            --workspace app-movil/ios/App/App.xcworkspace \
+            --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

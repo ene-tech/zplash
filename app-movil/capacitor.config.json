@@ -9,6 +9,10 @@
   "android": {
     "backgroundColor": "#262320"
   },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#262320"
+  },
   "plugins": {
     "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"]
