@@ -9,6 +9,9 @@ export default function SiteFooter() {
       <Link href="/politicas" className="site-footer-link">
         Políticas de Funcionamiento y Garantía
       </Link>
+      <Link href="/privacidad" className="site-footer-link">
+        Privacidad
+      </Link>
       <PreferenciasCookiesLink />
     </footer>
   );
