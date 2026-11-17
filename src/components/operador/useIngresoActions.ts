@@ -2,9 +2,10 @@
 
 import { useApp } from "@/context/AppContext";
 import { entregarPromoLavados, entregarPromoRecompra2, entregarPromoVip, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, ZONA_ASPIRADO_KEY, precioZonaAspirado, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uidVenta, ingresoConGarantia, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, ZONA_ASPIRADO_KEY, precioZonaAspirado, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uid, uidVenta, ingresoConGarantia, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { upsertEmpresas } from "@/lib/serverActions";
 import { conReglaVigente } from "./reglaVigente";
-import type { Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
+import type { AppData, Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
 import { ERROR_GUARDADO_INGRESO } from "./useOperadorFoundResult";
 
 // Acciones de "dar ingreso" al vehículo: la garantía/bloqueo de reingreso, el
@@ -26,7 +27,47 @@ export function useIngresoActions(
     precioSoloTunelFinal: number;
   }
 ) {
-  const { data, ui, commit, patchUi } = useApp();
+  const { data, ui, commit, patchUi, aplicarLocal } = useApp();
+  // Toda venta del mesón con cliente pasa por acá: si en el PagoModal se eligió
+  // factura para una ficha que no la pedía (sin RUT o con Boleta), la empresa
+  // se graba en la ficha en el MISMO commit (clientes va antes que ventas, ver
+  // AppContext.commit), así la factura automática de insertVentas la
+  // encuentra. El correo solo completa una ficha que no tenía: el del
+  // cliente no se cambia por el de facturación.
+  const commitConFicha = async (patch: Partial<AppData>, cliente: Cliente, pago: PagoInfo) => {
+    const { fichaFactura: f, empresaNueva: e } = pago;
+    if (!f && !e) return commit(patch);
+    const clientes = f
+      ? (patch.clientes ?? data.clientes).map((x) => {
+          if (x.id !== cliente.id) return x;
+          const { email, ...empresa } = f;
+          return { ...x, tipoDocumento: "Factura" as const, ...empresa, ...(email && !x.email && { email }) };
+        })
+      : patch.clientes;
+    const ok = await commit({ ...patch, ...(clientes && { clientes }) });
+    // La empresa nueva se registra DESPUÉS y aparte: si fallara dentro del
+    // commit, la venta ya grabada se vería como "Sin conexión" y el operador
+    // la cobraría de nuevo. Fallar acá no afecta la venta ni la factura (que
+    // sale con los datos de la ficha/venta); solo queda sin alta en Empresas.
+    if (ok && e) {
+      const empresa = {
+        id: uid(),
+        ...e,
+        telefono: cliente.telefono,
+        contactoClienteId: cliente.id,
+        contactoNombre: cliente.nombre,
+        creadoEn: new Date().toISOString(),
+        creadoPor: ui.perfilActual?.nombre || "",
+      };
+      upsertEmpresas([empresa])
+        .then((guardada) => {
+          if (guardada) aplicarLocal((d) => ({ empresas: [...d.empresas, empresa] }));
+          else console.error("No se pudo registrar la empresa nueva (¿ya existía ese RUT?)", e.rut);
+        })
+        .catch((error) => console.error("No se pudo registrar la empresa nueva", e.rut, error));
+    }
+    return ok;
+  };
   const { estadoIngreso, citaDetailingPendiente, lavadoWebPendiente, cuponDescuentoVigente, precioLavadoUnicoFinal, cuponSoloTunel, precioSoloTunelFinal } = opts;
 
   const hacerRegistro = async (esGarantia: boolean, cliente: Cliente) => {
@@ -94,19 +135,23 @@ export function useIngresoActions(
         viaCupon: !!cuponDescuentoVigente,
         cuponCodigo: cuponDescuentoVigente?.codigo,
       };
-      const ok = await commit({
-        ...patch,
-        ventas: [venta, ...data.ventas],
-        ...(cuponDescuentoVigente
-          ? {
-              cupones: data.cupones.map((x) =>
-                x.id === cuponDescuentoVigente.id
-                  ? marcarDescuentoUsado(cuponDescuentoVigente, cliente.patente, ui.perfilActual?.nombre, ahora)
-                  : x
-              ),
-            }
-          : {}),
-      });
+      const ok = await commitConFicha(
+        {
+          ...patch,
+          ventas: [venta, ...data.ventas],
+          ...(cuponDescuentoVigente
+            ? {
+                cupones: data.cupones.map((x) =>
+                  x.id === cuponDescuentoVigente.id
+                    ? marcarDescuentoUsado(cuponDescuentoVigente, cliente.patente, ui.perfilActual?.nombre, ahora)
+                    : x
+                ),
+              }
+            : {}),
+        },
+        cliente,
+        pago
+      );
       if (!ok) {
         setGuardarErr(ERROR_GUARDADO_INGRESO);
         return;
@@ -199,17 +244,21 @@ export function useIngresoActions(
             cuponCodigo: cuponSoloTunel?.codigo,
           };
           const patch = registrarIngreso(data, cliente, ui.perfilActual?.nombre);
-          const ok = await commit({
-            ...patch,
-            ventas: [venta, ...data.ventas],
-            ...(cuponSoloTunel
-              ? {
-                  cupones: data.cupones.map((x) =>
-                    x.id === cuponSoloTunel.id ? marcarDescuentoUsado(cuponSoloTunel, cliente.patente, ui.perfilActual?.nombre, ahora) : x
-                  ),
-                }
-              : {}),
-          });
+          const ok = await commitConFicha(
+            {
+              ...patch,
+              ventas: [venta, ...data.ventas],
+              ...(cuponSoloTunel
+                ? {
+                    cupones: data.cupones.map((x) =>
+                      x.id === cuponSoloTunel.id ? marcarDescuentoUsado(cuponSoloTunel, cliente.patente, ui.perfilActual?.nombre, ahora) : x
+                    ),
+                  }
+                : {}),
+            },
+            cliente,
+            pago
+          );
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
             return;
@@ -249,7 +298,7 @@ export function useIngresoActions(
             voucher: pago.voucher,
             ...pago.documento,
           };
-          const ok = await commit({ ventas: [venta, ...data.ventas] });
+          const ok = await commitConFicha({ ventas: [venta, ...data.ventas] }, cliente, pago);
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
             return;
@@ -291,7 +340,7 @@ export function useIngresoActions(
             ...pago.documento,
           };
           const patch = entregarPromoLavados(data, cliente, precio, ui.perfilActual?.nombre, promo);
-          const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
+          const ok = await commitConFicha({ ...patch, ventas: [venta, ...data.ventas] }, cliente, pago);
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
             return;
@@ -335,7 +384,7 @@ export function useIngresoActions(
             ...pago.documento,
           };
           const patch = entregar(data, cliente, precio, ui.perfilActual?.nombre);
-          const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
+          const ok = await commitConFicha({ ...patch, ventas: [venta, ...data.ventas] }, cliente, pago);
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
             return;
@@ -377,7 +426,7 @@ export function useIngresoActions(
             ...pago.documento,
           };
           const patch = entregarUpgradePack(data, cliente, upgrade.lavado, upgrade.precio, ui.perfilActual?.nombre);
-          const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
+          const ok = await commitConFicha({ ...patch, ventas: [venta, ...data.ventas] }, cliente, pago);
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
             return;
@@ -414,7 +463,7 @@ export function useIngresoActions(
             ...pago.documento,
           };
           const patch = entregarUpgradeDescuento(data, cliente, upgrade.lavado, upgrade.precio, ui.perfilActual?.nombre);
-          const ok = await commit({ ...patch, ventas: [venta, ...data.ventas] });
+          const ok = await commitConFicha({ ...patch, ventas: [venta, ...data.ventas] }, cliente, pago);
           if (!ok) {
             setGuardarErr(ERROR_GUARDADO_INGRESO);
             return;

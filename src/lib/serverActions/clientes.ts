@@ -5,6 +5,7 @@ import * as dataAccess from "@/lib/dataAccess";
 import {
   esExentoFormatoCliente,
   isValidPatente,
+  isValidRut,
   normPlate,
   puedeCorregirContacto,
   rechazoClienteSinPatente,
@@ -41,6 +42,20 @@ const CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES = new Set<keyof Cliente>([
 // AvisoContactoCliente (Jeny/Administración/Gerencia). El vehículo, en
 // cambio, solo se completa cuando llega vacío.
 const CAMPOS_EDITABLES_OPERADOR = new Set<keyof Cliente>(["nombre", "telefono", "email"]);
+
+// Datos de factura que el operador elige o tipea al cobrar (PagoModal, p. ej.
+// el upgrade de un cliente que ya pasó). Solo sobre una ficha que no factura
+// (sin RUT, o con Boleta aunque le haya quedado un RUT) y con un RUT válido:
+// nunca cambia la empresa a la que ya se le factura a ese cliente (eso sigue
+// siendo del módulo "clientes").
+const CAMPOS_FACTURA_FICHA_SIN_RUT = new Set<keyof Cliente>(["tipoDocumento", "rut", "razonSocial", "giro", "direccion"]);
+const completaFacturaDeFichaSinRut = (patch: ClientePatch, anterior: Cliente) =>
+  // El patch trae solo lo que cambió (patchDeCliente): una ficha que ya decía
+  // Factura no manda tipoDocumento de nuevo.
+  (!anterior.rut || anterior.tipoDocumento !== "Factura") &&
+  (patch.tipoDocumento ?? anterior.tipoDocumento) === "Factura" &&
+  isValidRut(patch.rut ?? anterior.rut ?? "") &&
+  !!(patch.razonSocial ?? anterior.razonSocial)?.trim();
 
 // Campos que renovar/reactivar/renovarWeb/contratarPlan/upgradeAPlan (ver
 // OperadorFoundResult) y renovarPlan (@/lib/logic) tocan sobre un cliente
@@ -108,13 +123,16 @@ async function esCambioPermitidoSinModuloClientes(patches: ClientePatch[], porId
   }
 
   // Fila ya existente a la que el operador le corrige nombre/teléfono/correo
-  // o le completa el vehículo vacío desde OperadorFoundResult.
+  // o le completa el vehículo vacío desde OperadorFoundResult, o los datos de
+  // factura de una ficha sin RUT al cobrar (ver CAMPOS_FACTURA_FICHA_SIN_RUT).
   const soloFichaDelMeson = patches.every((patch) => {
     const anterior = porId.get(patch.id);
     if (!anterior) return false;
+    const completaFactura = completaFacturaDeFichaSinRut(patch, anterior);
     return (Object.keys(patch) as (keyof Cliente)[]).every((campo) => {
       if (campo === "id" || CAMPOS_ACTUALIZABLES_SIN_MODULO_CLIENTES.has(campo)) return true;
       if (CAMPOS_EDITABLES_OPERADOR.has(campo)) return true;
+      if (completaFactura && CAMPOS_FACTURA_FICHA_SIN_RUT.has(campo)) return true;
       return campo === "vehiculo" && !anterior.vehiculo;
     });
   });

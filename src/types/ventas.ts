@@ -11,6 +11,13 @@ export interface PagoInfo {
   // cliente). Se copia tal cual en la Venta. Factura sin RUT = con los datos
   // de la ficha del cliente (ver receptorDe en @/lib/facturacion).
   documento?: DatosFacturacion;
+  // Empresa elegida o tipeada en el mesón para un cliente cuya ficha no pedía
+  // factura (sin RUT, o con Boleta): se guarda en la ficha en el mismo commit
+  // de la venta, y así la factura automática sale sola (ver commitConFicha en
+  // useIngresoActions y receptorDe en @/lib/facturacion).
+  fichaFactura?: Pick<DatosFacturacion, "rut" | "razonSocial" | "giro" | "direccion"> & { rut: string; razonSocial: string; email?: string };
+  // Empresa tipeada que no estaba en Empresas: se registra en el mismo commit.
+  empresaNueva?: { rut: string; razonSocial: string; giro: string; direccion: string };
   // true si el cobro lo aprobó el terminal integrado (ver posIntegrado): si
   // después la venta no se guarda, la plata YA se cobró y hay que decirlo.
   viaTerminal?: boolean;

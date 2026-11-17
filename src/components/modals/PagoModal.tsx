@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAppData } from "@/context/AppContext";
 import { hayAltaEnDiaCerrado } from "@/lib/serverActions";
 import DatosTransferencia from "@/components/DatosTransferencia";
-import { fmtCLP } from "@/lib/helpers";
+import { fmtCLP, formatRut, isValidEmail, isValidRut, RUT_FORMATO_MSG } from "@/lib/helpers";
 import { conectarPosIntegrado, posIntegradoConectado, ventaPosIntegrado } from "@/lib/posIntegrado";
 import type { Cliente, DatosFacturacion, PagoInfo } from "@/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,6 +12,9 @@ import { Button } from "@/components/ui/button";
 
 // Valor del selector de empresa que usa los datos de la ficha del cliente.
 const FICHA = "__ficha__";
+// Valor del selector para tipear los datos de una empresa que no está
+// registrada (cliente que pide factura recién al pagar, p. ej. el upgrade).
+const NUEVA = "__nueva__";
 
 // Minúsculas, sin tildes y sin puntos/guion/espacios: así "12.345.678-9",
 // "123456789" y "comercial ñuñoa" encuentran lo mismo que escribió Gerencia.
@@ -66,6 +69,26 @@ export default function PagoModal({
   const [documento, setDocumento] = useState<"Boleta" | "Factura" | null>(fichaConFactura ? "Factura" : null);
   const [empresaId, setEmpresaId] = useState(fichaConFactura ? FICHA : "");
   const [busquedaEmpresa, setBusquedaEmpresa] = useState("");
+  const [nueva, setNueva] = useState({ rut: "", razonSocial: "", giro: "", direccion: "", email: "" });
+  // El correo solo se pide si queda guardado: en una ficha que pasa a factura
+  // y no tenía correo (el que ya tiene no se cambia, ver commitConFicha).
+  const pideCorreo = !fichaConFactura && !cliente?.email;
+  const cambiarNueva = (campo: keyof typeof nueva, valor: string) => {
+    setNueva((n) => ({ ...n, [campo]: valor }));
+    setErr("");
+  };
+  // Igual que el registro rápido: si el RUT ya es una empresa registrada, se
+  // traen sus datos en vez de tipearlos.
+  const onRutNuevaBlur = () => {
+    if (!isValidRut(nueva.rut)) return;
+    const rut = formatRut(nueva.rut);
+    const empresa = data.empresas.find((e) => formatRut(e.rut) === rut);
+    setNueva((n) => ({
+      ...n,
+      rut,
+      ...(empresa && { razonSocial: empresa.razonSocial, giro: empresa.giro || "", direccion: empresa.direccion || "" }),
+    }));
+  };
 
   // El cierre lo hace Administración desde otra máquina y el mesón no se
   // entera (carga cierresCaja al entrar), así que se pregunta al servidor al
@@ -93,7 +116,7 @@ export default function PagoModal({
   };
 
   /** Documento elegido, o null (con el error ya pintado) si falta algo. */
-  const documentoElegido = (): DatosFacturacion | undefined | null => {
+  const documentoElegido = (): Pick<PagoInfo, "documento" | "fichaFactura" | "empresaNueva"> | null => {
     if (cliente && !documento) {
       setErr("Elige boleta o factura");
       return null;
@@ -103,14 +126,59 @@ export default function PagoModal({
     else if (documento === "Factura") {
       const empresa = data.empresas.find((e) => e.id === empresaId);
       if (empresaId === FICHA) doc = { tipoDocumento: "Factura" };
-      else if (empresa)
+      else if (empresaId === NUEVA) {
+        const datos = {
+          rut: nueva.rut.trim(),
+          razonSocial: nueva.razonSocial.trim(),
+          giro: nueva.giro.trim(),
+          direccion: nueva.direccion.trim(),
+          email: nueva.email.trim(),
+        };
+        if (!isValidRut(datos.rut)) {
+          setErr(RUT_FORMATO_MSG);
+          return null;
+        }
+        if (!datos.razonSocial || !datos.giro || !datos.direccion) {
+          setErr("Completa Razón Social, Giro y Dirección para la factura");
+          return null;
+        }
+        if (pideCorreo && !isValidEmail(datos.email)) {
+          setErr("Ingresa un email válido para la factura");
+          return null;
+        }
+        datos.rut = formatRut(datos.rut);
+        const { email: correo, ...tipeada } = datos;
+        const email = pideCorreo ? correo : undefined;
+        // RUT ya registrado (tipeado sin salir del campo, o con los datos
+        // editados): manda la empresa registrada, no lo tipeado. Si no está en
+        // Empresas, se registra después de guardar la venta.
+        const yaRegistrada = data.empresas.find((e) => formatRut(e.rut) === datos.rut);
+        const empresaTipeada = yaRegistrada
+          ? { rut: datos.rut, razonSocial: yaRegistrada.razonSocial, giro: yaRegistrada.giro || tipeada.giro, direccion: yaRegistrada.direccion || tipeada.direccion }
+          : tipeada;
+        doc = { tipoDocumento: "Factura", ...empresaTipeada };
+        return {
+          documento: doc,
+          ...(!yaRegistrada && { empresaNueva: empresaTipeada }),
+          // Una ficha que ya factura a otra empresa no se pisa: esta venta
+          // queda pendiente en el Cierre (ver emitirFacturasAutomaticas).
+          ...(!fichaConFactura && { fichaFactura: { ...empresaTipeada, ...(email && { email }) } }),
+        };
+      } else if (empresa) {
         doc = { tipoDocumento: "Factura", razonSocial: empresa.razonSocial, rut: empresa.rut, direccion: empresa.direccion, giro: empresa.giro };
-      else {
+        // Cliente que compraba con boleta y ahora pide factura a una empresa
+        // ya registrada: la ficha pasa a factura con esa empresa.
+        if (cliente && !fichaConFactura)
+          return {
+            documento: doc,
+            fichaFactura: { rut: empresa.rut, razonSocial: empresa.razonSocial, giro: empresa.giro, direccion: empresa.direccion },
+          };
+      } else {
         setErr("Elige la empresa de la factura");
         return null;
       }
     }
-    return doc;
+    return doc ? { documento: doc } : {};
   };
 
   const confirmar = () => {
@@ -122,7 +190,7 @@ export default function PagoModal({
     const doc = documentoElegido();
     if (doc === null) return;
     const voucherManual = terminal && metodo === "tarjeta" ? voucher.trim() || undefined : undefined;
-    onConfirm({ metodo, ...(voucherManual && { voucher: voucherManual }), ...(doc && { documento: doc }) });
+    onConfirm({ metodo, ...(voucherManual && { voucher: voucherManual }), ...doc });
     cerrar();
   };
 
@@ -157,7 +225,7 @@ export default function PagoModal({
         voucher: r.voucher,
         viaTerminal: true,
         operacionTerminal: r.operacion,
-        ...(doc && { documento: doc }),
+        ...doc,
       });
       patchUi({ modal: null });
     } finally {
@@ -255,6 +323,22 @@ export default function PagoModal({
                   }}
                 />
               )}
+              {documento === "Factura" && busquedaEmpresa.trim() && empresaId !== NUEVA && !filtrarEmpresas(data.empresas, busquedaEmpresa).length && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Lo buscado pasa al formulario: si era un RUT, al RUT;
+                    // si no, a la razón social.
+                    const q = busquedaEmpresa.trim();
+                    setNueva((n) => (isValidRut(q) ? { ...n, rut: formatRut(q) } : { ...n, razonSocial: q }));
+                    setEmpresaId(NUEVA);
+                    setErr("");
+                  }}
+                >
+                  No está registrada: registrar empresa nueva
+                </Button>
+              )}
               {documento === "Factura" && (
                 <select
                   className="h-9 rounded-md border bg-background px-2 text-sm"
@@ -265,6 +349,7 @@ export default function PagoModal({
                   }}
                 >
                   <option value="">Elegir empresa…</option>
+                  <option value={NUEVA}>+ Registrar empresa nueva</option>
                   {fichaConFactura && (
                     <option value={FICHA}>
                       {cliente.razonSocial || cliente.nombre} · {cliente.rut} (ficha del cliente)
@@ -280,6 +365,39 @@ export default function PagoModal({
                       </option>
                     ))}
                 </select>
+              )}
+              {documento === "Factura" && empresaId === NUEVA && (
+                <div className="grid gap-2">
+                  {(
+                    [
+                      ["rut", "RUT (ej. 76.123.456-7)"],
+                      ["razonSocial", "Razón Social"],
+                      ["giro", "Giro"],
+                      ["direccion", "Dirección, Comuna"],
+                      ["email", "Correo para enviar la factura"],
+                    ] as const
+                  )
+                    .filter(([campo]) => campo !== "email" || pideCorreo)
+                    .map(([campo, placeholder]) => (
+                    <input
+                      key={campo}
+                      className="h-9 rounded-md border bg-background px-2 text-sm"
+                      placeholder={placeholder}
+                      type={campo === "email" ? "email" : "text"}
+                      value={nueva[campo]}
+                      onChange={(e) => cambiarNueva(campo, e.target.value)}
+                      onBlur={campo === "rut" ? onRutNuevaBlur : undefined}
+                    />
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    {fichaConFactura
+                      ? "Queda registrada en Empresas. La ficha ya factura a otra empresa: esta venta queda pendiente en el Cierre."
+                      : "Queda registrada en Empresas y en la ficha del cliente (pasa a factura); la factura sale sola al confirmar."}
+                  </p>
+                </div>
+              )}
+              {documento === "Factura" && !fichaConFactura && empresaId && empresaId !== NUEVA && (
+                <p className="text-xs text-muted-foreground">La ficha del cliente pasa a factura con esta empresa; la factura sale sola al confirmar.</p>
               )}
             </>
           )}
