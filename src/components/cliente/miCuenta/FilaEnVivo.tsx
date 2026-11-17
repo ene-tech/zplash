@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { enAppNativa } from "@/lib/appNativa";
 
 // "¿Cómo está la fila ahora?": foto de la entrada del local para que el
 // cliente con plan salga de la casa en un momento desocupado.
@@ -21,7 +22,8 @@ type Estado = "cargando" | "oculto" | "sin-imagen" | { url: string };
 // que va por useSyncExternalStore (nunca notifica) en vez de un efecto que
 // setea estado: sin snapshot de servidor el render inicial no coincidiría.
 const nuncaCambia = () => () => {};
-const enPwa = () => window.matchMedia("(display-mode: standalone)").matches;
+// También dentro de la app nativa (Capacitor), que no reporta standalone.
+const enPwa = () => window.matchMedia("(display-mode: standalone)").matches || enAppNativa();
 
 export function FilaEnVivo() {
   const instalada = useSyncExternalStore(nuncaCambia, enPwa, () => false);

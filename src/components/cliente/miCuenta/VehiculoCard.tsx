@@ -63,7 +63,7 @@ export function VehiculoCard({
   // Cupón que el server ya restó de los precios de `oferta` (ver
   // ofertaConCupon): acá solo se anuncia, para que el precio más bajo no se
   // lea como un error.
-  descuento?: { codigo: string; beneficio: string };
+  descuento?: { codigo: string; beneficio: string; fechaCaducidad?: string; soloWeb?: boolean };
   // Su renovación automática todavía la cobra WooCommerce (ver
   // renovacionesLegacy en /api/cliente/mi-cuenta): eliminar el plan acá no la
   // daría de baja, así que la salida es escribirnos.
@@ -217,9 +217,33 @@ export function VehiculoCard({
         </div>
       )}
 
-      {descuento && (
+      {/* En la app (Inicio) el descuento se muestra como cupón disponible —
+          ej. el que manda la regla "cerca del local" por push— y no como nota
+          de precio, porque la tarjeta ya no tiene los precios debajo. */}
+      {descuento && vista === "estado" && (
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            marginTop: 10,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1.5px dashed var(--green)",
+            background: "rgba(46, 154, 79, 0.1)",
+          }}
+        >
+          <div style={{ fontSize: 20, fontWeight: 900, color: "var(--green)", whiteSpace: "nowrap" }}>{descuento.beneficio.replace(/ de descuento$/, "")}</div>
+          <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>
+            de descuento en el Lavado Full Túnel
+            {descuento.fechaCaducidad && <>, válido hasta el {fmtCaducidad(descuento.fechaCaducidad)} (incluido)</>}.{" "}
+            {descuento.soloWeb ? "Se aplica solo al comprar en Comprar." : "Solo di tu patente en el mesón, o úsalo al comprar en Comprar."}
+          </div>
+        </div>
+      )}
+      {descuento && vista !== "estado" && (
         <div style={{ color: "var(--green)", fontSize: 12.5, marginTop: 6 }}>
-          Cupón {descuento.codigo} ({descuento.beneficio}) — ya aplicado en los precios de {vista === "estado" ? "Comprar" : "abajo"}.
+          Cupón {descuento.codigo} ({descuento.beneficio}) — ya aplicado en los precios de abajo.
         </div>
       )}
       {vista === "estado" && hayOfertas && onVerOpciones && (

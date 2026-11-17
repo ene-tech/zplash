@@ -252,7 +252,9 @@ export async function GET() {
     cupones: cuponesCuenta,
     // Cupón que se está aplicando a las tarjetas de plan de cada patente, para
     // que el cliente vea de dónde sale el precio más bajo y no parezca un error.
-    descuentos: Object.fromEntries([...cuponesPorPatente].map(([p, c]) => [p, { codigo: c.codigo, beneficio: beneficioCupon(c) }])),
+    descuentos: Object.fromEntries(
+      [...cuponesPorPatente].map(([p, c]) => [p, { codigo: c.codigo, beneficio: beneficioCupon(c), fechaCaducidad: c.fechaCaducidad, soloWeb: c.canal === "web" }])
+    ),
     politicasAceptadas: politicasOk,
     // Lo que recibe el amigo y lo que gana quien invita (ver @/lib/referidos):
     // Configuración → Programa de referidos.
