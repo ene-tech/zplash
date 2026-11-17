@@ -11,6 +11,7 @@ export { default as AspiradoSection } from "./AspiradoSection";
 export { default as UpgradeSection } from "./UpgradeSection";
 export { default as PrimeraVezSection } from "./PrimeraVezSection";
 export { default as ReferidosSection } from "./ReferidosSection";
+export { default as GeocercaSection } from "./GeocercaSection";
 export { default as PagosWebSection } from "./PagosWebSection";
 export { default as ServiciosSection } from "./ServiciosSection";
 export { default as CorreoFirmaSection } from "./CorreoFirmaSection";

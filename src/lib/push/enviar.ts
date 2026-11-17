@@ -3,6 +3,7 @@ import webpush from "web-push";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { perfiles, pushSubscripcionesPerfil, pushSubscriptions } from "@/db/schema";
+import { enviarFcm, PREFIJO_FCM } from "./fcm";
 
 type PayloadPush = { title: string; body: string; url?: string };
 type Suscripcion = { id: string; endpoint: string; p256dh: string; auth: string };
@@ -31,8 +32,22 @@ async function despacharPush(
 ): Promise<boolean> {
   const cuerpo = JSON.stringify(payload);
   let algunaEntregada = false;
+  const conVapid = vapidConfigurado();
+  if (conVapid) configurarVapid();
   await Promise.all(
     suscripciones.map(async (s) => {
+      // Teléfono con la app nativa: va por Firebase, no por Web Push.
+      if (s.endpoint.startsWith(PREFIJO_FCM)) {
+        const r = await enviarFcm(s.endpoint.slice(PREFIJO_FCM.length), payload);
+        if (r === "ok") {
+          algunaEntregada = true;
+          await onExito(s.id);
+        } else if (r === "invalido") {
+          await onInvalida(s.id);
+        }
+        return;
+      }
+      if (!conVapid) return;
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, cuerpo);
         algunaEntregada = true;
@@ -57,9 +72,6 @@ async function despacharPush(
 // @/lib/whatsapp/reglas) decida si igual manda WhatsApp de respaldo.
 // Las suscripciones que el navegador ya invalidó (404/410) se borran solas.
 export async function enviarPush(clienteId: string, payload: PayloadPush): Promise<boolean> {
-  if (!vapidConfigurado()) return false;
-  configurarVapid();
-
   const db = getDb();
   const suscripciones = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.clienteId, clienteId));
   if (!suscripciones.length) return false;
@@ -90,7 +102,6 @@ export type DiagnosticoPushGerencia = {
 // autodiagnosticar su propio dispositivo.
 export async function diagnosticoPushGerencia(payload: PayloadPush): Promise<DiagnosticoPushGerencia> {
   if (!vapidConfigurado()) return { vapidConfigurado: false, gerenciaExiste: false, suscripciones: 0, entregadoAlMenosUna: false };
-  configurarVapid();
 
   const db = getDb();
   const [gerencia] = await db.select({ id: perfiles.id }).from(perfiles).where(eq(perfiles.nombre, "Gerencia")).limit(1);

@@ -27,6 +27,7 @@ export const CONFIG_DEFAULT: ConfigGlobal = {
   textosBotWhatsapp: TEXTOS_BOT_WHATSAPP_DEFAULT,
   firmaCorreo: "",
   radioAsistenciaMetros: 150,
+  geocercaRadioMetros: 400,
   agendaDescuentoCombinadoPct: 20,
   agendaTopeMinutos: 0,
 };

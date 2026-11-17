@@ -202,7 +202,11 @@ export type TipoEventoReglaWhatsapp =
   // Cron diario: a los tickets de un pack que vencen hoy sin usar se les
   // alargan DIAS_PRORROGA_PACK días (una sola vez); el aviso sale la mañana
   // siguiente si siguen sin usarse (ver procesarPacksPorVencer).
-  | "pack_extendido";
+  | "pack_extendido"
+  // App nativa: el teléfono avisa que entró a la zona del local (geocerca,
+  // ver /api/app/geocerca). Mismo filtro que "sin_visita": sin plan vigente y
+  // N días (condicionDiasAntesVencimiento) o más sin venir.
+  | "cerca_local";
 // "cupon_regalo": código de referido abierto, para regalárselo a un amigo (ver
 // rechazoCodigoReferido en @/lib/referidos); usa cuponValor/cuponValidezDias.
 // Conserva el nombre de antes (oct-2026, "regalo del lavado") porque es el
@@ -211,7 +215,9 @@ export type TipoEventoReglaWhatsapp =
 // patente y sin premio de referido; usa cuponValor/cuponValidezDias.
 export type AccionReglaWhatsapp = "cupon_descuento" | "cupon_regalo" | "cupon_abierto" | "mensaje_simple";
 // Ver `canal` en @/db/schema/whatsapp.
-export type CanalReglaWhatsapp = "whatsapp" | "sms" | "correo";
+// "push": notificación de la app nativa (ver @/lib/push/fcm); sin respaldo
+// por otro canal.
+export type CanalReglaWhatsapp = "whatsapp" | "sms" | "correo" | "push";
 
 // Regla de negocio ("cuándo mandar qué") — ver plan de "motor de reglas
 // WhatsApp" y comentario en @/db/schema/whatsapp. Editable desde Web

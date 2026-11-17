@@ -52,6 +52,10 @@ export { LOTE_CUPON_PROXIMA_VISITA };
  * también el recordatorio "cupon_por_vencer" para encontrar esos cupones. */
 export const LOTE_CUPON_SIN_VISITA = "Vuelve - sin visitas";
 
+/** Lote del descuento por pasar cerca del local con la app (tipoEvento
+ * "cerca_local"), separado para medir esa campaña sola. */
+export const LOTE_CUPON_CERCA_LOCAL = "App - cerca del local";
+
 export async function buscarCliente(clienteId: string): Promise<Cliente | null> {
   const [row] = await getDb().select().from(clientes).where(eq(clientes.id, clienteId)).limit(1);
   return row ? clienteFromRow(row) : null;
@@ -277,7 +281,9 @@ async function cuponDelDisparo(regla: ReglaWhatsapp, disparoId: string, cliente:
         ? LOTE_CUPON_PROXIMA_VISITA
         : regla.tipoEvento === "sin_visita"
           ? LOTE_CUPON_SIN_VISITA
-          : `WhatsApp - ${regla.nombre}`;
+          : regla.tipoEvento === "cerca_local"
+            ? LOTE_CUPON_CERCA_LOCAL
+            : `WhatsApp - ${regla.nombre}`;
   const [codigo] = await generarCodigosCuponUnicos(1);
   const nuevo: Cupon = {
     ...crearCuponDescuento({
@@ -429,7 +435,7 @@ export async function ejecutarAccionRegla(
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
     return;
   }
-  if (regla.canal !== "correo" && !cliente.telefono) {
+  if ((regla.canal === "whatsapp" || regla.canal === "sms") && !cliente.telefono) {
     console.error(`Regla WhatsApp "${regla.nombre}": cliente ${cliente.id} sin teléfono, no se puede enviar`);
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "error" });
     return;
@@ -465,6 +471,21 @@ export async function ejecutarAccionRegla(
   // (ilimitado viejo), así que el aviso no le corresponde.
   if (pideVariable(plantilla, "lavadosRestantes") && !variables.lavadosRestantes) {
     await marcarDisparoReglaWhatsapp(disparoId, { estado: "omitido", cuponId });
+    return;
+  }
+
+  // Push de la app (o del navegador, si lo activó): el nombre de la plantilla
+  // es el título, como el asunto del correo. Sin respaldo por otro canal.
+  if (regla.canal === "push") {
+    const entregado = await enviarPush(cliente.id, {
+      title: aplicarVariables(plantilla.nombre, variables),
+      body: aplicarVariables(plantilla.mensaje, variables),
+      url: "/cliente",
+    }).catch((error) => {
+      console.error(`Regla "${regla.nombre}" (push): error enviando al cliente ${cliente.id}`, error);
+      return false;
+    });
+    await marcarDisparoReglaWhatsapp(disparoId, { estado: entregado ? "enviado" : "error", cuponId });
     return;
   }
 

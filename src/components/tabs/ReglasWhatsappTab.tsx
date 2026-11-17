@@ -13,10 +13,10 @@ import { BadgeAprobadoMeta } from "./BadgeAprobadoMeta";
 // patente (ver tipoParaReglas en @/lib/whatsapp/reglas/disparadores).
 const TIPOS_VENTA_CONOCIDOS = ["Lavado único", LAVADO_EXTRA_PLAN_TIPO, "Alta Oneclick", ...TIPOS_VENTA_PLAN];
 
-const NOMBRE_CANAL: Record<CanalReglaWhatsapp, string> = { whatsapp: "WhatsApp", sms: "SMS", correo: "Correo" };
+const NOMBRE_CANAL: Record<CanalReglaWhatsapp, string> = { whatsapp: "WhatsApp", sms: "SMS", correo: "Correo", push: "Notificación de la app" };
 
 // Eventos que se configuran con un número de días (condicionDiasAntesVencimiento).
-const CON_DIAS: TipoEventoReglaWhatsapp[] = ["plan_proximo_vencer", "ticket_por_vencer", "sin_visita", "cupon_por_vencer"];
+const CON_DIAS: TipoEventoReglaWhatsapp[] = ["plan_proximo_vencer", "ticket_por_vencer", "sin_visita", "cupon_por_vencer", "cerca_local"];
 
 function resumenCondicion(r: ReglaWhatsapp): string {
   if (r.tipoEvento === "venta_creada") {
@@ -51,6 +51,9 @@ function resumenCondicion(r: ReglaWhatsapp): string {
   if (r.tipoEvento === "pack_vencido") return "Se le vencieron tickets de un pack sin usar (ofrece la recompra del mesón)";
   if (r.tipoEvento === "pack_extendido") return "Se le vencían tickets de un pack sin usar y se los extendimos 2 días (sale a la mañana siguiente)";
   if (r.tipoEvento === "sin_visita") return `Cliente sin plan vigente que lleva ${r.condicionDiasAntesVencimiento ?? 0} día(s) sin venir`;
+  if (r.tipoEvento === "cerca_local") {
+    return `Cliente con la app pasa cerca del local, sin plan vigente y ${r.condicionDiasAntesVencimiento ?? 0}+ día(s) sin venir (una vez por ausencia, en horario de atención)`;
+  }
   if (r.tipoEvento === "cupon_por_vencer") {
     return `${r.condicionDiasAntesVencimiento ?? 0} día(s) antes de que venza el descuento por días sin venir`;
   }
@@ -228,6 +231,7 @@ export default function ReglasWhatsappTab() {
             <option value="cupon_por_vencer">El descuento por días sin venir está por vencer</option>
             <option value="pack_vencido">Se le vencieron tickets de un pack sin usar</option>
             <option value="pack_extendido">Se le extendieron 2 días los tickets de un pack que vencían</option>
+            <option value="cerca_local">Cliente con la app pasa cerca del local (sin plan, N+ días sin venir)</option>
           </select>
         </div>
 
@@ -255,7 +259,7 @@ export default function ReglasWhatsappTab() {
 
         {CON_DIAS.includes(tipoEvento) && (
           <div className="field" style={{ marginBottom: 10 }}>
-            <label>{tipoEvento === "sin_visita" ? "Días sin venir" : "Días antes del vencimiento"}</label>
+            <label>{tipoEvento === "sin_visita" || tipoEvento === "cerca_local" ? "Días sin venir" : "Días antes del vencimiento"}</label>
             <input ref={diasAntesRef} type="number" min={0} defaultValue={5} />
           </div>
         )}
@@ -310,6 +314,7 @@ export default function ReglasWhatsappTab() {
             <option value="sms">SMS</option>
             <option value="correo">Correo</option>
             <option value="whatsapp">WhatsApp (se cobra por mensaje)</option>
+            <option value="push">Notificación de la app (título = nombre de la plantilla)</option>
           </select>
         </div>
 

@@ -1,10 +1,21 @@
 import "server-only";
 
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, gt, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/db";
-import { cupones, ingresos as ingresosTabla, ventas as ventasTabla } from "@/db/schema";
+import { cupones, disparosReglaWhatsapp, ingresos as ingresosTabla, ventas as ventasTabla } from "@/db/schema";
+import { fcmConfigurado } from "@/lib/push/fcm";
 import { listarReglasWhatsappActivas, marcarDisparoReglaWhatsapp, registrarDisparoReglaWhatsapp } from "@/lib/dataAccess/whatsapp";
-import { KEYS_PROMOS_LAVADOS, mesKey, TIPOS_VENTA_PLAN, uid, visitasPeriodoPlan } from "@/lib/helpers";
+import { getConfig } from "@/lib/dataAccess/config";
+import {
+  ahoraEnSantiago,
+  dentroDeHorarioOperador,
+  KEYS_PROMOS_LAVADOS,
+  mesKey,
+  planStatus,
+  TIPOS_VENTA_PLAN,
+  uid,
+  visitasPeriodoPlan,
+} from "@/lib/helpers";
 import { buscarCliente, ejecutarAccionRegla, MS_POR_DIA, promoVipParaCliente } from "./motor";
 import type { Cliente, Ingreso, ReglaWhatsapp, Venta } from "@/types";
 
@@ -337,4 +348,89 @@ export async function evaluarReglasPorCambioPatente(cliente: Cliente, patenteAnt
       console.error(`Error disparando regla WhatsApp "${regla.nombre}" para cambio de patente de ${cliente.id}`, error)
     );
   }
+}
+
+// "cerca_local": la app nativa avisó que el teléfono entró a la zona del
+// local (ver /api/app/geocerca). Recibe los clientes del dispositivo (un
+// teléfono puede tener varias patentes). Mismo filtro que "sin_visita": sin
+// plan vigente (al de plan no se le ofrecen descuentos, cree que le cortan el
+// plan) y N días o más sin venir (reglas con 0 días se ignoran, igual que en
+// sin_visita). Si hay varias reglas (ej. 10 y 30 días) sale solo la de umbral
+// más alto que cumple. Un descuento por ausencia ENTRE TODAS las reglas
+// cerca_local (origenId con la última visita): pasar todos los días frente al
+// local no le manda uno cada vez; si vuelve a lavar, la cuenta empieza de
+// nuevo. Tampoco sale si ya tiene un descuento vigente sin usar en su patente
+// (ej. el de sin_visita): no se apilan. Fuera del horario de atención, o sin
+// Firebase configurado, no se manda nada (ni se gasta el disparo).
+export async function evaluarReglasCercaLocal(clienteIds: string[]): Promise<number> {
+  if (!fcmConfigurado()) return 0;
+  if (!dentroDeHorarioOperador(await getConfig(), ahoraEnSantiago())) return 0;
+  let reglas: ReglaWhatsapp[];
+  try {
+    reglas = (await listarReglasWhatsappActivas("cerca_local")).filter((r) => (r.condicionDiasAntesVencimiento ?? 0) > 0);
+  } catch (error) {
+    console.error("Error cargando reglas (cerca_local)", error);
+    return 0;
+  }
+  if (!reglas.length) return 0;
+  const porUmbral = [...reglas].sort((a, b) => (b.condicionDiasAntesVencimiento ?? 0) - (a.condicionDiasAntesVencimiento ?? 0));
+
+  let enviados = 0;
+  for (const clienteId of clienteIds) {
+    const cliente = await buscarCliente(clienteId);
+    if (!cliente?.ultimaVisita) continue;
+    if (cliente.vencimiento && planStatus(cliente).label !== "Vencido") continue;
+    const diasSinVenir = (Date.now() - new Date(cliente.ultimaVisita).getTime()) / MS_POR_DIA;
+    const regla = porUmbral.find((r) => diasSinVenir >= (r.condicionDiasAntesVencimiento ?? 0));
+    if (!regla) continue;
+    const origenId = `${cliente.id}:${cliente.ultimaVisita}`;
+    if (await yaTieneOfertaCercaLocal(origenId, reglas, cliente.patente)) continue;
+
+    const disparo = await registrarDisparoReglaWhatsapp({
+      id: uid(),
+      reglaId: regla.id,
+      origenTipo: "cliente",
+      origenId,
+      clienteId: cliente.id,
+      patente: cliente.patente,
+      estado: "programado",
+      enviarEn: new Date().toISOString(),
+    });
+    if (!disparo) continue; // ya se le ofreció en esta ausencia
+    try {
+      await ejecutarAccionRegla(regla, disparo.id, cliente);
+      enviados++;
+    } catch (error) {
+      console.error(`Error disparando regla "${regla.nombre}" (cerca_local) para ${cliente.id}`, error);
+      await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+    }
+  }
+  return enviados;
+}
+
+// Ya se le ofreció en esta ausencia (por cualquier regla cerca_local: el
+// unique de disparos es por regla) o ya tiene un descuento vigente sin usar
+// atado a su patente.
+async function yaTieneOfertaCercaLocal(origenId: string, reglas: ReglaWhatsapp[], patente: string): Promise<boolean> {
+  const db = getDb();
+  const [previo] = await db
+    .select({ id: disparosReglaWhatsapp.id })
+    .from(disparosReglaWhatsapp)
+    .where(and(eq(disparosReglaWhatsapp.origenId, origenId), inArray(disparosReglaWhatsapp.reglaId, reglas.map((r) => r.id))))
+    .limit(1);
+  if (previo) return true;
+  if (!patente) return false;
+  const [vigente] = await db
+    .select({ id: cupones.id })
+    .from(cupones)
+    .where(
+      and(
+        eq(cupones.patenteAsignada, patente),
+        eq(cupones.tipo, "descuento"),
+        eq(cupones.usado, false),
+        gt(cupones.fechaCaducidad, new Date().toISOString())
+      )
+    )
+    .limit(1);
+  return !!vigente;
 }

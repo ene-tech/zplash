@@ -133,6 +133,8 @@ export interface ConfigGlobal {
   localLat?: number;
   localLng?: number;
   radioAsistenciaMetros: number;
+  // Radio (m) de la zona del local que vigila la app nativa (regla "cerca_local").
+  geocercaRadioMetros: number;
   // Duración de una cita con 2+ servicios (ver duracionCita en
   // @/lib/helpers): la suma de sus duraciones se rebaja este porcentaje, y el
   // resultado no pasa de agendaTopeMinutos (0 = sin tope). Agenda > Servicios.

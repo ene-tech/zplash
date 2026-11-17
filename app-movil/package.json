@@ -1,0 +1,18 @@
+{
+  "name": "zplash-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "App ZPlash (Android/iOS): envuelve zplash.cl/cliente con Capacitor + push nativo + geocerca",
+  "scripts": {
+    "sync": "cap sync",
+    "android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/push-notifications": "8.1.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
+  }
+}

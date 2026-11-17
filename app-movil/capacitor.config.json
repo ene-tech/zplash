@@ -1,0 +1,17 @@
+{
+  "appId": "cl.zplash.app",
+  "appName": "ZPlash",
+  "webDir": "www",
+  "server": {
+    "url": "https://zplash.cl/cliente",
+    "allowNavigation": ["zplash.cl", "webpay3g.transbank.cl", "*.transbank.cl"]
+  },
+  "android": {
+    "backgroundColor": "#262320"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

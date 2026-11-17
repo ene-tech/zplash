@@ -34,6 +34,7 @@ function configToRow(c: ConfigGlobal): typeof config.$inferInsert {
     localLat: c.localLat ?? null,
     localLng: c.localLng ?? null,
     radioAsistenciaMetros: c.radioAsistenciaMetros,
+    geocercaRadioMetros: c.geocercaRadioMetros,
     agendaDescuentoCombinadoPct: c.agendaDescuentoCombinadoPct,
     agendaTopeMinutos: c.agendaTopeMinutos,
   };
@@ -66,6 +67,7 @@ export function configFromRow(r: ConfigRow): ConfigGlobal {
     localLat: r.localLat ?? undefined,
     localLng: r.localLng ?? undefined,
     radioAsistenciaMetros: r.radioAsistenciaMetros || 150,
+    geocercaRadioMetros: r.geocercaRadioMetros || 400,
     // `??`: 0% de descuento y 0 (sin tope) son configuraciones válidas.
     agendaDescuentoCombinadoPct: r.agendaDescuentoCombinadoPct ?? 20,
     agendaTopeMinutos: r.agendaTopeMinutos ?? 0,

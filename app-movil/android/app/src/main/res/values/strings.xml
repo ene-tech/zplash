@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ZPlash</string>
+    <string name="title_activity_main">ZPlash</string>
+    <string name="package_name">cl.zplash.app</string>
+    <string name="custom_url_scheme">cl.zplash.app</string>
+</resources>

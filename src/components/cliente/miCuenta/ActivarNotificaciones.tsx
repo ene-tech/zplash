@@ -1,12 +1,24 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
+import { enAppNativa } from "@/lib/appNativa";
+import { ActivarAvisosApp } from "./ActivarAvisosApp";
+
+const sinCambios = () => () => {};
 
 // Ofrece activar Web Push (ver public/sw.js y @/lib/push/enviar) como
 // alternativa gratuita a los avisos de WhatsApp — se muestra solo mientras
 // no está ya activo, y desaparece si el navegador no soporta push (Safari
-// viejo, navegadores in-app, etc).
+// viejo, navegadores in-app, etc). Dentro de la app nativa muestra en su
+// lugar ActivarAvisosApp (push por Firebase + descuento al pasar cerca).
 export function ActivarNotificaciones() {
+  // En el servidor siempre false; en el cliente, si corre dentro de la app.
+  const nativa = useSyncExternalStore(sinCambios, enAppNativa, () => false);
+  return nativa ? <ActivarAvisosApp /> : <ActivarWebPush />;
+}
+
+function ActivarWebPush() {
   const { estado, activar } = usePushSubscription();
 
   if (estado === "cargando" || estado === "no-soportado" || estado === "activo") return null;

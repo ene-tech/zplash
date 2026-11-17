@@ -142,6 +142,10 @@ export const config = pgTable("config", {
   localLat: numeric("local_lat", { mode: "number" }),
   localLng: numeric("local_lng", { mode: "number" }),
   radioAsistenciaMetros: integer("radio_asistencia_metros").notNull().default(150),
+  // Radio de la zona alrededor del local (localLat/localLng) que vigila la
+  // app nativa para el descuento al pasar cerca (regla "cerca_local", ver
+  // /api/app/geocerca). Configuración → App: descuento al pasar cerca.
+  geocercaRadioMetros: integer("geocerca_radio_metros").notNull().default(400),
   // Duración de una cita con varios servicios (ver duracionCita): la suma se
   // rebaja este % y no pasa del tope (0 = sin tope). Agenda > Servicios.
   agendaDescuentoCombinadoPct: integer("agenda_descuento_combinado_pct").notNull().default(20),
