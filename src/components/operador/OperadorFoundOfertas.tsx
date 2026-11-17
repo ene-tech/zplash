@@ -265,7 +265,7 @@ export default function OperadorFoundOfertas(props: Props) {
             </div>
             <div className="msg">
               Cuéntaselo antes de cobrarle: {c.nombre} tiene {fmtDescuento(props.cuponDescuentoSoloWeb)} de descuento{" "}
-              <b>solo si contrata por la web</b> — acá no se puede aplicar. Entrando a su cuenta en la web con su patente{" "}
+              <b>solo si contrata por la web</b> — acá no se puede aplicar. Entrando a su cuenta en la web con su correo, en la patente{" "}
               <span className="plate-tag">{c.patente}</span> el descuento ya le sale restado del precio, sin necesidad de
               código. Válido hasta el {fmtCaducidad(props.cuponDescuentoSoloWeb.fechaCaducidad)} (incluido).
             </div>
@@ -299,7 +299,7 @@ export default function OperadorFoundOfertas(props: Props) {
             </div>
             <div className="msg">
               {c.nombre} puede renovar su {c.plan} antes de que venza a un precio preferencial disponible{" "}
-              <b>solo online</b> — no se puede cobrar acá. Menciónaselo: entrando a su cuenta en la web con su patente lo
+              <b>solo online</b> — no se puede cobrar acá. Menciónaselo: entrando a su cuenta en la web con su correo lo
               renueva al tiro a ese precio, sin perder los días que le quedan.
             </div>
             <AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />

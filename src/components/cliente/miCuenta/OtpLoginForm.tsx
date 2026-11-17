@@ -6,8 +6,8 @@ import { PATENTE_FORMATO_MSG, isValidPatente, normPlate } from "@/lib/helpers";
 // Login del Portal Cliente: código de un solo uso por correo (ver
 // @/app/api/cliente/otp), en vez de la cuenta de Google que mostraba antes
 // esta pantalla (nunca llegó a conectarse de verdad) o del WhatsApp que se
-// usó después (plantilla paga). Dos pasos: pedir el código (por patente o
-// correo) y verificarlo.
+// usó después (plantilla paga). Dos pasos: pedir el código (por correo) y
+// verificarlo.
 //
 // El modo "registro" reusa esos MISMOS dos pasos para un cliente que todavía
 // no existe: manda nombre + correo + patente, el código se envía al correo que
@@ -18,7 +18,9 @@ import { PATENTE_FORMATO_MSG, isValidPatente, normPlate } from "@/lib/helpers";
 // código va con `solicitudId` (opaco, de un solo uso) en vez del correo.
 export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () => void; registro?: boolean }) {
   const [paso, setPaso] = useState<"pedir" | "verificar">("pedir");
-  const [modo, setModo] = useState<"patente" | "email" | "registro">(registro ? "registro" : "patente");
+  // Desde 17-nov-2026 se entra solo con correo (antes también "Por patente",
+  // que mandaba el código al correo del dueño de esa patente).
+  const [modo, setModo] = useState<"email" | "registro">(registro ? "registro" : "email");
   const [valor, setValor] = useState("");
   const [nombre, setNombre] = useState("");
   const [patenteNueva, setPatenteNueva] = useState("");
@@ -30,7 +32,7 @@ export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () =>
 
   const esRegistro = modo === "registro";
 
-  function cambiarModo(nuevo: "patente" | "email" | "registro") {
+  function cambiarModo(nuevo: "email" | "registro") {
     setModo(nuevo);
     setValor("");
     setNombre("");
@@ -59,9 +61,7 @@ export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () =>
         body: JSON.stringify(
           esRegistro
             ? { nombre: nombre.trim(), email: valor.trim(), patente: normPlate(patenteNueva) }
-            : modo === "patente"
-              ? { patente: valor.trim() }
-              : { email: valor.trim() }
+            : { email: valor.trim() }
         ),
       });
       const data = await res.json();
@@ -156,24 +156,16 @@ export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () =>
       <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
         {esRegistro
           ? "Déjanos tu nombre, correo y patente. Te mandamos un código por correo para confirmar que es tuyo."
-          : "Ingresa con tu patente o tu correo y te mandamos un código por correo para verificar que eres tú."}
+          : "Ingresa tu correo y te mandamos un código para verificar que eres tú."}
       </p>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, justifyContent: "center", flexWrap: "wrap" }}>
-        <button
-          type="button"
-          className={modo === "patente" ? "btn" : "btn ghost"}
-          style={{ marginTop: 0, padding: "6px 14px", fontSize: 12.5 }}
-          onClick={() => cambiarModo("patente")}
-        >
-          Por patente
-        </button>
         <button
           type="button"
           className={modo === "email" ? "btn" : "btn ghost"}
           style={{ marginTop: 0, padding: "6px 14px", fontSize: 12.5 }}
           onClick={() => cambiarModo("email")}
         >
-          Por correo
+          Ya tengo cuenta
         </button>
         <button
           type="button"
@@ -202,9 +194,11 @@ export function OtpLoginForm({ onSuccess, registro = false }: { onSuccess: () =>
       <div className="field" style={{ marginBottom: 12 }}>
         <input
           value={valor}
-          onChange={(e) => setValor(modo === "patente" ? e.target.value.toUpperCase() : e.target.value)}
-          placeholder={modo === "patente" ? "AB1234" : "correo@ejemplo.com"}
-          style={modo === "patente" ? { textTransform: "uppercase" } : undefined}
+          onChange={(e) => setValor(e.target.value)}
+          placeholder="correo@ejemplo.com"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
           onKeyDown={(e) => e.key === "Enter" && pedirCodigo()}
         />
       </div>
