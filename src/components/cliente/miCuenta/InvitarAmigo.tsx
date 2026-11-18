@@ -200,6 +200,7 @@ function Billete({ etiqueta, valor }: { etiqueta: string; valor: number }) {
         flex: 1,
         minWidth: 0,
         position: "relative",
+        containerType: "inline-size",
         aspectRatio: "2 / 1",
         maxHeight: 96,
         borderRadius: 8,
@@ -225,8 +226,10 @@ function Billete({ etiqueta, valor }: { etiqueta: string; valor: number }) {
           overflow: "hidden",
         }}
       >
-        <span style={{ ...esquina, top: 4, left: 5 }}>{monto}</span>
-        <span style={{ ...esquina, bottom: 4, right: 5 }}>{monto}</span>
+        {/* En billetes angostos (pantallas de 360 px) las esquinas se montan
+            sobre el texto del centro: ver .billete-esquina en globals.css. */}
+        <span className="billete-esquina" style={{ ...esquina, top: 4, left: 5 }}>{monto}</span>
+        <span className="billete-esquina" style={{ ...esquina, bottom: 4, right: 5 }}>{monto}</span>
         <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "#d9f5df" }}>
           {etiqueta}
         </span>

@@ -1307,6 +1307,14 @@ tr:hover td {
   color: var(--gold);
   font-weight: 700;
 }
+
+/* Billetes de "Regala y gana" (InvitarAmigo): bajo ~200 px de ancho el billete
+   es tan bajo que el monto de las esquinas se monta sobre el del centro. */
+@container (max-width: 200px) {
+  .billete-esquina {
+    display: none;
+  }
+}
 .app-tabs-barra svg {
   width: 24px;
   height: 24px;
