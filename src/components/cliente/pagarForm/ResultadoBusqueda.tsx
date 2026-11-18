@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PLANES, fmtCLP, fmtVencimiento, precioConHeredado } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X3, PASES_INCLUIDOS_X5, PLAN_X3, PLAN_X5, type PlanOneclick, fmtCLP, fmtVencimiento, precioConHeredado } from "@/lib/helpers";
 import { AvisoPasaAX5 } from "@/components/cliente/AvisoPasaAX5";
 import type { PreciosPublicos } from "@/components/cliente/types";
 import { CampoCelular } from "./CampoCelular";
@@ -19,18 +19,33 @@ type Props = Pick<
 // único, la zona de aspirado y los servicios de detailing.
 export function ResultadoBusqueda(p: Props) {
   const [aceptaPoliticas, setAceptaPoliticas] = useState(false);
+  // X5 o X3 (nov-2026): el cliente elige qué plan cobra la tarjeta. Parte en
+  // el que ya tiene si es el X3, si no en el X5 de siempre.
+  const [planElegido, setPlanElegido] = useState<PlanOneclick>(p.resultado?.plan === PLAN_X3 ? PLAN_X3 : PLAN_X5);
   const r = p.resultado;
   if (!r) return null;
+  const esX3 = planElegido === PLAN_X3;
 
   // Un cliente con precio heredado (ver precioConHeredado) renueva a ese
   // valor. Sin heredado es el precio público de la renovación automática.
-  const precioAutoMensual = precioConHeredado(p.precios.planOneclick.precio, r);
+  // El heredado es del X5: el X3 se cobra siempre a su precio (ver
+  // cobrarSuscripcion).
+  const precioX5Mensual = precioConHeredado(p.precios.planOneclick.precio, r);
+  const precioX3Mensual = p.precios.planX3Oneclick?.precio ?? 0;
+  const precioAutoMensual = esX3 ? precioX3Mensual : precioX5Mensual;
   // Cuando el primer cobro sale más barato que el mensual —promoción de
   // reactivación, cupón de descuento de la patente, o las dos— la
   // inscripción de tarjeta cobra ese precio y no el mensual (ver
   // precioPrimerCobroAuto): se anuncian los dos, el de ahora y el de después.
-  const precioAuto = r.precioPrimerCobroAuto ?? precioAutoMensual;
-  const promoPrimerMes = r.precioPrimerCobroAuto !== undefined;
+  // El X3 no tiene promoción de reactivación, solo el cupón.
+  const primerCobro = esX3 ? r.precioPrimerCobroX3 : r.precioPrimerCobroAuto;
+  const precioAuto = primerCobro ?? precioAutoMensual;
+  const promoPrimerMes = primerCobro !== undefined;
+  const descuentoCupon = esX3 ? (r.precioPrimerCobroX3 !== undefined ? precioX3Mensual - r.precioPrimerCobroX3 : 0) : r.descuentoCupon;
+  const opciones = [
+    { plan: PLAN_X5, pases: PASES_INCLUIDOS_X5, precio: precioX5Mensual },
+    { plan: PLAN_X3, pases: PASES_INCLUIDOS_X3, precio: precioX3Mensual },
+  ] as const;
 
   return (
     <div className={`result-card ${r.encontrado ? "found" : "notfound"}`}>
@@ -52,21 +67,51 @@ export function ResultadoBusqueda(p: Props) {
               </div>
             )}
           </div>
-          <AvisoPasaAX5 plan={r.plan} vencimiento={r.estado?.cls !== "bad" ? r.vencimiento : null} />
+          {!esX3 && <AvisoPasaAX5 plan={r.plan} vencimiento={r.estado?.cls !== "bad" ? r.vencimiento : null} />}
           {/* El precio del primer cobro ya viene rebajado desde
               /api/pagos/estado: esto solo explica de dónde sale, para que no se
               lea como un error. Atado a promoPrimerMes porque el cupón solo
               rebaja ese primer cobro — se quema ahí (ver cobrarSuscripcion) y
               los meses siguientes vuelven al precio de lista. */}
-          {!!r.descuentoCupon && promoPrimerMes && (
+          {!!descuentoCupon && promoPrimerMes && (
             <div className="hint" style={{ textAlign: "left", color: "var(--green)", fontSize: 13, marginTop: 12 }}>
-              Tienes un descuento de {fmtCLP(r.descuentoCupon)} para esta patente — ya está aplicado en el precio.
+              Tienes un descuento de {fmtCLP(descuentoCupon)} para esta patente — ya está aplicado en el precio.
             </div>
           )}
         </>
       ) : (
         <p>No encontramos un cliente con esa patente. Puedes contratar el plan inscribiendo tu tarjeta.</p>
       )}
+
+      {/* Elección del plan que cobra la tarjeta: mismo producto, distinta
+          cantidad de lavados Full Túnel por mes. */}
+      <div role="radiogroup" aria-label="Plan" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
+        {opciones.map((o) => {
+          const activo = planElegido === o.plan;
+          return (
+            <button
+              key={o.plan}
+              type="button"
+              role="radio"
+              aria-checked={activo}
+              onClick={() => setPlanElegido(o.plan)}
+              style={{
+                textAlign: "left",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: `2px solid ${activo ? "var(--green)" : "var(--line, #d0d5dd)"}`,
+                background: "transparent",
+                color: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              <strong style={{ display: "block" }}>{o.plan}</strong>
+              <span style={{ display: "block", fontSize: 13 }}>{o.pases} lavados Full Túnel al mes</span>
+              <span style={{ display: "block", fontSize: 13, marginTop: 4 }}>{fmtCLP(o.precio)}/mes</span>
+            </button>
+          );
+        })}
+      </div>
 
       <div className="field" style={{ marginTop: 14 }}>
         <label>Email (para confirmar la inscripción de tu tarjeta)</label>
@@ -104,11 +149,18 @@ export function ResultadoBusqueda(p: Props) {
             y que el plan se cobre automáticamente cada mes en esta tarjeta hasta que lo cancele.
           </span>
         </label>
-        <button className="btn" style={{ marginTop: 10 }} onClick={p.activarAutomatica} disabled={p.inscribiendo || !aceptaPoliticas}>
+        <button
+          className="btn"
+          style={{ marginTop: 10 }}
+          onClick={() => p.activarAutomatica(planElegido)}
+          disabled={p.inscribiendo || !aceptaPoliticas}
+        >
           {p.inscribiendo
             ? "Redirigiendo..."
-            : r.requiereValidacionX5
-              ? `Contratar ${PLANES[0]} — ${fmtCLP(precioAuto)}${promoPrimerMes ? " el primer mes" : "/mes"}`
+            : // Contratar el X5 desde el ilimitado viejo, o un plan distinto del
+              // que tiene, es otro producto: el botón lo nombra.
+              r.requiereValidacionX5 || (r.plan || "") !== planElegido
+              ? `Contratar ${planElegido} — ${fmtCLP(precioAuto)}${promoPrimerMes ? " el primer mes" : "/mes"}`
               : `Activar renovación automática — ${fmtCLP(precioAuto)}${promoPrimerMes ? " el primer mes" : "/mes"}`}
         </button>
       </div>

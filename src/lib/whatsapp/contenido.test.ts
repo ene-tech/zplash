@@ -6,6 +6,7 @@ const PRECIOS: PreciosPublicos = {
   plan: { nombre: "Plan", precio: 23990 },
   planPrimera: { nombre: "Plan", precio: 21990 },
   planOneclick: { nombre: "Plan", precio: 20990 },
+  planX3Oneclick: { nombre: "Plan X3", precio: 14990 },
   lavadoUnico: { nombre: "Lavado único", precio: 9990 },
   zonaAspirado: { nombre: "Zona aspirado", precio: 4990 },
   servicios: [

@@ -13,6 +13,23 @@ export const PLAN_ILIMITADO_LEGACY = "Plan Ilimitado Mensual";
 
 export const PLANES = [PLAN_X5];
 
+/** Plan X3 (nov-2026): igual al X5 pero con PASES_INCLUIDOS_X3 pasadas por
+ * ciclo. Se vende SOLO por la web con renovación automática (Oneclick), por
+ * eso no está en PLANES — esa lista es la que el mesón y Configuración tratan
+ * como "el plan que se vende" (PLANES[0]). Qué plan cobra cada tarjeta lo dice
+ * suscripcionesOneclick.plan (null = X5). */
+export const PLAN_X3 = "Plan X3";
+
+/** Planes que se pueden contratar con renovación automática en /pagar. */
+export const PLANES_ONECLICK = [PLAN_X5, PLAN_X3] as const;
+export type PlanOneclick = (typeof PLANES_ONECLICK)[number];
+
+/** Plan que cobra una suscripción Oneclick: la columna `plan` vacía es una
+ * suscripción de antes del X3, o sea X5. */
+export function planDeSuscripcion(plan: string | null | undefined): PlanOneclick {
+  return plan === PLAN_X3 ? PLAN_X3 : PLAN_X5;
+}
+
 /**
  * Plan contra el que hay que resolver un PRECIO. El ilimitado viejo ya no se
  * vende ni se renueva: toda renovación, reactivación y contratación escribe
@@ -37,11 +54,14 @@ export function planVendible(plan: string | null | undefined): string {
 /** Pasadas por túnel incluidas en el ciclo mensual del plan vigente (las
  * cuenta visitasPeriodoPlan en ./ingresos). */
 export const PASES_INCLUIDOS_X5 = 5;
+export const PASES_INCLUIDOS_X3 = 3;
 
 /** Pasadas incluidas en el ciclo según el plan del cliente; null = sin tope
  * (PLAN_ILIMITADO_LEGACY y cualquier plan anterior al X5). */
 export function pasesIncluidos(plan: string | null | undefined): number | null {
-  return plan === PLAN_X5 ? PASES_INCLUIDOS_X5 : null;
+  if (plan === PLAN_X5) return PASES_INCLUIDOS_X5;
+  if (plan === PLAN_X3) return PASES_INCLUIDOS_X3;
+  return null;
 }
 
 /**
@@ -251,6 +271,15 @@ export function precioPlanOneclick(precios: Precios): number {
   return (precios[PLAN_ONECLICK_KEY] && precios[PLAN_ONECLICK_KEY].normal) || PRECIO_PLAN_ONECLICK_DEFAULT;
 }
 
+/** Plan X3 con renovación automática: fila editable propia en `precios`
+ * (Configuración → Precios de Lavados en Pagina Web), sin fila = el default. */
+export const PRECIO_PLAN_X3_ONECLICK_DEFAULT = 14990;
+export const PLAN_X3_ONECLICK_KEY = `${PLAN_X3} (Renovación Automática)`;
+
+export function precioPlanX3Oneclick(precios: Precios): number {
+  return (precios[PLAN_X3_ONECLICK_KEY] && precios[PLAN_X3_ONECLICK_KEY].normal) || PRECIO_PLAN_X3_ONECLICK_DEFAULT;
+}
+
 /**
  * Precio mensual de la renovación automática según el plan con que queda el
  * cliente después de este cobro (ver planTrasRenovacionSinCliente).
@@ -275,6 +304,7 @@ export function precioPlanOneclick(precios: Precios): number {
  * que una fila editable que nadie edita.
  */
 export function precioOneclickDelPlan(precios: Precios, plan: string | null | undefined): number {
+  if (plan === PLAN_X3) return precioPlanX3Oneclick(precios);
   if (plan !== PLAN_ILIMITADO_LEGACY) return precioPlanOneclick(precios);
   return PRECIOS_DEFAULT[PLAN_ILIMITADO_LEGACY].normal;
 }

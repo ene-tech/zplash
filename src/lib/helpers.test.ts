@@ -2572,6 +2572,10 @@ describe("pasesIncluidos", () => {
     expect(pasesIncluidos(PLAN_X5)).toBe(5);
   });
 
+  it("el X3 trae 3 pasadas por ciclo", () => {
+    expect(pasesIncluidos("Plan X3")).toBe(3);
+  });
+
   it("el plan viejo sigue sin tope: su nombre es la marca de grandfathering", () => {
     expect(pasesIncluidos(PLAN_ILIMITADO_LEGACY)).toBeNull();
     expect(pasesIncluidos(null)).toBeNull();

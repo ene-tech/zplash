@@ -3,7 +3,7 @@ import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, precios, suscripcionesOneclick } from "@/db/schema";
-import { PASES_INCLUIDOS_X5, PLANES, PLAN_ILIMITADO_LEGACY, PLAN_ONECLICK_KEY, finCicloPlan, mesActualKey, planTrasRenovacionSinCliente, precioConCupon, precioConHeredado, precioOneclickDelPlan, requiereValidacionX5, sumarMesesFecha } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X5, PLANES, PLAN_ILIMITADO_LEGACY, PLAN_ONECLICK_KEY, PLAN_X3, PLAN_X3_ONECLICK_KEY, finCicloPlan, mesActualKey, planTrasRenovacionSinCliente, precioConCupon, precioConHeredado, planDeSuscripcion, precioOneclickDelPlan, requiereValidacionX5, sumarMesesFecha } from "@/lib/helpers";
 import { evaluarReglasCorreoPorCobroFallido, evaluarReglasCorreoPorValidacionX5 } from "@/lib/mailing/reglas";
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
 import type { Precios } from "@/types";
@@ -127,6 +127,7 @@ export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOne
           tipoVentaExistente: "Renovación automática (Oneclick)",
           email: suscripcion.email,
           telefono: suscripcion.telefono,
+          plan: planDeSuscripcion(suscripcion.plan) === PLAN_X3 ? PLAN_X3 : undefined,
         },
         tx2
       ));
@@ -244,7 +245,7 @@ export async function cobrarSuscripcion(
     const filasPrecio = await tx
       .select()
       .from(precios)
-      .where(inArray(precios.plan, [PLAN_ONECLICK_KEY, PLAN_ILIMITADO_LEGACY]));
+      .where(inArray(precios.plan, [PLAN_ONECLICK_KEY, PLAN_X3_ONECLICK_KEY, PLAN_ILIMITADO_LEGACY]));
     const preciosMap: Precios = Object.fromEntries(filasPrecio.map((f) => [f.plan, { normal: f.normal, promo: f.promo }]));
     // Precio heredado del cliente (ver precioConHeredado): la renovación
     // automática es justamente pagar antes de vencer, así que el que venía
@@ -273,7 +274,12 @@ export async function cobrarSuscripcion(
     // Pasadas del ciclo que se está renovando, SOLO en el cobro automático
     // (ver `opciones.sinCliente`). null = hay alguien delante, así que rige la
     // migración de siempre y no se gasta la consulta.
-    const pasadasDelCiclo = opciones.sinCliente && cliente ? await visitasPeriodoActual(tx, cliente) : null;
+    //
+    // Plan X3: la tarjeta cobra ese plan y la ficha queda en ese plan, sin
+    // política de rescate (esa es solo para el ilimitado viejo que renueva
+    // al X5). Por eso tampoco se cuentan las pasadas.
+    const esX3 = planDeSuscripcion(suscripcion.plan) === PLAN_X3;
+    const pasadasDelCiclo = opciones.sinCliente && cliente && !esX3 ? await visitasPeriodoActual(tx, cliente) : null;
     // Un cobro solo se puede hacer sin firma si NO le cambia el producto al
     // cliente: con alguien delante siempre lo cambia (renovar migra al X5), y
     // en el automático depende de si se pasó del tope.
@@ -307,7 +313,7 @@ export async function cobrarSuscripcion(
     // que rehace aplicarPagoAprobado para escribirlo (misma función pura, mismo
     // `plan` y mismas `pasadas` dentro de la misma transacción): acá se necesita
     // antes, porque decide el precio.
-    const planQueQueda = pasadasDelCiclo === null ? PLANES[0] : planTrasRenovacionSinCliente(cliente?.plan, pasadasDelCiclo);
+    const planQueQueda = esX3 ? PLAN_X3 : pasadasDelCiclo === null ? PLANES[0] : planTrasRenovacionSinCliente(cliente?.plan, pasadasDelCiclo);
     // Al rescatado se le cobra el precio de SU plan, no el del X5: si no le
     // cambiamos el producto, tampoco el precio. El heredado sigue mandando
     // hacia abajo, así que el que venía a 19.990 se queda en 19.990.
@@ -319,7 +325,11 @@ export async function cobrarSuscripcion(
     // la tarjeta — aplicarPagoAprobado nunca corrió. A ese hay que cobrarle lo
     // que firmó, no el precio del plan que arrastra sin querer.
     const rescatado = !!cliente && requiereValidacionX5(cliente) && planQueQueda === PLAN_ILIMITADO_LEGACY;
-    const montoLista = precioConHeredado(precioOneclickDelPlan(preciosMap, rescatado ? PLAN_ILIMITADO_LEGACY : PLANES[0]), cliente ?? {});
+    // El heredado es un precio del X5 (el de la migración WooCommerce): al
+    // Plan X3 no se le aplica, se cobra su propio precio.
+    const montoLista = esX3
+      ? precioOneclickDelPlan(preciosMap, PLAN_X3)
+      : precioConHeredado(precioOneclickDelPlan(preciosMap, rescatado ? PLAN_ILIMITADO_LEGACY : PLANES[0]), cliente ?? {});
 
     // Cupón de descuento atado a la patente: el mismo que ya rebajan Webpay,
     // el mesón y cobrarOfertaOneclick — sin esto la renovación automática era
@@ -468,6 +478,7 @@ export async function cobrarSuscripcion(
               // rescate en vez de migrar a ciegas al X5. undefined en los
               // tres caminos con el cliente delante.
               pasadasDelCicloSinCliente: pasadasDelCiclo ?? undefined,
+              plan: esX3 ? PLAN_X3 : undefined,
               reiniciarCiclo: opciones.reiniciarCiclo,
             },
             tx2

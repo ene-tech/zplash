@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { perfiles, suscripcionesOneclick } from "@/db/schema";
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
-import { conservaTarjetaAlReinscribir, isValidEmail, isValidPatente, MARCA_SOLO_TARJETA, MENSAJE_PAGO_NON_GRATO, normPlate, uid } from "@/lib/helpers";
+import { conservaTarjetaAlReinscribir, isValidEmail, isValidPatente, MARCA_SOLO_TARJETA, MENSAJE_PAGO_NON_GRATO, normPlate, PLAN_X3, PLANES_ONECLICK, planDeSuscripcion, uid } from "@/lib/helpers";
 import { telefonoDeCompra } from "@/lib/pagos/telefonoCompra";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { oneclickInscription } from "@/lib/transbank";
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 
-    let body: { patente?: string; email?: string; telefono?: string; soloGuardar?: boolean; operador?: string };
+    let body: { patente?: string; email?: string; telefono?: string; soloGuardar?: boolean; operador?: string; plan?: string };
     try {
       body = await request.json();
     } catch {
@@ -46,6 +46,12 @@ export async function POST(request: NextRequest) {
     // debe cobrar de inmediato como sí hace el flujo normal de /pagar — ver
     // el comentario en /inscripcion/retorno/route.ts.
     const estadoPendiente = body.soloGuardar ? "pendiente_solo_tarjeta" : "pendiente";
+    // Plan que va a cobrar la tarjeta (X5 o X3). Sin plan = X5, que es lo que
+    // mandan Mi Cuenta y cualquier cliente viejo de /pagar.
+    if (body.plan !== undefined && !(PLANES_ONECLICK as readonly string[]).includes(body.plan)) {
+      return NextResponse.json({ error: "Plan inválido" }, { status: 400 });
+    }
+    const planElegido = planDeSuscripcion(body.plan);
 
     // Cliente non grato (ver nonGrato en @/db/schema/clientes): no inscribe
     // tarjeta, que sería la puerta a un cobro.
@@ -107,6 +113,24 @@ export async function POST(request: NextRequest) {
     // por su lado, ahora vale para todas las puertas.
     const conservaTarjeta = conservaTarjetaAlReinscribir(existente);
 
+    // X3 y X5 son uno u otro: una tarjeta guardada (activa, pausada o
+    // suspendida) no se cambia de plan desde acá. Este endpoint es público y
+    // pide solo la patente, y el plan se escribe ANTES de que Transbank
+    // confirme nada: sin este corte, cualquiera le cambiaba el plan a la
+    // tarjeta suspendida de otro y la reactivación le cobraba ese plan.
+    // "Solo guardar tarjeta" no contrata nada, así que no cuenta.
+    const cambiaDePlan = !body.soloGuardar && conservaTarjeta && planDeSuscripcion(existente!.plan) !== planElegido;
+    if (cambiaDePlan) {
+      return NextResponse.json(
+        {
+          error: `Esta patente ya tiene cobro automático del ${planDeSuscripcion(existente!.plan)}. Para cambiarte al ${planElegido}, primero cancela tu plan actual desde Mi Cuenta.`,
+        },
+        { status: 409 }
+      );
+    }
+    // null para el X5: así queda igual que las suscripciones de siempre.
+    const planColumna = planElegido === PLAN_X3 ? PLAN_X3 : null;
+
     if (existente) {
       await db
         .update(suscripcionesOneclick)
@@ -122,6 +146,8 @@ export async function POST(request: NextRequest) {
           ...(conservaTarjeta || !telefono ? {} : { telefono }),
           tokenInscripcion: conservaTarjeta && body.soloGuardar ? respuesta.token + MARCA_SOLO_TARJETA : respuesta.token,
           ...(conservaTarjeta ? {} : { estado: estadoPendiente }),
+          // "Mis tarjetas" solo cambia el medio de pago: no toca el plan.
+          ...(body.soloGuardar ? {} : { plan: planColumna }),
           operadorQr,
           actualizadoEn: new Date().toISOString(),
         })
@@ -135,6 +161,7 @@ export async function POST(request: NextRequest) {
         telefono,
         tokenInscripcion: respuesta.token,
         estado: estadoPendiente,
+        plan: body.soloGuardar ? null : planColumna,
         operadorQr,
       });
     }

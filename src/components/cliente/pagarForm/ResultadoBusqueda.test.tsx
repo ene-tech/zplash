@@ -17,7 +17,7 @@ function render(resultado: EstadoPlan) {
       setTelefono={() => {}}
       inscribiendo={false}
       activarAutomatica={async () => {}}
-      precios={{ planOneclick: { nombre: "Plan X5", precio: 21990 } } as never}
+      precios={{ planOneclick: { nombre: "Plan X5", precio: 21990 }, planX3Oneclick: { nombre: "Plan X3", precio: 14990 } } as never}
     />
   );
 }
@@ -45,5 +45,17 @@ describe("ResultadoBusqueda", () => {
     const html = render({ ...SIN_PLAN_CON_CUPON, descuentoCupon: 0, precioPrimerCobroAuto: undefined });
     expect(html).toContain("$21.990/mes");
     expect(html).not.toContain("primer mes");
+  });
+
+  it("ofrece el Plan X3 con sus 3 lavados y su precio", () => {
+    const html = render({ ...SIN_PLAN_CON_CUPON, descuentoCupon: 0, precioPrimerCobroAuto: undefined });
+    expect(html).toContain("Plan X3");
+    expect(html).toContain("3 lavados Full Túnel al mes");
+    expect(html).toContain("$14.990/mes");
+  });
+
+  it("el cliente del X3 parte con el X3 elegido y renueva a su precio", () => {
+    const html = render({ ...SIN_PLAN_CON_CUPON, plan: "Plan X3", descuentoCupon: 0, precioPrimerCobroAuto: undefined });
+    expect(html).toContain("Activar renovación automática — $14.990/mes");
   });
 });

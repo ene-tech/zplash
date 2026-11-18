@@ -122,6 +122,11 @@ export const suscripcionesOneclick = pgTable("suscripciones_oneclick", {
   // Celular que pidió /pagar al inscribir (+569XXXXXXXX). Lo usa
   // aplicarPagoAprobado para rellenar clientes.telefono si estaba vacío.
   telefono: text("telefono"),
+  // Plan que cobra esta tarjeta cada mes: "Plan X3" o null = Plan X5 (todas
+  // las de antes de nov-2026). Lo elige el cliente en /pagar y lo escribe
+  // /inscribir; cobrarSuscripcion cobra el precio de ese plan y lo deja en la
+  // ficha. Ver planDeSuscripcion.
+  plan: text("plan"),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
   actualizadoEn: timestamptz("actualizado_en"),
 });

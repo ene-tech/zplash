@@ -9,7 +9,7 @@ import {
   mensajeBloqueoReingreso,
   mensajeSinPases,
   planVigente,
-  PASES_INCLUIDOS_X5,
+  pasesIncluidos,
   plateEstadoCls,
 } from "@/lib/helpers";
 import type { Cliente } from "@/types";
@@ -166,8 +166,8 @@ export default function OperadorFoundResult({
               label="Lavado del período"
               value={
                 r.pasesQueQuedan > 0
-                  ? `Va por el N°${r.visitasPeriodo + 1} de ${PASES_INCLUIDOS_X5} (quedan ${r.pasesQueQuedan})`
-                  : `Ya usó los ${PASES_INCLUIDOS_X5} del período`
+                  ? `Va por el N°${r.visitasPeriodo + 1} de ${pasesIncluidos(planVigente(c))} (quedan ${r.pasesQueQuedan})`
+                  : `Ya usó los ${pasesIncluidos(planVigente(c))} del período`
               }
             />
           )}

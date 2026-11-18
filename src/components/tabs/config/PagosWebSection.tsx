@@ -3,7 +3,7 @@
 import { useState } from "react";
 import PriceInput from "@/components/PriceInput";
 import { useAppData } from "@/context/AppContext";
-import { LAVADO_UNICO_WEB_KEY, PLAN_ONECLICK_KEY, precioLavadoUnicoWeb, precioPlanOneclick } from "@/lib/helpers";
+import { LAVADO_UNICO_WEB_KEY, PLAN_ONECLICK_KEY, PLAN_X3_ONECLICK_KEY, precioLavadoUnicoWeb, precioPlanOneclick, precioPlanX3Oneclick } from "@/lib/helpers";
 import { Globe } from "lucide-react";
 import ConfigSection from "./ConfigSection";
 import SaveBar from "./SaveBar";
@@ -11,6 +11,7 @@ import SaveBar from "./SaveBar";
 export default function PagosWebSection() {
   const { data, commit } = useAppData();
   const [planOneclickVal, setPlanOneclickVal] = useState(() => String(precioPlanOneclick(data.precios)));
+  const [planX3Val, setPlanX3Val] = useState(() => String(precioPlanX3Oneclick(data.precios)));
   const [lavadoUnicoWebVal, setLavadoUnicoWebVal] = useState(() => String(precioLavadoUnicoWeb(data.precios)));
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ texto: string; ok: boolean } | null>(null);
@@ -21,6 +22,7 @@ export default function PagosWebSection() {
       precios: {
         ...data.precios,
         [PLAN_ONECLICK_KEY]: { normal: Number(planOneclickVal) || 0, promo: 0 },
+        [PLAN_X3_ONECLICK_KEY]: { normal: Number(planX3Val) || 0, promo: 0 },
         [LAVADO_UNICO_WEB_KEY]: { normal: Number(lavadoUnicoWebVal) || 0, promo: 0 },
       },
     });
@@ -37,6 +39,10 @@ export default function PagosWebSection() {
       <div className="field" style={{ margin: 0 }}>
         <label>Precio Plan X5 con renovación automática</label>
         <PriceInput value={planOneclickVal} onChange={setPlanOneclickVal} />
+      </div>
+      <div className="field">
+        <label>Precio Plan X3 con renovación automática</label>
+        <PriceInput value={planX3Val} onChange={setPlanX3Val} />
       </div>
       <div className="field">
         <label>Precio Lavado Tunel / Uso Aspirado (web)</label>

@@ -1,6 +1,6 @@
 import type { CanalPromo, Cliente, ConfigGlobal, Cupon, Ingreso, Precios, Venta } from "@/types";
 import { precioConCupon } from "./cupones";
-import { IDS_PROMOS_LAVADOS, PLANES, PROMOS_LAVADOS, precioPromoLavados, type IdPromoLavados } from "./precios";
+import { IDS_PROMOS_LAVADOS, PLANES, PLAN_X3, PROMOS_LAVADOS, precioPromoLavados, type IdPromoLavados } from "./precios";
 import { diasVencido, planStatus } from "./clientes";
 import { visitasPeriodoPlan, visitasUltimoPeriodoVencido } from "./ingresos";
 import {
@@ -159,6 +159,10 @@ export function calcularOfertasPlan(
   precios: Precios,
   canal: CanalPromo = "WEB"
 ): OfertaPlan {
+  // Plan X3: se paga solo con su renovación automática, a su precio fijo. Las
+  // promociones de renovación y reactivación son del X5 (y cobrarlas deja al
+  // cliente en el X5), así que a este cliente no se le ofrece ninguna.
+  if (cliente.plan === PLAN_X3) return {};
   const plan = cliente.plan || PLANES[0];
   const st = planStatus(cliente);
   const oferta: OfertaPlan = {};

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (!cliente) {
       return NextResponse.json({ encontrado: false });
     }
-    const { precioBase, precioFinal, precioAutoMensual, primerCobroAuto, vencido, yaUsoTicket } = await cotizarPlanWeb(cliente, db);
+    const { precioBase, precioFinal, precioAutoMensual, primerCobroAuto, vencido, yaUsoTicket, precioX3Mensual, primerCobroX3 } = await cotizarPlanWeb(cliente, db);
 
     return NextResponse.json({
       encontrado: true,
@@ -69,6 +69,8 @@ export async function GET(request: NextRequest) {
       // vencido sigue disponible para esta patente (es una sola vez por
       // cliente, ver otorgarTicketReactivacion).
       ticketReactivacion: vencido && !yaUsoTicket,
+      // Lo mismo para la opción Plan X3: solo el cupón rebaja el primer cobro.
+      precioPrimerCobroX3: primerCobroX3 !== precioX3Mensual && primerCobroX3 > 0 ? primerCobroX3 : undefined,
       // true = este cliente sigue en el ilimitado viejo y todavía no acepta
       // pasar al X5, así que el botón tiene que decirle que lo que contrata es
       // el Plan X5 y no "renovar su plan" (ver AvisoPasaAX5). Se resuelve acá

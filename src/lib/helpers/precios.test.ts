@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PASES_INCLUIDOS_X5, PLAN_ILIMITADO_LEGACY, PLAN_X5, planTrasRenovacionSinCliente, requiereValidacionX5 } from "./precios";
+import { PASES_INCLUIDOS_X5, PLAN_ILIMITADO_LEGACY, PLAN_X3, PLAN_X3_ONECLICK_KEY, PLAN_X5, planDeSuscripcion, planTrasRenovacionSinCliente, precioOneclickDelPlan, requiereValidacionX5 } from "./precios";
 
 // El candado que impide repetir lo de ago-2026: 150 clientes del plan
 // ilimitado quedaron en el X5 sin que nadie les preguntara, porque toda
@@ -77,5 +77,26 @@ describe("candado del X5 vs política de rescate", () => {
   it("al que se pasa del tope lo deja pausado en vez de migrarlo", () => {
     expect(seCobra(PASES_INCLUIDOS_X5 + 1)).toBe(false);
     expect(seCobra(PASES_INCLUIDOS_X5)).toBe(true);
+  });
+});
+
+// Plan X3 (nov-2026): la tarjeta cobra el plan que guarda su suscripción.
+// Vacío tiene que seguir siendo el X5, o el cron cambiaría de precio a todas
+// las suscripciones que existían antes de la columna.
+describe("Plan X3", () => {
+  it("planDeSuscripcion: vacío o cualquier otro valor es el X5", () => {
+    expect(planDeSuscripcion(null)).toBe(PLAN_X5);
+    expect(planDeSuscripcion(undefined)).toBe(PLAN_X5);
+    expect(planDeSuscripcion("cualquiera")).toBe(PLAN_X5);
+    expect(planDeSuscripcion(PLAN_X3)).toBe(PLAN_X3);
+  });
+
+  it("precio de la renovación automática: 14.990 sin fila, la fila editable si existe", () => {
+    expect(precioOneclickDelPlan({}, PLAN_X3)).toBe(14990);
+    expect(precioOneclickDelPlan({ [PLAN_X3_ONECLICK_KEY]: { normal: 12990, promo: 0 } }, PLAN_X3)).toBe(12990);
+  });
+
+  it("el X5 no toma el precio del X3", () => {
+    expect(precioOneclickDelPlan({ [PLAN_X3_ONECLICK_KEY]: { normal: 12990, promo: 0 } }, PLAN_X5)).toBe(19990);
   });
 });

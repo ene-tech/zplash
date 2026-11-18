@@ -109,6 +109,11 @@ interface AplicarPagoParams {
   // derecho al X5, ver planTrasRenovacionSinCliente. Ausente = mesón, web y
   // Mi Cuenta, donde el cliente eligió el cambio en pantalla.
   pasadasDelCicloSinCliente?: number;
+  // Plan que se está pagando cuando NO es el que se vende en el mesón: hoy
+  // solo el Plan X3, que cobra la tarjeta Oneclick que lo contrató (ver
+  // suscripcionesOneclick.plan). Ausente = el de siempre (X5 o la política de
+  // rescate de arriba).
+  plan?: string;
 }
 
 /**
@@ -169,8 +174,9 @@ export async function aplicarPagoAprobado(
   // el ilimitado al cliente igual quedaba registrado como venta de X5, y de ahí
   // salen los reportes de mezcla de planes. Ver planResultante en el webhook de
   // WooCommerce, que ya lo hacía así.
-  const planTrasElPago =
-    p.pasadasDelCicloSinCliente === undefined
+  const planTrasElPago = p.plan
+    ? p.plan
+    : p.pasadasDelCicloSinCliente === undefined
       ? PLANES[0]
       : planTrasRenovacionSinCliente(existente?.plan, p.pasadasDelCicloSinCliente);
 
@@ -317,7 +323,7 @@ export async function aplicarPagoAprobado(
       // Mismo criterio que la rama de arriba: el correo del checkout va a la ficha.
       email: p.email || null,
       telefono: p.telefono || null,
-      plan: PLANES[0],
+      plan: planTrasElPago,
       vencimiento: vencimientoResultante,
       fechaContratacion: new Date().toISOString(),
       origen: "WEB",

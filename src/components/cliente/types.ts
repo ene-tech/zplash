@@ -9,6 +9,7 @@ export interface PreciosPublicos {
   // configurado. Solo se muestra donde se sabe que la patente es nueva.
   planPrimera: { nombre: string; precio: number };
   planOneclick: { nombre: string; precio: number };
+  planX3Oneclick: { nombre: string; precio: number };
   lavadoUnico: { nombre: string; precio: number };
   zonaAspirado: { nombre: string; precio: number };
   servicios: {

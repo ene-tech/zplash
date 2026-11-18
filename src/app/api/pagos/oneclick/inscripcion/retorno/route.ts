@@ -7,6 +7,8 @@ import {
   diasVencido,
   esInscripcionSoloTarjeta,
   MARCA_SOLO_TARJETA,
+  PLAN_X3,
+  planDeSuscripcion,
   planStatus,
   promoPrimerCobroOneclick,
 } from "@/lib/helpers";
@@ -192,7 +194,14 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
   // datos frescos, nunca se confía en lo que el cliente vio en pantalla. Es
   // solo por este primer cobro: los meses siguientes los cobra el cron al
   // precio normal de la renovación automática.
-  const promo = cliente && planStatus(cliente).cls === "bad" ? promoPrimerCobroOneclick(await calcularOfertasPlanDeCliente(cliente)) : undefined;
+  //
+  // Solo para el X5: las promociones de reactivación son del X5 y
+  // cobrarOfertaOneclick deja al cliente en ese plan. El que eligió el Plan X3
+  // paga su precio de lista desde el primer mes (ver cobrarSuscripcion).
+  const promo =
+    cliente && planStatus(cliente).cls === "bad" && planDeSuscripcion(suscripcion.plan) !== PLAN_X3
+      ? promoPrimerCobroOneclick(await calcularOfertasPlanDeCliente(cliente))
+      : undefined;
 
   // Tarjeta inscrita: cobra ya mismo en vez de esperar al cron del día
   // siguiente, para que el plan quede activo de inmediato.

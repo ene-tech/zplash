@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { isValidEmail, isValidPatente, normPlate } from "@/lib/helpers";
+import { isValidEmail, isValidPatente, normPlate, type PlanOneclick } from "@/lib/helpers";
 import { redirigirAInscripcionOneclick, redirigirAWebpay } from "@/lib/webpayClient";
 import { CELULAR_INICIAL, errorCelular } from "./CampoCelular";
 
@@ -29,6 +29,8 @@ export interface EstadoPlan {
   // Le queda el lavado full túnel gratis por inscribir la tarjeta estando
   // vencido (una sola vez por cliente).
   ticketReactivacion?: boolean;
+  // Lo mismo que precioPrimerCobroAuto, para la opción Plan X3 (solo cupón).
+  precioPrimerCobroX3?: number;
   // Sigue en el ilimitado viejo y no ha aceptado pasar al X5: el botón tiene
   // que decirle que lo que contrata es el X5, no "renovar su plan" (ver
   // requiereValidacionX5).
@@ -150,7 +152,7 @@ export function usePagarForm() {
     pagar("servicio", id, id, datosDocumento);
   }
 
-  async function activarAutomatica() {
+  async function activarAutomatica(plan: PlanOneclick) {
     const p = normPlate(patente);
     if (!isValidPatente(p)) {
       setErr("Patente inválida. Ej: AB1234 o ABCD12.");
@@ -173,7 +175,7 @@ export function usePagarForm() {
         headers: { "Content-Type": "application/json" },
         // op: perfil que mostró el QR del mesón (ver QrPlanConTarjeta); el
         // servidor lo valida contra los perfiles, acá viaja tal cual.
-        body: JSON.stringify({ patente: p, email, telefono, operador: params.get("op") || undefined }),
+        body: JSON.stringify({ patente: p, email, telefono, plan, operador: params.get("op") || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
