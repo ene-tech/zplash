@@ -175,7 +175,7 @@ export default function WebSettingsMensajesUnicosTab() {
   };
   const preview = plantilla ? aplicarVariables(plantilla.mensaje, variablesPreview) : "";
   const previewSms = aplicarVariables(textoSms, variablesPreview);
-  const segmentosPorCliente = segmentosSms(textoFinalSms(previewSms, "XXXXXX"));
+  const segmentosPorCliente = segmentosSms(textoFinalSms(previewSms));
 
   const toggleCliente = (id: string) => {
     setExcluidos((prev) => {

@@ -30,15 +30,12 @@ describe("segmentosSms", () => {
 });
 
 describe("textoFinalSms", () => {
-  it("agrega el link de baja al final", () => {
-    expect(textoFinalSms("Hola Juan 👋", "AB12CD")).toBe("Hola Juan. Baja: zplash.cl/b/AB12CD");
-  });
-
-  it("no duplica la puntuación final", () => {
-    expect(textoFinalSms("¡Te esperamos!", "AB12CD")).toBe("¡Te esperamos! Baja: zplash.cl/b/AB12CD");
+  it("no agrega el pie de baja", () => {
+    expect(textoFinalSms("Hola Juan 👋")).toBe("Hola Juan");
+    expect(textoFinalSms("¡Te esperamos!", "AB12CD")).toBe("¡Te esperamos!");
   });
 
   it("junta los saltos de línea en una sola línea (no llegan al teléfono)", () => {
-    expect(textoFinalSms("Hola Juan\n\nTe esperamos", "AB12CD")).toBe("Hola Juan Te esperamos. Baja: zplash.cl/b/AB12CD");
+    expect(textoFinalSms("Hola Juan\n\nTe esperamos")).toBe("Hola Juan Te esperamos");
   });
 });

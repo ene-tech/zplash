@@ -62,14 +62,16 @@ export function pieBajaSms(codigo: string): string {
   return `Baja: zplash.cl/b/${codigo}`;
 }
 
-/** Texto final tal como llega al teléfono: el del admin normalizado, en una
- * sola línea, + el pie de baja. Los saltos de línea no llegan: probado en
- * oct-2026 con LabsMobile a Chile, tanto LF como CR+LF llegaron borrados y el
- * pie quedaba pegado a la última palabra. Por eso se juntan acá (y así la
- * vista previa de Mensajes Únicos muestra lo mismo que ve el cliente), con un
- * punto antes del pie si el texto no termina en puntuación. */
-export function textoFinalSms(texto: string, codigoBaja: string): string {
-  const cuerpo = normalizarSms(texto).replace(/\s*\r?\n\s*/g, " ");
-  if (!cuerpo) return pieBajaSms(codigoBaja);
-  return `${cuerpo}${/[.!?]$/.test(cuerpo) ? "" : "."} ${pieBajaSms(codigoBaja)}`;
+/** Texto final tal como llega al teléfono: el del admin normalizado y en una
+ * sola línea. Los saltos de línea no llegan: probado en oct-2026 con
+ * LabsMobile a Chile, tanto LF como CR+LF llegaron borrados. Por eso se juntan
+ * acá (y así la vista previa de Mensajes Únicos muestra lo mismo que ve el
+ * cliente).
+ *
+ * Sin pie "Baja: zplash.cl/b/X" desde el 18-nov-2026, decisión del usuario:
+ * los clientes no lo entendían. El código de baja se sigue reservando por
+ * mensaje (la fila lo exige) pero no llega al cliente. */
+// El segundo parámetro ya no se usa; queda para los scripts viejos que lo pasan.
+export function textoFinalSms(texto: string, _codigoBaja?: string): string {
+  return normalizarSms(texto).replace(/\s*\r?\n\s*/g, " ");
 }

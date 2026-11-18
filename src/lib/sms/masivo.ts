@@ -90,7 +90,7 @@ export async function enviarMensajesMasivosSms(
       resultado.enviados++;
       // Mismo cálculo que enviarSms; el código de baja tiene largo fijo, así
       // que cualquier código da el mismo conteo.
-      resultado.segmentos += segmentosSms(textoFinalSms(texto, "XXXXXX"));
+      resultado.segmentos += segmentosSms(textoFinalSms(texto));
     } else {
       resultado.fallidos++;
       resultado.primerError ??= r.error;

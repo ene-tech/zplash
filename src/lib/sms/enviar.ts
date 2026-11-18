@@ -6,7 +6,7 @@ import { randomInt } from "node:crypto";
 import { insertarMensajeSmsPendiente, marcarMensajeSms } from "@/lib/dataAccess/sms";
 import { uid } from "@/lib/helpers";
 import type { SaldoSms } from "@/types";
-import { LARGO_CODIGO_BAJA, MAX_SEGMENTOS_SMS, normalizarSms, segmentosSms, textoFinalSms } from "./texto";
+import { LARGO_CODIGO_BAJA, MAX_SEGMENTOS_SMS, segmentosSms, textoFinalSms } from "./texto";
 
 // Proveedor: LabsMobile (API JSON, https://api.labsmobile.com/json/send, auth
 // Basic usuario:token). Todo lo específico del proveedor vive en
@@ -69,8 +69,8 @@ async function llamarLabsMobile(msisdn: string, texto: string, subid: string): P
 
 /**
  * Envía un SMS de campaña a un cliente y lo registra en mensajes_sms. El texto
- * se normaliza a GSM-7 y se le agrega el link de baja (ver ./texto); si así
- * pasa de MAX_SEGMENTOS_SMS no se envía.
+ * se normaliza a GSM-7 en una sola línea (ver ./texto); si pasa de
+ * MAX_SEGMENTOS_SMS no se envía.
  */
 export async function enviarSms(opts: {
   telefono: string;
@@ -78,10 +78,8 @@ export async function enviarSms(opts: {
   campana: string;
   clienteId?: string;
   enviadoPor?: string;
-  // Manda el texto sin el pie "Baja: zplash.cl/b/X" (decisión explícita del
-  // usuario para una campaña puntual, ver scripts/campana-lluvia-5999-oct-2026.mts).
-  // El código de baja se reserva igual porque la fila lo exige, pero no llega
-  // al cliente.
+  // Ya no hace nada: desde el 18-nov-2026 ningún SMS lleva el pie de baja
+  // (ver textoFinalSms). Se deja para no romper los scripts que lo pasan.
   sinPieBaja?: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
   const msisdn = msisdnChile(opts.telefono);
@@ -94,7 +92,7 @@ export async function enviarSms(opts: {
   let reservado = false;
   for (let intento = 0; intento < 5 && !reservado; intento++) {
     const codigoBaja = generarCodigoBaja();
-    texto = opts.sinPieBaja ? normalizarSms(opts.texto).replace(/\s*\r?\n\s*/g, " ") : textoFinalSms(opts.texto, codigoBaja);
+    texto = textoFinalSms(opts.texto);
     const segmentos = segmentosSms(texto);
     if (segmentos > MAX_SEGMENTOS_SMS) return { ok: false, error: `Texto demasiado largo (${segmentos} SMS, máximo ${MAX_SEGMENTOS_SMS})` };
     reservado = await insertarMensajeSmsPendiente({
