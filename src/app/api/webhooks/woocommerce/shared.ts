@@ -40,6 +40,34 @@ export function extraerPatente(payload: Record<string, unknown>): string {
   return normPlate(candidatos.find((c) => c && c.trim()) || "");
 }
 
+// La REST API de WooCommerce manda las fechas *_gmt sin zona ("2026-10-22T17:55:31");
+// sin la Z, `new Date` las leería en la hora local de quien corre el código.
+function fechaWoo(valor: unknown, esGmt: boolean): Date | null {
+  if (typeof valor !== "string" || !valor.trim()) return null;
+  const texto = esGmt && !/(Z|[+-]\d{2}:?\d{2})$/.test(valor) ? valor + "Z" : valor;
+  const fecha = new Date(texto);
+  return isNaN(fecha.getTime()) ? null : fecha;
+}
+
+/**
+ * Fecha desde la que corre el mes que paga este pedido: la del PAGO, no la de
+ * creación. Un pedido de renovación de WooCommerce Subscriptions se crea el día
+ * que toca cobrar, pero si la tarjeta falla se reintenta durante días y se
+ * paga recién cuando el cliente la cambia — y Woo calcula el próximo cobro
+ * (next_payment) desde ese pago. Caso real RLVH74 (oct-2026): pedido #8342
+ * creado el 15-oct, pagado el 22-oct; la ficha quedó venciendo el 14-nov y Woo
+ * no le volvía a cobrar hasta el 22-nov, así que una semana la vieron Vencida
+ * habiendo pagado el mes completo.
+ */
+export function fechaPagoPedido(order: Record<string, unknown>, ahora: Date = new Date()): string {
+  const fecha =
+    fechaWoo(order.date_paid_gmt, true) ??
+    fechaWoo(order.date_paid, false) ??
+    fechaWoo(order.date_created, false) ??
+    ahora;
+  return fecha.toISOString();
+}
+
 /** Mismo criterio de búsqueda que ya usaba el webhook de pedidos: por patente primero, por email si no hay match. */
 export async function buscarClienteExistente(patente: string, email: string): Promise<typeof clientes.$inferSelect | undefined> {
   const db = getDb();

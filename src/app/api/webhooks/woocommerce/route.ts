@@ -21,7 +21,7 @@ import {
 import { evaluarReglasCorreoPorVenta } from "@/lib/mailing/reglas";
 import { visitasPeriodoActual } from "@/lib/pagos";
 import { evaluarReglasPorCambioPatente } from "@/lib/whatsapp/reglas";
-import { buscarClienteExistente, extraerPatente, huboRenovacionWebReciente, verificarFirma } from "./shared";
+import { buscarClienteExistente, extraerPatente, fechaPagoPedido, huboRenovacionWebReciente, verificarFirma } from "./shared";
 
 export const runtime = "nodejs";
 // Reexportado para no romper route.test.ts, que prueba la firma HMAC contra este módulo.
@@ -86,7 +86,9 @@ export async function POST(request: NextRequest) {
   const email = String(billing.email || "").trim().toLowerCase();
   const nombre = `${billing.first_name || ""} ${billing.last_name || ""}`.trim().toUpperCase() || "SIN NOMBRE";
   const telefono = formatTelefono(String(billing.phone || ""));
-  const fechaOrden = order.date_created ? new Date(order.date_created as string).toISOString() : new Date().toISOString();
+  // Fecha del pago, no de creación del pedido (ver fechaPagoPedido): de acá
+  // salen el ciclo del plan, la fecha de la venta y el movimiento contable.
+  const fechaOrden = fechaPagoPedido(order);
   const monto = Number(order.total) || 0;
   // WooCommerce Subscriptions marca así sus pedidos de renovación automática
   // (visto en producción: created_via "subscription" + payment_method
@@ -158,7 +160,12 @@ export async function POST(request: NextRequest) {
         // usar, así que el ciclo arranca el día de la orden.
         if (sigueVigenteHoy(existente.vencimiento)) {
           nuevoVencimiento = sumarMesesFecha(new Date(existente.vencimiento!), 1).toISOString();
-        } else if (enPlazoDePagoPlan(existente, (await getConfig()).diasGraciaPagoAtrasado)) {
+        // Una renovación automática de WooCommerce Subscriptions no se ancla:
+        // Woo corre su próximo cobro desde la fecha en que se pagó, así que
+        // anclar a la contratación vieja deja la ficha más corta que el mes
+        // cobrado (RLVH74, sep-2026: pagó el 15-sep, la ficha quedó al 5-oct
+        // y Woo recién cobraba el 15-oct). Se usa el ciclo desde el pago.
+        } else if (!esRenovacionAutoWoo && enPlazoDePagoPlan(existente, (await getConfig()).diasGraciaPagoAtrasado)) {
           nuevoVencimiento = vencimientoAnclado(existente);
         } else {
           const ciclo = cicloPlanDesde(new Date(fechaOrden));
