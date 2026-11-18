@@ -24,6 +24,7 @@ import {
   puedeEnviarDocumentosCliente,
   cuponDescuentoDePatente,
   cuponesVigentesDeCliente,
+  ticketsVencidosDeCliente,
   detalleCupon,
   fmtCaducidad,
   fmtCLP,
@@ -257,6 +258,21 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
   }
 
   const filasHistorial = useMemo(() => [...reembolsosHechos, ...ventasCliente], [reembolsosHechos, ventasCliente]);
+  // Tickets que vencieron sin usarse, intercalados por fecha con las compras
+  // (los reembolsos recién hechos quedan arriba, como antes). No son ventas:
+  // solo informan, sin monto ni acciones.
+  const ticketsVencidos = useMemo(
+    () => ticketsVencidosDeCliente(appData.cupones, { patente: c.patente, email: c.email, rut: c.rut }),
+    [appData.cupones, c.patente, c.email, c.rut]
+  );
+  // Próximo cobro de la tarjeta inscrita, como primera fila del historial.
+  // Solo si está activa: el cron no cobra las suspendidas ni las canceladas.
+  const proximoCobroActivo = suscripcion?.estado === "activa" ? suscripcion.proximoCobro : null;
+  const filasConVencidos = useMemo(() => {
+    const resto: (Venta | (typeof ticketsVencidos)[number])[] = [...ventasCliente, ...ticketsVencidos];
+    resto.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+    return [...reembolsosHechos, ...resto];
+  }, [reembolsosHechos, ventasCliente, ticketsVencidos]);
   // Ids de ventas que ya tienen su contra-asiento (id "reembolso-<ventaId>",
   // ver idVentaReembolso en @/lib/pagos/reembolsarVenta).
   const ventasReembolsadas = useMemo(
@@ -811,7 +827,7 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
           <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Historial de compras</div>
           {loadingHistorial ? (
             <p className="text-sm text-muted-foreground">Cargando…</p>
-          ) : ventasCliente.length === 0 ? (
+          ) : ventasCliente.length === 0 && ticketsVencidos.length === 0 && !proximoCobroActivo ? (
             <p className="text-sm text-muted-foreground">Este cliente todavía no tiene compras registradas.</p>
           ) : (
             // min-w-0: DialogContent es un grid (ver dialog.tsx) y sin esto
@@ -839,7 +855,36 @@ export default function ClienteInfoModal({ data: c }: { data: Cliente }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filasHistorial.map((v) => {
+                  {proximoCobroActivo && (
+                    <TableRow className="text-muted-foreground">
+                      <TableCell className="whitespace-nowrap">{fmtDate(proximoCobroActivo)}</TableCell>
+                      <TableCell className="whitespace-nowrap">Próximo cobro automático</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>Oneclick</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {suscripcion?.cardUltimosDigitos ? `Tarjeta ${suscripcion.cardUltimosDigitos}` : "Tarjeta"}
+                      </TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  )}
+                  {filasConVencidos.map((v) => {
+                    if (!("id" in v)) {
+                      return (
+                        <TableRow key={`vencidos-${v.lote}-${v.fecha}`} className="text-muted-foreground">
+                          <TableCell className="whitespace-nowrap">{fmtDate(v.fecha)}</TableCell>
+                          <TableCell className="whitespace-nowrap" title={v.lote}>
+                            {v.cantidad === 1 ? "Venció 1 ticket sin usar" : `Vencieron ${v.cantidad} tickets sin usar`}
+                            {v.lote ? ` (${v.lote})` : ""}
+                          </TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell />
+                        </TableRow>
+                      );
+                    }
                     const detalle = detallePagos[v.id];
                     // Solo pagos que Transbank cobró de verdad se pueden
                     // devolver desde acá (efectivo/POS GETNET/transferencia

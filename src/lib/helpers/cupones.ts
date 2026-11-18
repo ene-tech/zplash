@@ -195,25 +195,47 @@ export function cuponesVigentesDeCliente(
   cliente: Pick<Cliente, "patente" | "email" | "rut">,
   ahora: Date = new Date()
 ): Cupon[] {
+  const esDelCliente = cuponEsDeCliente(cliente);
+  return lista
+    .filter((c) => !c.usado && new Date(c.fechaCaducidad) > ahora && esDelCliente(c))
+    .sort((a, b) => (a.creadoEn < b.creadoEn ? 1 : -1));
+}
+
+/** Criterio de cuponesVigentesDeCliente para decidir si un código es de este
+ * cliente (ver la explicación ahí), sin mirar si está usado o vencido. */
+function cuponEsDeCliente(cliente: Pick<Cliente, "patente" | "email" | "rut">): (c: Cupon) => boolean {
   const p = normPlate(cliente.patente);
   const email = (cliente.email || "").trim().toLowerCase();
   const rut = limpiarRut(cliente.rut);
-  return lista
-    .filter(
-      (c) =>
-        !c.usado &&
-        new Date(c.fechaCaducidad) > ahora &&
-        (c.tipo === "vale"
-          ? patenteAutorizadaParaCupon(c, p)
-          : !c.patenteAsignada || normPlate(c.patenteAsignada) === p) &&
-        // `!!p`: una ficha sin patente (comprador de la tienda) no es dueña
-        // de los códigos sin patente asignada, que son abiertos.
-        ((!!p && normPlate(c.patenteAsignada || "") === p) ||
-          (c.tipo === "vale" && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)) ||
-          (!!email && (c.email || "").trim().toLowerCase() === email) ||
-          (!!rut && limpiarRut(c.rut) === rut))
-    )
-    .sort((a, b) => (a.creadoEn < b.creadoEn ? 1 : -1));
+  return (c) =>
+    (c.tipo === "vale" ? patenteAutorizadaParaCupon(c, p) : !c.patenteAsignada || normPlate(c.patenteAsignada) === p) &&
+    // `!!p`: una ficha sin patente (comprador de la tienda) no es dueña
+    // de los códigos sin patente asignada, que son abiertos.
+    ((!!p && normPlate(c.patenteAsignada || "") === p) ||
+      (c.tipo === "vale" && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)) ||
+      (!!email && (c.email || "").trim().toLowerCase() === email) ||
+      (!!rut && limpiarRut(c.rut) === rut));
+}
+
+/** Tickets ("vale") de este cliente que vencieron sin usarse, agrupados por
+ * lote y fecha de caducidad (un pack que vence entero es una sola fila), del
+ * más reciente al más viejo. Para el historial de la ficha. Un ticket anulado
+ * por nota de crédito queda usado=true, así que no aparece acá. */
+export function ticketsVencidosDeCliente(
+  lista: Cupon[],
+  cliente: Pick<Cliente, "patente" | "email" | "rut">,
+  ahora: Date = new Date()
+): { fecha: string; lote: string; cantidad: number }[] {
+  const esDelCliente = cuponEsDeCliente(cliente);
+  const grupos = new Map<string, { fecha: string; lote: string; cantidad: number }>();
+  for (const c of lista) {
+    if (c.tipo !== "vale" || c.usado || new Date(c.fechaCaducidad) > ahora || !esDelCliente(c)) continue;
+    const clave = `${c.nombreLote}|${c.fechaCaducidad}`;
+    const g = grupos.get(clave);
+    if (g) g.cantidad++;
+    else grupos.set(clave, { fecha: c.fechaCaducidad, lote: c.nombreLote, cantidad: 1 });
+  }
+  return [...grupos.values()].sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
 }
 
 /** Precio final tras aplicar el cupón (nunca baja de $0). Se usa tanto para
