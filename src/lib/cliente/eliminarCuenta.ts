@@ -3,6 +3,7 @@ import { eq, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cupones, otpsCliente, pushSubscriptions, suscripcionesOneclick } from "@/db/schema";
 import { getClientesByIds } from "@/lib/dataAccess/clientes";
+import { esCuentaRevision } from "@/lib/cliente/cuentaRevision";
 import { cancelarSuscripcionOneclick } from "@/lib/dataAccess/oneclick";
 import { tieneTarjetaViva } from "@/lib/helpers";
 import { cortarCobroWooCommerceLegacy } from "@/lib/pagos";
@@ -27,6 +28,10 @@ export type ResultadoEliminarCuenta =
 export async function eliminarCuentaCliente(email: string, clienteIds: string[]): Promise<ResultadoEliminarCuenta> {
   const db = getDb();
   const correo = email.trim().toLowerCase();
+  // Los revisores de las tiendas prueban este botón: la cuenta de revisión
+  // responde como eliminada pero no se borra, o el siguiente revisor no podría
+  // entrar (ver @/lib/cliente/cuentaRevision).
+  if (esCuentaRevision(correo)) return { ok: true, patentes: [], wooSinCortar: [] };
   const porCorreo = sql`lower(${clientes.email}) = ${correo}`;
   // Las de la sesión más cualquier otra ficha con este correo (ej. una patente
   // que el mesón le asoció después de que inició sesión).

@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { otpsCliente } from "@/db/schema";
 import { PATENTE_CON_DUENO_MSG, buscarClientePorPatente, buscarClientesPorEmail } from "@/lib/dataAccess/clientes";
 import { enviarCodigoOtpCliente } from "@/lib/buzon/otp";
+import { codigoFijoRevision } from "@/lib/cliente/cuentaRevision";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 import { origenValido } from "@/lib/csrf";
 import { PATENTE_FORMATO_MSG, normPlate, isValidPatente, isValidEmail, sigueVigenteHoy, uid } from "@/lib/helpers";
@@ -123,7 +124,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Demasiados códigos solicitados para este correo, espera unos minutos" }, { status: 429 });
   }
 
-  const codigo = generarCodigo();
+  // Cuenta de los revisores de las tiendas: código fijo y sin correo (ver
+  // @/lib/cliente/cuentaRevision).
+  const codigoFijo = codigoFijoRevision(email);
+  const codigo = codigoFijo ?? generarCodigo();
   const codigoHash = await bcrypt.hash(codigo, 10);
   const solicitudId = uid();
 
@@ -139,7 +143,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Error de servidor" }, { status: 500 });
   }
 
-  const envio = await enviarCodigoOtpCliente(email, codigo);
+  const envio = codigoFijo ? { ok: true } : await enviarCodigoOtpCliente(email, codigo);
   if (!envio.ok) {
     return NextResponse.json({ ok: false, error: "No pudimos enviar el código por correo, intenta de nuevo" }, { status: 502 });
   }
