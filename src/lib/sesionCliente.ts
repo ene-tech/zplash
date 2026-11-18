@@ -19,5 +19,7 @@ export interface VehiculoSesion extends DatosFacturacion {
 // correo con el que se hizo login (usado también por TicketsEmpresaSection).
 export interface SesionCliente {
   email: string;
+  // El de la primera ficha que tenga uno (se editan todas juntas desde "Mis datos").
+  telefono: string | null;
   vehiculos: VehiculoSesion[];
 }

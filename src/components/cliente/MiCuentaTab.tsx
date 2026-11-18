@@ -17,6 +17,7 @@ import { AgregarTarjeta } from "@/components/cliente/miCuenta/AgregarTarjeta";
 import { EliminarTarjeta } from "@/components/cliente/miCuenta/EliminarTarjeta";
 import { PausarTarjeta } from "@/components/cliente/miCuenta/PausarTarjeta";
 import { CompartirTarjeta } from "@/components/cliente/miCuenta/CompartirTarjeta";
+import { DatosContactoSection } from "@/components/cliente/miCuenta/DatosContactoSection";
 import { DatosFacturacionSection } from "@/components/cliente/miCuenta/DatosFacturacionSection";
 import { AvisoPoliticas } from "@/components/cliente/miCuenta/AvisoPoliticas";
 import { LibroComentarios } from "@/components/cliente/miCuenta/LibroComentarios";
@@ -312,6 +313,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
   const invitar = (resumen: boolean) => (
     <InvitarAmigo patentes={sesion.vehiculos.map((v) => v.patente)} valor={descuentoReferido} referidos={referidos} resumen={resumen} />
   );
+  const datosContacto = <DatosContactoSection email={sesion.email} telefono={sesion.telefono} onActualizado={refrescar} />;
   const tickets = <TicketsYCuponesSection cupones={cupones} vehiculos={sesion.vehiculos} onAgregado={cargarMiCuenta} />;
 
   if (nativa) {
@@ -366,10 +368,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
           ))}
         {pestana === "cuenta" && (
           <>
-            <div className="card" style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, color: "var(--gray)", textTransform: "uppercase", letterSpacing: 0.8 }}>Entraste como</div>
-              <div style={{ fontSize: 15, marginTop: 4 }}>{sesion.email}</div>
-            </div>
+            {datosContacto}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
               <h3 style={{ margin: 0 }}>Mis vehículos</h3>
               <AgregarPatente onAgregado={refrescar} />
@@ -420,6 +419,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
       ) : (
         sinVehiculos
       )}
+      {datosContacto}
       {resto}
       <div style={{ marginTop: 10 }}>
         <EliminarCuenta onEliminada={refrescar} />
