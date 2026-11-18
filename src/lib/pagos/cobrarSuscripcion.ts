@@ -8,6 +8,7 @@ import { evaluarReglasCorreoPorCobroFallido, evaluarReglasCorreoPorValidacionX5 
 import { evaluarReglasPorCobroFallido } from "@/lib/whatsapp/reglas";
 import type { Precios } from "@/types";
 import { aplicarPagoAprobado, visitasPeriodoActual } from "./aplicarPagoAprobado";
+import { darDeBajaPorCobroFallido } from "./bajaPorCobroFallido";
 import { buscarCuponDescuentoPlan } from "./cuponPlan";
 import { autorizarCobro, reconciliarCobrosEnCurso, reservarCobro, type CobroRecuperado } from "./oneclickCobro";
 import { proximoReintento, rachaActual, transbankNoContestoDosVeces, type IntentoCobro } from "./politicaReintento";
@@ -160,7 +161,8 @@ export async function aplicarCobroRecuperado(tx: Tx, suscripcion: SuscripcionOne
  * Transbank) se corta el reintento automático (ver cortarReintentoAutomatico)
  * y sale el aviso de cobro fallido para que el cliente pague por el link;
  * devuelve `cortado: true`. Si el cliente paga por otra vía antes, el cron ve
- * el plan vigente y lo reagenda.
+ * el plan vigente y lo reagenda. El corte del día 21 además cancela la
+ * suscripción y deja al cliente "Sin plan" (ver darDeBajaPorCobroFallido).
  *
  * El aviso de cobro fallido sale en el primer rechazo de la racha y en el
  * corte, no en cada reintento. La política es solo del cron: con alguien
@@ -409,7 +411,15 @@ export async function cobrarSuscripcion(
       if (decision.accion === "cortar") {
         const ultimo = racha[racha.length - 1];
         await cortarReintentoAutomatico(tx, suscripcion.id);
-        return { estado: "rechazada" as const, buyOrder: ultimo.id, monto: ultimo.monto, clienteId: cliente?.id ?? null, esReintento, cortado: true };
+        return {
+          estado: "rechazada" as const,
+          buyOrder: ultimo.id,
+          monto: ultimo.monto,
+          clienteId: cliente?.id ?? null,
+          esReintento,
+          cortado: true,
+          darDeBaja: decision.motivo === "dia_21",
+        };
       }
     }
 
@@ -482,13 +492,17 @@ export async function cobrarSuscripcion(
 
     // ¿Este rechazo agota la política? Se decide ahora, con él incluido, para
     // mandar el link hoy y no mañana (-11 en el acto, el del día 21...).
-    const cortado =
-      estado === "rechazada" &&
-      !!opciones.sinCliente &&
-      proximoReintento({
-        rechazos: [...racha, { id: buyOrder, estado, responseCode, creadoEn: new Date().toISOString(), monto }],
-        hoy: new Date(),
-      }).accion === "cortar";
+    const decisionTras =
+      estado === "rechazada" && opciones.sinCliente
+        ? proximoReintento({
+            rechazos: [...racha, { id: buyOrder, estado, responseCode, creadoEn: new Date().toISOString(), monto }],
+            hoy: new Date(),
+          })
+        : null;
+    const cortado = decisionTras?.accion === "cortar";
+    // Agotó los 21 días: además de cortar se cancela y queda "Sin plan" (ver
+    // darDeBajaPorCobroFallido). Los otros cortes solo dejan de cobrar.
+    const darDeBaja = decisionTras?.accion === "cortar" && decisionTras.motivo === "dia_21";
 
     await tx
       .update(suscripcionesOneclick)
@@ -509,7 +523,7 @@ export async function cobrarSuscripcion(
       })
       .where(eq(suscripcionesOneclick.id, suscripcion.id));
 
-    return { estado, buyOrder, monto, clienteId: cliente?.id ?? null, esReintento, cortado };
+    return { estado, buyOrder, monto, clienteId: cliente?.id ?? null, esReintento, cortado, darDeBaja };
   });
 
   // Fuera de la transacción/lock a propósito (avisar por WhatsApp no debe
@@ -525,23 +539,26 @@ export async function cobrarSuscripcion(
   // listarSuscripcionesOneclick), así que mientras esto miraba clienteId el
   // aviso de cobro rechazado no salía NUNCA — ni por WhatsApp ni por correo.
   const clienteId = resultado.clienteId ?? suscripcion.clienteId;
-  if (resultado.estado === "rechazada" && (!resultado.esReintento || resultado.cortado) && clienteId) {
-    after(() =>
-      evaluarReglasPorCobroFallido({
-        clienteId,
-        patente: suscripcion.patente,
-        buyOrderId: resultado.buyOrder,
-        monto: resultado.monto,
-      }).catch((error) => console.error("Error evaluando reglas de WhatsApp por cobro fallido", suscripcion.id, error))
-    );
-    after(() =>
-      evaluarReglasCorreoPorCobroFallido({
-        clienteId,
-        patente: suscripcion.patente,
-        buyOrderId: resultado.buyOrder,
-        monto: resultado.monto,
-      }).catch((error) => console.error("Error evaluando reglas de correo por cobro fallido", suscripcion.id, error))
-    );
+  const avisar = resultado.estado === "rechazada" && (!resultado.esReintento || resultado.cortado) && !!clienteId;
+  const darDeBaja = "darDeBaja" in resultado && !!resultado.darDeBaja;
+  if (avisar || darDeBaja) {
+    // La baja va después de los avisos: las reglas filtran por el plan del
+    // cliente (condicionPlanes), y con la ficha ya "Sin plan" el último aviso
+    // con el link no saldría.
+    after(async () => {
+      if (avisar && clienteId) {
+        const aviso = { clienteId, patente: suscripcion.patente, buyOrderId: resultado.buyOrder, monto: resultado.monto };
+        await Promise.all([
+          evaluarReglasPorCobroFallido(aviso).catch((error) => console.error("Error evaluando reglas de WhatsApp por cobro fallido", suscripcion.id, error)),
+          evaluarReglasCorreoPorCobroFallido(aviso).catch((error) => console.error("Error evaluando reglas de correo por cobro fallido", suscripcion.id, error)),
+        ]);
+      }
+      if (darDeBaja) {
+        await darDeBajaPorCobroFallido(clienteId ?? null, suscripcion.patente).catch((error) =>
+          console.error("Error dando de baja la suscripción tras 21 días de cobro fallido", suscripcion.id, error)
+        );
+      }
+    });
   }
 
   // Mismo aviso, otro motivo: acá la tarjeta está bien y no hay nada que

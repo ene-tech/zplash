@@ -68,6 +68,8 @@ vi.mock("./aplicarPagoAprobado", () => ({
   visitasPeriodoActual: () => Promise.resolve(pasadasDelCiclo),
 }));
 vi.mock("./cuponPlan", () => ({ buscarCuponDescuentoPlan: () => Promise.resolve(null) }));
+const darDeBaja = vi.fn((..._args: unknown[]) => Promise.resolve());
+vi.mock("./bajaPorCobroFallido", () => ({ darDeBajaPorCobroFallido: (...args: unknown[]) => darDeBaja(...args) }));
 // La reserva y la reconciliación de cobros "en_curso" se prueban en
 // oneclickCobro.test.ts; acá solo correrían la cola de `respuestas`.
 let recuperados: { id: string; monto: number; authorizationCode: string | null }[] = [];
@@ -403,6 +405,8 @@ describe("política de reintento en el cron", () => {
     expect(resultado).toEqual({ estado: "rechazada", cortado: true });
     expect(updates.at(-1)!.proximoCobro).toBeNull();
     expect(avisoCobroFallido).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(darDeBaja).not.toHaveBeenCalled();
   });
 
   it("-10 que vuelve a fallar a los 4 días -> corta y avisa (aunque ya avisó el primero)", async () => {
@@ -412,15 +416,27 @@ describe("política de reintento en el cron", () => {
     expect(resultado).toEqual({ estado: "rechazada", cortado: true });
     expect(updates.at(-1)!.proximoCobro).toBeNull();
     expect(avisoCobroFallido).toHaveBeenCalled();
+    await Promise.resolve();
+    expect(darDeBaja).not.toHaveBeenCalled();
   });
 
-  it("falla el intento del día 21 -> corta y avisa", async () => {
+  it("falla el intento del día 21 -> corta, avisa y después cancela (queda Sin plan)", async () => {
     rechazarCon(-6);
     respuestas = [precios, cliente, [], rechazosEn(-6, [3, 6, 9, 12, 15, 18, 19, 20, 21])];
     const resultado = await cobrarSuscripcion(suscripcion, { sinCliente: true });
     expect(resultado).toEqual({ estado: "rechazada", cortado: true });
     expect(updates.at(-1)!.proximoCobro).toBeNull();
     expect(avisoCobroFallido).toHaveBeenCalled();
+    await vi.waitFor(() => expect(darDeBaja).toHaveBeenCalledWith("c1", "AB1234"));
+  });
+
+  it("intento del día 6 rechazado -> no cancela, sigue reintentando", async () => {
+    rechazarCon(-6);
+    respuestas = [precios, cliente, [], rechazosEn(-6, [3, 6])];
+    const resultado = await cobrarSuscripcion(suscripcion, { sinCliente: true });
+    expect(resultado).toEqual({ estado: "rechazada" });
+    await Promise.resolve();
+    expect(darDeBaja).not.toHaveBeenCalled();
   });
 
   // La racha ya se agotó con un intento que no fue del cron (un reintento
@@ -431,6 +447,7 @@ describe("política de reintento en el cron", () => {
     expect(resultado).toEqual({ estado: "rechazada", cortado: true });
     expect(authorize).not.toHaveBeenCalled();
     expect(updates).toEqual([expect.objectContaining({ proximoCobro: null })]);
+    await vi.waitFor(() => expect(darDeBaja).toHaveBeenCalledWith("c1", "AB1234"));
   });
 });
 
