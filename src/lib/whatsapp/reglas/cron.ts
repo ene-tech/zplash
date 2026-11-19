@@ -556,14 +556,6 @@ const DIAS_HABITUAL_SIN_PLAN = 30;
 // Hasta cuántos días atrás se leen los tickets de pack ya caducados.
 const DIAS_TICKETS_PROMO_X3 = 60;
 
-/** Grupo de control de la promo del primer mes del Plan X3: las patentes que
- * terminan en 0 (~10%) no reciben el mensaje (mismo criterio que
- * scripts/campana-primavera-2026.mts). Quedan con su disparo "omitido", que es
- * la lista de control al medir. */
-export function esControlPromoX3(patente: string): boolean {
-  return normPlate(patente).endsWith("0");
-}
-
 /**
  * Promo del primer mes del Plan X3 (nov-2026): descuento atado a la patente
  * que solo rebaja el primer cobro del X3 (ver esCuponSoloX3), por SMS y correo
@@ -618,7 +610,7 @@ async function procesarPromoPrimerMesX3(ahoraISO: string): Promise<{ procesados:
     for (const p of c.patentesAutorizadas ?? []) ticketsPorPatente.set(p, [...(ticketsPorPatente.get(p) ?? []), c]);
   }
   const ticketsDe = (patente: string) => ticketsPorPatente.get(normPlate(patente)) ?? [];
-  // Clientes que ya la recibieron (o quedaron de control) por cualquiera de
+  // Clientes que ya la recibieron por cualquiera de
   // los dos momentos: no se les vuelve a evaluar.
   const yaTuvieron = new Set(
     (
@@ -637,7 +629,6 @@ async function procesarPromoPrimerMesX3(ahoraISO: string): Promise<{ procesados:
     const origenId = `x3:${row.id}`;
     if (yaTuvieron.has(origenId)) return;
     yaTuvieron.add(origenId);
-    const control = esControlPromoX3(row.patente);
     for (const regla of reglas) {
       try {
         const disparo = await registrarDisparoReglaWhatsapp({
@@ -647,10 +638,12 @@ async function procesarPromoPrimerMesX3(ahoraISO: string): Promise<{ procesados:
           origenId,
           clienteId: row.id,
           patente: row.patente,
-          estado: control ? "omitido" : "programado",
+          // Sin grupo de control desde el 19-nov-2026: el dueño prefirió
+          // que le llegue a todos ("es venta y tiene que hacerse").
+          estado: "programado",
           enviarEn: ahoraISO,
         });
-        if (!disparo || control) continue;
+        if (!disparo) continue;
         await ejecutarAccionRegla(regla, disparo.id, cliente);
         procesados++;
       } catch (error) {

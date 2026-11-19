@@ -52,10 +52,10 @@ function resumenCondicion(r: ReglaWhatsapp): string {
   if (r.tipoEvento === "pack_extendido") return "Se le vencían tickets de un pack sin usar y se los extendimos 2 días (sale a la mañana siguiente)";
   if (r.tipoEvento === "sin_visita") return `Cliente sin plan vigente que lleva ${r.condicionDiasAntesVencimiento ?? 0} día(s) sin venir`;
   if (r.tipoEvento === "fin_pack_x3") {
-    return "Sin plan que terminó su pack y no recompró en 48 h: descuento primer mes Plan X3 (patentes terminadas en 0 = control)";
+    return "Sin plan que terminó su pack y no recompró en 48 h: oferta del Plan X3";
   }
   if (r.tipoEvento === "habitual_sin_plan") {
-    return "Sin plan que vino 2+ días en 30 días: descuento primer mes Plan X3 (una vez por cliente; patentes terminadas en 0 = control)";
+    return "Sin plan que vino 2+ días en 30 días: oferta del Plan X3 (una vez por cliente)";
   }
   if (r.tipoEvento === "cerca_local") {
     return `Cliente con la app pasa cerca del local, sin plan vigente y ${r.condicionDiasAntesVencimiento ?? 0}+ día(s) sin venir (una vez por ausencia, en horario de atención)`;
@@ -238,8 +238,8 @@ export default function ReglasWhatsappTab() {
             <option value="pack_vencido">Se le vencieron tickets de un pack sin usar</option>
             <option value="pack_extendido">Se le extendieron 2 días los tickets de un pack que vencían</option>
             <option value="cerca_local">Cliente con la app pasa cerca del local (sin plan, N+ días sin venir)</option>
-            <option value="fin_pack_x3">Sin plan termina su pack y no recompra (promo primer mes Plan X3)</option>
-            <option value="habitual_sin_plan">Sin plan viene 2+ días en 30 (promo primer mes Plan X3)</option>
+            <option value="fin_pack_x3">Sin plan termina su pack y no recompra (oferta Plan X3)</option>
+            <option value="habitual_sin_plan">Sin plan viene 2+ días en 30 (oferta Plan X3)</option>
           </select>
         </div>
 
