@@ -10,7 +10,11 @@ import type { usePagarForm } from "./usePagarForm";
 type Props = Pick<
   ReturnType<typeof usePagarForm>,
   "resultado" | "email" | "setEmail" | "telefono" | "setTelefono" | "inscribiendo" | "activarAutomatica"
-> & { precios: PreciosPublicos };
+> & {
+  precios: PreciosPublicos;
+  // El plan que pide el link (?item=plan_x3, ver usePagarForm).
+  planInicial?: PlanOneclick;
+};
 
 // Todo lo que aparece después de buscar una patente: el estado del plan (o
 // "no encontrado") y la inscripción de la tarjeta, que es la única forma de
@@ -21,7 +25,7 @@ export function ResultadoBusqueda(p: Props) {
   const [aceptaPoliticas, setAceptaPoliticas] = useState(false);
   // X5 o X3 (nov-2026): el cliente elige qué plan cobra la tarjeta. Parte en
   // el que ya tiene si es el X3, si no en el X5 de siempre.
-  const [planElegido, setPlanElegido] = useState<PlanOneclick>(p.resultado?.plan === PLAN_X3 ? PLAN_X3 : PLAN_X5);
+  const [planElegido, setPlanElegido] = useState<PlanOneclick>(p.planInicial ?? (p.resultado?.plan === PLAN_X3 ? PLAN_X3 : PLAN_X5));
   const r = p.resultado;
   if (!r) return null;
   const esX3 = planElegido === PLAN_X3;

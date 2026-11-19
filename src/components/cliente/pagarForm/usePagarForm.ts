@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { isValidEmail, isValidPatente, normPlate, type PlanOneclick } from "@/lib/helpers";
 import { redirigirAInscripcionOneclick, redirigirAWebpay } from "@/lib/webpayClient";
@@ -79,6 +79,16 @@ export function usePagarForm() {
   const [telefono, setTelefono] = useState(CELULAR_INICIAL);
   const [inscribiendo, setInscribiendo] = useState(false);
   const [accionServicio, setAccionServicio] = useState<AccionServicio | null>(null);
+
+  // ?item=plan_x3&patente=XXX es el link de la promo del primer mes del Plan
+  // X3 (SMS y correo, ver reglas "fin_pack_x3" y "habitual_sin_plan"): llega
+  // con la patente ya buscada y el X3 elegido (ver ResultadoBusqueda), así el
+  // cliente solo completa su correo y su celular.
+  useEffect(() => {
+    if (item === "plan_x3" && patente) buscar();
+    // Solo al abrir el link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function buscar() {
     const p = normPlate(patente);

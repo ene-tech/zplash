@@ -74,7 +74,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
   const [detailing, setDetailing] = useState<Detailing[]>([]);
   const [compras, setCompras] = useState<Compra[]>([]);
   const [cupones, setCupones] = useState<CuponCuenta[]>([]);
-  const [descuentos, setDescuentos] = useState<Record<string, { codigo: string; beneficio: string; fechaCaducidad?: string; soloWeb?: boolean }>>({});
+  const [descuentos, setDescuentos] = useState<Record<string, { codigo: string; beneficio: string; fechaCaducidad?: string; soloWeb?: boolean; soloPlanX3?: boolean }>>({});
   const [renovacionesLegacy, setRenovacionesLegacy] = useState<RenovacionLegacy[]>([]);
   const [ofertas, setOfertas] = useState<Record<string, OfertaPlan>>({});
   // Por patente: le queda el lavado gratis de la promo de reactivación (ver
@@ -103,7 +103,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
             ticketsReactivacion: Record<string, boolean>;
             lavados: Record<string, LavadosPeriodo>;
             cupones: CuponCuenta[];
-            descuentos: Record<string, { codigo: string; beneficio: string; fechaCaducidad?: string; soloWeb?: boolean }>;
+            descuentos: Record<string, { codigo: string; beneficio: string; fechaCaducidad?: string; soloWeb?: boolean; soloPlanX3?: boolean }>;
             politicasAceptadas: boolean;
             descuentoReferido: number;
             referidos: Record<string, ReferidosPatente>;

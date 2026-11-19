@@ -14,12 +14,30 @@ import type { Cupon } from "@/types";
  * (@/lib/helpers/cupones), para que los cuatro caminos de cobro no puedan
  * discrepar.
  */
-export async function buscarCuponDescuentoPlan(patente: string, db: DbOrTx = getDb()): Promise<Cupon | undefined> {
+export async function buscarCuponDescuentoPlan(patente: string, db: DbOrTx = getDb(), paraPlanX3 = false): Promise<Cupon | undefined> {
+  return (await buscarCuponesDescuentoPlan(patente, db))[paraPlanX3 ? "planX3" : "general"];
+}
+
+/**
+ * Los dos cupones que puede usar esta patente en un cobro web, con una sola
+ * consulta: `general` (todo menos el Plan X3) y `planX3` (el primer cobro del
+ * X3, que además acepta el descuento del primer mes del X3, ver
+ * esCuponSoloX3). Para las pantallas que anuncian los dos precios a la vez.
+ */
+export async function buscarCuponesDescuentoPlan(
+  patente: string,
+  db: DbOrTx = getDb()
+): Promise<{ general: Cupon | undefined; planX3: Cupon | undefined }> {
   const filas = await db
     .select()
     .from(cupones)
     .where(and(eq(cupones.patenteAsignada, patente), eq(cupones.tipo, "descuento"), eq(cupones.usado, false)));
-  return cuponDescuentoDePatente(filas.map(cuponFromRow), patente, "web");
+  const lista = filas.map(cuponFromRow);
+  const ahora = new Date();
+  return {
+    general: cuponDescuentoDePatente(lista, patente, "web", ahora),
+    planX3: cuponDescuentoDePatente(lista, patente, "web", ahora, true),
+  };
 }
 
 /**

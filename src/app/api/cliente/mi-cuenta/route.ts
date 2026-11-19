@@ -11,6 +11,7 @@ import {
   ESTADOS_TARJETA_VIVA,
   beneficioCupon,
   calcularOfertasPlan,
+  esCuponSoloX3,
   estadoCupon,
   inicioProximoPeriodoPlan,
   ofertaConCupon,
@@ -20,7 +21,7 @@ import {
   type OfertaPlan,
 } from "@/lib/helpers";
 import { ingresoFromRow } from "@/lib/dataAccess/ingresos";
-import { buscarCuponDescuentoPlan, yaTieneTicketReactivacion } from "@/lib/pagos";
+import { buscarCuponesDescuentoPlan, yaTieneTicketReactivacion } from "@/lib/pagos";
 import { ventaFromRow } from "@/lib/dataAccess/ventas";
 import { loteReferido, premioAcumulado, referidosDePatente } from "@/lib/referidos";
 import { esTicketGestionable, loteIdDeTicket } from "@/lib/ticketsGestion";
@@ -157,9 +158,14 @@ export async function GET() {
   // caminos que cobran un plan (ver buscarCuponDescuentoPlan): las tarjetas de
   // plan de Mi Cuenta anuncian el precio y disparan el cobro con ese mismo
   // número, así que tienen que mostrarlo ya rebajado.
+  // `cuponesX3PorPatente`: el que rebaja el primer cobro del Plan X3, que
+  // puede ser el descuento del primer mes del X3, que no rebaja nada más (ver
+  // esCuponSoloX3).
   const cuponesPorPatente = new Map<string, Cupon>();
-  for (const [patente, cupon] of await Promise.all(patentes.map(async (p) => [p, await buscarCuponDescuentoPlan(p)] as const))) {
-    if (cupon) cuponesPorPatente.set(patente, cupon);
+  const cuponesX3PorPatente = new Map<string, Cupon>();
+  for (const [patente, { general, planX3 }] of await Promise.all(patentes.map(async (p) => [p, await buscarCuponesDescuentoPlan(p)] as const))) {
+    if (general) cuponesPorPatente.set(patente, general);
+    if (planX3) cuponesX3PorPatente.set(patente, planX3);
   }
 
   const preciosMap = preciosFromRows(preciosRows);
@@ -193,7 +199,7 @@ export async function GET() {
       config,
       preciosMap
     );
-    if (Object.keys(oferta).length) ofertas[c.patente] = ofertaConCupon(oferta, cuponesPorPatente.get(c.patente));
+    if (Object.keys(oferta).length) ofertas[c.patente] = ofertaConCupon(oferta, cuponesPorPatente.get(c.patente), cuponesX3PorPatente.get(c.patente));
     // Solo se pregunta por el ticket de la promo si hay algo que ofrecerle al
     // vencido: son las únicas dos tarjetas que lo anuncian, y es una consulta
     // más por patente (ver yaTieneTicketReactivacion).
@@ -252,8 +258,15 @@ export async function GET() {
     cupones: cuponesCuenta,
     // Cupón que se está aplicando a las tarjetas de plan de cada patente, para
     // que el cliente vea de dónde sale el precio más bajo y no parezca un error.
+    // Si la patente solo tiene el descuento del primer mes del X3, se anuncia
+    // ese (soloPlanX3), para que no se lea como un descuento del lavado.
     descuentos: Object.fromEntries(
-      [...cuponesPorPatente].map(([p, c]) => [p, { codigo: c.codigo, beneficio: beneficioCupon(c), fechaCaducidad: c.fechaCaducidad, soloWeb: c.canal === "web" }])
+      patentes.flatMap((p) => {
+        const c = cuponesPorPatente.get(p) ?? cuponesX3PorPatente.get(p);
+        return c
+          ? [[p, { codigo: c.codigo, beneficio: beneficioCupon(c), fechaCaducidad: c.fechaCaducidad, soloWeb: c.canal === "web", soloPlanX3: esCuponSoloX3(c) }]]
+          : [];
+      })
     ),
     politicasAceptadas: politicasOk,
     // Lo que recibe el amigo y lo que gana quien invita (ver @/lib/referidos):

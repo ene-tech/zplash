@@ -1,9 +1,10 @@
 import "server-only";
 
-import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, cupones, ingresos, ventas } from "@/db/schema";
+import { clientes, cupones, disparosReglaWhatsapp, ingresos, reglasWhatsapp, ventas } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
+import { cuponFromRow } from "@/lib/dataAccess/cupones";
 import {
   listarDisparosProgramadosVencidos,
   listarReglasWhatsappActivas,
@@ -12,11 +13,22 @@ import {
   registrarDisparoReglaWhatsapp,
   tomarDisparoProgramado,
 } from "@/lib/dataAccess/whatsapp";
-import { finDelDiaSantiago, KEYS_PROMOS_LAVADOS, periodoPlan, planStatus, planVigente, uid } from "@/lib/helpers";
+import {
+  finDelDiaSantiago,
+  finUltimoPack,
+  HORAS_VENTANA_RECOMPRA_PACK,
+  KEYS_PROMOS_LAVADOS,
+  normPlate,
+  periodoPlan,
+  planStatus,
+  planVigente,
+  ticketsVigentesDePatente,
+  uid,
+} from "@/lib/helpers";
 import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
 import { LOTE_TICKET_REACTIVACION } from "@/lib/pagos/ticketReactivacion";
 import { buscarCliente, ejecutarAccionRegla, LOTE_CUPON_SIN_VISITA, MS_POR_DIA, promoVipParaCliente } from "./motor";
-import type { DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
+import type { Cupon, DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 
 // Disparos "venta_creada" con espera (delayDias/delayMinutos) cuya hora ya
 // llegó. Lo corren el cron diario (abajo) y el de cada 15 min
@@ -232,9 +244,10 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
   const porVencer = await procesarCuponesPorVencer(ahoraISO);
   const packsPorVencer = await procesarPacksPorVencer(ahoraISO);
   const packsVencidos = await procesarPacksVencidos(ahoraISO);
+  const promoX3 = await procesarPromoPrimerMesX3(ahoraISO);
   return {
-    procesados: procesados + sinVisita.procesados + porVencer.procesados + packsPorVencer.procesados + packsVencidos.procesados,
-    errores: errores + sinVisita.errores + porVencer.errores + packsPorVencer.errores + packsVencidos.errores,
+    procesados: procesados + sinVisita.procesados + porVencer.procesados + packsPorVencer.procesados + packsVencidos.procesados + promoX3.procesados,
+    errores: errores + sinVisita.errores + porVencer.errores + packsPorVencer.errores + packsVencidos.errores + promoX3.errores,
   };
 }
 
@@ -528,6 +541,186 @@ async function procesarCuponesPorVencer(ahoraISO: string): Promise<{ procesados:
         await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
         errores++;
       }
+    }
+  }
+  return { procesados, errores };
+}
+
+// Días de margen de "fin_pack_x3": si el cron no corre un día, el que cerró
+// su ventana de recompra ayer igual entra hoy. El origenId evita el doble envío.
+const DIAS_VENTANA_FIN_PACK_X3 = 3;
+// "habitual_sin_plan": días con lavado (sin contar garantías) dentro de los
+// últimos DIAS_HABITUAL_SIN_PLAN para recibir la oferta.
+const DIAS_CON_LAVADO_HABITUAL = 2;
+const DIAS_HABITUAL_SIN_PLAN = 30;
+// Hasta cuántos días atrás se leen los tickets de pack ya caducados.
+const DIAS_TICKETS_PROMO_X3 = 60;
+
+/** Grupo de control de la promo del primer mes del Plan X3: las patentes que
+ * terminan en 0 (~10%) no reciben el mensaje (mismo criterio que
+ * scripts/campana-primavera-2026.mts). Quedan con su disparo "omitido", que es
+ * la lista de control al medir. */
+export function esControlPromoX3(patente: string): boolean {
+  return normPlate(patente).endsWith("0");
+}
+
+/**
+ * Promo del primer mes del Plan X3 (nov-2026): descuento atado a la patente
+ * que solo rebaja el primer cobro del X3 (ver esCuponSoloX3), por SMS y correo
+ * con el link que llega con el X3 elegido. Dos momentos:
+ * - "fin_pack_x3": terminó su último pack de tickets (gastó el último o se le
+ *   vencieron) y la ventana de recompra del mesón (HORAS_VENTANA_RECOMPRA_PACK,
+ *   "pack_vencido" / "ultimo_ticket_pack") se cerró sin que comprara otro
+ *   pack. Va después de esa ventana y no junto con ella, para no ofrecer dos
+ *   cosas a la vez.
+ * - "habitual_sin_plan": viene seguido (DIAS_CON_LAVADO_HABITUAL días con
+ *   lavado en DIAS_HABITUAL_SIN_PLAN días) pagando lavado por lavado.
+ * Para los dos: "Sin plan" (nunca tuvo plan: al X5 vencido no se le ofrece,
+ * tiene su propia reactivación), sin tickets vivos, sin cobro automático
+ * (Oneclick activa o Woo) y una sola vez por cliente: el origenId es el mismo
+ * en las dos, así que el cupón es uno (ver cuponDelDisparo) y el que ya la
+ * recibió por un camino no la recibe por el otro.
+ */
+async function procesarPromoPrimerMesX3(ahoraISO: string): Promise<{ procesados: number; errores: number }> {
+  let procesados = 0;
+  let errores = 0;
+  let reglasFinPack: ReglaWhatsapp[] = [];
+  let reglasHabitual: ReglaWhatsapp[] = [];
+  try {
+    [reglasFinPack, reglasHabitual] = await Promise.all([
+      listarReglasWhatsappActivas("fin_pack_x3"),
+      listarReglasWhatsappActivas("habitual_sin_plan"),
+    ]);
+  } catch (error) {
+    console.error("Error cargando reglas de la promo del primer mes del Plan X3", error);
+    return { procesados, errores: errores + 1 };
+  }
+  if (!reglasFinPack.length && !reglasHabitual.length) return { procesados, errores };
+
+  const db = getDb();
+  const ahora = new Date(ahoraISO);
+  const conAutopago = await patentesConAutopago();
+  // Tickets de pack (vivos y pasados) de una sola vez, no una consulta por
+  // cliente: deciden "sin tickets vivos" y cuándo terminó el último pack. Los
+  // que caducaron hace más de DIAS_TICKETS_PROMO_X3 no cambian ninguna de las
+  // dos cosas (un pack dura 30 días como mucho, más la prórroga).
+  const ticketsPorPatente = new Map<string, Cupon[]>();
+  for (const row of await db
+    .select()
+    .from(cupones)
+    .where(
+      and(
+        inArray(cupones.nombreLote, KEYS_PROMOS_LAVADOS),
+        gte(cupones.fechaCaducidad, new Date(ahora.getTime() - DIAS_TICKETS_PROMO_X3 * MS_POR_DIA).toISOString())
+      )
+    )) {
+    const c = cuponFromRow(row);
+    for (const p of c.patentesAutorizadas ?? []) ticketsPorPatente.set(p, [...(ticketsPorPatente.get(p) ?? []), c]);
+  }
+  const ticketsDe = (patente: string) => ticketsPorPatente.get(normPlate(patente)) ?? [];
+  // Clientes que ya la recibieron (o quedaron de control) por cualquiera de
+  // los dos momentos: no se les vuelve a evaluar.
+  const yaTuvieron = new Set(
+    (
+      await db
+        .select({ origenId: disparosReglaWhatsapp.origenId })
+        .from(disparosReglaWhatsapp)
+        .innerJoin(reglasWhatsapp, eq(reglasWhatsapp.id, disparosReglaWhatsapp.reglaId))
+        .where(inArray(reglasWhatsapp.tipoEvento, ["fin_pack_x3", "habitual_sin_plan"]))
+    ).map((r) => r.origenId)
+  );
+
+  const disparar = async (reglas: ReglaWhatsapp[], row: typeof clientes.$inferSelect) => {
+    if (!row.patente || conAutopago.has(row.patente)) return;
+    const cliente = clienteFromRow(row);
+    if (row.vencimiento || planStatus(cliente).cls !== "bad") return;
+    const origenId = `x3:${row.id}`;
+    if (yaTuvieron.has(origenId)) return;
+    yaTuvieron.add(origenId);
+    const control = esControlPromoX3(row.patente);
+    for (const regla of reglas) {
+      try {
+        const disparo = await registrarDisparoReglaWhatsapp({
+          id: uid(),
+          reglaId: regla.id,
+          origenTipo: "cliente",
+          origenId,
+          clienteId: row.id,
+          patente: row.patente,
+          estado: control ? "omitido" : "programado",
+          enviarEn: ahoraISO,
+        });
+        if (!disparo || control) continue;
+        await ejecutarAccionRegla(regla, disparo.id, cliente);
+        procesados++;
+      } catch (error) {
+        console.error("Error disparando la promo del primer mes del Plan X3", regla.id, row.id, error);
+        errores++;
+      }
+    }
+  };
+
+  if (reglasFinPack.length) {
+    // Packs cuya ventana de recompra se cerró en los últimos
+    // DIAS_VENTANA_FIN_PACK_X3 días: el fin del pack (último uso o
+    // caducidad) entre `desde` y `hasta`.
+    const hasta = new Date(ahora.getTime() - HORAS_VENTANA_RECOMPRA_PACK * 3600_000);
+    const desde = new Date(hasta.getTime() - DIAS_VENTANA_FIN_PACK_X3 * MS_POR_DIA);
+    try {
+      const filas = await db
+        .select({ cliente: clientes })
+        .from(cupones)
+        .innerJoin(clientes, eq(clientes.patente, cupones.patenteAsignada))
+        .where(
+          and(
+            inArray(cupones.nombreLote, KEYS_PROMOS_LAVADOS),
+            isNull(clientes.vencimiento),
+            or(
+              and(eq(cupones.usado, true), gte(cupones.fechaUso, desde.toISOString()), lt(cupones.fechaUso, hasta.toISOString())),
+              and(eq(cupones.usado, false), gte(cupones.fechaCaducidad, desde.toISOString()), lt(cupones.fechaCaducidad, hasta.toISOString()))
+            )
+          )
+        );
+      const porCliente = new Map(filas.map((f) => [f.cliente.id, f.cliente]));
+      for (const row of porCliente.values()) {
+        const fin = finUltimoPack(ticketsDe(row.patente ?? ""), row.patente ?? "", ahora);
+        if (!fin || fin < desde.getTime() || fin >= hasta.getTime()) continue;
+        await disparar(reglasFinPack, row);
+      }
+    } catch (error) {
+      console.error("Error buscando packs terminados para la promo del Plan X3", error);
+      errores++;
+    }
+  }
+
+  if (reglasHabitual.length) {
+    const desde = new Date(ahora.getTime() - DIAS_HABITUAL_SIN_PLAN * MS_POR_DIA).toISOString();
+    try {
+      const filas = await db
+        .select()
+        .from(clientes)
+        .where(
+          and(
+            isNull(clientes.vencimiento),
+            isNotNull(clientes.patente),
+            inArray(
+              clientes.id,
+              sql`(select i.cliente_id from ingresos i
+                   where i.cliente_id is not null and not i.es_garantia and i.fecha >= ${desde}::timestamptz
+                   group by i.cliente_id
+                   having count(distinct (i.fecha at time zone 'America/Santiago')::date) >= ${DIAS_CON_LAVADO_HABITUAL})`
+            )
+          )
+        );
+      for (const row of filas) {
+        // El que todavía tiene tickets de pack va por "fin_pack_x3" cuando se
+        // le acaben.
+        if (ticketsVigentesDePatente(ticketsDe(row.patente ?? ""), row.patente ?? "", ahora).length) continue;
+        await disparar(reglasHabitual, row);
+      }
+    } catch (error) {
+      console.error("Error buscando habituales sin plan para la promo del Plan X3", error);
+      errores++;
     }
   }
   return { procesados, errores };

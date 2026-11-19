@@ -118,6 +118,7 @@ import {
   ticketsVigentesDePatente,
   patenteYaPasoHoy,
   ofertaConCupon,
+  LOTE_CUPON_PRIMER_MES_X3,
   precioConCupon,
   marcarDescuentoUsado,
   resolverDescuento,
@@ -1347,6 +1348,15 @@ describe("cuponDescuentoDePatente", () => {
     expect(cuponDescuentoDePatente([base], "AB1234", "web")?.codigo).toBe("AAA111");
     expect(cuponDescuentoDePatente([{ ...base, canal: "ambos" }], "AB1234", "web")?.codigo).toBe("AAA111");
   });
+
+  it("el descuento del primer mes del Plan X3 solo lo toma el cobro del X3", () => {
+    const x3: Cupon = { ...base, codigo: "X3PROM", nombreLote: LOTE_CUPON_PRIMER_MES_X3, canal: "web", valor: 5000 };
+    expect(cuponDescuentoDePatente([x3], "AB1234", "web")).toBeUndefined();
+    expect(cuponDescuentoDePatente([x3], "AB1234", "local")).toBeUndefined();
+    expect(cuponDescuentoDePatente([x3], "AB1234", "web", new Date(), true)?.codigo).toBe("X3PROM");
+    // El X3 también acepta un descuento general.
+    expect(cuponDescuentoDePatente([base], "AB1234", "web", new Date(), true)?.codigo).toBe("AAA111");
+  });
 });
 
 describe("cuponDescuentoMeson", () => {
@@ -1533,6 +1543,16 @@ describe("ofertaConCupon", () => {
   it("sin cupón devuelve la misma oferta", () => {
     const original = { pagoVencido: { precio: 21990, diasVencido: 40, visitas: 1 } };
     expect(ofertaConCupon(original, undefined)).toBe(original);
+  });
+
+  it("el descuento del primer mes del X3 rebaja solo el primer cobro del X3", () => {
+    const packs = [{ id: "promo_2_lavados" as const, lavados: 2, precio: 17990 }];
+    const o = ofertaConCupon(
+      { contratacion: { primerCobro: 19990, mensual: 19990, primerCobroX3: 14990, mensualX3: 14990, lavadoUnico: 9990, packs } },
+      undefined,
+      { valor: 5000, esPorcentaje: false }
+    );
+    expect(o.contratacion).toEqual({ primerCobro: 19990, mensual: 19990, primerCobroX3: 9990, mensualX3: 14990, lavadoUnico: 9990, packs });
   });
 });
 

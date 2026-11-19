@@ -339,7 +339,7 @@ export async function cobrarSuscripcion(
     // cupón que se quema al aplicar el pago sean el mismo dato (igual que en
     // cobrarOfertaOneclick). Es de un uso: rebaja este cobro (el primero, tras
     // inscribir la tarjeta) y los meses siguientes vuelven al precio de lista.
-    const cupon = await buscarCuponDescuentoPlan(suscripcion.patente, tx);
+    const cupon = await buscarCuponDescuentoPlan(suscripcion.patente, tx, esX3);
     const montoConCupon = precioConCupon(montoLista, cupon);
     // Transbank no puede cobrar $0 (ver ponytail en precioConCupon): si el
     // descuento cubriera el plan entero se cobra el de lista y el cupón queda

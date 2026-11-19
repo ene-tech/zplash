@@ -45,7 +45,7 @@ import type { Cliente, Cupon, Ingreso, PlantillaWhatsapp, ReglaWhatsapp } from "
 export const MS_POR_DIA = 86_400_000;
 
 // Vive en @/lib/helpers/cupones porque el mesón la usa (cuponValeEnSoloTunel).
-import { LOTE_CUPON_PROXIMA_VISITA } from "@/lib/helpers/cupones";
+import { LOTE_CUPON_PRIMER_MES_X3, LOTE_CUPON_PROXIMA_VISITA } from "@/lib/helpers/cupones";
 export { LOTE_CUPON_PROXIMA_VISITA };
 
 /** Lote del descuento por días sin venir (tipoEvento "sin_visita"); lo usa
@@ -127,6 +127,9 @@ export function construirVariables(opts: {
     // Link de pago del plan con la patente puesta: lo que sirve cuando el
     // cobro automático falló o se cortó (cambiar la tarjeta no cobra solo).
     linkPago: opts.cliente.patente ? `https://zplash.cl/pagar?item=plan&patente=${encodeURIComponent(opts.cliente.patente)}` : "https://zplash.cl/pagar?item=plan",
+    // Link de la promo del primer mes del Plan X3: abre /pagar con la patente
+    // ya buscada y el X3 elegido (ver usePagarForm).
+    linkPlanX3: `https://zplash.cl/pagar?item=plan_x3${opts.cliente.patente ? `&patente=${encodeURIComponent(opts.cliente.patente)}` : ""}`,
     plan: opts.cliente.plan || "",
     monto: opts.monto !== undefined ? fmtCLP(opts.monto) : "",
     fechaVencimiento: opts.cliente.vencimiento ? fmtVencimiento(opts.cliente.vencimiento) : "",
@@ -272,6 +275,9 @@ async function cuponDelDisparo(regla: ReglaWhatsapp, disparoId: string, cliente:
   if (!disparo) return null;
 
   const abierto = regla.accion !== "cupon_descuento";
+  // Promo del primer mes del Plan X3: solo rebaja ese cobro, que es por la
+  // web (ver esCuponSoloX3).
+  const esPromoX3 = !abierto && (regla.tipoEvento === "fin_pack_x3" || regla.tipoEvento === "habitual_sin_plan");
   const prefijo = regla.accion === "cupon_regalo" ? "regalo" : regla.accion === "cupon_abierto" ? "abierto" : `desc${regla.cuponValor || 0}`;
   const id = `${prefijo}-${disparo.origenId}`;
   const nombreLote =
@@ -283,7 +289,9 @@ async function cuponDelDisparo(regla: ReglaWhatsapp, disparoId: string, cliente:
           ? LOTE_CUPON_SIN_VISITA
           : regla.tipoEvento === "cerca_local"
             ? LOTE_CUPON_CERCA_LOCAL
-            : `WhatsApp - ${regla.nombre}`;
+            : esPromoX3
+              ? LOTE_CUPON_PRIMER_MES_X3
+              : `WhatsApp - ${regla.nombre}`;
   const [codigo] = await generarCodigosCuponUnicos(1);
   const nuevo: Cupon = {
     ...crearCuponDescuento({
@@ -300,6 +308,7 @@ async function cuponDelDisparo(regla: ReglaWhatsapp, disparoId: string, cliente:
     // quedarían en la cuenta de quien lo recibió y otro no podría guardarlo
     // en la suya (ver /api/cliente/mi-cuenta/agregar-cupon).
     ...(abierto ? { patenteAsignada: undefined } : {}),
+    ...(esPromoX3 ? { canal: "web" as const } : {}),
   };
   await db.insert(cuponesTabla).values(cuponToRow(nuevo)).onConflictDoNothing({ target: cuponesTabla.id });
   const [guardado] = await db.select().from(cuponesTabla).where(eq(cuponesTabla.id, id)).limit(1);

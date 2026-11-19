@@ -5,6 +5,7 @@ import {
   cuponesPromoLavados,
   cuponesPromoRecompra2,
   cuponesPromoVip,
+  finUltimoPack,
   libresVipDePatente,
   ofertaPromoVip,
   ventanaRecompraPack,
@@ -137,5 +138,16 @@ describe("Promo 2 Tickets 15 Días", () => {
     expect(ventanaRecompraPack(unoSinUsar, "AB1234", new Date("2026-11-01T12:00:00.000Z"))?.vence).toBe("2026-11-03T02:59:59.000Z");
     expect(ventanaRecompraPack(dos(), "AB1234", new Date("2026-11-01T12:00:00.000Z"))?.vence).toBe("2026-11-03T02:59:59.000Z");
     expect(ventanaRecompraPack(unoSinUsar, "AB1234", new Date("2026-11-03T03:00:00.000Z"))).toBeUndefined();
+  });
+});
+
+describe("finUltimoPack", () => {
+  it("es el último uso si gastó todo, el vencimiento si quedaron sin usar, y nada con tickets vivos", () => {
+    const gastado = packDeCuatro().map((c, i) => usar(c, `2026-10-0${i + 2}T15:00:00.000Z`));
+    expect(finUltimoPack(gastado, "AB1234", new Date("2026-10-20T00:00:00.000Z"))).toBe(new Date("2026-10-05T15:00:00.000Z").getTime());
+    const quedaUno = packDeCuatro().map((c, i) => (i < 3 ? usar(c, "2026-10-05T15:00:00.000Z") : c));
+    expect(finUltimoPack(quedaUno, "AB1234", new Date("2026-10-20T00:00:00.000Z"))).toBeUndefined();
+    expect(finUltimoPack(quedaUno, "AB1234", new Date("2026-11-05T00:00:00.000Z"))).toBe(new Date(quedaUno[3].fechaCaducidad).getTime());
+    expect(finUltimoPack([], "AB1234")).toBeUndefined();
   });
 });

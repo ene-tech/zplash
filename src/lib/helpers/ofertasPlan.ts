@@ -92,8 +92,15 @@ export interface OfertaPlan {
  * algo que se cobre. `ahorro` sí se recalcula, para que la tarjeta no siga
  * anunciando un ahorro menor que el real.
  */
-export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | "esPorcentaje"> | undefined): OfertaPlan {
-  if (!cupon) return oferta;
+// `cuponX3` es el que rebaja el primer cobro del Plan X3: el mismo `cupon`,
+// salvo que la patente tenga el descuento del primer mes del X3, que no rebaja
+// nada más (ver esCuponSoloX3 y buscarCuponesDescuentoPlan).
+export function ofertaConCupon(
+  oferta: OfertaPlan,
+  cupon: Pick<Cupon, "valor" | "esPorcentaje"> | undefined,
+  cuponX3: Pick<Cupon, "valor" | "esPorcentaje"> | undefined = cupon
+): OfertaPlan {
+  if (!cupon && !cuponX3) return oferta;
   const o: OfertaPlan = { ...oferta };
   if (o.renovacionAnticipada) {
     const pPromo = precioConCupon(o.renovacionAnticipada.pPromo, cupon);
@@ -111,7 +118,7 @@ export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | 
     o.contratacion = {
       ...o.contratacion,
       primerCobro: precioConCupon(o.contratacion.primerCobro, cupon),
-      primerCobroX3: precioConCupon(o.contratacion.primerCobroX3, cupon),
+      primerCobroX3: precioConCupon(o.contratacion.primerCobroX3, cuponX3),
       lavadoUnico: precioConCupon(o.contratacion.lavadoUnico, cupon),
     };
   return o;

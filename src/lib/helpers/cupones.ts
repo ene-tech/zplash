@@ -142,7 +142,10 @@ export function cuponDescuentoDePatente(
   lista: Cupon[],
   patente: string,
   canal: "web" | "local",
-  ahora: Date = new Date()
+  ahora: Date = new Date(),
+  // true solo en los cobros del Plan X3: el descuento del primer mes del X3
+  // (ver esCuponSoloX3) no rebaja ninguna otra cosa.
+  paraPlanX3 = false
 ): Cupon | undefined {
   return lista
     .filter(
@@ -151,7 +154,8 @@ export function cuponDescuentoDePatente(
         !c.usado &&
         c.patenteAsignada === patente &&
         new Date(c.fechaCaducidad) > ahora &&
-        cuponValeEnCanal(c, canal)
+        cuponValeEnCanal(c, canal) &&
+        (paraPlanX3 || !esCuponSoloX3(c))
     )
     .sort((a, b) => new Date(a.fechaCaducidad).getTime() - new Date(b.fechaCaducidad).getTime())[0];
 }
@@ -264,6 +268,15 @@ export const LOTE_ANUNCIO_META = "WhatsApp - Anuncio Meta";
  * (accion "cupon_abierto"): descuento para la próxima visita, de cualquier
  * patente, sin premio de referido. */
 export const LOTE_CUPON_PROXIMA_VISITA = "Próxima visita";
+
+/** Lote del descuento del primer mes del Plan X3 (promo de nov-2026, reglas
+ * "fin_pack_x3" y "habitual_sin_plan"): solo rebaja el primer cobro del X3 —
+ * ni el X5, ni un lavado suelto, ni el mesón (ver cuponDescuentoDePatente). */
+export const LOTE_CUPON_PRIMER_MES_X3 = "Primer mes Plan X3";
+
+export function esCuponSoloX3(cupon: Pick<Cupon, "nombreLote">): boolean {
+  return cupon.nombreLote === LOTE_CUPON_PRIMER_MES_X3;
+}
 
 const LOTES_SOLO_TUNEL = [LOTE_PRIMERA_VEZ_WHATSAPP, LOTE_ANUNCIO_META, LOTE_CUPON_PROXIMA_VISITA];
 
@@ -449,6 +462,16 @@ export function cuponesPromoRecompra2(p: Omit<Parameters<typeof cuponesPromoLava
  * deja tickets vivos, así que se apaga sola; al terminar esa compra se abre
  * de nuevo. `vence` es el límite para comprar. */
 export function ventanaRecompraPack(lista: Cupon[], patente: string, ahora: Date = new Date()): { vence: string } | undefined {
+  const fin = finUltimoPack(lista, patente, ahora);
+  if (!fin) return undefined;
+  const vence = new Date(fin + HORAS_VENTANA_RECOMPRA_PACK * 3600_000);
+  return vence > ahora ? { vence: vence.toISOString() } : undefined;
+}
+
+/** Cuándo terminó el último pack de tickets de esta patente (ms): al gastar
+ * su último ticket o al vencer con tickets sin usar. undefined si todavía le
+ * quedan tickets vivos o nunca tuvo un pack. */
+export function finUltimoPack(lista: Cupon[], patente: string, ahora: Date = new Date()): number | undefined {
   const p = normPlate(patente);
   const delAuto = lista.filter(
     (c) => c.tipo === "vale" && KEYS_PROMOS_LAVADOS.includes(c.nombreLote) && !!c.patentesAutorizadas?.length && patenteAutorizadaParaCupon(c, p)
@@ -468,9 +491,7 @@ export function ventanaRecompraPack(lista: Cupon[], patente: string, ahora: Date
       : new Date(tickets[0].fechaCaducidad).getTime();
     fin = Math.max(fin, terminado);
   }
-  if (!fin) return undefined;
-  const vence = new Date(fin + HORAS_VENTANA_RECOMPRA_PACK * 3600_000);
-  return vence > ahora ? { vence: vence.toISOString() } : undefined;
+  return fin || undefined;
 }
 
 /** Oferta VIP para esta patente: la ventana de recompra (ver

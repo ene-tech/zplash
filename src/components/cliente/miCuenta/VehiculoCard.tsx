@@ -70,7 +70,7 @@ export function VehiculoCard({
   // Cupón que el server ya restó de los precios de `oferta` (ver
   // ofertaConCupon): acá solo se anuncia, para que el precio más bajo no se
   // lea como un error.
-  descuento?: { codigo: string; beneficio: string; fechaCaducidad?: string; soloWeb?: boolean };
+  descuento?: { codigo: string; beneficio: string; fechaCaducidad?: string; soloWeb?: boolean; soloPlanX3?: boolean };
   // Su renovación automática todavía la cobra WooCommerce (ver
   // renovacionesLegacy en /api/cliente/mi-cuenta): eliminar el plan acá no la
   // daría de baja, así que la salida es escribirnos.
@@ -125,7 +125,7 @@ export function VehiculoCard({
   // ofertaConCupon): solo cuando queda por debajo del mensual hay algo que
   // tachar y que explicar.
   const co = oferta?.contratacion;
-  const conDescuento = !!co && co.primerCobro < co.mensual;
+  const conDescuento = !!co && (co.primerCobro < co.mensual || co.primerCobroX3 < co.mensualX3);
   const verEstado = vista !== "ofertas";
   const verOfertas = vista !== "estado";
   // Mismas condiciones que pintan cada tarjeta de compra más abajo.
@@ -247,15 +247,19 @@ export function VehiculoCard({
         >
           <div style={{ fontSize: 20, fontWeight: 900, color: "var(--green)", whiteSpace: "nowrap" }}>{descuento.beneficio.replace(/ de descuento$/, "")}</div>
           <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>
-            de descuento en el Lavado Full Túnel
+            {descuento.soloPlanX3 ? `de descuento en tu primer mes del ${PLAN_X3}` : "de descuento en el Lavado Full Túnel"}
             {descuento.fechaCaducidad && <>, válido hasta el {fmtCaducidad(descuento.fechaCaducidad)} (incluido)</>}.{" "}
-            {descuento.soloWeb ? "Se aplica solo al comprar en Comprar." : "Solo di tu patente en el mesón, o úsalo al comprar en Comprar."}
+            {descuento.soloPlanX3
+              ? "Se aplica al contratarlo en Comprar."
+              : descuento.soloWeb
+                ? "Se aplica solo al comprar en Comprar."
+                : "Solo di tu patente en el mesón, o úsalo al comprar en Comprar."}
           </div>
         </div>
       )}
       {descuento && vista !== "estado" && (
         <div style={{ color: "var(--green)", fontSize: 12.5, marginTop: 6 }}>
-          Cupón {descuento.codigo} ({descuento.beneficio}) — ya aplicado en los precios de abajo.
+          Cupón {descuento.codigo} ({descuento.beneficio}) — ya aplicado en {descuento.soloPlanX3 ? `el primer mes del ${PLAN_X3}` : "los precios de abajo"}.
         </div>
       )}
       {vista === "estado" && hayOfertas && onVerOpciones && (

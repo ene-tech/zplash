@@ -206,7 +206,12 @@ export type TipoEventoReglaWhatsapp =
   // App nativa: el teléfono avisa que entró a la zona del local (geocerca,
   // ver /api/app/geocerca). Mismo filtro que "sin_visita": sin plan vigente y
   // N días (condicionDiasAntesVencimiento) o más sin venir.
-  | "cerca_local";
+  | "cerca_local"
+  // Cron diario, promo del primer mes del Plan X3 (ver
+  // procesarPromoPrimerMesX3): terminó su último pack y se cerró la ventana de
+  // recompra sin comprar otro / viene seguido sin plan.
+  | "fin_pack_x3"
+  | "habitual_sin_plan";
 // "cupon_regalo": código de referido abierto, para regalárselo a un amigo (ver
 // rechazoCodigoReferido en @/lib/referidos); usa cuponValor/cuponValidezDias.
 // Conserva el nombre de antes (oct-2026, "regalo del lavado") porque es el

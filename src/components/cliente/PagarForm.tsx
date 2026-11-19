@@ -9,7 +9,7 @@ import { usePagarForm } from "@/components/cliente/pagarForm/usePagarForm";
 import { PagoUnicoCard } from "@/components/cliente/pagarForm/PagoUnicoCard";
 import { ResultadoBusqueda } from "@/components/cliente/pagarForm/ResultadoBusqueda";
 import { ServicioDocumentoCard } from "@/components/cliente/pagarForm/ServicioDocumentoCard";
-import { fmtCLP, normPlate } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X3, PLAN_X3, fmtCLP, normPlate } from "@/lib/helpers";
 
 export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -39,10 +39,10 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
         <CarritoBadge />
       </div>
 
-      {r.item === "plan" && (
+      {(r.item === "plan" || r.item === "plan_x3") && (
         <div className="card" style={{ marginBottom: 18 }}>
           <p style={{ color: "var(--gray)", fontSize: 13.5 }}>Vas a contratar:</p>
-          <h3>🚗 Plan X5</h3>
+          <h3>🚗 {r.item === "plan_x3" ? `${PLAN_X3} · ${PASES_INCLUIDOS_X3} lavados al mes` : "Plan X5"}</h3>
         </div>
       )}
 
@@ -123,6 +123,7 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
             setTelefono={r.setTelefono}
             inscribiendo={r.inscribiendo}
             activarAutomatica={r.activarAutomatica}
+            planInicial={r.item === "plan_x3" ? PLAN_X3 : undefined}
           />
 
           {ofrecerPromo && (

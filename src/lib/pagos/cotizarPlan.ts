@@ -16,7 +16,7 @@ import { getConfig } from "@/lib/dataAccess/config";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { preciosFromRows } from "@/lib/dataAccess/precios";
 import type { Cliente } from "@/types";
-import { buscarCuponDescuentoPlan } from "./cuponPlan";
+import { buscarCuponesDescuentoPlan } from "./cuponPlan";
 import { yaTieneTicketReactivacion } from "./ticketReactivacion";
 
 /**
@@ -29,11 +29,9 @@ import { yaTieneTicketReactivacion } from "./ticketReactivacion";
  */
 export async function cotizarPlanWeb(cliente: Cliente, db: DbOrTx = getDb()) {
   const patente = cliente.patente;
-  const [config, filasPrecios, cupon] = await Promise.all([
-    getConfig(),
-    db.select().from(precios),
-    buscarCuponDescuentoPlan(patente, db),
-  ]);
+  const [config, filasPrecios, cupones] = await Promise.all([getConfig(), db.select().from(precios), buscarCuponesDescuentoPlan(patente, db)]);
+  // El descuento del primer mes del X3 solo rebaja el X3 (ver esCuponSoloX3).
+  const cupon = cupones.general;
   // preciosFromRows y no un Object.fromEntries a mano: es el mismo armado
   // que usa calcularOfertasPlanDeCliente, al que ahora se le pasa este mapa
   // para que no vuelva a leer `precios` (ver más abajo).
@@ -51,7 +49,7 @@ export async function cotizarPlanWeb(cliente: Cliente, db: DbOrTx = getDb()) {
   const precioBase = esX3
     ? precioX3Mensual
     : precioRenovacionCliente(preciosMap, cliente.plan || PLANES[0], cliente, config.diasGraciaPagoAtrasado);
-  const precioFinal = precioConCupon(precioBase, cupon);
+  const precioFinal = precioConCupon(precioBase, esX3 ? cupones.planX3 : cupon);
 
   // Plan no vigente: las dos cosas que cambian la oferta de renovación
   // automática de /pagar — la promoción que le calza (lo que le va a cobrar
@@ -84,11 +82,11 @@ export async function cotizarPlanWeb(cliente: Cliente, db: DbOrTx = getDb()) {
   // en ambos casos con el cupón restado — los dos caminos que lo cobran
   // (cobrarOfertaOneclick y cobrarSuscripcion) aplican el cupón, y como es de
   // un uso solo rebaja ese primer mes.
-  const primerCobroAuto = precioConCupon(promoAuto?.monto ?? precioAutoMensual, cupon);
+  const primerCobroAuto = precioConCupon(promoAuto?.monto ?? precioAutoMensual, esX3 ? cupones.planX3 : cupon);
 
   // Lo mismo para quien elige el Plan X3 en /pagar: sin promoción ni
   // heredado (ver cobrarSuscripcion), solo el cupón en el primer cobro.
-  const primerCobroX3 = precioConCupon(precioX3Mensual, cupon);
+  const primerCobroX3 = precioConCupon(precioX3Mensual, cupones.planX3);
 
   return { precioBase, precioFinal, precioAutoMensual, primerCobroAuto, promoAuto, cupon, vencido, yaUsoTicket, precioX3Mensual, primerCobroX3 };
 }
