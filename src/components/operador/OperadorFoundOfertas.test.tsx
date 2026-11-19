@@ -90,6 +90,22 @@ describe("OperadorFoundOfertas — plan solo por la web", () => {
     const html = render({ planVigente: true, showOffer: false, precioQrTarjeta: { primerCobro: 19990, mensual: 19990 } });
     expect(html).not.toContain("Mostrar QR para pagar con tarjeta");
   });
+
+  it("al que nunca tuvo plan le muestra también el QR del Plan X3", () => {
+    const html = render({
+      planVigente: false,
+      precioQrTarjeta: { primerCobro: 19990, mensual: 19990 },
+      precioQrX3: { primerCobro: 9990, mensual: 14990 },
+    });
+    expect(html).toContain("Plan X3 con cobro automático desde su celular");
+    expect(html).toContain("$9.990 el primer mes");
+    expect(html.match(/Mostrar QR para pagar con tarjeta/g)).toHaveLength(2);
+  });
+
+  it("sin precio del X3 (cliente que ya tuvo plan) muestra solo el del X5", () => {
+    const html = render({ planVigente: false, precioQrTarjeta: { primerCobro: 19990, mensual: 19990 } });
+    expect(html).not.toContain("Plan X3");
+  });
 });
 
 describe("OperadorFoundOfertas — descuento solo web", () => {

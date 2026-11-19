@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useAppData } from "@/context/AppContext";
-import { beneficioCupon, fmtCLP } from "@/lib/helpers";
+import { PLAN_X3, beneficioCupon, fmtCLP } from "@/lib/helpers";
 import { useOperadorNotFoundResult } from "@/components/operador/useOperadorNotFoundResult";
 import { QrPlanConTarjeta } from "@/components/operador/OperadorFoundOfertas";
 
@@ -54,7 +54,7 @@ export default function OperadorNotFoundResult({
           style={{ marginTop: 0, flex: "1 1 160px" }}
           onClick={() => r.setTipoLavado("plan")}
         >
-          Plan X5 (pago por la web)
+          Plan X5 o X3 (pago por la web)
         </button>
         <button
           className={r.tipoLavado === "unico" ? "btn" : "btn secondary"}
@@ -107,6 +107,16 @@ export default function OperadorNotFoundResult({
             precio={{ primerCobro: r.precioPlanWeb, mensual: r.precioPlanWeb }}
             perfilId={r.perfilId}
           />
+          {r.precioPlanX3Web > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <QrPlanConTarjeta
+                patente={plate}
+                precio={{ primerCobro: r.precioPlanX3Web, mensual: r.precioPlanX3Web }}
+                perfilId={r.perfilId}
+                plan={PLAN_X3}
+              />
+            </div>
+          )}
           <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => patchUi({ operResult: null })}>
             Cerrar
           </button>

@@ -3,7 +3,7 @@
 import { useState, type ReactElement, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppData } from "@/context/AppContext";
-import { DIAS_PROMO_RECOMPRA_2, DIAS_PROMO_VIP, PASES_INCLUIDOS_X5, PLANES, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, finGarantia, fmtCaducidad, fmtCLP, fmtFecha, fmtHora, fmtVencimiento } from "@/lib/helpers";
+import { DIAS_PROMO_RECOMPRA_2, DIAS_PROMO_VIP, PASES_INCLUIDOS_X3, PASES_INCLUIDOS_X5, PLAN_X3, PLANES, type PlanOneclick, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, TICKETS_VIP_PATENTE, finGarantia, fmtCaducidad, fmtCLP, fmtFecha, fmtHora, fmtVencimiento } from "@/lib/helpers";
 import type { useOperadorFoundResult } from "./useOperadorFoundResult";
 
 // Lo que el operador tiene que contarle al cliente que todavía anda con el
@@ -69,6 +69,7 @@ type Props = Pick<
   | "promoRecompra2"
   | "cobrarPromoRecompra2"
   | "precioQrTarjeta"
+  | "precioQrX3"
   | "perfilId"
 >;
 
@@ -320,6 +321,9 @@ export default function OperadorFoundOfertas(props: Props) {
             aviso={<AvisoPasaAX5 plan={c.plan} precioAdicional={props.precioAdicional} />}
           />
         )],
+        [props.precioQrX3?.primerCobro, qr && props.precioQrX3 && (
+          <QrPlanConTarjeta key="qr-x3" patente={c.patente} precio={props.precioQrX3} perfilId={props.perfilId} plan={PLAN_X3} />
+        )],
         [props.precioLavadoUnicoFinal, sinPlan && (
           <div key="lavado" className="offer-card">
             <div className="offer-head">
@@ -451,13 +455,17 @@ export function QrPlanConTarjeta({
   perfilId,
   vence,
   aviso,
+  plan = PLANES[0] as PlanOneclick,
 }: {
   patente: string;
   precio: { primerCobro: number; mensual: number };
   perfilId?: string;
   vence?: string | null;
   aviso?: ReactNode;
+  // Plan X3 (nov-2026): el QR abre /pagar con el X3 ya elegido (?item=plan_x3).
+  plan?: PlanOneclick;
 }) {
+  const esX3 = plan === PLAN_X3;
   const [abierto, setAbierto] = useState(false);
   const conPromo = precio.primerCobro !== precio.mensual;
   const monto = `${fmtCLP(precio.primerCobro)}${conPromo ? " el primer mes" : "/mes"}`;
@@ -466,14 +474,17 @@ export function QrPlanConTarjeta({
   // Dominio público, no window.location.origin: el operador corre en
   // admin.zplash.cl y esta página la abre el cliente.
   const url =
-    `https://zplash.cl/pagar?item=plan&patente=${encodeURIComponent(patente)}` +
+    `https://zplash.cl/pagar?item=${esX3 ? "plan_x3" : "plan"}&patente=${encodeURIComponent(patente)}` +
     (perfilId ? `&op=${encodeURIComponent(perfilId)}` : "") +
     // Origen para PostHog: escaneado en el mesón, no un link de WhatsApp.
     "&utm_source=local&utm_medium=qr&utm_campaign=pago_tarjeta";
   return (
     <div className="offer-card">
       <div className="offer-head">
-        <h4>{PLANES[0]} con cobro automático desde su celular</h4>
+        <h4>
+          {plan} con cobro automático desde su celular
+          {esX3 ? ` · ${PASES_INCLUIDOS_X3} lavados al mes` : ""}
+        </h4>
       </div>
       <div className="msg">
         {conPromo && <>Desde el próximo mes, {fmtCLP(precio.mensual)}/mes automático. </>}

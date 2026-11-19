@@ -19,6 +19,7 @@ import {
   cuponValeEnSoloTunel,
   precioConCupon,
   precioPlanOneclick,
+  precioPlanX3Oneclick,
   promoPrimerCobroOneclick,
   calcularOfertasPlan,
   precioRenovacionCliente,
@@ -171,6 +172,15 @@ export function useOperadorFoundResult(
     : undefined;
   const qrPrimer = precioConCupon(qrPromo?.monto ?? qrMensual, cuponWeb);
   const precioQrTarjeta = { primerCobro: qrPrimer > 0 ? qrPrimer : qrMensual, mensual: qrMensual };
+  // QR del Plan X3: solo a quien nunca tuvo plan (el mismo público al que Mi
+  // Cuenta le ofrece elegir X5 o X3, ver calcularOfertasPlan): al X5 vencido no
+  // se le ofrece bajar. Precio de lista menos el cupón que acepta el X3 (el
+  // general o el del primer mes del X3, ver esCuponSoloX3) — mismo cálculo
+  // que el primer cobro del X3 en /pagar.
+  const qrX3Mensual = precioPlanX3Oneclick(data.precios);
+  const qrX3Primer = precioConCupon(qrX3Mensual, cuponDescuentoDePatente(data.cupones, c.patente, "web", new Date(), true));
+  const precioQrX3 =
+    !c.vencimiento && qrX3Mensual > 0 ? { primerCobro: qrX3Primer > 0 ? qrX3Primer : qrX3Mensual, mensual: qrX3Mensual } : undefined;
   // Al cliente con plan vigente que ya gastó las pasadas de su ciclo (ver
   // pasesRestantes) el paso extra le sale al precio de lavado adicional, no al
   // lavado único de lista: ese sigue siendo el precio de quien no tiene plan.
@@ -305,6 +315,7 @@ export function useOperadorFoundResult(
     cuponDescuentoSoloWeb,
     precioPlanWeb,
     precioQrTarjeta,
+    precioQrX3,
     perfilId: ui.perfilActual?.id,
     precioLavadoUnicoFinal,
     // Para contarle al cliente que todavía anda con el ilimitado viejo cómo

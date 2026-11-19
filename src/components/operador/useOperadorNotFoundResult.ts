@@ -15,6 +15,7 @@ import {
   precioConCupon,
   precioLavadoUnico,
   precioPlanOneclick,
+  precioPlanX3Oneclick,
   precioPromoLavados,
   precioSoloTunel,
   precioZonaAspirado,
@@ -176,6 +177,7 @@ export function useOperadorNotFoundResult(
     precioBaseLavado,
     // Lo que /pagar le cobra a una patente sin cliente (ver /api/pagos/estado).
     precioPlanWeb: precioPlanOneclick(data.precios),
+    precioPlanX3Web: precioPlanX3Oneclick(data.precios),
     perfilId: ui.perfilActual?.id,
     // $0 = pack apagado, su botón no se muestra (ver precioPromoLavados).
     precioPromo2: precioPromoLavados(data.precios, "promo_2_lavados"),
