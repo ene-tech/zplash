@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidPatente, normPlate, requiereValidacionX5 } from "@/lib/helpers";
+import { isValidPatente, normPlate, PLAN_X3, requiereValidacionX5 } from "@/lib/helpers";
 import { leerSesionCliente } from "@/lib/auth/clienteSession";
 import { buscarClientePorPatente, despausarValidacionX5, registrarAceptacionX5 } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
-import { obtenerSuscripcionOneclickCobrablePorPatente } from "@/lib/dataAccess/oneclick";
+import { cambiarPlanSuscripcionOneclick, obtenerSuscripcionOneclickCobrablePorPatente } from "@/lib/dataAccess/oneclick";
 import { cobrarOfertaOneclick, cobrarSuscripcion, otorgarTicketReactivacion, type TipoOfertaCuenta } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
@@ -14,8 +14,8 @@ const VENTANA_MS = 5 * 60 * 1000;
 
 // "contratacion" no va contra cobrarOfertaOneclick sino contra
 // cobrarSuscripcion (ver más abajo), así que no es un TipoOfertaCuenta.
-type TipoCobrable = TipoOfertaCuenta | "contratacion";
-const TIPOS_VALIDOS = new Set<TipoCobrable>(["renovacion_temprana", "reactivacion", "contratacion"]);
+type TipoCobrable = TipoOfertaCuenta | "contratacion" | "contratacion_x3";
+const TIPOS_VALIDOS = new Set<TipoCobrable>(["renovacion_temprana", "reactivacion", "contratacion", "contratacion_x3"]);
 
 // Cobra una de las promociones de plan de Mi Cuenta (ver @/lib/helpers/ofertasPlan)
 // directo contra la tarjeta que esa patente ya tiene inscrita en Oneclick —
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     // estado a "pendiente" antes de redirigir a Transbank, así que el cliente
     // que abandonaba esa página quedaba con la tarjeta invisible en Mi Cuenta
     // (solo lista "activa"/"suspendida") y sin cobro automático posible.
-    if (tipoPedido === "contratacion") {
+    if (tipoPedido === "contratacion" || tipoPedido === "contratacion_x3") {
       if (!oferta.contratacion) {
         return NextResponse.json({ error: "Esta promoción ya no está disponible, actualiza la página." }, { status: 400 });
       }
@@ -100,8 +100,16 @@ export async function POST(request: NextRequest) {
       if (!suscripcion) {
         return NextResponse.json({ error: "Esta patente no tiene una tarjeta registrada activa" }, { status: 400 });
       }
+      // La tarjeta guardada pasa a cobrar el plan que eligió (ver
+      // suscripcionesOneclick.plan). Acá sí se puede cambiar: es su sesión, y
+      // solo llega quien no tiene plan (oferta.contratacion). Queda elegido
+      // aunque el cobro se rechace: así "Pagar con otra tarjeta" inscribe con
+      // ese mismo plan sin chocar con el candado de /inscribir, y la fila sin
+      // plan vigente no tiene fecha de cobro, así que el cron no la toca.
+      const planNuevo = tipoPedido === "contratacion_x3" ? PLAN_X3 : null;
+      if (suscripcion.plan !== planNuevo) await cambiarPlanSuscripcionOneclick(suscripcion.id, planNuevo);
       try {
-        const { estado } = await cobrarSuscripcion(suscripcion);
+        const { estado } = await cobrarSuscripcion({ ...suscripcion, plan: planNuevo });
         return NextResponse.json({ ok: true, estado });
       } catch (error) {
         const mensaje = error instanceof Error ? error.message : "No se pudo cobrar la tarjeta";

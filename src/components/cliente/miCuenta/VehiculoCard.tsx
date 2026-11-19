@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { MoreVertical } from "lucide-react";
-import { PASES_INCLUIDOS_X5, PLANES, fmtCaducidad, fmtCLP, fmtFecha, fmtVencimiento, ilimitadoVencido } from "@/lib/helpers";
+import { PASES_INCLUIDOS_X3, PASES_INCLUIDOS_X5, PLANES, PLAN_X3, fmtCaducidad, fmtCLP, fmtFecha, fmtVencimiento, ilimitadoVencido } from "@/lib/helpers";
 import type { OfertaPlan } from "@/lib/helpers";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,15 @@ type Accion = "cambio" | "quitar" | "eliminar-plan" | null;
 const NOMBRE_OFERTA: Record<TipoOfertaPlan, string> = {
   renovacion_temprana: "Renovación anticipada",
   reactivacion: "Reactivación de plan",
-  contratacion: "Contratación de plan",
+  contratacion: `Contratación ${PLANES[0]}`,
+  contratacion_x3: `Contratación ${PLAN_X3}`,
 };
+
+// Plan que contrata cada oferta al inscribir la tarjeta: solo la del X3 lo
+// dice, las demás son el X5 de siempre (undefined en /inscribir).
+function planDeOferta(tipo: TipoOfertaPlan): string | undefined {
+  return tipo === "contratacion_x3" ? PLAN_X3 : undefined;
+}
 
 // "Tu plan vence en X días/hoy" — compartido entre el banner de oferta real y
 // el de recordatorio sin oferta (ver sinOfertaReal más abajo).
@@ -96,14 +103,16 @@ export function VehiculoCard({
     // Sin tarjeta inscrita el plan no se puede cobrar: se manda a inscribir
     // una y ese retorno hace el primer cobro con el precio de la promoción
     // (ver promoPrimerCobroOneclick).
-  } = useOfertaPlan(v.patente, tarjeta ?? null, onActualizado, () => registrarTarjeta(false));
+  } = useOfertaPlan(v.patente, tarjeta ?? null, onActualizado, (tipo) => registrarTarjeta(false, planDeOferta(tipo)));
 
   const montoOferta = (tipo: TipoOfertaPlan): number | undefined =>
     tipo === "renovacion_temprana"
       ? oferta?.renovacionAnticipada?.pPromo
       : tipo === "reactivacion"
         ? oferta?.reactivacion?.precio
-        : oferta?.contratacion?.primerCobro;
+        : tipo === "contratacion_x3"
+          ? oferta?.contratacion?.primerCobroX3
+          : oferta?.contratacion?.primerCobro;
 
   const ra = oferta?.renovacionAnticipada;
   // Sin tramo promocional (ahorro <= 0, o sea la renovación no queda más
@@ -140,14 +149,17 @@ export function VehiculoCard({
   // la inscripción además cobra al volver: false = está pagando el plan (es
   // la única forma de pagarlo sin tarjeta guardada), true = solo deja la
   // tarjeta lista para el cobro automático del vencimiento.
-  async function registrarTarjeta(soloGuardar = true) {
+  //
+  // `plan` es el que cobrará la tarjeta (ver suscripcionesOneclick.plan):
+  // undefined = el X5 de siempre.
+  async function registrarTarjeta(soloGuardar = true, plan?: string) {
     setErrInscripcion("");
     setInscribiendo(true);
     try {
       const res = await fetch("/api/pagos/oneclick/inscribir", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patente: v.patente, email, soloGuardar }),
+        body: JSON.stringify({ patente: v.patente, email, soloGuardar, plan }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -407,16 +419,30 @@ export function VehiculoCard({
         <div className="offer-card">
           <div className="offer-head">
             <span className="badge">Sin plan</span>
-            <h4>Contrata tu {PLANES[0]}</h4>
+            <h4>Contrata tu plan</h4>
           </div>
-          <div className="msg">Son {PASES_INCLUIDOS_X5} pasadas por el túnel al mes, sin filas y sin tocar el auto.</div>
-          <div className="price-row">
-            {conDescuento && <span className="old">{fmtCLP(oferta.contratacion.mensual)}</span>}
-            <span className="new">{fmtCLP(oferta.contratacion.primerCobro)}</span>
+          <div className="msg">Lavados Full Túnel sin filas y sin tocar el auto, con cobro automático mensual. Elige cuántos al mes:</div>
+          {/* Un renglón por plan: nombre, lavados del mes y precio (tachado el
+              de lista cuando el cupón rebaja el primer cobro). */}
+          {[
+            { plan: PLANES[0], pases: PASES_INCLUIDOS_X5, primer: oferta.contratacion.primerCobro, mensual: oferta.contratacion.mensual },
+            { plan: PLAN_X3, pases: PASES_INCLUIDOS_X3, primer: oferta.contratacion.primerCobroX3, mensual: oferta.contratacion.mensualX3 },
+          ].map((o) => (
+            <div key={o.plan} className="price-row" style={{ alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontWeight: 700 }}>{o.plan}</span>
+              <span style={{ color: "var(--gray)", fontSize: 13 }}>{o.pases} lavados al mes</span>
+              {o.primer < o.mensual && <span className="old">{fmtCLP(o.mensual)}</span>}
+              <span className="new">{fmtCLP(o.primer)}</span>
+              <span style={{ color: "var(--gray)", fontSize: 12 }}>{o.primer < o.mensual ? "el primer mes" : "/mes"}</span>
+            </div>
+          ))}
+          <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 8 }}>
+            Cargo mensual automático a tu tarjeta.
           </div>
           {conDescuento && (
             <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-              Tu descuento se aplica en este primer mes. Desde el siguiente, {fmtCLP(oferta.contratacion.mensual)}/mes.
+              Tu descuento se aplica en este primer mes. Desde el siguiente, {fmtCLP(oferta.contratacion.mensual)}/mes el{" "}
+              {PLANES[0]} o {fmtCLP(oferta.contratacion.mensualX3)}/mes el {PLAN_X3}.
             </div>
           )}
           {avisoInscripcion}
@@ -429,7 +455,14 @@ export function VehiculoCard({
               abandonaba Transbank. */}
           <div className="offer-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="btn secondary" onClick={() => pedir("contratacion")} disabled={ocupado}>
-            {inscribiendo ? "Redirigiendo..." : `Contratar plan (${fmtCLP(oferta.contratacion.primerCobro)})`}
+            {inscribiendo
+              ? "Redirigiendo..."
+              : `Contratar ${PLANES[0]} — ${PASES_INCLUIDOS_X5} lavados al mes (${fmtCLP(oferta.contratacion.primerCobro)}, cargo mensual automático)`}
+          </button>
+          <button className="btn secondary" onClick={() => pedir("contratacion_x3")} disabled={ocupado}>
+            {inscribiendo
+              ? "Redirigiendo..."
+              : `Contratar ${PLAN_X3} — ${PASES_INCLUIDOS_X3} lavados al mes (${fmtCLP(oferta.contratacion.primerCobroX3)}, cargo mensual automático)`}
           </button>
           {/* Alternativa sin compromiso, por Webpay: pagar un lavado suelto
               para esta misma patente sin tener que ir a /pagar a tipearla de
@@ -470,7 +503,12 @@ export function VehiculoCard({
                   se cobra por Webpay, así que se inscribe otra —la
                   inscripción reemplaza a la anterior y cobra al volver. */}
               {rechazada && (
-                <button type="button" className="btn ghost" onClick={() => registrarTarjeta(false)} disabled={inscribiendo}>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => registrarTarjeta(false, confirmando ? planDeOferta(confirmando) : undefined)}
+                  disabled={inscribiendo}
+                >
                   {inscribiendo ? "Redirigiendo..." : "Pagar con otra tarjeta"}
                 </button>
               )}

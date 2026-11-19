@@ -7,6 +7,7 @@ import {
   precioConHeredado,
   precioLavadoUnicoWeb,
   precioPlanOneclick,
+  precioPlanX3Oneclick,
   precioRenovacionATiempo,
   precioPagoAtrasado,
   precioRenovacionLocal,
@@ -69,6 +70,10 @@ export interface OfertaPlan {
   contratacion?: {
     primerCobro: number;
     mensual: number;
+    // Lo mismo para el Plan X3 (nov-2026): su precio fijo, sin heredado, y el
+    // cupón solo en el primer cobro — igual que lo cobra cobrarSuscripcion.
+    primerCobroX3: number;
+    mensualX3: number;
     lavadoUnico: number;
     packs: { id: IdPromoLavados; lavados: number; precio: number }[];
   };
@@ -106,6 +111,7 @@ export function ofertaConCupon(oferta: OfertaPlan, cupon: Pick<Cupon, "valor" | 
     o.contratacion = {
       ...o.contratacion,
       primerCobro: precioConCupon(o.contratacion.primerCobro, cupon),
+      primerCobroX3: precioConCupon(o.contratacion.primerCobroX3, cupon),
       lavadoUnico: precioConCupon(o.contratacion.lavadoUnico, cupon),
     };
   return o;
@@ -250,7 +256,16 @@ export function calcularOfertasPlan(
     const packs = IDS_PROMOS_LAVADOS.map((id) => ({ id, lavados: PROMOS_LAVADOS[id].lavados, precio: precioPromoLavados(precios, id) })).filter(
       (p) => p.precio > 0
     );
-    if (mensual > 0) oferta.contratacion = { primerCobro: mensual, mensual, lavadoUnico: precioLavadoUnicoWeb(precios), packs };
+    const mensualX3 = precioPlanX3Oneclick(precios);
+    if (mensual > 0)
+      oferta.contratacion = {
+        primerCobro: mensual,
+        mensual,
+        primerCobroX3: mensualX3,
+        mensualX3,
+        lavadoUnico: precioLavadoUnicoWeb(precios),
+        packs,
+      };
   }
 
   return oferta;

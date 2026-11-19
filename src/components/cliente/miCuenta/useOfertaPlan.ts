@@ -4,7 +4,7 @@ import { useState } from "react";
 import { redirigirAWebpay } from "@/lib/webpayClient";
 import type { IdPromoLavados } from "@/lib/helpers";
 
-export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "contratacion";
+export type TipoOfertaPlan = "renovacion_temprana" | "reactivacion" | "contratacion" | "contratacion_x3";
 
 // "renovacion" no es una promoción de cuenta: es el único plan que todavía se
 // paga por Webpay (ver TIPOS_VALIDOS en /api/pagos/webpay/crear) — el plan
@@ -34,7 +34,12 @@ export interface TarjetaGuardada {
  * inscribir una y ese mismo retorno hace el primer cobro con el precio de la
  * promoción (ver promoPrimerCobroOneclick).
  */
-export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, onCobrado: () => void, onSinTarjeta: () => void) {
+export function useOfertaPlan(
+  patente: string,
+  tarjeta: TarjetaGuardada | null,
+  onCobrado: () => void,
+  onSinTarjeta: (tipo: TipoOfertaPlan) => void
+) {
   const [pagando, setPagando] = useState<TipoCobro | null>(null);
   const [confirmando, setConfirmando] = useState<TipoOfertaPlan | null>(null);
   const [err, setErr] = useState("");
@@ -74,7 +79,7 @@ export function useOfertaPlan(patente: string, tarjeta: TarjetaGuardada | null, 
     if (tarjeta) {
       setConfirmando(tipo);
     } else {
-      onSinTarjeta();
+      onSinTarjeta(tipo);
     }
   }
 

@@ -70,6 +70,16 @@ export async function obtenerSuscripcionOneclickCobrablePorPatente(patente: stri
   return suscripcion;
 }
 
+/** Plan que cobra la tarjeta (ver suscripcionesOneclick.plan): "Plan X3" o
+ * null = X5. Solo desde la sesión del dueño (Mi Cuenta), nunca desde un
+ * endpoint público. */
+export async function cambiarPlanSuscripcionOneclick(id: string, plan: string | null): Promise<void> {
+  await getDb()
+    .update(suscripcionesOneclick)
+    .set({ plan, actualizadoEn: new Date().toISOString() })
+    .where(eq(suscripcionesOneclick.id, id));
+}
+
 /**
  * Deja la tarjeta ya inscrita de `patenteOrigen` cobrando también los otros
  * autos de la misma persona, sin volver a pasar por Transbank: copia el par

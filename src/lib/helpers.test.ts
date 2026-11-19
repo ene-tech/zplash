@@ -1523,8 +1523,11 @@ describe("ofertaConCupon", () => {
     // cobre el mes 2, el cupón ya se quemó.
     // Los packs tampoco: ya son una promoción (ver /api/pagos/webpay/crear).
     const packs = [{ id: "promo_2_lavados" as const, lavados: 2, precio: 17990 }];
-    const o = ofertaConCupon({ contratacion: { primerCobro: 20990, mensual: 20990, lavadoUnico: 9990, packs } }, { valor: 4000, esPorcentaje: false });
-    expect(o.contratacion).toEqual({ primerCobro: 16990, mensual: 20990, lavadoUnico: 5990, packs });
+    const o = ofertaConCupon(
+      { contratacion: { primerCobro: 20990, mensual: 20990, primerCobroX3: 14990, mensualX3: 14990, lavadoUnico: 9990, packs } },
+      { valor: 4000, esPorcentaje: false }
+    );
+    expect(o.contratacion).toEqual({ primerCobro: 16990, mensual: 20990, primerCobroX3: 10990, mensualX3: 14990, lavadoUnico: 5990, packs });
   });
 
   it("sin cupón devuelve la misma oferta", () => {
@@ -2333,6 +2336,9 @@ describe("calcularOfertasPlan", () => {
     expect(oferta.contratacion).toEqual({
       primerCobro: 20990,
       mensual: 20990,
+      // Plan X3 sin fila en precios: su default de 14.990.
+      primerCobroX3: 14990,
+      mensualX3: 14990,
       lavadoUnico: 9990,
       packs: [{ id: "promo_2_lavados", lavados: 2, precio: 17990 }],
     });
