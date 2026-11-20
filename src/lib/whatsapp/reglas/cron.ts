@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, cobrosOneclick, cupones, disparosReglaWhatsapp, ingresos, reglasWhatsapp, suscripcionesOneclick, ventas } from "@/db/schema";
+import { clientes, cobrosOneclick, cupones, disparosReglaWhatsapp, ingresos, mensajesSms, reglasWhatsapp, suscripcionesOneclick, ventas } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import { cuponFromRow } from "@/lib/dataAccess/cupones";
 import {
@@ -244,13 +244,15 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
     }
   }
 
-  const sinVisita = await procesarSinVisita(ahoraISO);
+  // Primero las ofertas de plan y de pack: "sin_visita" corre al final y no
+  // le manda los $3.000 a quien acaba de recibir una (ver ofertasRecientes).
   const porVencer = await procesarCuponesPorVencer(ahoraISO);
   const packsPorVencer = await procesarPacksPorVencer(ahoraISO);
   const packsVencidos = await procesarPacksVencidos(ahoraISO);
   const promoX3 = await procesarPromoPrimerMesX3(ahoraISO);
   const vencidos = await procesarPlanesVencidos(ahoraISO);
   const rechazados = await procesarCobrosRechazados(ahoraISO);
+  const sinVisita = await procesarSinVisita(ahoraISO);
   const extras = [sinVisita, porVencer, packsPorVencer, packsVencidos, promoX3, vencidos, rechazados];
   return {
     procesados: procesados + extras.reduce((s, r) => s + r.procesados, 0),
@@ -448,6 +450,7 @@ async function procesarSinVisita(ahoraISO: string): Promise<{ procesados: number
   } catch (error) {
     console.error("Error cargando reglas WhatsApp (sin_visita)", error);
   }
+  let prioridad: Awaited<ReturnType<typeof prioridadSinVisita>> | undefined;
   for (const regla of reglas) {
     const dias = regla.condicionDiasAntesVencimiento ?? 0;
     if (dias <= 0) continue;
@@ -468,17 +471,27 @@ async function procesarSinVisita(ahoraISO: string): Promise<{ procesados: number
     for (const row of filas) {
       // Mismo criterio que el mesón (incluye el último día y la espera de Woo).
       if (row.vencimiento && planStatus(clienteFromRow(row)).label !== "Vencido") continue;
+      // Prioridad de ofertas (19-nov-2026): los $3.000 no le llegan a quien
+      // tiene un ticket o un descuento vivo (no los usa: 0 de 161 en nov) ni
+      // a quien recibió otra oferta en los últimos 7 días. Queda "omitido"
+      // (id "prio-…", para medirlo); si sigue sin venir, lo toma el umbral
+      // siguiente.
+      prioridad ??= await prioridadSinVisita(ahoraISO);
+      const bloqueado =
+        (!!row.patente && (prioridad.conTicketODescuento.has(row.patente) || prioridad.ofertaReciente.patentes.has(row.patente))) ||
+        prioridad.ofertaReciente.clientes.has(row.id) ||
+        (!!telefonoClave(row.telefono) && prioridad.ofertaReciente.telefonos.has(telefonoClave(row.telefono)));
       const disparo = await registrarDisparoReglaWhatsapp({
-        id: uid(),
+        id: bloqueado ? `prio-${uid()}` : uid(),
         reglaId: regla.id,
         origenTipo: "cliente",
         origenId: `${row.id}:${row.ultimaVisita}:${dias}`,
         clienteId: row.id,
         patente: row.patente ?? undefined,
-        estado: "programado",
+        estado: bloqueado ? "omitido" : "programado",
         enviarEn: ahoraISO,
       });
-      if (!disparo) continue;
+      if (!disparo || bloqueado) continue;
       try {
         await ejecutarAccionRegla(regla, disparo.id, clienteFromRow(row));
         procesados++;
@@ -490,6 +503,64 @@ async function procesarSinVisita(ahoraISO: string): Promise<{ procesados: number
     }
   }
   return { procesados, errores };
+}
+
+/** Los últimos 9 dígitos del teléfono: el mismo celular escrito con o sin +56. */
+const telefonoClave = (t: string | null | undefined) => (t ?? "").replace(/\D/g, "").slice(-9);
+
+// Ofertas que le ganan a los $3.000 de "sin_visita" si salieron en los
+// últimos DIAS_OFERTA_RECIENTE días.
+const EVENTOS_OFERTA = ["fin_pack_x3", "habitual_sin_plan", "plan_vencido_dias", "pack_vencido", "ultimo_ticket_pack"];
+const DIAS_OFERTA_RECIENTE = 7;
+
+/** Lo que bloquea los $3.000 de "sin_visita" (ver procesarSinVisita): patentes
+ * con un ticket o un descuento vivo, y clientes, patentes o teléfonos que
+ * recibieron otra oferta (regla o campaña manual por SMS) en los últimos
+ * DIAS_OFERTA_RECIENTE días. Se lee una vez por corrida. */
+async function prioridadSinVisita(ahoraISO: string) {
+  const db = getDb();
+  const desde = new Date(new Date(ahoraISO).getTime() - DIAS_OFERTA_RECIENTE * MS_POR_DIA).toISOString();
+  const [vivos, disparos, campanas] = await Promise.all([
+    db
+      .select({ tipo: cupones.tipo, patenteAsignada: cupones.patenteAsignada, patentesAutorizadas: cupones.patentesAutorizadas })
+      .from(cupones)
+      .where(
+        and(
+          eq(cupones.usado, false),
+          gt(cupones.fechaCaducidad, ahoraISO),
+          or(and(eq(cupones.tipo, "vale"), isNotNull(cupones.patentesAutorizadas)), and(eq(cupones.tipo, "descuento"), isNotNull(cupones.patenteAsignada)))
+        )
+      ),
+    db
+      .select({ clienteId: disparosReglaWhatsapp.clienteId, patente: disparosReglaWhatsapp.patente, telefono: clientes.telefono })
+      .from(disparosReglaWhatsapp)
+      .innerJoin(reglasWhatsapp, eq(reglasWhatsapp.id, disparosReglaWhatsapp.reglaId))
+      .leftJoin(clientes, eq(clientes.id, disparosReglaWhatsapp.clienteId))
+      .where(
+        and(
+          inArray(reglasWhatsapp.tipoEvento, EVENTOS_OFERTA),
+          eq(disparosReglaWhatsapp.estado, "enviado"),
+          gte(disparosReglaWhatsapp.creadoEn, desde)
+        )
+      ),
+    db
+      .select({ clienteId: mensajesSms.clienteId, telefono: mensajesSms.telefono })
+      .from(mensajesSms)
+      .where(and(sql`${mensajesSms.campana} not like 'regla:%'`, eq(mensajesSms.estado, "enviado"), gte(mensajesSms.creadoEn, desde))),
+  ]);
+  const conTicketODescuento = new Set<string>();
+  for (const c of vivos) {
+    if (c.tipo === "vale") for (const p of c.patentesAutorizadas ?? []) conTicketODescuento.add(p);
+    else if (c.patenteAsignada) conTicketODescuento.add(c.patenteAsignada);
+  }
+  const ofertaReciente = { clientes: new Set<string>(), patentes: new Set<string>(), telefonos: new Set<string>() };
+  for (const d of [...disparos, ...campanas]) {
+    if (d.clienteId) ofertaReciente.clientes.add(d.clienteId);
+    if ("patente" in d && d.patente) ofertaReciente.patentes.add(d.patente);
+    const t = telefonoClave(d.telefono);
+    if (t) ofertaReciente.telefonos.add(t);
+  }
+  return { conTicketODescuento, ofertaReciente };
 }
 
 // "cupon_por_vencer": recordatorio N días antes de que venza el descuento de
