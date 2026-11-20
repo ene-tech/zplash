@@ -781,6 +781,29 @@ export async function procesarPlanesVencidos(ahoraISO: string): Promise<{ proces
       const cliente = clienteFromRow(row);
       if (planStatus(cliente).label !== "Vencido") continue;
       if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(row.plan ?? "")) continue;
+      // Mínimo / máximo de pasadas en su último mes de plan (sin garantías).
+      // La oferta del X3 va solo a quien usaba 3 o menos: al que usaba 4-5,
+      // pasarlo al X3 le baja $5.000 al mes (informe comercial 19-nov-2026).
+      if (regla.condicionPasadasMin != null || regla.condicionPasadasMax != null) {
+        const fin = new Date(row.vencimiento!);
+        const inicio = new Date(fin);
+        inicio.setMonth(inicio.getMonth() - 1);
+        const pasadas = (
+          await getDb()
+            .select({ id: ingresos.id })
+            .from(ingresos)
+            .where(
+              and(
+                eq(ingresos.clienteId, row.id),
+                eq(ingresos.esGarantia, false),
+                gte(ingresos.fecha, inicio.toISOString()),
+                lt(ingresos.fecha, fin.toISOString())
+              )
+            )
+        ).length;
+        if (regla.condicionPasadasMin != null && pasadas < regla.condicionPasadasMin) continue;
+        if (regla.condicionPasadasMax != null && pasadas > regla.condicionPasadasMax) continue;
+      }
       const disparo = await registrarDisparoReglaWhatsapp({
         id: uid(),
         reglaId: regla.id,
