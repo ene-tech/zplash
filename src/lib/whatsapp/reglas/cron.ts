@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clientes, cupones, disparosReglaWhatsapp, ingresos, reglasWhatsapp, ventas } from "@/db/schema";
+import { clientes, cobrosOneclick, cupones, disparosReglaWhatsapp, ingresos, reglasWhatsapp, suscripcionesOneclick, ventas } from "@/db/schema";
 import { clienteFromRow } from "@/lib/dataAccess/clientes";
 import { cuponFromRow } from "@/lib/dataAccess/cupones";
 import {
@@ -14,7 +14,10 @@ import {
   tomarDisparoProgramado,
 } from "@/lib/dataAccess/whatsapp";
 import {
+  diaCaja,
   finDelDiaSantiago,
+  planDeSuscripcion,
+  PLAN_X3,
   finUltimoPack,
   HORAS_VENTANA_RECOMPRA_PACK,
   KEYS_PROMOS_LAVADOS,
@@ -28,7 +31,8 @@ import {
 import { patentesConAutopago } from "@/lib/mailing/reglas/cron";
 import { LOTE_TICKET_REACTIVACION } from "@/lib/pagos/ticketReactivacion";
 import { buscarCliente, ejecutarAccionRegla, LOTE_CUPON_SIN_VISITA, MS_POR_DIA, promoVipParaCliente } from "./motor";
-import type { Cupon, DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
+import { rachaActual, type IntentoCobro } from "@/lib/pagos/politicaReintento";
+import type { Cliente, Cupon, DisparoReglaWhatsapp, ReglaWhatsapp } from "@/types";
 
 // Disparos "venta_creada" con espera (delayDias/delayMinutos) cuya hora ya
 // llegó. Lo corren el cron diario (abajo) y el de cada 15 min
@@ -245,9 +249,12 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
   const packsPorVencer = await procesarPacksPorVencer(ahoraISO);
   const packsVencidos = await procesarPacksVencidos(ahoraISO);
   const promoX3 = await procesarPromoPrimerMesX3(ahoraISO);
+  const vencidos = await procesarPlanesVencidos(ahoraISO);
+  const rechazados = await procesarCobrosRechazados(ahoraISO);
+  const extras = [sinVisita, porVencer, packsPorVencer, packsVencidos, promoX3, vencidos, rechazados];
   return {
-    procesados: procesados + sinVisita.procesados + porVencer.procesados + packsPorVencer.procesados + packsVencidos.procesados + promoX3.procesados,
-    errores: errores + sinVisita.errores + porVencer.errores + packsPorVencer.errores + packsVencidos.errores + promoX3.errores,
+    procesados: procesados + extras.reduce((s, r) => s + r.procesados, 0),
+    errores: errores + extras.reduce((s, r) => s + r.errores, 0),
   };
 }
 
@@ -715,6 +722,269 @@ async function procesarPromoPrimerMesX3(ahoraISO: string): Promise<{ procesados:
       console.error("Error buscando habituales sin plan para la promo del Plan X3", error);
       errores++;
     }
+  }
+  return { procesados, errores };
+}
+
+// ---------------------------------------------------------------------------
+// Oportunidades comerciales del 19-nov-2026 (informe del agente comercial):
+// plan vencido sin volver, cobro automático rechazado que nunca se recupera e
+// inscripción de tarjeta a medias. Ninguna lleva descuento ni grupo de
+// control: el dueño quiere que le llegue a todos.
+// ---------------------------------------------------------------------------
+
+// Días de margen de los avisos por días cumplidos: si el cron no corre un día,
+// el que los cumplió ayer igual entra hoy. El origenId evita el doble envío.
+const DIAS_VENTANA_AVISO = 3;
+
+/** Día calendario de Chile como entero (mismo conteo que politicaReintento). */
+const diaChileNum = (fecha: string | Date) => Date.parse(diaCaja(new Date(fecha).toISOString()) + "T00:00:00Z") / MS_POR_DIA;
+
+/**
+ * "plan_vencido_dias": cliente cuyo plan venció hace N días
+ * (condicionDiasAntesVencimiento) y no volvió. Sin cobro automático vivo (ese
+ * va por "cobro_rechazado_recordatorio") y con el plan "Vencido" según el
+ * mismo criterio del mesón (incluye la espera de Woo). Una regla por umbral
+ * (ej. 1 y 7 días el X5, 21 días la oferta del X3). origenId con el
+ * vencimiento: si renueva y vuelve a vencer, vuelve a ser elegible.
+ */
+export async function procesarPlanesVencidos(ahoraISO: string): Promise<{ procesados: number; errores: number }> {
+  let procesados = 0;
+  let errores = 0;
+  let reglas: ReglaWhatsapp[] = [];
+  try {
+    reglas = await listarReglasWhatsappActivas("plan_vencido_dias");
+  } catch (error) {
+    console.error("Error cargando reglas (plan_vencido_dias)", error);
+    return { procesados, errores: errores + 1 };
+  }
+  if (!reglas.length) return { procesados, errores };
+  const conAutopago = await patentesConAutopago();
+  for (const regla of reglas) {
+    const dias = regla.condicionDiasAntesVencimiento ?? 0;
+    if (dias <= 0) continue;
+    const hasta = new Date(Date.now() - dias * MS_POR_DIA).toISOString();
+    const desde = new Date(Date.now() - (dias + DIAS_VENTANA_AVISO) * MS_POR_DIA).toISOString();
+    let filas: (typeof clientes.$inferSelect)[];
+    try {
+      filas = await getDb()
+        .select()
+        .from(clientes)
+        .where(and(isNotNull(clientes.vencimiento), gt(clientes.vencimiento, desde), lte(clientes.vencimiento, hasta)));
+    } catch (error) {
+      console.error("Error buscando planes vencidos", regla.id, error);
+      errores++;
+      continue;
+    }
+    for (const row of filas) {
+      if (!row.patente || conAutopago.has(row.patente)) continue;
+      const cliente = clienteFromRow(row);
+      if (planStatus(cliente).label !== "Vencido") continue;
+      if (regla.condicionPlanes?.length && !regla.condicionPlanes.includes(row.plan ?? "")) continue;
+      const disparo = await registrarDisparoReglaWhatsapp({
+        id: uid(),
+        reglaId: regla.id,
+        origenTipo: "cliente",
+        origenId: `${row.id}:${row.vencimiento}:${dias}`,
+        clienteId: row.id,
+        patente: row.patente,
+        estado: "programado",
+        enviarEn: ahoraISO,
+      });
+      if (!disparo) continue;
+      try {
+        await ejecutarAccionRegla(regla, disparo.id, cliente);
+        procesados++;
+      } catch (error) {
+        console.error("Error disparando regla plan_vencido_dias", regla.id, row.id, error);
+        await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+        errores++;
+      }
+    }
+  }
+  return { procesados, errores };
+}
+
+/**
+ * "cobro_rechazado_recordatorio": el cobro automático de su plan lleva N días
+ * (condicionDiasAntesVencimiento, contados desde el primer rechazo de la racha,
+ * ver rachaActual) sin pasar. El aviso del primer rechazo es "cobro_fallido";
+ * éste insiste antes de que la baja del día 21 cancele la suscripción (ver
+ * bajaPorCobroFallido). Solo suscripciones "activa": la "suspendida" es una
+ * pausa del cliente o del admin.
+ */
+export async function procesarCobrosRechazados(ahoraISO: string): Promise<{ procesados: number; errores: number }> {
+  let procesados = 0;
+  let errores = 0;
+  let reglas: ReglaWhatsapp[] = [];
+  try {
+    reglas = await listarReglasWhatsappActivas("cobro_rechazado_recordatorio");
+  } catch (error) {
+    console.error("Error cargando reglas (cobro_rechazado_recordatorio)", error);
+    return { procesados, errores: errores + 1 };
+  }
+  if (!reglas.length) return { procesados, errores };
+  const db = getDb();
+  const hoy = diaChileNum(ahoraISO);
+  try {
+    // Cobros de los últimos 30 días de las suscripciones activas: una racha
+    // que importa (hasta el día 21) empezó dentro de esa ventana.
+    const desde = new Date(Date.now() - 30 * MS_POR_DIA).toISOString();
+    const filas = await db
+      .select({ suscripcion: suscripcionesOneclick, cobro: cobrosOneclick })
+      .from(cobrosOneclick)
+      .innerJoin(suscripcionesOneclick, eq(suscripcionesOneclick.id, cobrosOneclick.suscripcionId))
+      .where(and(eq(suscripcionesOneclick.estado, "activa"), gte(cobrosOneclick.creadoEn, desde)));
+    const porSuscripcion = new Map<string, { suscripcion: typeof suscripcionesOneclick.$inferSelect; cobros: IntentoCobro[] }>();
+    for (const { suscripcion, cobro } of filas) {
+      const g = porSuscripcion.get(suscripcion.id) ?? { suscripcion, cobros: [] };
+      g.cobros.push({ id: cobro.id, estado: cobro.estado, responseCode: cobro.responseCode, creadoEn: cobro.creadoEn, monto: cobro.monto });
+      porSuscripcion.set(suscripcion.id, g);
+    }
+    for (const { suscripcion, cobros } of porSuscripcion.values()) {
+      const historial = cobros.sort((a, b) => (a.creadoEn < b.creadoEn ? 1 : -1));
+      const racha = rachaActual(historial, suscripcion.proximoCobro);
+      if (!racha.length) continue;
+      const diasRacha = hoy - diaChileNum(racha[0].creadoEn);
+      const [row] = await db.select().from(clientes).where(eq(clientes.patente, suscripcion.patente)).limit(1);
+      if (!row) continue;
+      const cliente = clienteFromRow(row);
+      for (const regla of reglas) {
+        const dias = regla.condicionDiasAntesVencimiento ?? 0;
+        if (dias <= 0 || diasRacha < dias || diasRacha >= dias + DIAS_VENTANA_AVISO) continue;
+        const disparo = await registrarDisparoReglaWhatsapp({
+          id: uid(),
+          reglaId: regla.id,
+          origenTipo: "cobro",
+          origenId: `${suscripcion.id}:${racha[0].id}:${dias}`,
+          clienteId: row.id,
+          patente: suscripcion.patente,
+          estado: "programado",
+          enviarEn: ahoraISO,
+        });
+        if (!disparo) continue;
+        try {
+          await ejecutarAccionRegla(regla, disparo.id, cliente, racha.at(-1)!.monto);
+          procesados++;
+        } catch (error) {
+          console.error("Error disparando regla cobro_rechazado_recordatorio", regla.id, suscripcion.id, error);
+          await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+          errores++;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error buscando cobros rechazados", error);
+    errores++;
+  }
+  return { procesados, errores };
+}
+
+// Hasta cuántas horas después de quedar a medias se le escribe a una
+// inscripción de tarjeta: más tarde ya no se acuerda de qué se trataba.
+const HORAS_MAX_INSCRIPCION_PENDIENTE = 48;
+
+/**
+ * "inscripcion_pendiente": empezó a inscribir la tarjeta para contratar el
+ * plan (suscripción "pendiente") y no terminó en Transbank. Una regla por
+ * espera (condicionDiasAntesVencimiento = HORAS desde que quedó a medias, ej.
+ * 1 y 24). Lo corre el cron de cada 15 min, para que el de 1 hora llegue a la
+ * hora. Una vez por patente y regla (no por intento): el que abandona dos
+ * veces no recibe cuatro mensajes. No sale si ya tiene otra tarjeta viva o el
+ * plan vigente (terminó por otro lado).
+ */
+export async function procesarInscripcionesPendientes(): Promise<{ procesados: number; errores: number }> {
+  let procesados = 0;
+  let errores = 0;
+  let reglas: ReglaWhatsapp[] = [];
+  try {
+    reglas = await listarReglasWhatsappActivas("inscripcion_pendiente");
+  } catch (error) {
+    console.error("Error cargando reglas (inscripcion_pendiente)", error);
+    return { procesados, errores: errores + 1 };
+  }
+  if (!reglas.length) return { procesados, errores };
+  const db = getDb();
+  const ahora = Date.now();
+  try {
+    const pendientes = await db
+      .select()
+      .from(suscripcionesOneclick)
+      .where(
+        and(
+          eq(suscripcionesOneclick.estado, "pendiente"),
+          gte(
+            sql`coalesce(${suscripcionesOneclick.actualizadoEn}, ${suscripcionesOneclick.creadoEn})`,
+            new Date(ahora - HORAS_MAX_INSCRIPCION_PENDIENTE * 3600_000).toISOString()
+          )
+        )
+      );
+    if (!pendientes.length) return { procesados, errores };
+    const patentes = [...new Set(pendientes.map((s) => s.patente))];
+    const vivas = new Set(
+      (
+        await db
+          .select({ patente: suscripcionesOneclick.patente })
+          .from(suscripcionesOneclick)
+          .where(and(inArray(suscripcionesOneclick.patente, patentes), inArray(suscripcionesOneclick.estado, ["activa", "suspendida"])))
+      ).map((r) => r.patente)
+    );
+    const fichas = new Map((await db.select().from(clientes).where(inArray(clientes.patente, patentes))).map((r) => [r.patente, r]));
+    // La más reciente por patente.
+    const porPatente = new Map<string, typeof suscripcionesOneclick.$inferSelect>();
+    for (const s of pendientes) {
+      const t = (x: typeof s) => x.actualizadoEn ?? x.creadoEn;
+      const previa = porPatente.get(s.patente);
+      if (!previa || t(s) > t(previa)) porPatente.set(s.patente, s);
+    }
+    for (const s of porPatente.values()) {
+      if (vivas.has(s.patente)) continue;
+      const row = fichas.get(s.patente);
+      const cliente: Cliente = row
+        ? clienteFromRow(row)
+        : { id: "", nombre: "", patente: s.patente, telefono: s.telefono ?? undefined, email: s.email, creadoEn: s.creadoEn };
+      // El teléfono y el correo que puso al inscribir son los más frescos.
+      if (s.telefono) cliente.telefono = s.telefono;
+      if (s.email) cliente.email = s.email;
+      if (row && planStatus(cliente).cls !== "bad") continue;
+      const horas = (ahora - new Date(s.actualizadoEn ?? s.creadoEn).getTime()) / 3600_000;
+      const linkPago = `https://zplash.cl/pagar?item=${planDeSuscripcion(s.plan) === PLAN_X3 ? "plan_x3" : "plan"}&patente=${encodeURIComponent(s.patente)}`;
+      // Solo la espera más larga ya cumplida: la que quedó a medias hace 30 h
+      // recibe el aviso de 24 h, no los dos juntos. Las reglas de una misma
+      // espera (SMS y correo) salen las dos.
+      const esperas = reglas.map((r) => r.condicionDiasAntesVencimiento ?? 0).filter((e) => e <= horas);
+      if (!esperas.length) continue;
+      const objetivo = Math.max(...esperas);
+      for (const regla of reglas) {
+        const espera = regla.condicionDiasAntesVencimiento ?? 0;
+        if (espera !== objetivo) continue;
+        const disparo = await registrarDisparoReglaWhatsapp({
+          id: uid(),
+          reglaId: regla.id,
+          origenTipo: "cliente",
+          origenId: `inscripcion:${s.patente}:${espera}`,
+          clienteId: row?.id,
+          patente: s.patente,
+          estado: "programado",
+          enviarEn: new Date(ahora).toISOString(),
+        });
+        if (!disparo) continue;
+        try {
+          await ejecutarAccionRegla(regla, disparo.id, cliente, undefined, undefined, undefined, undefined, {
+            linkPago,
+            plan: planDeSuscripcion(s.plan),
+          });
+          procesados++;
+        } catch (error) {
+          console.error("Error disparando regla inscripcion_pendiente", regla.id, s.id, error);
+          await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+          errores++;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error buscando inscripciones pendientes", error);
+    errores++;
   }
   return { procesados, errores };
 }

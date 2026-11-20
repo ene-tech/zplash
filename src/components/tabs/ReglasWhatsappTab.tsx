@@ -51,6 +51,13 @@ function resumenCondicion(r: ReglaWhatsapp): string {
   if (r.tipoEvento === "pack_vencido") return "Se le vencieron tickets de un pack sin usar (ofrece la recompra del mesón)";
   if (r.tipoEvento === "pack_extendido") return "Se le vencían tickets de un pack sin usar y se los extendimos 2 días (sale a la mañana siguiente)";
   if (r.tipoEvento === "sin_visita") return `Cliente sin plan vigente que lleva ${r.condicionDiasAntesVencimiento ?? 0} día(s) sin venir`;
+  if (r.tipoEvento === "plan_vencido_dias") return `Plan vencido hace ${r.condicionDiasAntesVencimiento ?? 0} día(s), sin cobro automático`;
+  if (r.tipoEvento === "cobro_rechazado_recordatorio") {
+    return `Cobro automático rechazado hace ${r.condicionDiasAntesVencimiento ?? 0} día(s) y sin pagar`;
+  }
+  if (r.tipoEvento === "inscripcion_pendiente") {
+    return `Inscripción de tarjeta a medias hace ${r.condicionDiasAntesVencimiento ?? 0} hora(s) (una vez por patente)`;
+  }
   if (r.tipoEvento === "fin_pack_x3") {
     return "Sin plan que terminó su pack y no recompró en 48 h: oferta del Plan X3";
   }
@@ -238,6 +245,9 @@ export default function ReglasWhatsappTab() {
             <option value="pack_vencido">Se le vencieron tickets de un pack sin usar</option>
             <option value="pack_extendido">Se le extendieron 2 días los tickets de un pack que vencían</option>
             <option value="cerca_local">Cliente con la app pasa cerca del local (sin plan, N+ días sin venir)</option>
+            <option value="plan_vencido_dias">Plan vencido hace N días (sin cobro automático)</option>
+            <option value="cobro_rechazado_recordatorio">Cobro automático rechazado hace N días</option>
+            <option value="inscripcion_pendiente">Inscripción de tarjeta a medias hace N horas</option>
             <option value="fin_pack_x3">Sin plan termina su pack y no recompra (oferta Plan X3)</option>
             <option value="habitual_sin_plan">Sin plan viene 2+ días en 30 (oferta Plan X3)</option>
           </select>

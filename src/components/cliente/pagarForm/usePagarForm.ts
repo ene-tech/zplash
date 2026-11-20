@@ -80,12 +80,12 @@ export function usePagarForm() {
   const [inscribiendo, setInscribiendo] = useState(false);
   const [accionServicio, setAccionServicio] = useState<AccionServicio | null>(null);
 
-  // ?item=plan_x3&patente=XXX es el link de la promo del primer mes del Plan
-  // X3 (SMS y correo, ver reglas "fin_pack_x3" y "habitual_sin_plan"): llega
-  // con la patente ya buscada y el X3 elegido (ver ResultadoBusqueda), así el
-  // cliente solo completa su correo y su celular.
+  // ?item=plan(_x3)&patente=XXX es el link de los SMS y correos de plan
+  // ({{linkPago}}, {{linkPlanX3}}) y del bot: llega con la patente ya buscada
+  // y el plan elegido (ver ResultadoBusqueda), así el cliente solo completa
+  // su correo y su celular.
   useEffect(() => {
-    if (item === "plan_x3" && patente) buscar();
+    if ((item === "plan" || item === "plan_x3") && patente) buscar();
     // Solo al abrir el link.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

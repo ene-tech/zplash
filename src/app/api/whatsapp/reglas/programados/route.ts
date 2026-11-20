@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rechazoSiNoEsCron } from "@/lib/cron";
-import { procesarDisparosProgramados } from "@/lib/whatsapp/reglas";
+import { procesarDisparosProgramados, procesarInscripcionesPendientes } from "@/lib/whatsapp/reglas";
 
 export const runtime = "nodejs";
 
@@ -15,5 +15,12 @@ export async function GET(request: NextRequest) {
   if (rechazo) return rechazo;
 
   const resultado = await procesarDisparosProgramados();
-  return NextResponse.json({ ok: true, ...resultado });
+  // Inscripciones de tarjeta a medias: el aviso de 1 hora necesita este cron
+  // y no el diario.
+  const inscripciones = await procesarInscripcionesPendientes();
+  return NextResponse.json({
+    ok: true,
+    procesados: resultado.procesados + inscripciones.procesados,
+    errores: resultado.errores + inscripciones.errores,
+  });
 }

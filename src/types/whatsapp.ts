@@ -211,7 +211,16 @@ export type TipoEventoReglaWhatsapp =
   // procesarPromoPrimerMesX3): terminó su último pack y se cerró la ventana de
   // recompra sin comprar otro / viene seguido sin plan.
   | "fin_pack_x3"
-  | "habitual_sin_plan";
+  | "habitual_sin_plan"
+  // Cron diario: el plan venció hace N días (condicionDiasAntesVencimiento) y
+  // no volvió, sin cobro automático vivo (ver procesarPlanesVencidos).
+  | "plan_vencido_dias"
+  // Cron diario: el cobro automático lleva N días rechazado desde el primer
+  // rechazo de la racha (ver procesarCobrosRechazados).
+  | "cobro_rechazado_recordatorio"
+  // Cron de cada 15 min: inscripción de tarjeta a medias hace N HORAS
+  // (condicionDiasAntesVencimiento, ver procesarInscripcionesPendientes).
+  | "inscripcion_pendiente";
 // "cupon_regalo": código de referido abierto, para regalárselo a un amigo (ver
 // rechazoCodigoReferido en @/lib/referidos); usa cuponValor/cuponValidezDias.
 // Conserva el nombre de antes (oct-2026, "regalo del lavado") porque es el

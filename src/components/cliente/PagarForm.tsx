@@ -123,7 +123,10 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
             setTelefono={r.setTelefono}
             inscribiendo={r.inscribiendo}
             activarAutomatica={r.activarAutomatica}
-            planInicial={r.item === "plan_x3" ? PLAN_X3 : undefined}
+            planInicial={r.item === "plan_x3" || r.resultado?.plan === PLAN_X3 ? PLAN_X3 : undefined}
+            // Se vuelve a montar con cada búsqueda: el plan elegido arranca
+            // en el que corresponde a esa patente (el X3 si ya lo tiene).
+            key={r.resultado ? `r-${r.resultado.plan ?? ""}-${r.resultado.nombre ?? ""}` : "vacio"}
           />
 
           {ofrecerPromo && (

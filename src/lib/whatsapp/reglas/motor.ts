@@ -16,6 +16,7 @@ import {
   HORAS_VENTANA_RECOMPRA_PACK,
   KEYS_PROMOS_LAVADOS,
   PROMO_VIP_KEY,
+  PLAN_X3,
   aplicarVariables,
   esTicketLibreVip,
   ofertaPromoVip,
@@ -126,7 +127,9 @@ export function construirVariables(opts: {
     patente: opts.cliente.patente || "",
     // Link de pago del plan con la patente puesta: lo que sirve cuando el
     // cobro automático falló o se cortó (cambiar la tarjeta no cobra solo).
-    linkPago: opts.cliente.patente ? `https://zplash.cl/pagar?item=plan&patente=${encodeURIComponent(opts.cliente.patente)}` : "https://zplash.cl/pagar?item=plan",
+    // El del X3 abre /pagar con el X3 elegido: con el X5 elegido, /inscribir
+    // rechaza al que ya tiene la tarjeta con el X3 (uno u otro).
+    linkPago: `https://zplash.cl/pagar?item=${opts.cliente.plan === PLAN_X3 ? "plan_x3" : "plan"}${opts.cliente.patente ? `&patente=${encodeURIComponent(opts.cliente.patente)}` : ""}`,
     // Link de la promo del primer mes del Plan X3: abre /pagar con la patente
     // ya buscada y el X3 elegido (ver usePagarForm).
     linkPlanX3: `https://zplash.cl/pagar?item=plan_x3${opts.cliente.patente ? `&patente=${encodeURIComponent(opts.cliente.patente)}` : ""}`,
@@ -432,7 +435,11 @@ export async function ejecutarAccionRegla(
   ventaMonto?: number,
   patenteAnterior?: string,
   cupon?: { id: string; codigo: string; fechaCaducidad: string },
-  ticketUsado?: string
+  ticketUsado?: string,
+  // Variables que arma quien dispara y que no salen del cliente (ej.
+  // {{linkPago}} con el plan de una inscripción a medias, ver
+  // procesarInscripcionesPendientes). Pisan a las calculadas.
+  variablesExtra?: Record<string, string>
 ): Promise<void> {
   // Cliente marcado "no recibe mensajes automáticos" en su ficha (ver
   // sinComunicacionAuto en @/db/schema/clientes). Se corta acá, el único
@@ -475,6 +482,7 @@ export async function ejecutarAccionRegla(
   const variables = {
     ...construirVariables({ cliente, monto: ventaMonto, montoOferta, diasValidez, patenteAnterior, descuentoReferido, cupon }),
     ...(await variablesCalculadas(plantilla, cliente, ticketUsado)),
+    ...variablesExtra,
   };
   // "Te quedan  lavados" no se manda: el plan de este cliente no tiene tope
   // (ilimitado viejo), así que el aviso no le corresponde.
@@ -505,9 +513,9 @@ export async function ejecutarAccionRegla(
     const texto = aplicarVariables(plantilla.mensaje, variables);
     const envio =
       regla.canal === "sms"
-        ? await enviarSms({ telefono: cliente.telefono ?? "", texto, campana: `regla:${regla.id}`, clienteId: cliente.id, enviadoPor: "regla-sms" })
+        ? await enviarSms({ telefono: cliente.telefono ?? "", texto, campana: `regla:${regla.id}`, clienteId: cliente.id || undefined, enviadoPor: "regla-sms" })
         : esEmailEnviable(cliente.email)
-          ? await enviarCorreoTransaccional({ to: cliente.email!.trim(), subject: aplicarVariables(plantilla.nombre, variables), html: envolverCorreoBase(texto, {}), clienteId: cliente.id })
+          ? await enviarCorreoTransaccional({ to: cliente.email!.trim(), subject: aplicarVariables(plantilla.nombre, variables), html: envolverCorreoBase(texto, {}), clienteId: cliente.id || undefined })
           : { ok: false, error: "sin correo" };
     if (!envio.ok) console.error(`Regla "${regla.nombre}" (${regla.canal}): no se pudo enviar al cliente ${cliente.id}`, envio.error);
     await marcarDisparoReglaWhatsapp(disparoId, { estado: envio.ok ? "enviado" : "error", cuponId });
