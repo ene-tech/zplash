@@ -57,23 +57,14 @@ type Opcion = {
 
 // Escalera de compra única del lavado túnel: 1 lavado, 2 tickets (Promo 2
 // Lavados) y 4 tickets (Promo 4 Lavados), todas por Webpay Plus y sin plan —
-// el Plan X5 con cobro automático va aparte (ver TiposLavadoTab). Muestra el
+// los planes X3 y X5 con cobro automático van aparte, debajo (ver
+// TiposLavadoTab). Muestra el
 // precio por lavado y el ahorro contra el suelto para que la comparación se
 // haga sola. Los precios salen siempre de la base (getPreciosPublicos), los
 // mismos que cobra webpay/crear; un pack en $0 está apagado y no se muestra.
-// La usan la landing (/) y la landing para compartir (/tickets). Va en tres
-// bloques: el lavado suelto solo, "Promociones" con los packs de 2 y 5, y
-// `children` bajo `tituloExtra` (la landing pone ahí el Plan X5; /tickets no
-// pasa nada y ese bloque no aparece).
-export default function EscaleraTickets({
-  precios,
-  tituloExtra = null,
-  children,
-}: {
-  precios: PreciosPublicos;
-  tituloExtra?: string | null;
-  children?: React.ReactNode;
-}) {
+// La usan la landing (/) y la landing para compartir (/tickets). Va en dos
+// bloques: el lavado suelto solo y "Promociones" con los packs de 2 y 4.
+export default function EscaleraTickets({ precios }: { precios: PreciosPublicos }) {
   const unitario = precios.lavadoUnico.precio;
   const opciones: Opcion[] = [
     {
@@ -124,11 +115,6 @@ export default function EscaleraTickets({
       {promociones.length > 0 && (
         <Bloque titulo="Promociones" tarjetas={promociones.length}>
           {promociones.map((o) => tarjeta(o))}
-        </Bloque>
-      )}
-      {children && (
-        <Bloque titulo={tituloExtra} tarjetas={1}>
-          {children}
         </Bloque>
       )}
     </div>
@@ -191,8 +177,8 @@ export default function EscaleraTickets({
   }
 }
 
-// Columnas más angostas que el card-grid común (260px) para que las 4 tarjetas
-// (suelto, 2, 5 y el Plan X5) quepan en una fila. Cada bloque crece en
+// Columnas más angostas que el card-grid común (260px) para que las tarjetas
+// (suelto, 2 y 4) quepan en una fila. Cada bloque crece en
 // proporción a sus tarjetas, así todas quedan del mismo ancho, y lleva su
 // título encima; el del suelto va vacío (pero ocupa el alto) para que las
 // tarjetas partan alineadas. En pantallas angostas los bloques bajan de línea.

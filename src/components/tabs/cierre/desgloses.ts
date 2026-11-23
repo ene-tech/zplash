@@ -1,4 +1,4 @@
-import { esCuentaPorCobrar, esTarjetaWeb } from "@/lib/helpers";
+import { esCuentaPorCobrar, esTarjetaWeb, PLAN_X3 } from "@/lib/helpers";
 import type { MovimientoContable, Venta } from "@/types";
 
 // Desglosa un grupo de ventas de "Venta nueva web" por tipo de producto
@@ -6,6 +6,13 @@ import type { MovimientoContable, Venta } from "@/types";
 // etc.) en vez de por medio de pago: como todas estas ventas se cobran con
 // tarjeta vía Transbank, un desglose por medio de pago siempre daría una
 // sola fila y no diría nada — lo interesante acá es qué se vendió.
+// El cobro Oneclick del Plan X3 se graba con el mismo tipo que el del X5
+// ("Renovación automática (Oneclick)"); solo la columna plan los distingue.
+// Sin esto el X3 quedaba mezclado con el X5 y no se veía en el Cierre.
+export function tipoVentaConPlan(v: Pick<Venta, "tipo" | "plan">): string {
+  return v.plan === PLAN_X3 ? `${v.tipo} — ${PLAN_X3}` : v.tipo;
+}
+
 export function desglosePorTipoVenta(items: Venta[]) {
   const porTipo = new Map<string, Venta[]>();
   for (const v of items) {

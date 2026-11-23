@@ -22,6 +22,7 @@ import {
 } from "@/lib/helpers";
 import type { CierreCaja, Ingreso, MovimientoContable, ResumenCierre, Venta } from "@/types";
 import { PRODUCTOS_CIERRE } from "./productos";
+import { tipoVentaConPlan } from "./desgloses";
 
 const METODOS_PAGO = [
   { value: "efectivo", label: "Efectivo" },
@@ -220,7 +221,7 @@ export function ArqueoDia(p: Props) {
                       <td>{fmtHora(v.fecha)}</td>
                       <td>{v.patente || "—"}</td>
                       <td>{v.nombre}</td>
-                      <td>{etiquetaTipo(v.tipo)}</td>
+                      <td>{PRODUCTOS_CIERRE.some((x) => x.tipo === v.tipo) ? etiquetaTipo(v.tipo) : tipoVentaConPlan(v)}</td>
                       <td>{fmtCLP(v.precio)}</td>
                       <td>{etiquetaMetodo(v.metodoPago)}</td>
                     </tr>
