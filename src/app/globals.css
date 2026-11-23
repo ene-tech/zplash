@@ -69,6 +69,10 @@
   --shadow-glow-primary: 0 4px 14px -4px rgba(255, 199, 44, 0.45), 0 1px 3px -1px rgba(255, 199, 44, 0.3);
   --shadow-glow-primary-hover: 0 6px 20px -4px rgba(255, 199, 44, 0.6), 0 2px 4px -1px rgba(255, 199, 44, 0.35);
   --shadow-glow-danger: 0 4px 14px -4px rgba(229, 72, 77, 0.4), 0 1px 3px -1px rgba(229, 72, 77, 0.25);
+  /* Dorado cuando es RELLENO (botón, badge, barra). En el tema oscuro es el
+     mismo --gold; en .tema-claro --gold pasa a ser un ámbar oscuro (texto y
+     bordes) y este se queda con el amarillo de marca. */
+  --gold-relleno: var(--gold);
 }
 /* En @layer base: sin capa, este reset universal le gana en cascada a las
    utilidades de Tailwind (que viven en @layer utilities) y deja p-*/m-* en 0
@@ -505,6 +509,35 @@ h4,
   align-items: center;
   gap: 12px;
 }
+/* En el celular "OPERADOR · <perfil>" se montaba sobre el badge de
+   sincronización: el título puede bajar a dos líneas y el badge queda solo
+   con su ícono (ver SyncBadge). */
+@media (max-width: 640px) {
+  .topbar {
+    gap: 8px;
+    padding: 12px;
+  }
+  .topbar .title {
+    min-width: 0;
+    gap: 8px;
+  }
+  .topbar .title .mode {
+    line-height: 1.35;
+    letter-spacing: 0.06em;
+  }
+  .topbar-right {
+    gap: 6px;
+  }
+  .logout-btn {
+    padding: 8px 10px;
+  }
+  .sync-badge {
+    flex-shrink: 0;
+  }
+  .sync-badge-texto {
+    display: none;
+  }
+}
 .content {
   flex: 1;
   padding: 24px;
@@ -556,7 +589,7 @@ h4,
   border-color: var(--gold);
 }
 .btn {
-  background: var(--gold);
+  background: var(--gold-relleno);
   color: #1a1815;
   border: none;
   padding: 14px 28px;
@@ -747,7 +780,7 @@ h4,
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #1a1815;
-  background: var(--gold);
+  background: var(--gold-relleno);
   padding: 3px 10px;
   border-radius: 100px;
 }
@@ -1846,7 +1879,7 @@ tr:hover td {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--gold);
+  background: var(--gold-relleno);
   color: #1a1815;
   box-shadow: var(--shadow-glow-primary);
   flex-shrink: 0;
@@ -1905,7 +1938,7 @@ tr:hover td {
   width: 56px;
   height: 3px;
   border-radius: 2px;
-  background: var(--gold);
+  background: var(--gold-relleno);
 }
 /* Cards de producto (Lavados): mismo .card base que el resto de la web de
    clientes (TicketsCard, UbicacionTab), con precio grande vía
@@ -1925,7 +1958,7 @@ tr:hover td {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #1a1815;
-  background: var(--gold);
+  background: var(--gold-relleno);
   padding: 4px 10px;
   border-radius: 100px;
   margin-bottom: 12px;
@@ -1998,7 +2031,7 @@ tr:hover td {
   right: -18px;
   padding: 4px 14px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffe28a 0%, var(--gold) 55%, #c98f12 100%);
+  background: linear-gradient(180deg, #ffe28a 0%, var(--gold-relleno) 55%, #c98f12 100%);
   color: #1a1815;
   font-size: 19px;
   font-weight: 800;
@@ -2033,7 +2066,7 @@ tr:hover td {
   font-size: 15px;
   font-weight: 700;
   text-decoration: none;
-  background: linear-gradient(180deg, #ffe28a 0%, var(--gold) 45%, #c98f12 100%);
+  background: linear-gradient(180deg, #ffe28a 0%, var(--gold-relleno) 45%, #c98f12 100%);
   border: 1px solid rgba(45, 30, 5, 0.55);
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.6),
@@ -2071,7 +2104,7 @@ tr:hover td {
 .cliente-header-back {
   width: 40px;
   height: 40px;
-  background: linear-gradient(180deg, #ffe28a 0%, var(--gold) 45%, #c98f12 100%);
+  background: linear-gradient(180deg, #ffe28a 0%, var(--gold-relleno) 45%, #c98f12 100%);
   border: 1px solid rgba(45, 30, 5, 0.55);
   text-decoration: none;
 }
@@ -2094,7 +2127,7 @@ tr:hover td {
   position: absolute;
   top: -6px;
   right: -6px;
-  background: var(--gold);
+  background: var(--gold-relleno);
   color: #1a1815;
   font-size: 11px;
   font-weight: 800;
@@ -2131,7 +2164,7 @@ tr:hover td {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--black);
-  background: var(--gold);
+  background: var(--gold-relleno);
   padding: 3px 9px;
   border-radius: 100px;
 }
@@ -2432,7 +2465,7 @@ tr:hover td {
   background: var(--green);
 }
 .nivel-fill.warn {
-  background: var(--gold);
+  background: var(--gold-relleno);
 }
 .nivel-fill.bad {
   background: var(--red);
@@ -2515,7 +2548,7 @@ tr:hover td {
   cursor: pointer;
 }
 .banner-dots button.activo {
-  background: var(--gold);
+  background: var(--gold-relleno);
 }
 
 /* Portada de la landing (LandingHero): foto/video del túnel a sangre con
@@ -2668,7 +2701,7 @@ tr:hover td {
   width: 34px;
   height: 34px;
   border-radius: 999px;
-  background: var(--gold);
+  background: var(--gold-relleno);
   color: #1a1815;
   font-weight: 700;
   display: grid;
@@ -2741,6 +2774,7 @@ tr:hover td {
    avisos con estilo inline se inviertan solos. */
 .ofertas-operador .offer-card {
   --gold: #1a1815;
+  --gold-relleno: #1a1815;
   --white: #1a1815;
   --gray: #5c5546;
   --green: #0a6b35;
@@ -2855,4 +2889,144 @@ body:has(.aviso-cookies) #app {
 }
 .site-footer-link:hover {
   color: var(--gold);
+}
+
+/* ---------- TEMA "DÍA CLARO" (html.tema-claro, ver app/layout.tsx) ----------
+   Propuesta B del rediseño (nov-2026): sitio público, portal y mesón/admin.
+   Mismo truco que .ofertas-operador .offer-card: se redefinen las variables
+   de marca y casi todo se invierte solo. Va en <html> y no en #app para
+   cubrir también lo que se monta fuera de #app (modales, toasts, popovers).
+   Volver al tema oscuro = quitar la clase en layout.tsx.
+   - --gold pasa a ser un ámbar oscuro: casi todos los usos de --gold son
+     texto o borde, y #ffc72c sobre blanco no se lee (1,6:1). Los rellenos
+     amarillos (botones, badges, barras) usan --gold-relleno.
+   - Los tokens de shadcn (--background, --card…) se resuelven en :root, así
+     que hay que repetirlos acá: no heredan el cambio de --bg solos. */
+:root.tema-claro {
+  --bg: #fafaf7;
+  --bg-panel: #ffffff;
+  --bg-card: #ffffff;
+  --border: #e4e1d8;
+  --white: #1a1815; /* "white" = color de texto principal en toda la hoja */
+  --silver: #3d3a34;
+  --gray: #5f5b53;
+  --gold: #7a5d00;
+  --gold-relleno: #ffc72c;
+  --green: #0f7a43;
+  --red: #c4262e;
+  --blue: #1f6fb8;
+  --shadow-elevated: 0 10px 30px -18px rgba(26, 24, 21, 0.25), 0 1px 3px rgba(26, 24, 21, 0.06);
+
+  --background: var(--bg);
+  --foreground: var(--white);
+  --card: var(--bg-card);
+  --card-foreground: var(--white);
+  --popover: var(--bg-panel);
+  --popover-foreground: var(--white);
+  --secondary: #f2f1ec;
+  --secondary-foreground: var(--white);
+  --muted: #f2f1ec;
+  --muted-foreground: var(--gray);
+  --accent: #f2f1ec;
+  --accent-foreground: var(--white);
+  --destructive: var(--red);
+  --input: var(--border);
+  --sidebar: var(--bg-panel);
+  --sidebar-foreground: var(--white);
+  --sidebar-accent: #f2f1ec;
+  --sidebar-accent-foreground: var(--white);
+  --sidebar-border: var(--border);
+  --chart-1: #ffc72c;
+  --chart-2: var(--green);
+  --chart-3: var(--red);
+  --chart-4: #8a8780;
+  --chart-5: #c9c6ba;
+}
+:root.tema-claro body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--font-jakarta), "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+.tema-claro :is(h1, h2, h3, h4, .display, .section-title, .site-nav-link, .site-nav-mobile-link) {
+  font-family: var(--font-jakarta), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+.tema-claro .section-title {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-shadow: none;
+}
+.tema-claro .site-nav-link,
+.tema-claro .site-nav-mobile-link {
+  font-weight: 600;
+  font-size: 15px;
+}
+.tema-claro .site-nav {
+  background: rgba(250, 250, 247, 0.92);
+  backdrop-filter: saturate(1.4) blur(10px);
+}
+/* shadcn: text-primary es dorado de relleno; como texto va en ámbar. */
+.tema-claro .text-primary {
+  color: var(--gold);
+}
+.tema-claro .card,
+.tema-claro .pricing-card {
+  box-shadow: var(--shadow-elevated);
+}
+/* La píldora de oferta es negra a propósito: ahí el precio sigue amarillo. */
+.tema-claro .price-row--deal .new {
+  color: var(--gold-relleno);
+}
+.tema-claro .announce-bar {
+  background: #fff3cc;
+}
+.tema-claro .announce-bar-close:hover {
+  background: rgba(26, 24, 21, 0.06);
+}
+.tema-claro .faq-captura img {
+  border-color: var(--border);
+}
+.tema-claro tr:hover td {
+  background: rgba(26, 24, 21, 0.03);
+}
+/* La portada sigue siendo la foto del túnel con degradé oscuro: dentro de
+   ella se restauran los colores del tema oscuro para que el texto se lea. */
+.tema-claro .landing-hero {
+  --white: #f5f5f0;
+  --silver: #c9c6ba;
+  --gray: #8a8780;
+  --border: #48433b;
+  --gold: #ffc72c;
+  color: var(--white);
+}
+.tema-claro .landing-hero .landing-hero-title {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* logo-oscuro.png: mismo logo con las letras en el negro de marca y SIN el
+   margen transparente de logo.png — a igual altura se vería el doble de
+   grande, por eso alturas propias. */
+.logo-recortado {
+  height: 40px;
+  width: auto;
+  display: block;
+}
+@media (max-width: 900px) {
+  .logo-recortado {
+    height: 30px;
+  }
+}
+@media (max-width: 640px) {
+  .site-nav .logo-recortado,
+  .cliente-header .logo-recortado {
+    height: 26px;
+  }
+}
+.brand-logo.logo-recortado {
+  height: 44px;
+}
+.topbar-logo.logo-recortado {
+  height: 20px;
 }

@@ -55,7 +55,7 @@ function Paso({ n, titulo, children }: { n: number; titulo: string; children: Re
           flex: "0 0 34px",
           height: 34,
           borderRadius: "50%",
-          background: "var(--gold)",
+          background: "var(--gold-relleno)",
           color: "#1a1a1a",
           fontWeight: 900,
           fontSize: 16,

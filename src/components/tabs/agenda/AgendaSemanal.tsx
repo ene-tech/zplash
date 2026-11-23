@@ -115,7 +115,7 @@ export function AgendaSemanal() {
                         display: "inline-block",
                         minWidth: 22,
                         borderRadius: 100,
-                        background: "var(--gold)",
+                        background: "var(--gold-relleno)",
                         color: "var(--primary-foreground)",
                         fontWeight: 700,
                       }

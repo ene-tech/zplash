@@ -16,7 +16,7 @@ export default function LoginScreen() {
   return (
     <div className="login-screen">
       <div className="brand">
-        <Image src="/logo.png" alt="ZPlash" width={200} height={76} className="brand-logo" />
+        <Image src="/logo-oscuro.png" alt="ZPlash" width={176} height={44} className="brand-logo logo-recortado" />
         <div className="sub">¿Quién eres?</div>
       </div>
       <div className="role-grid">
@@ -77,7 +77,7 @@ function PerfilPinForm() {
   return (
     <div className="login-screen">
       <div className="brand">
-        <Image src="/logo.png" alt="ZPlash" width={200} height={76} className="brand-logo" />
+        <Image src="/logo-oscuro.png" alt="ZPlash" width={176} height={44} className="brand-logo logo-recortado" />
         <div className="sub">Hola, {perfil ? perfil.nombre : ""}</div>
       </div>
       <div className="pin-box">

@@ -29,7 +29,7 @@ export default function DetailingTab({ precios }: { precios: PreciosPublicos | n
 
   return (
     <div>
-      <h2 className="section-title">LAVADO DE CHASIS</h2>
+      <h2 className="section-title">Lavado de chasis</h2>
 
       {!precios ? (
         <div className="empty">Cargando servicios...</div>

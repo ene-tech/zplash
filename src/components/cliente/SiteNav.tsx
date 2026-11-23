@@ -51,7 +51,7 @@ export default function SiteNav({ detailing = false }: { detailing?: boolean }) 
         </button>
 
         <Link href="/" className="site-nav-logo" aria-label="Ir al inicio" onClick={() => setOpen(false)}>
-          <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" priority />
+          <Image src="/logo-oscuro.png" alt="ZPlash" width={606} height={151} className="logo-principal logo-recortado" priority />
         </Link>
 
         <div className="site-nav-links">

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
+import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
@@ -10,6 +10,12 @@ import AvisoCookies from "@/components/cliente/AvisoCookies";
 // que tenía antes. Se expone como variable CSS en vez de className directo
 // porque .section-title se usa en varios componentes distintos.
 const outfit = Outfit({ weight: "500", subsets: ["latin"], variable: "--font-outfit" });
+// Tipografía del tema "Día Claro" (clase tema-claro en <html>, ver globals.css).
+const jakarta = Plus_Jakarta_Sans({
+  weight: ["400", "500", "600", "700", "800"],
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://zplash.cl"),
@@ -24,7 +30,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#262320",
+  themeColor: "#fafaf7",
 };
 
 export default function RootLayout({
@@ -33,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={outfit.variable}>
+    <html lang="es" className={`${outfit.variable} ${jakarta.variable} tema-claro`}>
       <body>
         {children}
         <Toaster />

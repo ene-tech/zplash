@@ -31,7 +31,7 @@ export default function ClienteHeader({
           </Link>
         )}
         <Link href="/" aria-label="Ir al inicio">
-          <Image src="/logo.png" alt="ZPlash" width={210} height={80} className="logo-principal" priority />
+          <Image src="/logo-oscuro.png" alt="ZPlash" width={606} height={151} className="logo-principal logo-recortado" priority />
         </Link>
         <span className="mode">{titulo}</span>
       </div>

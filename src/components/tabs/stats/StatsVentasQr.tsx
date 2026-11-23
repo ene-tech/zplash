@@ -59,7 +59,7 @@ export function StatsVentasQr(p: Props) {
                         style={{
                           height: 10,
                           width: `${max ? Math.max(2, (f.monto / max) * 100) : 0}%`,
-                          background: "var(--gold)",
+                          background: "var(--gold-relleno)",
                           borderRadius: "0 4px 4px 0",
                         }}
                       />
