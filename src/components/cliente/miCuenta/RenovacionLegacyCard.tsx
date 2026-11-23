@@ -4,12 +4,13 @@
 // cambiar la tarjeta desde acá mientras esa migración siga en curso, por eso
 // el link va a WhatsApp en vez de un botón.
 import { WHATSAPP_SUSCRIPCIONES, WHATSAPP_SUSCRIPCIONES_URL } from "@/lib/whatsapp";
+import Patente from "@/components/cliente/Patente";
 
 export function RenovacionLegacyCard({ patente, desde }: { patente: string; desde: string }) {
   return (
     <div className="vehicle-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span className="plate-tag">{patente}</span>
+        <Patente patente={patente} />
         <span className="status-pill ok">Renovación automática activa</span>
       </div>
       <div className="plan-nombre">Gestionada por nuestro sistema anterior</div>

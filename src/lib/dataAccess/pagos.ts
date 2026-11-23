@@ -2,7 +2,7 @@ import "server-only";
 
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
-import { cobrosOneclick, pagosWebpay, pagosWebpayItems } from "@/db/schema";
+import { cobrosOneclick, comprasOneclick, pagosWebpay, pagosWebpayItems } from "@/db/schema";
 
 // Detalle real de Transbank para una Venta puntual — a diferencia de
 // Venta.voucher (campo de texto libre que un operador escribe a mano para
@@ -26,7 +26,7 @@ export async function listarDetallePagosVentas(ventaIds: string[]): Promise<Reco
   if (!ventaIds.length) return {};
   const db = getDb();
 
-  const [filasWebpay, filasOneclick] = await Promise.all([
+  const [filasWebpay, filasOneclick, filasCompras] = await Promise.all([
     db
       .select({
         ventaId: pagosWebpayItems.ventaId,
@@ -48,6 +48,17 @@ export async function listarDetallePagosVentas(ventaIds: string[]): Promise<Reco
       })
       .from(cobrosOneclick)
       .where(inArray(cobrosOneclick.ventaId, ventaIds)),
+    // Compras sueltas de un toque (link del SMS): mismo origen Oneclick.
+    db
+      .select({
+        ventaId: comprasOneclick.ventaId,
+        authorizationCode: comprasOneclick.authorizationCode,
+        responseCode: comprasOneclick.responseCode,
+        buyOrder: comprasOneclick.id,
+        fecha: comprasOneclick.creadoEn,
+      })
+      .from(comprasOneclick)
+      .where(inArray(comprasOneclick.ventaId, ventaIds)),
   ]);
 
   const detalle: Record<string, DetallePagoVenta> = {};
@@ -55,7 +66,7 @@ export async function listarDetallePagosVentas(ventaIds: string[]): Promise<Reco
     if (!f.ventaId) continue;
     detalle[f.ventaId] = { origen: "webpay", authorizationCode: f.authorizationCode, responseCode: f.responseCode, buyOrder: f.buyOrder, fecha: f.fecha };
   }
-  for (const f of filasOneclick) {
+  for (const f of [...filasOneclick, ...filasCompras]) {
     if (!f.ventaId) continue;
     detalle[f.ventaId] = { origen: "oneclick", authorizationCode: f.authorizationCode, responseCode: f.responseCode, buyOrder: f.buyOrder, fecha: f.fecha };
   }

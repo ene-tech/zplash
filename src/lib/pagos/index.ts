@@ -2,6 +2,7 @@ export * from "./aplicarPagoAprobado";
 export * from "./aplicarPagoPackEmpresa";
 export * from "./aplicarRetornoWebpay";
 export * from "./cancelarSuscripcionWooCommerceLegacy";
+export * from "./cobrarLavadoOneclick";
 export * from "./cobrarOfertaOneclick";
 export * from "./comprobanteReembolso";
 export * from "./cobrarSuscripcion";

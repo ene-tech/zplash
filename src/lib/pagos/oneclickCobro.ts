@@ -1,8 +1,8 @@
 import "server-only";
 import { TransactionDetail } from "transbank-sdk";
 import { and, eq } from "drizzle-orm";
-import { getDb } from "@/db";
-import { cobrosOneclick } from "@/db/schema";
+import { getDb, type DbOrTx } from "@/db";
+import { cobrosOneclick, comprasOneclick } from "@/db/schema";
 import { oneclickChildCommerceCode, oneclickTransaction } from "@/lib/transbank";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
@@ -26,9 +26,30 @@ export async function reservarCobro(fila: { id: string; suscripcionId: string; c
     .values({ ...fila, estado: "en_curso" });
 }
 
+/**
+ * El cobro Oneclick aprobado detrás de una venta: la mensualidad del plan
+ * (cobros_oneclick) o una compra suelta de un toque (compras_oneclick, ver
+ * cobrarLavadoOneclick). Los dos se devuelven igual en Transbank: el id es
+ * parent y child buy_order a la vez.
+ */
+export async function cobroOneclickDeVenta(db: DbOrTx, ventaId: string): Promise<{ id: string; monto: number } | null> {
+  const [cobro] = await db
+    .select({ id: cobrosOneclick.id, monto: cobrosOneclick.monto })
+    .from(cobrosOneclick)
+    .where(and(eq(cobrosOneclick.ventaId, ventaId), eq(cobrosOneclick.estado, "aprobada")))
+    .limit(1);
+  if (cobro) return cobro;
+  const [compra] = await db
+    .select({ id: comprasOneclick.id, monto: comprasOneclick.monto })
+    .from(comprasOneclick)
+    .where(and(eq(comprasOneclick.ventaId, ventaId), eq(comprasOneclick.estado, "aprobada")))
+    .limit(1);
+  return compra ?? null;
+}
+
 /** Consulta a Transbank cómo quedó un buyOrder. null si la consulta falla
  * (ej. la orden nunca llegó a Transbank). */
-async function consultarCobro(buyOrder: string): Promise<Detalle> {
+export async function consultarCobro(buyOrder: string): Promise<Detalle> {
   try {
     const st = await oneclickTransaction().status(buyOrder);
     return st?.details?.[0] ?? null;

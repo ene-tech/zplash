@@ -150,3 +150,26 @@ export const cobrosOneclick = pgTable("cobros_oneclick", {
   ventaId: text("venta_id").references(() => ventas.id, { onDelete: "set null" }),
   creadoEn: timestamptz("creado_en").notNull().defaultNow(),
 });
+
+// Compras sueltas (hoy: un lavado único) cobradas con un toque contra la
+// tarjeta que la patente ya tiene inscrita en Oneclick, desde el link personal
+// de un SMS (/v/[codigo], ver cobrarLavadoOneclick). Van APARTE de
+// cobrosOneclick a propósito: esa tabla es la mensualidad del plan, y
+// cobrarSuscripcion/cobrarOfertaOneclick leen cualquier cobro aprobado del
+// ciclo como "el mes ya está pagado" y reconcilian sus en_curso como plan. Un
+// lavado ahí adentro se saltaría el cobro del plan de ese mes.
+export const comprasOneclick = pgTable("compras_oneclick", {
+  id: text("id").primaryKey(), // buyOrder: parent y child buy_order a la vez
+  patente: text("patente").notNull(),
+  suscripcionId: text("suscripcion_id").references(() => suscripcionesOneclick.id, { onDelete: "set null" }),
+  // mensajes_sms.codigo_baja del link que la originó: un cobro aprobado por link.
+  codigoLink: text("codigo_link"),
+  concepto: text("concepto").notNull(), // "lavado_unico"
+  monto: numeric("monto", { mode: "number" }).notNull(),
+  cuponCodigo: text("cupon_codigo"),
+  estado: text("estado").notNull(), // en_curso|aprobada|rechazada
+  responseCode: integer("response_code"),
+  authorizationCode: text("authorization_code"),
+  ventaId: text("venta_id").references(() => ventas.id, { onDelete: "set null" }),
+  creadoEn: timestamptz("creado_en").notNull().defaultNow(),
+});

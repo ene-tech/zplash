@@ -14,6 +14,7 @@ import { WHATSAPP_SUSCRIPCIONES, WHATSAPP_SUSCRIPCIONES_URL } from "@/lib/whatsa
 import { AvisoPasaAX5 } from "@/components/cliente/AvisoPasaAX5";
 import { useOfertaPlan, type TarjetaGuardada, type TipoOfertaPlan } from "@/components/cliente/miCuenta/useOfertaPlan";
 import { redirigirAInscripcionOneclick } from "@/lib/webpayClient";
+import Patente from "@/components/cliente/Patente";
 
 type Accion = "cambio" | "quitar" | "eliminar-plan" | null;
 
@@ -178,7 +179,7 @@ export function VehiculoCard({
     <div className="vehicle-card">
       <div className="cabecera">
         <div className="cabecera-id">
-          <span className="plate-tag">{v.patente}</span>
+          <Patente patente={v.patente} />
           <span className="plan-inline">{v.plan}</span>
         </div>
         <div className="cabecera-acciones">

@@ -8,7 +8,7 @@ import { darDeBajaPorCodigoSms } from "@/lib/dataAccess";
 // apagar las comunicaciones automáticas de ese cliente.
 export async function confirmarBajaSms(formData: FormData) {
   const codigo = String(formData.get("codigo") || "").toUpperCase();
-  if (!/^[A-Z0-9]{6}$/.test(codigo)) return;
+  if (!/^[A-Z0-9]{6,8}$/.test(codigo)) return;
   await darDeBajaPorCodigoSms(codigo);
   redirect(`/b/${codigo}`);
 }

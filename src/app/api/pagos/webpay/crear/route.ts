@@ -25,6 +25,7 @@ import {
 import { buscarClientePorPatente } from "@/lib/dataAccess/clientes";
 import { calcularOfertasPlanDeCliente } from "@/lib/dataAccess/ofertasPlan";
 import { getConfig } from "@/lib/dataAccess/config";
+import { resolverLinkSms } from "@/lib/linkSms";
 import { buscarCuponDescuentoPlan } from "@/lib/pagos";
 import { esPatenteDeLaSesion, telefonoDeCompra } from "@/lib/pagos/telefonoCompra";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Demasiados intentos, espera unos minutos" }, { status: 429 });
     }
 
-    let body: { patente?: string; telefono?: string; items?: BodyItem[] };
+    let body: { patente?: string; telefono?: string; items?: BodyItem[]; codigoLink?: string };
     try {
       body = await request.json();
     } catch {
@@ -130,7 +131,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Patente inválida" }, { status: 400 });
     }
 
-    const { telefono, error: errorTelefono } = await telefonoDeCompra(body.telefono, patente);
+    // Desde el link personal de un SMS (/v/[codigo]): el código identifica la
+    // patente igual que una sesión de Mi Cuenta, solo para esta compra. Deja
+    // aplicar su descuento al lavado y usar el celular de la ficha sin pedirlo.
+    const link = body.codigoLink ? await resolverLinkSms(body.codigoLink) : null;
+    const patenteDelLink = link?.patente === patente;
+
+    const { telefono, error: errorTelefono } =
+      patenteDelLink && !body.telefono ? { telefono: link.telefono, error: undefined } : await telefonoDeCompra(body.telefono, patente);
     if (errorTelefono) {
       return NextResponse.json({ error: errorTelefono }, { status: 400 });
     }
@@ -244,7 +252,9 @@ export async function POST(request: NextRequest) {
       // cupón mostrándole el de lista. Si eso molesta, que PagoUnicoCard
       // recotice después de la patente.
       const indiceLavado = items.findIndex((i) => i.tipo === "lavado_unico");
-      if (indiceLavado >= 0 && (await esPatenteDeLaSesion(patente))) indiceCupon = indiceLavado;
+      // El link del SMS anuncia el precio con descuento antes del botón (ver
+      // ofertaLinkSms), así que ahí también se resta.
+      if (indiceLavado >= 0 && (patenteDelLink || (await esPatenteDeLaSesion(patente)))) indiceCupon = indiceLavado;
     }
     if (indiceCupon >= 0) {
       const cupon = await buscarCuponDescuentoPlan(patente, db);

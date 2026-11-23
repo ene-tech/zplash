@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RUT_FORMATO_MSG, formatRut, isValidRut } from "@/lib/helpers";
 import type { VehiculoSesion } from "@/lib/sesionCliente";
+import Patente from "@/components/cliente/Patente";
 
 // "Inscribir empresa" = llenar en el propio Cliente (por patente, ver
 // DatosFacturacion en @/types) los mismos 4 campos que en el panel de
@@ -84,7 +85,7 @@ function FacturacionCard({ v, onActualizado }: { v: VehiculoSesion; onActualizad
   if (editando) {
     return (
       <div className="vehicle-card">
-        <span className="plate-tag">{v.patente}</span>
+        <Patente patente={v.patente} />
         <div className="field" style={{ marginTop: 10 }}>
           <label>RUT empresa</label>
           <input value={rut} onChange={(e) => setRut(e.target.value)} onBlur={onRutBlur} placeholder="12.345.678-9" />
@@ -126,7 +127,7 @@ function FacturacionCard({ v, onActualizado }: { v: VehiculoSesion; onActualizad
   return (
     <div className="vehicle-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span className="plate-tag">{v.patente}</span>
+        <Patente patente={v.patente} />
         <span className={`status-pill ${tieneFactura ? "ok" : "warn"}`}>{tieneFactura ? "Factura" : "Boleta"}</span>
       </div>
       {tieneFactura ? (

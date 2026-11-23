@@ -5,7 +5,7 @@ import { aplicarVariables } from "@/lib/helpers";
 import { generarCuponesMasivos, variablesEnvioMasivo, type OpcionesOfertaMasivo } from "@/lib/whatsapp/masivo";
 import type { Cupon, ResultadoEnvioMasivoSms } from "@/types";
 import { enviarSms, msisdnChile } from "./enviar";
-import { segmentosSms, textoFinalSms } from "./texto";
+import { LARGO_CODIGO_BAJA, segmentosSms, textoFinalSms, urlLinkSms, VARIABLE_LINK_SMS } from "./texto";
 
 /**
  * Envío masivo de un SMS de campaña: canal paralelo a WhatsApp, para
@@ -80,7 +80,8 @@ export async function enviarMensajesMasivosSms(
   const descuentoReferido = /\{\{descuentoReferido\}\}/.test(opts.texto) ? (await getConfig()).descuentoReferidoValor : undefined;
 
   for (const cliente of destinatarios) {
-    const variables = variablesEnvioMasivo(cliente, cuponPorClienteId.get(cliente.id), opts, descuentoReferido);
+    // {{link}} pasa intacto: lo llena enviarSms con el código de ESTE mensaje.
+    const variables = { ...variablesEnvioMasivo(cliente, cuponPorClienteId.get(cliente.id), opts, descuentoReferido), link: VARIABLE_LINK_SMS };
     const texto = aplicarVariables(opts.texto, variables);
     const r = await enviarSms({ telefono: cliente.telefono!, texto, campana, clienteId: cliente.id, enviadoPor }).catch((error) => {
       console.error(`Error en envío masivo de SMS a cliente ${cliente.id}`, error);
@@ -88,9 +89,9 @@ export async function enviarMensajesMasivosSms(
     });
     if (r.ok) {
       resultado.enviados++;
-      // Mismo cálculo que enviarSms; el código de baja tiene largo fijo, así
-      // que cualquier código da el mismo conteo.
-      resultado.segmentos += segmentosSms(textoFinalSms(texto));
+      // Mismo cálculo que enviarSms; el código tiene largo fijo, así que
+      // cualquier código da el mismo conteo.
+      resultado.segmentos += segmentosSms(textoFinalSms(texto.split(VARIABLE_LINK_SMS).join(urlLinkSms("X".repeat(LARGO_CODIGO_BAJA)))));
     } else {
       resultado.fallidos++;
       resultado.primerError ??= r.error;

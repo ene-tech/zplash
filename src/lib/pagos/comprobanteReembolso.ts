@@ -1,7 +1,8 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { clienteAdjuntos, cobrosOneclick, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
+import { clienteAdjuntos, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
+import { cobroOneclickDeVenta } from "./oneclickCobro";
 import { borrarArchivoAdjuntoCliente, subirArchivoAdjuntoCliente } from "@/lib/dataAccess/clienteAdjuntos";
 import { pdfTexto } from "@/lib/pdf/pdfTexto";
 import { CREADO_POR_REEMBOLSO, esEmailEnviable, fmtCLP, PREFIJO_VENTA_REEMBOLSO, TIPO_VENTA_REEMBOLSO } from "@/lib/helpers";
@@ -237,7 +238,7 @@ async function cargarComprobanteConCliente(reembolsoId: string): Promise<{ compr
   if (!reembolsoId.startsWith(PREFIJO_VENTA_REEMBOLSO)) return null;
   const ventaId = reembolsoId.slice(PREFIJO_VENTA_REEMBOLSO.length);
   const db = getDb();
-  const [[reembolso], [original], [itemWebpay], [cobro]] = await Promise.all([
+  const [[reembolso], [original], [itemWebpay], cobro] = await Promise.all([
     // Columnas explícitas: un select() de toda la fila se cae si el schema
     // trae una columna que la base todavía no tiene.
     db
@@ -263,11 +264,7 @@ async function cargarComprobanteConCliente(reembolsoId: string): Promise<{ compr
       .innerJoin(pagosWebpay, eq(pagosWebpay.buyOrder, pagosWebpayItems.buyOrder))
       .where(and(eq(pagosWebpayItems.ventaId, ventaId), eq(pagosWebpay.estado, "aprobada")))
       .limit(1),
-    db
-      .select({ id: cobrosOneclick.id, monto: cobrosOneclick.monto })
-      .from(cobrosOneclick)
-      .where(and(eq(cobrosOneclick.ventaId, ventaId), eq(cobrosOneclick.estado, "aprobada")))
-      .limit(1),
+    cobroOneclickDeVenta(db, ventaId),
   ]);
   // creadoPor distingue la devolución por Transbank de la reversa de nota de
   // crédito en efectivo/transferencia, que usa el mismo id aunque la compra

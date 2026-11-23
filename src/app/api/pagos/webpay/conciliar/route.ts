@@ -3,7 +3,7 @@ import { and, eq, gte, isNotNull, lt } from "drizzle-orm";
 import { getDb } from "@/db";
 import { pagosWebpay } from "@/db/schema";
 import { rechazoSiNoEsCron } from "@/lib/cron";
-import { aplicarRetornoWebpay } from "@/lib/pagos";
+import { aplicarRetornoWebpay, conciliarComprasOneclick } from "@/lib/pagos";
 import { webpayTransaction } from "@/lib/transbank";
 
 export const runtime = "nodejs";
@@ -80,5 +80,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, revisados: pendientes.length, resultados });
+  // Compras de un toque del link del SMS que quedaron sin respuesta del banco.
+  const compras = await conciliarComprasOneclick().catch((error) => {
+    console.error("No se pudieron conciliar las compras Oneclick", error);
+    return [];
+  });
+
+  return NextResponse.json({ ok: true, revisados: pendientes.length, resultados, compras });
 }

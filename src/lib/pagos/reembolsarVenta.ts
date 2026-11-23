@@ -2,7 +2,8 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { getDb } from "@/db";
-import { clientes, cobrosOneclick, movimientosContables, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
+import { clientes, movimientosContables, pagosWebpay, pagosWebpayItems, ventas } from "@/db/schema";
+import { cobroOneclickDeVenta } from "./oneclickCobro";
 import { movimientoToRow } from "@/lib/dataAccess/contabilidad";
 import {
   esEmailEnviable,
@@ -126,11 +127,7 @@ export async function reembolsarVentaTarjeta(
         comprobante = r.authorization_code || r.type;
         captura.pago = { medio: "Webpay", ordenCompra: itemWebpay.buyOrder, cobrado: itemWebpay.monto };
       } else {
-        const [cobro] = await tx
-          .select({ id: cobrosOneclick.id, monto: cobrosOneclick.monto })
-          .from(cobrosOneclick)
-          .where(and(eq(cobrosOneclick.ventaId, ventaId), eq(cobrosOneclick.estado, "aprobada")))
-          .limit(1);
+        const cobro = await cobroOneclickDeVenta(tx, ventaId);
         if (!cobro) return { ok: false, error: "Esta venta no tiene un pago con tarjeta por Transbank asociado." };
         cobradoTotal = cobro.monto;
         const montoOk = montoAReembolsar(cobro.monto);

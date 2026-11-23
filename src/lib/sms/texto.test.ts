@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { normalizarSms, segmentosSms, textoFinalSms } from "./texto";
+import { normalizarSms, segmentosSms, textoFinalSms, urlLinkSms } from "./texto";
+
+describe("urlLinkSms", () => {
+  it("arma el link corto y pasa intacto por la normalización GSM-7", () => {
+    expect(urlLinkSms("K7P2QX")).toBe("zplash.cl/v/K7P2QX");
+    expect(textoFinalSms(`Pagalo aqui: ${urlLinkSms("K7P2QX")}`)).toBe("Pagalo aqui: zplash.cl/v/K7P2QX");
+  });
+});
 
 describe("normalizarSms", () => {
   it("saca tildes que GSM-7 no tiene pero deja ñ y é", () => {

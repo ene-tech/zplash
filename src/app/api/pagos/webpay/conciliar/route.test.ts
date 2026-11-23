@@ -19,7 +19,10 @@ const status = vi.fn();
 const commit = vi.fn();
 vi.mock("@/lib/transbank", () => ({ webpayTransaction: () => ({ status: (t: string) => status(t), commit: (t: string) => commit(t) }) }));
 const aplicarRetornoWebpay = vi.fn<(buyOrder: string, commit: unknown) => Promise<{ tipo: string }>>(() => Promise.resolve({ tipo: "ok" }));
-vi.mock("@/lib/pagos", () => ({ aplicarRetornoWebpay: (b: string, c: unknown) => aplicarRetornoWebpay(b, c) }));
+vi.mock("@/lib/pagos", () => ({
+  aplicarRetornoWebpay: (b: string, c: unknown) => aplicarRetornoWebpay(b, c),
+  conciliarComprasOneclick: () => Promise.resolve([]),
+}));
 
 import { GET } from "./route";
 

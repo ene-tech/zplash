@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BajaSmsPage({ params }: { params: Promise<{ codigo: string }> }) {
   const codigo = (await params).codigo.toUpperCase();
-  const cliente = /^[A-Z0-9]{6}$/.test(codigo) ? await buscarClientePorCodigoBajaSms(codigo) : null;
+  const cliente = /^[A-Z0-9]{6,8}$/.test(codigo) ? await buscarClientePorCodigoBajaSms(codigo) : null;
 
   return (
     <div id="app">

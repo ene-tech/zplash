@@ -89,7 +89,7 @@ export default function CarritoPage() {
           <div className="card">
             <label style={{ display: "block", marginBottom: 8 }}>Patente</label>
             <input
-              className="plate-input"
+              className="plate-input patente-cl-input"
               value={patente}
               onChange={(e) => setPatente(e.target.value.toUpperCase())}
               placeholder="AB1234"

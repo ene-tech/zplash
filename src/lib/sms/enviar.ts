@@ -6,7 +6,7 @@ import { randomInt } from "node:crypto";
 import { insertarMensajeSmsPendiente, marcarMensajeSms } from "@/lib/dataAccess/sms";
 import { uid } from "@/lib/helpers";
 import type { SaldoSms } from "@/types";
-import { LARGO_CODIGO_BAJA, MAX_SEGMENTOS_SMS, segmentosSms, textoFinalSms } from "./texto";
+import { LARGO_CODIGO_BAJA, MAX_SEGMENTOS_SMS, segmentosSms, textoFinalSms, urlLinkSms, VARIABLE_LINK_SMS } from "./texto";
 
 // Proveedor: LabsMobile (API JSON, https://api.labsmobile.com/json/send, auth
 // Basic usuario:token). Todo lo específico del proveedor vive en
@@ -92,7 +92,8 @@ export async function enviarSms(opts: {
   let reservado = false;
   for (let intento = 0; intento < 5 && !reservado; intento++) {
     const codigoBaja = generarCodigoBaja();
-    texto = textoFinalSms(opts.texto);
+    // {{link}} = link personal de este SMS (zplash.cl/v/CODIGO, ver @/lib/linkSms).
+    texto = textoFinalSms(opts.texto.split(VARIABLE_LINK_SMS).join(urlLinkSms(codigoBaja)));
     const segmentos = segmentosSms(texto);
     if (segmentos > MAX_SEGMENTOS_SMS) return { ok: false, error: `Texto demasiado largo (${segmentos} SMS, máximo ${MAX_SEGMENTOS_SMS})` };
     reservado = await insertarMensajeSmsPendiente({

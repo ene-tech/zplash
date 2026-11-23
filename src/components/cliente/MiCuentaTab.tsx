@@ -24,6 +24,7 @@ import { LibroComentarios } from "@/components/cliente/miCuenta/LibroComentarios
 import { PromoModal } from "@/components/cliente/miCuenta/PromoModal";
 import { InvitarAmigo, type ReferidosPatente } from "@/components/cliente/miCuenta/InvitarAmigo";
 import { EliminarCuenta } from "@/components/cliente/miCuenta/EliminarCuenta";
+import Patente from "@/components/cliente/Patente";
 
 interface Tarjeta {
   patente: string;
@@ -197,7 +198,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
             {detailing.map((d) => (
               <div className="vehicle-card" key={d.id}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span className="plate-tag">{d.patente}</span>
+                  <Patente patente={d.patente} />
                   <span className={`status-pill ${d.estado === "agendado" ? "warn" : d.estado === "completado" ? "ok" : "bad"}`}>
                     {d.estado === "agendado" ? "Agendado" : d.estado === "completado" ? "Completado" : "Cancelado"}
                   </span>
@@ -219,7 +220,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
           {tarjetas.map((t) => (
             <div className="vehicle-card" key={t.patente}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="plate-tag">{t.patente}</span>
+                <Patente patente={t.patente} />
                 <span className={`status-pill ${t.estado === "activa" ? "ok" : "warn"}`}>
                   {t.estado === "suspendida"
                     ? "Renovación en pausa"
@@ -377,7 +378,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
               <div className="card" style={{ marginBottom: 26, display: "grid", gap: 8 }}>
                 {sesion.vehiculos.map((v) => (
                   <div key={v.patente} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="plate-tag">{v.patente}</span>
+                    <Patente patente={v.patente} />
                     <span style={{ color: "var(--gray)", fontSize: 13 }}>{v.plan}</span>
                   </div>
                 ))}

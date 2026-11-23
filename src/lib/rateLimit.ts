@@ -61,7 +61,9 @@ export function rateLimitedEnMemoria(key: string, limite: number, ventanaMs: num
  * Del `x-forwarded-for` de respaldo se toma la ÚLTIMA entrada, no la primera:
  * es la que agrega el proxy más cercano y la única que el cliente no controla.
  */
-export function clienteIp(request: NextRequest): string {
+// Acepta cualquier cosa con encabezados: un NextRequest en las rutas, o
+// `{ headers: await headers() }` en una página (ver /v/[codigo]).
+export function clienteIp(request: Pick<NextRequest, "headers"> | { headers: { get(nombre: string): string | null } }): string {
   const real = request.headers.get("x-real-ip");
   if (real) return real.trim();
   const forwardedFor = request.headers.get("x-forwarded-for");

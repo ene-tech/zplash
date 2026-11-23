@@ -6,6 +6,7 @@ import { CampoCelular } from "./CampoCelular";
 import { CamposDocumento } from "./CamposDocumento";
 import { useDatosDocumento } from "./useDatosDocumento";
 import type { DatosDocumento, TipoPago } from "./usePagarForm";
+import Patente from "@/components/cliente/Patente";
 
 type Paso = "patente" | "documento";
 
@@ -70,7 +71,7 @@ export function PagoUnicoCard({
       {paso === "patente" ? (
         <>
           <input
-            className="plate-input"
+            className="plate-input patente-cl-input"
             value={patente}
             onChange={(e) => setPatente(e.target.value.toUpperCase())}
             onKeyDown={(e) => e.key === "Enter" && continuar()}
@@ -88,7 +89,7 @@ export function PagoUnicoCard({
           <div className="field">
             <label>Patente</label>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span className="plate-tag">{normPlate(patente)}</span>
+              <Patente patente={patente} />
               <button
                 type="button"
                 className="btn ghost"

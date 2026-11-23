@@ -56,7 +56,18 @@ export function segmentosSms(texto: string): number {
 // Pie con el link de baja que exige la ley del consumidor (art. 28 B de la Ley
 // 19.496) en toda comunicación promocional. El código es por mensaje: ver
 // codigoBaja en @/db/schema/sms y la página /b/[codigo].
-export const LARGO_CODIGO_BAJA = 6;
+// 8 desde nov-2026: el mismo código abre el link de pago (/v/, ver
+// @/lib/linkSms), y con 6 (31^6) se podía adivinar uno vigente a fuerza de
+// intentos. Los de 6 ya enviados siguen valiendo para la baja.
+export const LARGO_CODIGO_BAJA = 8;
+
+/** Link personal del SMS (ver @/lib/linkSms): reemplaza {{link}} en el texto
+ * con el mismo código que se reserva por mensaje. */
+export const VARIABLE_LINK_SMS = "{{link}}";
+
+export function urlLinkSms(codigo: string): string {
+  return `zplash.cl/v/${codigo}`;
+}
 
 export function pieBajaSms(codigo: string): string {
   return `Baja: zplash.cl/b/${codigo}`;

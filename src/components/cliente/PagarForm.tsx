@@ -10,6 +10,7 @@ import { PagoUnicoCard } from "@/components/cliente/pagarForm/PagoUnicoCard";
 import { ResultadoBusqueda } from "@/components/cliente/pagarForm/ResultadoBusqueda";
 import { ServicioDocumentoCard } from "@/components/cliente/pagarForm/ServicioDocumentoCard";
 import { PASES_INCLUIDOS_X3, PLAN_X3, fmtCLP, normPlate } from "@/lib/helpers";
+import Patente from "@/components/cliente/Patente";
 
 export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +102,7 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
             <p className="hint">Ingresa tu patente para renovar tu plan o pagar un servicio.</p>
             <input
               ref={inputRef}
-              className="plate-input"
+              className="plate-input patente-cl-input"
               value={r.patente}
               onChange={(e) => r.setPatente(e.target.value.toUpperCase())}
               onKeyDown={(e) => e.key === "Enter" && r.buscar()}
@@ -136,7 +137,7 @@ export default function PagarForm({ precios }: { precios: PreciosPublicos }) {
                 🎟️ {promo.lavados} lavados Full Tunnel por {fmtCLP(promo.precio)}
               </h3>
               <p style={{ color: "var(--gray)", fontSize: 13.5, marginBottom: 12 }}>
-                Para la patente <span className="plate-tag">{normPlate(r.patente)}</span>, a usar dentro de {promo.vigenciaDias}{" "}
+                Para la patente <Patente patente={r.patente} />, a usar dentro de {promo.vigenciaDias}{" "}
                 días. Quedan como tickets en tu cuenta: en el local basta con dar la patente.
               </p>
               {/* Un solo camino de compra: el mismo PagoUnicoCard de arriba

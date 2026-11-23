@@ -9,6 +9,13 @@ export function isValidPatente(p: string | null | undefined): boolean {
   return PATENTE_REGEX.test(normPlate(p));
 }
 
+/** Patente como va impresa en la placa: "ABCD12" → "AB·CD·12". Lo que no es
+ * una patente válida (un auto sin patente, una moto) se devuelve tal cual. */
+export function formatoPatente(p: string | null | undefined): string {
+  const n = normPlate(p);
+  return isValidPatente(n) ? `${n.slice(0, 2)}·${n.slice(2, 4)}·${n.slice(4)}` : (p ?? "");
+}
+
 export const PATENTE_FORMATO_MSG =
   "Patente inválida. Debe tener 6 caracteres: 2 letras + 4 números (ej. AB1234) o 4 letras + 2 números (ej. ABCD12).";
 
