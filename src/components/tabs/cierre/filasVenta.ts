@@ -1,4 +1,4 @@
-import { esVentaNuevaWeb, inRange, TIPO_VENTA_REEMBOLSO } from "@/lib/helpers";
+import { esVentaNuevaWeb, inRange, PLAN_X3, TIPO_VENTA_REEMBOLSO } from "@/lib/helpers";
 import type { Cliente, MovimientoContable, Venta } from "@/types";
 import { PRODUCTOS_CIERRE } from "./productos";
 
@@ -40,8 +40,13 @@ export function calcularFilasVentaCierre(
   // esVentaNuevaWeb) pero no son una venta: fila propia más abajo, con
   // monto negativo, en la fecha en que se devolvió la plata.
   const esReembolso = (v: Venta) => v.tipo === TIPO_VENTA_REEMBOLSO;
+  // El Plan X3 se cobra solo por Oneclick y se graba con el mismo tipo que el
+  // X5 ("Renovación automática (Oneclick)"): solo la columna plan lo
+  // distingue. Va en su propia fila (más abajo) en vez de quedar escondido
+  // dentro de "Venta nueva web".
+  const esPlanX3Web = (v: Venta) => esVentaNuevaWeb(v.creadoPor) && v.plan === PLAN_X3 && !esReembolso(v);
   const ventaNuevaWebItems = ventasPeriodo.filter(
-    (v) => esVentaNuevaWeb(v.creadoPor) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v) && !esReembolso(v)
+    (v) => esVentaNuevaWeb(v.creadoPor) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v) && !esReembolso(v) && !esPlanX3Web(v)
   );
   const ventasPeriodoBase = ventasPeriodo.filter((v) => !esVentaNuevaWeb(v.creadoPor));
 
@@ -98,6 +103,15 @@ export function calcularFilasVentaCierre(
     items: ventaNuevaWebItems,
   };
 
+  const planX3Items = ventasPeriodo.filter((v) => esPlanX3Web(v) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v));
+  const planX3Row = {
+    tipo: "plan-x3-web",
+    label: "Plan X3 (Web automático)",
+    cantidad: planX3Items.length,
+    monto: planX3Items.reduce((s, v) => s + (v.precio || 0), 0),
+    items: planX3Items,
+  };
+
   const upgradePlanItems = ventasPeriodo.filter(esUpgradePlan);
   const upgradePlanRow = {
     tipo: "upgrade-plan",
@@ -126,6 +140,7 @@ export function calcularFilasVentaCierre(
     ...ventasPorTipo,
     serviciosAdicionalesRow,
     ventaNuevaWebRow,
+    planX3Row,
     upgradePlanRow,
     ...(reembolsoItems.length ? [reembolsosRow] : []),
     ingresoModuloContabilidadRow,
@@ -139,6 +154,7 @@ export function calcularFilasVentaCierre(
     ...ventasPorTipo.flatMap((f) => f.items),
     ...serviciosAdicionalesItemsBase,
     ...ventaNuevaWebItems,
+    ...planX3Items,
     ...upgradePlanItems,
     ...reembolsoItems,
   ];
