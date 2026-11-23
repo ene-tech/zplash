@@ -1,4 +1,5 @@
 import type { AppData, Cliente, Venta, VentaItem } from "@/types";
+import type { FacturaEmitida } from "./empresas";
 import {
   esTarjetaWeb,
   fmtTelefono,
@@ -397,5 +398,41 @@ export function descargarFacturables(data: AppData, listaClientes: Cliente[], de
       "Facturables"
     );
     XLSX.writeFile(wb, `facturables-${desde}_a_${hasta}.xlsx`);
+  });
+}
+
+/** Facturas emitidas tal como se ven en la pestaña Facturas (ya filtradas). Las
+ * anuladas salen con su nota de crédito y no suman en el total. El neto se
+ * calcula igual que armarFactura: los precios traen IVA. */
+export function descargarFacturasEmitidas(
+  facturas: FacturaEmitida[],
+  razonSocialDe: (f: FacturaEmitida) => string,
+  desde: string,
+  hasta: string
+) {
+  const neto = (total: number) => Math.round(total / 1.19);
+  const filas = facturas.map((f) => ({
+    Folio: f.folio ?? "Marcada a mano",
+    Fecha: fmtDateLocal(f.fecha),
+    RUT: f.rut,
+    "Razón Social": razonSocialDe(f),
+    Detalle: f.ventas.map((v) => [v.tipo, v.patente].filter(Boolean).join(" ")).join(", "),
+    Neto: neto(f.total),
+    IVA: f.total - neto(f.total),
+    Total: f.total,
+    Estado: f.notaCreditoFolio ? "Anulada" : f.notaCreditoFolio === 0 ? "NC sin confirmar" : "Vigente",
+    "Nota de crédito": f.notaCreditoFolio || "",
+  }));
+  const vigentes = facturas.filter((f) => !f.notaCreditoFolio);
+  const totalVigente = vigentes.reduce((s, f) => s + f.total, 0);
+  const rango = desde || hasta ? `${desde || "inicio"}_a_${hasta || "hoy"}` : "todas";
+  import("xlsx").then((XLSX) => {
+    const wb = XLSX.utils.book_new();
+    const hoja = XLSX.utils.json_to_sheet(filas, {
+      header: ["Folio", "Fecha", "RUT", "Razón Social", "Detalle", "Neto", "IVA", "Total", "Estado", "Nota de crédito"],
+    });
+    XLSX.utils.sheet_add_aoa(hoja, [[], ["Total sin anuladas", "", "", "", "", neto(totalVigente), totalVigente - neto(totalVigente), totalVigente]], { origin: -1 });
+    XLSX.utils.book_append_sheet(wb, hoja, "Facturas");
+    XLSX.writeFile(wb, `facturas-emitidas-${rango}.xlsx`);
   });
 }

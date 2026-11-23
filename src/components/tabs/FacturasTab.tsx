@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { facturasEmitidas, MODULOS_NOTA_CREDITO, MOTIVOS_NOTA_CREDITO, type FacturaEmitida, type MotivoNotaCredito } from "@/lib/logic";
+import { descargarFacturasEmitidas, facturasEmitidas, MODULOS_NOTA_CREDITO, MOTIVOS_NOTA_CREDITO, type FacturaEmitida, type MotivoNotaCredito } from "@/lib/logic";
 import { fmtCLP, fmtFecha, formatRut } from "@/lib/helpers";
 import { emitirNotaCredito } from "@/lib/serverActions";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -34,6 +34,14 @@ function coincide(f: FacturaEmitida, razonSocial: string, q: string): boolean {
     String(f.notaCreditoFolio || "").includes(q) ||
     (qRut.length > 0 && f.rut.replace(/[^0-9kK]/g, "").toUpperCase().includes(qRut))
   );
+}
+
+// Fecha de la factura (ISO) dentro de [desde, hasta] en hora local; un borde vacío no limita.
+function enRango(iso: string, desde: string, hasta: string): boolean {
+  const d = new Date(iso);
+  if (desde && d < new Date(desde + "T00:00:00")) return false;
+  if (hasta && d > new Date(hasta + "T23:59:59.999")) return false;
+  return true;
 }
 
 const detalle = (f: FacturaEmitida) => f.ventas.map((v) => [v.tipo, v.patente].filter(Boolean).join(" ")).join(", ");
@@ -142,6 +150,8 @@ function NotaCreditoDialog({ factura, razonSocial, onCerrar, onEmitida }: { fact
 export default function FacturasTab() {
   const { data, ui, patchUi, aplicarLocal, loadingHistorial } = useApp();
   const [anulando, setAnulando] = useState<FacturaEmitida | null>(null);
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
 
   const puedeAnular = (ui.perfilActual?.modulos || []).some((m) => MODULOS_NOTA_CREDITO.includes(m));
   const empresaPorRut = useMemo(() => new Map(data.empresas.map((e) => [formatRut(e.rut), e])), [data.empresas]);
@@ -150,7 +160,7 @@ export default function FacturasTab() {
   const razonSocialDe = (f: FacturaEmitida) => empresaPorRut.get(f.rut)?.razonSocial || f.razonSocial;
 
   const q = (ui.search || "").trim();
-  const filtradas = facturas.filter((f) => coincide(f, razonSocialDe(f), q));
+  const filtradas = facturas.filter((f) => enRango(f.fecha, desde, hasta) && coincide(f, razonSocialDe(f), q));
   // Las anuladas siguen en la lista pero no suman.
   const total = filtradas.reduce((s, f) => s + (anulada(f) ? 0 : f.total), 0);
 
@@ -171,6 +181,27 @@ export default function FacturasTab() {
     <div>
       <div className="toolbar">
         <input placeholder="Buscar por folio, razón social o RUT..." value={ui.search || ""} onChange={(e) => patchUi({ search: e.target.value })} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label style={{ fontSize: 11, color: "var(--gray)", textTransform: "uppercase" }}>Desde</label>
+          <input type="date" value={desde} max={hasta || undefined} style={{ maxWidth: 170 }} onChange={(e) => setDesde(e.target.value)} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <label style={{ fontSize: 11, color: "var(--gray)", textTransform: "uppercase" }}>Hasta</label>
+          <input type="date" value={hasta} min={desde || undefined} style={{ maxWidth: 170 }} onChange={(e) => setHasta(e.target.value)} />
+        </div>
+        {(desde || hasta) && (
+          <button className="btn ghost" style={{ alignSelf: "flex-end" }} onClick={() => { setDesde(""); setHasta(""); }}>
+            Todas las fechas
+          </button>
+        )}
+        <button
+          className="btn"
+          style={{ alignSelf: "flex-end" }}
+          disabled={filtradas.length === 0}
+          onClick={() => descargarFacturasEmitidas(filtradas, razonSocialDe, desde, hasta)}
+        >
+          Exportar Excel
+        </button>
         {filtradas.length > 0 && (
           <span className="text-sm text-muted-foreground">
             {filtradas.length} factura(s) · {fmtCLP(total)}
