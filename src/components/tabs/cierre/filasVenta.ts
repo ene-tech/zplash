@@ -1,6 +1,6 @@
 import { esVentaNuevaWeb, inRange, PLAN_X3, TIPO_VENTA_REEMBOLSO } from "@/lib/helpers";
 import type { Cliente, MovimientoContable, Venta } from "@/types";
-import { PRODUCTOS_CIERRE } from "./productos";
+import { GRUPOS_CIERRE, PRODUCTOS_CIERRE, type GrupoCierre } from "./productos";
 
 // "Detalle de venta" del Cierre de Caja para el período [desde, hasta]: las
 // filas y su Total. Vive aparte de useCierreData para que Estadísticas sume
@@ -70,6 +70,7 @@ export function calcularFilasVentaCierre(
   const serviciosAdicionalesItemsBase = ventasPeriodoBase.filter((v) => v.esServicioAdicional);
   const serviciosAdicionalesRow = {
     tipo: "servicios-adicionales",
+    grupo: "Servicios adicionales Locales" as GrupoCierre,
     label: "Servicios adicionales (detailing, tapiz, motor, chasis, etc.)",
     // Un registro puede combinar varios servicios en una sola fila (ver
     // cantidadItems en registrar() de ServiciosAdicionalesView) — se suma
@@ -89,6 +90,7 @@ export function calcularFilasVentaCierre(
   const ingresosContablesPeriodo = movimientosContables.filter((m) => m.tipo === "ingreso" && inRange(m.fecha, desde, hasta) && !m.ventaId);
   const ingresoModuloContabilidadRow = {
     tipo: "ingreso-modulo-contabilidad",
+    grupo: "Ajustes" as GrupoCierre,
     label: "Ingreso por Módulo Contabilidad",
     cantidad: ingresosContablesPeriodo.length,
     monto: ingresosContablesPeriodo.reduce((s, m) => s + m.monto, 0),
@@ -97,6 +99,7 @@ export function calcularFilasVentaCierre(
 
   const ventaNuevaWebRow = {
     tipo: "venta-nueva-web",
+    grupo: "Venta Nueva Web" as GrupoCierre,
     label: "Venta nueva web",
     cantidad: ventaNuevaWebItems.reduce((s, v) => s + (v.cantidadItems ?? 1), 0),
     monto: ventaNuevaWebItems.reduce((s, v) => s + (v.precio || 0), 0),
@@ -106,6 +109,7 @@ export function calcularFilasVentaCierre(
   const planX3Items = ventasPeriodo.filter((v) => esPlanX3Web(v) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v));
   const planX3Row = {
     tipo: "plan-x3-web",
+    grupo: "Venta Nueva Web" as GrupoCierre,
     label: "Plan X3 (Web automático)",
     cantidad: planX3Items.length,
     monto: planX3Items.reduce((s, v) => s + (v.precio || 0), 0),
@@ -115,6 +119,7 @@ export function calcularFilasVentaCierre(
   const upgradePlanItems = ventasPeriodo.filter(esUpgradePlan);
   const upgradePlanRow = {
     tipo: "upgrade-plan",
+    grupo: "Planes Locales (histórico)" as GrupoCierre,
     label: "Upgrade a Plan X5 (sobre Lavado Tunel / Uso Aspirado ya pagado)",
     cantidad: upgradePlanItems.length,
     monto: upgradePlanItems.reduce((s, v) => s + (v.precio || 0), 0),
@@ -130,6 +135,7 @@ export function calcularFilasVentaCierre(
   const reembolsoItems = ventasPeriodo.filter(esReembolso);
   const reembolsosRow = {
     tipo: "reembolsos",
+    grupo: "Ajustes" as GrupoCierre,
     label: "Reembolso",
     cantidad: reembolsoItems.length,
     monto: reembolsoItems.reduce((s, v) => s + (v.precio || 0), 0),
@@ -144,7 +150,9 @@ export function calcularFilasVentaCierre(
     upgradePlanRow,
     ...(reembolsoItems.length ? [reembolsosRow] : []),
     ingresoModuloContabilidadRow,
-  ];
+    // Ordenadas por subtítulo (GRUPOS_CIERRE); dentro de cada grupo queda el
+    // orden de arriba (sort es estable).
+  ].sort((a, b) => GRUPOS_CIERRE.indexOf(a.grupo) - GRUPOS_CIERRE.indexOf(b.grupo));
   const totalCantidadVentas = filasVenta.reduce((s, f) => s + f.cantidad, 0);
   const totalMontoVentas = filasVenta.reduce((s, f) => s + f.monto, 0);
 

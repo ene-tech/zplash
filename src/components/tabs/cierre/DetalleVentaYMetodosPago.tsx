@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { fmtCLP } from "@/lib/helpers";
 import type { MovimientoContable, Venta } from "@/types";
 import { desglosePagoContables, desglosePagoVentas, desglosePorTipoVenta } from "./desgloses";
@@ -33,9 +33,27 @@ export function DetalleVentaYMetodosPago(p: Props) {
           </tr>
         </thead>
         <tbody>
-          {p.filasVenta.map((f) => (
+          {p.filasVenta.map((f, i) => (
+            <Fragment key={f.tipo}>
+            {f.grupo !== p.filasVenta[i - 1]?.grupo && (
+              <tr>
+                <td
+                  colSpan={3}
+                  style={{
+                    paddingTop: i === 0 ? 8 : 18,
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: 0.6,
+                    textTransform: "uppercase",
+                    color: "var(--gold)",
+                    borderBottom: "1px solid var(--gold)",
+                  }}
+                >
+                  {f.grupo}
+                </td>
+              </tr>
+            )}
             <FilaVentaExpandible
-              key={f.tipo}
               rowKey={f.tipo}
               label={f.label}
               cantidad={f.cantidad}
@@ -51,6 +69,7 @@ export function DetalleVentaYMetodosPago(p: Props) {
                     : desglosePagoVentas(f.items as Venta[])
               }
             />
+            </Fragment>
           ))}
           <tr>
             <td style={{ fontWeight: 700, fontSize: 16 }}>Total</td>
