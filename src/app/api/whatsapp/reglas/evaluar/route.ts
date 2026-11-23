@@ -3,6 +3,9 @@ import { rechazoSiNoEsCron } from "@/lib/cron";
 import { procesarPendientesYVencimientos } from "@/lib/whatsapp/reglas";
 
 export const runtime = "nodejs";
+// "sin_visita" puede mandar cientos de SMS y correos en una corrida (ver
+// PRESUPUESTO_MS_SIN_VISITA en @/lib/whatsapp/reglas/cron).
+export const maxDuration = 300;
 
 // Pese al nombre, también atiende las reglas con canal SMS y correo (ver ejecutarAccionRegla).
 

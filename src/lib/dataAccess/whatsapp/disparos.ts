@@ -64,6 +64,28 @@ export async function registrarDisparoReglaWhatsapp(d: NuevoDisparoReglaWhatsapp
   }
 }
 
+/** Pasa a "programado" un disparo que quedó "omitido" por la prioridad de
+ * ofertas (id "prio-…", los $3.000 de "sin_visita"), para mandarlo ahora que
+ * ya no hay bloqueo. enviarEn queda con la hora real del envío: el id
+ * "prio-" + estado "enviado" = salió tarde. null = no existe, no estaba
+ * omitido por prioridad o lo tomó otra corrida: no hay que mandarlo. */
+export async function reactivarDisparoOmitido(reglaId: string, origenTipo: string, origenId: string): Promise<DisparoReglaWhatsapp | null> {
+  const filas = await getDb()
+    .update(disparosReglaWhatsapp)
+    .set({ estado: "programado", enviarEn: new Date().toISOString() })
+    .where(
+      and(
+        eq(disparosReglaWhatsapp.reglaId, reglaId),
+        eq(disparosReglaWhatsapp.origenTipo, origenTipo),
+        eq(disparosReglaWhatsapp.origenId, origenId),
+        eq(disparosReglaWhatsapp.estado, "omitido"),
+        sql`${disparosReglaWhatsapp.id} like 'prio-%'`
+      )
+    )
+    .returning();
+  return filas[0] ? disparoReglaWhatsappFromRow(filas[0]) : null;
+}
+
 export async function marcarDisparoReglaWhatsapp(
   id: string,
   cambios: { estado: EstadoDisparoReglaWhatsapp; cuponId?: string; mensajeWhatsappId?: string }

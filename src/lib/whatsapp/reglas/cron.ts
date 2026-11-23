@@ -10,6 +10,7 @@ import {
   listarReglasWhatsappActivas,
   marcarDisparoReglaWhatsapp,
   obtenerReglaWhatsapp,
+  reactivarDisparoOmitido,
   registrarDisparoReglaWhatsapp,
   tomarDisparoProgramado,
 } from "@/lib/dataAccess/whatsapp";
@@ -122,6 +123,7 @@ export async function procesarDisparosProgramados(): Promise<{ procesados: numbe
 // "ticket_por_vencer" escaneando los tickets sin usar de la promo de
 // reactivación.
 export async function procesarPendientesYVencimientos(): Promise<{ procesados: number; errores: number }> {
+  const inicioCorrida = Date.now();
   let { procesados, errores } = await procesarDisparosProgramados();
   const ahoraISO = new Date().toISOString();
 
@@ -252,7 +254,7 @@ export async function procesarPendientesYVencimientos(): Promise<{ procesados: n
   const promoX3 = await procesarPromoPrimerMesX3(ahoraISO);
   const vencidos = await procesarPlanesVencidos(ahoraISO);
   const rechazados = await procesarCobrosRechazados(ahoraISO);
-  const sinVisita = await procesarSinVisita(ahoraISO);
+  const sinVisita = await procesarSinVisita(ahoraISO, inicioCorrida);
   const extras = [sinVisita, porVencer, packsPorVencer, packsVencidos, promoX3, vencidos, rechazados];
   return {
     procesados: procesados + extras.reduce((s, r) => s + r.procesados, 0),
@@ -439,9 +441,10 @@ const DIAS_VENTANA_SIN_VISITA = 3;
 // "sin_visita": cliente que lleva N días (condicionDiasAntesVencimiento) sin
 // pasar por el túnel y no tiene plan vigente — al de plan vigente no se le
 // recuerda que no viene (cree que le van a cortar el plan). Una regla por
-// cada umbral (ej. 18, 30, 45 y 65 días). origenId con la fecha de la última
+// cada umbral y canal (15, 30, 45, 65, 90 y 120 días desde el 23-nov-2026;
+// antes 18, 30, 45 y 65). origenId con la fecha de la última
 // visita y los días: si vuelve, la cuenta empieza de nuevo.
-async function procesarSinVisita(ahoraISO: string): Promise<{ procesados: number; errores: number }> {
+async function procesarSinVisita(ahoraISO: string, inicioCorrida: number): Promise<{ procesados: number; errores: number }> {
   let procesados = 0;
   let errores = 0;
   let reglas: ReglaWhatsapp[] = [];
@@ -450,60 +453,190 @@ async function procesarSinVisita(ahoraISO: string): Promise<{ procesados: number
   } catch (error) {
     console.error("Error cargando reglas WhatsApp (sin_visita)", error);
   }
+  // Desde el inicio de la corrida y no de este paso: las reglas de antes
+  // también gastan del maxDuration de la ruta.
+  const limite = inicioCorrida + PRESUPUESTO_MS_CORRIDA;
   let prioridad: Awaited<ReturnType<typeof prioridadSinVisita>> | undefined;
+  // Correos de a uno cada INTERVALO_MS_CORREO: Resend rechaza (429) si se le
+  // mandan varios por segundo y el disparo quedaría "error" para siempre.
+  let turnoCorreo = Promise.resolve();
+  const esperarTurnoCorreo = () => {
+    const mio = turnoCorreo.then(() => new Promise<void>((r) => setTimeout(r, INTERVALO_MS_CORREO)));
+    turnoCorreo = mio;
+    return mio;
+  };
+  // Umbral más alto ya enviado por cliente y última visita: al que ya recibió
+  // uno más alto no se le manda uno más bajo (pasa al mover umbrales, ej. el
+  // 18 que pasó a 15 el 23-nov-2026: el que recibió el de 18 no recibe el de 15).
+  const umbralEnviado = new Map<string, number>();
+  try {
+    const enviados = await getDb()
+      .select({ origenId: disparosReglaWhatsapp.origenId })
+      .from(disparosReglaWhatsapp)
+      .where(
+        and(
+          inArray(
+            disparosReglaWhatsapp.reglaId,
+            reglas.map((r) => r.id)
+          ),
+          eq(disparosReglaWhatsapp.origenTipo, "cliente"),
+          eq(disparosReglaWhatsapp.estado, "enviado"),
+          gte(disparosReglaWhatsapp.creadoEn, new Date(Date.now() - DIAS_HISTORIA_SIN_VISITA * MS_POR_DIA).toISOString())
+        )
+      );
+    for (const { origenId } of enviados) {
+      const corte = origenId.lastIndexOf(":");
+      const clave = origenId.slice(0, corte);
+      const d = Number(origenId.slice(corte + 1));
+      if (Number.isFinite(d) && d > (umbralEnviado.get(clave) ?? 0)) umbralEnviado.set(clave, d);
+    }
+  } catch (error) {
+    console.error("Error leyendo los umbrales ya enviados de sin_visita", error);
+    return { procesados, errores: errores + 1 };
+  }
+  // Las reglas del mismo umbral (SMS y correo) comparten el cupón (su id sale
+  // del origenId): se procesan juntas por cliente, con un solo chequeo de
+  // prioridad. Si no, el cupón que deja el SMS bloquearía al correo.
+  const porUmbral = new Map<number, ReglaWhatsapp[]>();
   for (const regla of reglas) {
     const dias = regla.condicionDiasAntesVencimiento ?? 0;
-    if (dias <= 0) continue;
+    if (dias > 0) porUmbral.set(dias, [...(porUmbral.get(dias) ?? []), regla]);
+  }
+  for (const [dias, grupo] of porUmbral) {
+    // La ventana dura lo que el cupón (23-nov-2026): con la validez igual a la
+    // distancia al umbral siguiente (15→30→45→65→90→120), el cliente que no
+    // vuelve no queda días sin descuento entre un umbral y otro, y el que
+    // quedó bloqueado por la prioridad lo recibe apenas se le libera.
+    const ventana = Math.max(...grupo.map((r) => r.cuponValidezDias ?? 0), DIAS_VENTANA_SIN_VISITA);
     const hasta = new Date(Date.now() - dias * MS_POR_DIA).toISOString();
-    const desde = new Date(Date.now() - (dias + DIAS_VENTANA_SIN_VISITA) * MS_POR_DIA).toISOString();
+    const desde = new Date(Date.now() - (dias + ventana) * MS_POR_DIA).toISOString();
     let filas: (typeof clientes.$inferSelect)[];
+    // Disparos que estas reglas ya registraron en la ventana ("regla|origen"
+    // → estado): con la ventana larga casi todos los clientes ya tienen el
+    // suyo, y probar el insert uno por uno serían miles de idas a la base.
+    let previos: Map<string, string>;
     try {
-      filas = await getDb()
-        .select()
-        .from(clientes)
-        .where(and(isNotNull(clientes.ultimaVisita), gt(clientes.ultimaVisita, desde), lte(clientes.ultimaVisita, hasta)));
+      const [cli, prev] = await Promise.all([
+        getDb()
+          .select()
+          .from(clientes)
+          .where(and(isNotNull(clientes.ultimaVisita), gt(clientes.ultimaVisita, desde), lte(clientes.ultimaVisita, hasta))),
+        getDb()
+          .select({ reglaId: disparosReglaWhatsapp.reglaId, origenId: disparosReglaWhatsapp.origenId, estado: disparosReglaWhatsapp.estado })
+          .from(disparosReglaWhatsapp)
+          .where(
+            and(
+              inArray(
+                disparosReglaWhatsapp.reglaId,
+                grupo.map((r) => r.id)
+              ),
+              eq(disparosReglaWhatsapp.origenTipo, "cliente"),
+              gte(disparosReglaWhatsapp.creadoEn, desde)
+            )
+          ),
+      ]);
+      filas = cli;
+      previos = new Map(prev.map((p) => [`${p.reglaId}|${p.origenId}`, p.estado]));
     } catch (error) {
-      console.error("Error buscando clientes sin visita", regla.id, error);
+      console.error("Error buscando clientes sin visita", dias, error);
       errores++;
       continue;
     }
 
-    for (const row of filas) {
+    const procesarCliente = async (row: typeof clientes.$inferSelect) => {
       // Mismo criterio que el mesón (incluye el último día y la espera de Woo).
-      if (row.vencimiento && planStatus(clienteFromRow(row)).label !== "Vencido") continue;
+      if (row.vencimiento && planStatus(clienteFromRow(row)).label !== "Vencido") return;
+      if ((umbralEnviado.get(`${row.id}:${row.ultimaVisita}`) ?? 0) > dias) return;
+      const origenId = `${row.id}:${row.ultimaVisita}:${dias}`;
+      // Enviado, con error o en curso: no se repite. Solo el "omitido" se reintenta.
+      const pendientes = grupo.filter((r) => {
+        const previo = previos.get(`${r.id}|${origenId}`);
+        return !previo || previo === "omitido";
+      });
+      if (!pendientes.length) return;
       // Prioridad de ofertas (19-nov-2026): los $3.000 no le llegan a quien
       // tiene un ticket o un descuento vivo (no los usa: 0 de 161 en nov) ni
       // a quien recibió otra oferta en los últimos 7 días. Queda "omitido"
-      // (id "prio-…", para medirlo); si sigue sin venir, lo toma el umbral
-      // siguiente.
-      prioridad ??= await prioridadSinVisita(ahoraISO);
+      // (id "prio-…", para medirlo) y se reintenta cada día mientras siga
+      // en la ventana: sale apenas se le libera (23-nov-2026).
+      const p = prioridad!;
+      // El cupón de este mismo umbral (id "desc…-<origenId>", lo deja el otro
+      // canal) no cuenta como descuento vivo.
+      const vivosAjenos = row.patente ? (p.conTicketODescuento.get(row.patente) ?? []).filter((id) => !id.endsWith(`-${origenId}`)) : [];
       const bloqueado =
-        (!!row.patente && (prioridad.conTicketODescuento.has(row.patente) || prioridad.ofertaReciente.patentes.has(row.patente))) ||
-        prioridad.ofertaReciente.clientes.has(row.id) ||
-        (!!telefonoClave(row.telefono) && prioridad.ofertaReciente.telefonos.has(telefonoClave(row.telefono)));
-      const disparo = await registrarDisparoReglaWhatsapp({
-        id: bloqueado ? `prio-${uid()}` : uid(),
-        reglaId: regla.id,
-        origenTipo: "cliente",
-        origenId: `${row.id}:${row.ultimaVisita}:${dias}`,
-        clienteId: row.id,
-        patente: row.patente ?? undefined,
-        estado: bloqueado ? "omitido" : "programado",
-        enviarEn: ahoraISO,
-      });
-      if (!disparo || bloqueado) continue;
-      try {
-        await ejecutarAccionRegla(regla, disparo.id, clienteFromRow(row));
-        procesados++;
-      } catch (error) {
-        console.error("Error disparando regla WhatsApp sin_visita", regla.id, row.id, error);
-        await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
-        errores++;
+        vivosAjenos.length > 0 ||
+        (!!row.patente && p.ofertaReciente.patentes.has(row.patente)) ||
+        p.ofertaReciente.clientes.has(row.id) ||
+        (!!telefonoClave(row.telefono) && p.ofertaReciente.telefonos.has(telefonoClave(row.telefono)));
+      for (const regla of pendientes) {
+        const previo = previos.get(`${regla.id}|${origenId}`);
+        if (previo && bloqueado) continue;
+        const disparo = previo
+          ? await reactivarDisparoOmitido(regla.id, "cliente", origenId)
+          : await registrarDisparoReglaWhatsapp({
+              id: bloqueado ? `prio-${uid()}` : uid(),
+              reglaId: regla.id,
+              origenTipo: "cliente",
+              origenId,
+              clienteId: row.id,
+              patente: row.patente ?? undefined,
+              estado: bloqueado ? "omitido" : "programado",
+              enviarEn: ahoraISO,
+            });
+        if (!disparo || bloqueado) continue;
+        try {
+          if (regla.canal === "correo") await esperarTurnoCorreo();
+          await ejecutarAccionRegla(regla, disparo.id, clienteFromRow(row));
+          procesados++;
+        } catch (error) {
+          console.error("Error disparando regla WhatsApp sin_visita", regla.id, row.id, error);
+          await marcarDisparoReglaWhatsapp(disparo.id, { estado: "error" }).catch(() => {});
+          errores++;
+        }
       }
+    };
+
+    // De a varios en paralelo y cortando antes del límite de la función: un
+    // corte a mitad dejaría disparos "programado" que nadie retoma. El que no
+    // alcanzó queda sin registrar y entra en la corrida de mañana.
+    if (!filas.length) continue;
+    try {
+      prioridad ??= await prioridadSinVisita(ahoraISO);
+    } catch (error) {
+      console.error("Error calculando la prioridad de ofertas sin_visita", error);
+      errores++;
+      break;
+    }
+    const cola = [...filas];
+    const trabajador = async () => {
+      while (cola.length && Date.now() <= limite) {
+        const row = cola.shift()!;
+        try {
+          await procesarCliente(row);
+        } catch (error) {
+          // Un fallo de base con un cliente no corta al resto ni la corrida.
+          console.error("Error procesando cliente sin_visita", dias, row.id, error);
+          errores++;
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: PARALELO_SIN_VISITA }, trabajador));
+    if (Date.now() > limite) {
+      console.warn("sin_visita: se acabó el tiempo de la corrida, el resto sale mañana", dias, cola.length);
+      break;
     }
   }
   return { procesados, errores };
 }
+
+// "sin_visita" deja de tomar clientes a los 240 s de empezada la corrida (la
+// ruta tiene maxDuration 300 s; el margen cubre a los que están en curso).
+const PRESUPUESTO_MS_CORRIDA = 240_000;
+const PARALELO_SIN_VISITA = 3;
+const INTERVALO_MS_CORREO = 600;
+// Cuánto atrás mirar los umbrales ya enviados: más que el último umbral más
+// su ventana (120 + 30).
+const DIAS_HISTORIA_SIN_VISITA = 180;
 
 /** Los últimos 9 dígitos del teléfono: el mismo celular escrito con o sin +56. */
 const telefonoClave = (t: string | null | undefined) => (t ?? "").replace(/\D/g, "").slice(-9);
@@ -522,7 +655,7 @@ async function prioridadSinVisita(ahoraISO: string) {
   const desde = new Date(new Date(ahoraISO).getTime() - DIAS_OFERTA_RECIENTE * MS_POR_DIA).toISOString();
   const [vivos, disparos, campanas] = await Promise.all([
     db
-      .select({ tipo: cupones.tipo, patenteAsignada: cupones.patenteAsignada, patentesAutorizadas: cupones.patentesAutorizadas })
+      .select({ id: cupones.id, tipo: cupones.tipo, patenteAsignada: cupones.patenteAsignada, patentesAutorizadas: cupones.patentesAutorizadas })
       .from(cupones)
       .where(
         and(
@@ -546,12 +679,25 @@ async function prioridadSinVisita(ahoraISO: string) {
     db
       .select({ clienteId: mensajesSms.clienteId, telefono: mensajesSms.telefono })
       .from(mensajesSms)
-      .where(and(sql`${mensajesSms.campana} not like 'regla:%'`, eq(mensajesSms.estado, "enviado"), gte(mensajesSms.creadoEn, desde))),
+      // Un "…recordatorio…" solo recuerda descuentos ya emitidos: no es una
+      // oferta nueva, así que no bloquea (23-nov-2026; el del 16-nov dejó sin
+      // los $3.000 a ~130 que justo cumplían un umbral).
+      .where(
+        and(
+          sql`${mensajesSms.campana} not like 'regla:%'`,
+          sql`${mensajesSms.campana} not like '%recordatorio%'`,
+          eq(mensajesSms.estado, "enviado"),
+          gte(mensajesSms.creadoEn, desde)
+        )
+      ),
   ]);
-  const conTicketODescuento = new Set<string>();
+  // patente → ids de sus cupones vivos (el id deja reconocer el cupón que
+  // ya emitió el mismo umbral, que no debe bloquear al otro canal).
+  const conTicketODescuento = new Map<string, string[]>();
+  const agregar = (patente: string, id: string) => conTicketODescuento.set(patente, [...(conTicketODescuento.get(patente) ?? []), id]);
   for (const c of vivos) {
-    if (c.tipo === "vale") for (const p of c.patentesAutorizadas ?? []) conTicketODescuento.add(p);
-    else if (c.patenteAsignada) conTicketODescuento.add(c.patenteAsignada);
+    if (c.tipo === "vale") for (const p of c.patentesAutorizadas ?? []) agregar(p, c.id);
+    else if (c.patenteAsignada) agregar(c.patenteAsignada, c.id);
   }
   const ofertaReciente = { clientes: new Set<string>(), patentes: new Set<string>(), telefonos: new Set<string>() };
   for (const d of [...disparos, ...campanas]) {
