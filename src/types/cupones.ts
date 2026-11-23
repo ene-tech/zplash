@@ -59,4 +59,10 @@ export interface Cupon {
   // tickets en Mi Cuenta (portal cliente) buscando por el correo de la
   // sesión. Undefined en cupones generados a mano o sin email.
   email?: string;
+  // Desde cuándo se puede usar (ISO, inicio del día en Chile). Undefined =
+  // desde que se emitió. Ver restriccionDeUso.
+  validoDesde?: string;
+  // Días de la semana en que se puede usar (0 = domingo … 6 = sábado, hora de
+  // Chile). Undefined o vacío = todos los días.
+  diasSemana?: number[];
 }

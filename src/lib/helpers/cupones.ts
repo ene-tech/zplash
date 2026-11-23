@@ -1,6 +1,6 @@
 import type { Cliente, Cupon, Venta } from "@/types";
 import { findClient } from "./clientes";
-import { finDelDiaSantiago, fmtCaducidad, fmtFecha } from "./fechas";
+import { diaCaja, finDelDiaSantiago, fmtCaducidad, fmtFecha } from "./fechas";
 import {
   DIAS_PROMO_VIP,
   HORAS_VENTANA_RECOMPRA_PACK,
@@ -61,6 +61,81 @@ export function cuponValeEnCanal(cupon: Pick<Cupon, "canal">, canal: "web" | "lo
   return !cupon.canal || cupon.canal === "ambos" || cupon.canal === canal;
 }
 
+const NOMBRES_DIA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+/** Orden en que se leen los días (la semana parte el lunes). */
+export const ORDEN_DIAS_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+export const LETRA_DIA = ["D", "L", "M", "M", "J", "V", "S"];
+
+/** Día de la semana (0 = domingo) de un día "YYYY-MM-DD". */
+function diaSemanaYMD(ymdChile: string): number {
+  return new Date(`${ymdChile}T12:00:00Z`).getUTCDay();
+}
+
+/** Inicio (00:00 de Chile) del día "YYYY-MM-DD", como ISO: el `validoDesde`
+ * que guarda el formulario de creación. */
+export function inicioDelDiaSantiago(ymdChile: string): string {
+  const diaAnterior = new Date(new Date(`${ymdChile}T12:00:00Z`).getTime() - 86400000);
+  return new Date(new Date(finDelDiaSantiago(diaAnterior)).getTime() + 1000).toISOString();
+}
+
+/** Los días permitidos dichos como se le leen al cliente: "de lunes a
+ * jueves", "lunes, miércoles y viernes", "los sábados". Vacío = todos. */
+export function fmtDiasSemana(dias: number[] | undefined): string {
+  const lista = ORDEN_DIAS_SEMANA.filter((d) => dias?.includes(d));
+  if (!lista.length || lista.length === 7) return "todos los días";
+  if (lista.length === 1) return `los ${NOMBRES_DIA[lista[0]]}${lista[0] === 0 || lista[0] === 6 ? "s" : ""}`;
+  const pos = lista.map((d) => ORDEN_DIAS_SEMANA.indexOf(d));
+  const seguidos = pos.every((p, i) => i === 0 || p === pos[i - 1] + 1);
+  if (seguidos && lista.length >= 3) return `de ${NOMBRES_DIA[lista[0]]} a ${NOMBRES_DIA[lista[lista.length - 1]]}`;
+  const nombres = lista.map((d) => NOMBRES_DIA[d]);
+  return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
+}
+
+function fmtDiaConNombre(ymdChile: string): string {
+  const [y, m, d] = ymdChile.split("-");
+  return `${NOMBRES_DIA[diaSemanaYMD(ymdChile)]} ${d}-${m}-${y}`;
+}
+
+/** Por qué este ticket o descuento NO se puede usar hoy aunque esté vivo
+ * (sin usar y sin caducar): todavía no empieza su vigencia (`validoDesde`) o
+ * hoy no es uno de sus días (`diasSemana`). undefined = se puede usar. El
+ * texto es para que el mesón se lo diga al cliente tal cual: "Este ticket está
+ * vigente a partir del lunes 30-11-2026, de lunes a jueves".
+ *
+ * Único lugar donde se decide: lo consultan el canje de tickets (con y sin
+ * código), resolverDescuento y cuponDescuentoDePatente (mesón y web). */
+export function restriccionDeUso(
+  c: Pick<Cupon, "tipo" | "validoDesde" | "diasSemana" | "fechaCaducidad">,
+  ahora: Date = new Date()
+): string | undefined {
+  const hoy = diaCaja(ahora.toISOString());
+  const desde = c.validoDesde ? diaCaja(c.validoDesde) : undefined;
+  const dias = c.diasSemana?.length && c.diasSemana.length < 7 ? c.diasSemana : undefined;
+  const que = c.tipo === "descuento" ? "Este descuento" : "Este ticket";
+  const cuando = dias ? `, ${fmtDiasSemana(dias)}` : "";
+  if (desde && hoy < desde) {
+    return `${que} está vigente a partir del ${fmtDiaConNombre(desde)}${cuando}`;
+  }
+  if (dias && !dias.includes(diaSemanaYMD(hoy))) {
+    // El próximo día que sirve, si llega antes de que caduque.
+    const fin = diaCaja(c.fechaCaducidad);
+    let proximo: string | undefined;
+    for (let i = 1; i <= 7; i++) {
+      const dia = diaCaja(new Date(ahora.getTime() + i * 86400000).toISOString());
+      if (dia > fin) break;
+      if (dias.includes(diaSemanaYMD(dia))) {
+        proximo = dia;
+        break;
+      }
+    }
+    return (
+      `${que} se puede usar solo ${fmtDiasSemana(dias)} y hoy es ${NOMBRES_DIA[diaSemanaYMD(hoy)]}` +
+      (proximo ? `: el próximo día que sirve es el ${fmtDiaConNombre(proximo)}` : ": ya no le queda ningún día válido antes de caducar")
+    );
+  }
+  return undefined;
+}
+
 /** Valida un código de descuento (tipo "descuento") para una patente dada, antes de aplicarlo a una venta.
  * Si el cupón no tiene patenteAsignada, es "abierto": lo puede usar cualquier patente.
  *
@@ -81,6 +156,8 @@ export function resolverDescuento(
     return { ok: false, msg: cupon.unUsoPorPatente ? "Esta patente ya usó este descuento" : "Este descuento ya fue usado" };
   }
   if (new Date(cupon.fechaCaducidad) < new Date()) return { ok: false, msg: "Este descuento está caducado" };
+  const restriccion = restriccionDeUso(cupon);
+  if (restriccion) return { ok: false, msg: restriccion };
   if (cupon.patenteAsignada && cupon.patenteAsignada !== patente) {
     return { ok: false, msg: "Este descuento fue asignado a otra patente" };
   }
@@ -155,9 +232,29 @@ export function cuponDescuentoDePatente(
         c.patenteAsignada === patente &&
         new Date(c.fechaCaducidad) > ahora &&
         cuponValeEnCanal(c, canal) &&
+        // Uno que hoy no sirve (todavía no empieza o no es su día) no rebaja
+        // ningún cobro; el mesón lo avisa aparte (descuentoNoUsableHoy).
+        !restriccionDeUso(c, ahora) &&
         (paraPlanX3 || !esCuponSoloX3(c))
     )
     .sort((a, b) => new Date(a.fechaCaducidad).getTime() - new Date(b.fechaCaducidad).getTime())[0];
+}
+
+/** El descuento atado a esta patente que está vivo pero HOY no se puede usar
+ * (ver restriccionDeUso), con el motivo: el mesón se lo cuenta al cliente en
+ * vez de cobrarle el precio completo sin explicación. */
+export function descuentoNoUsableHoy(
+  lista: Cupon[],
+  patente: string,
+  ahora: Date = new Date()
+): { cupon: Cupon; motivo: string } | undefined {
+  for (const c of lista) {
+    if (c.tipo !== "descuento" || c.usado || c.patenteAsignada !== patente) continue;
+    if (new Date(c.fechaCaducidad) <= ahora || !cuponValeEnCanal(c, "local") || esCuponSoloX3(c)) continue;
+    const motivo = restriccionDeUso(c, ahora);
+    if (motivo) return { cupon: c, motivo };
+  }
+  return undefined;
 }
 
 /** El descuento que el mesón aplica a un cliente CON ficha: primero el código
@@ -608,6 +705,8 @@ export function detalleCupon(c: Cupon, ahora: Date = new Date()): string[] {
 
   const dias = Math.ceil((new Date(c.fechaCaducidad).getTime() - ahora.getTime()) / 86400000);
   out.push(`Válido hasta el ${fmtCaducidad(c.fechaCaducidad)} (incluido, quedan ${dias} ${dias === 1 ? "día" : "días"})`);
+  if (c.validoDesde) out.push(`Válido desde el ${fmtCaducidad(c.validoDesde)}`);
+  if (c.diasSemana?.length && c.diasSemana.length < 7) out.push(`Solo ${fmtDiasSemana(c.diasSemana)}`);
   out.push(c.totalLote > 1 ? `${c.nombreLote} N° ${c.numeroLote}/${c.totalLote}` : `Lote "${c.nombreLote}"`);
   out.push(`Emitido ${fmtFecha(c.creadoEn)}${c.creadoPor ? ` por ${c.creadoPor}` : ""}`);
   if (c.email) out.push(`Correo ${c.email}`);

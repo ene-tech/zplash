@@ -52,6 +52,8 @@ export function cuponToRow(c: Cupon): typeof cupones.$inferInsert {
     soloClientesNuevos: c.soloClientesNuevos || false,
     canal: c.canal || "ambos",
     email: c.email || null,
+    validoDesde: c.validoDesde || null,
+    diasSemana: c.diasSemana?.length ? c.diasSemana : null,
   };
 }
 
@@ -81,6 +83,8 @@ export function cuponFromRow(r: CuponRow): Cupon {
     soloClientesNuevos: r.soloClientesNuevos || false,
     canal: (r.canal as Cupon["canal"]) || "ambos",
     email: r.email || undefined,
+    validoDesde: r.validoDesde || undefined,
+    diasSemana: r.diasSemana?.length ? r.diasSemana : undefined,
   };
 }
 

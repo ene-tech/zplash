@@ -36,6 +36,8 @@ type Props = Pick<
   | "lavadoWebPendiente"
   | "registrarLavadoWeb"
   | "ticketsPatente"
+  | "ticketsNoHoy"
+  | "descuentoNoHoy"
   | "usarTicket"
   | "showOffer"
   | "pNormal"
@@ -142,6 +144,23 @@ export default function OperadorFoundOfertas(props: Props) {
               Usar 1 ticket e ingresar
             </button>
           )}
+        </div>
+      )}
+      {/* Tickets o descuento que tiene pero hoy no puede usar (todavía no
+          empieza su vigencia o no es uno de sus días): el motivo va tal cual
+          para que el operador se lo diga al cliente. */}
+      {(!!props.ticketsNoHoy?.length || props.descuentoNoHoy) && (
+        <div className="offer-card">
+          <div className="offer-head">
+            <h4>No se puede usar hoy</h4>
+          </div>
+          <div className="msg">
+            {[...new Set([...(props.ticketsNoHoy ?? []).map((t) => t.motivo), ...(props.descuentoNoHoy ? [props.descuentoNoHoy.motivo] : [])])].map(
+              (motivo) => (
+                <div key={motivo}>{motivo}.</div>
+              )
+            )}
+          </div>
         </div>
       )}
       {props.citaDetailingPendiente && (

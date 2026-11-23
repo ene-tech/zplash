@@ -41,6 +41,8 @@ import {
   precioRenovacionATiempo,
   precioRenovacionLocal,
   ticketsVigentesDePatente,
+  restriccionDeUso,
+  descuentoNoUsableHoy,
   ventaLavadoWebPendiente,
   ventaUpgradeElegible,
   ventaUpgradeDescuentoElegible,
@@ -220,7 +222,15 @@ export function useOperadorFoundResult(
   // Tickets que esta patente puede canjear sin código — los de la Promo 2
   // Lavados y los de un Pack de Tickets con flota (ver
   // ticketsVigentesDePatente). Se ofrecen arriba, antes de cobrarle nada.
-  const ticketsPatente = [...ticketsVigentesDePatente(data.cupones, c.patente), ...libresVipDePatente(data.cupones, c.patente)];
+  const ticketsVivos = [...ticketsVigentesDePatente(data.cupones, c.patente), ...libresVipDePatente(data.cupones, c.patente)];
+  // Los que hoy no se pueden usar (todavía no empiezan o no es su día, ver
+  // restriccionDeUso) no se canjean: se muestran aparte con el motivo.
+  const ticketsPatente = ticketsVivos.filter((t) => !restriccionDeUso(t));
+  const ticketsNoHoy = ticketsVivos.flatMap((t) => {
+    const motivo = restriccionDeUso(t);
+    return motivo ? [{ ticket: t, motivo }] : [];
+  });
+  const descuentoNoHoy = cuponDescuentoVigente ? undefined : descuentoNoUsableHoy(data.cupones, c.patente);
   // $0 = pack apagado: su botón no se muestra (ver precioPromoLavados).
   const precioPromo2 = precioPromoLavados(data.precios, "promo_2_lavados");
   const precioPromo5 = precioPromoLavados(data.precios, "promo_5_lavados");
@@ -324,6 +334,8 @@ export function useOperadorFoundResult(
     citaDetailingPendiente,
     lavadoWebPendiente,
     ticketsPatente,
+    ticketsNoHoy,
+    descuentoNoHoy,
     precioPromo2,
     precioPromo5,
     yaPasoHoy,

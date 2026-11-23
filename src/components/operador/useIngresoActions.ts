@@ -2,7 +2,7 @@
 
 import { useApp } from "@/context/AppContext";
 import { entregarPromoLavados, entregarPromoRecompra2, entregarPromoVip, entregarUpgradeDescuento, entregarUpgradePack, registrarIngreso, registrarIngresoCupon, registrarIngresoDetailing, registrarIngresoLavadoWeb } from "@/lib/logic";
-import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, ZONA_ASPIRADO_KEY, precioZonaAspirado, marcarDescuentoUsado, patenteAutorizadaParaCupon, precioPromoLavados, uid, uidVenta, ingresoConGarantia, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
+import { LAVADO_EXTRA_PLAN_TIPO, planStatus, MSG_TICKET_YA_PASO_HOY, PROMOS_LAVADOS, PROMO_RECOMPRA_2_KEY, PROMO_VIP_KEY, TICKETS_VIP_PATENTE, SOLO_TUNEL_KEY, patenteYaPasoHoy, TICKETS_UPGRADE_DESCUENTO, TICKETS_UPGRADE_PACK, precioSoloTunel, UPGRADE_DESCUENTO_KEY, UPGRADE_PACK_KEY, ZONA_ASPIRADO_KEY, precioZonaAspirado, marcarDescuentoUsado, patenteAutorizadaParaCupon, restriccionDeUso, precioPromoLavados, uid, uidVenta, ingresoConGarantia, type EstadoReingresoPlan, type IdPromoLavados } from "@/lib/helpers";
 import { upsertEmpresas } from "@/lib/serverActions";
 import { conReglaVigente } from "./reglaVigente";
 import type { AppData, Cita, Cliente, Cupon, PagoInfo, Venta } from "@/types";
@@ -486,6 +486,11 @@ export function useIngresoActions(
       return;
     }
     const ticket = await conReglaVigente(ticketEnMemoria);
+    const restriccion = restriccionDeUso(ticket);
+    if (restriccion) {
+      setGuardarErr(restriccion);
+      return;
+    }
     if (!patenteAutorizadaParaCupon(ticket, cliente.patente)) {
       setGuardarErr("Este ticket ya no está autorizado para esta patente: el dueño del pack cambió la regla");
       return;

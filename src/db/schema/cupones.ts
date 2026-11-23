@@ -72,4 +72,10 @@ export const cupones = pgTable("cupones", {
   // /api/cliente/mi-cuenta/ocultar-cupon). La fila no se borra: el historial
   // del lote y la medición de campañas la siguen necesitando.
   ocultoEnCuenta: boolean("oculto_en_cuenta").notNull().default(false),
+  // Desde cuándo se puede usar (inicio del día en Chile). Null = desde que se
+  // emitió. Ver restriccionDeUso en @/lib/helpers/cupones.
+  validoDesde: timestamptz("valido_desde"),
+  // Días de la semana en que se puede usar (0 = domingo … 6 = sábado, hora de
+  // Chile). Null o vacío = todos los días.
+  diasSemana: jsonb("dias_semana").$type<number[]>(),
 });

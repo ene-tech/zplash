@@ -2,7 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { useAppData } from "@/context/AppContext";
-import { PATENTE_FORMATO_MSG, generarCodigoCupon, isValidPatente, normPlate, uid } from "@/lib/helpers";
+import { PATENTE_FORMATO_MSG, generarCodigoCupon, inicioDelDiaSantiago, isValidPatente, normPlate, uid } from "@/lib/helpers";
 import type { CanalCupon, Cupon } from "@/types";
 
 type CrearDescuentoRefs = {
@@ -27,6 +27,8 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
   const [dSoloNuevos, setDSoloNuevos] = useState(false);
   const [dUnUsoPorPatente, setDUnUsoPorPatente] = useState(false);
   const [dCanal, setDCanal] = useState<CanalCupon>("ambos");
+  const [dValidoDesde, setDValidoDesde] = useState("");
+  const [dDiasSemana, setDDiasSemana] = useState<number[]>([]);
   const [errDescuento, setErrDescuento] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const crearDescuento = async () => {
@@ -40,6 +42,10 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
     }
     if (dTipoValor === "porcentaje" && valor > 100) {
       setErrDescuento({ msg: "El porcentaje no puede ser mayor a 100", ok: false });
+      return;
+    }
+    if (dValidoDesde && dValidoDesde > fechaCaducidad) {
+      setErrDescuento({ msg: "\"Válido desde\" no puede ser después de \"válido hasta\"", ok: false });
       return;
     }
     if (!dAbierto && !isValidPatente(patente)) {
@@ -68,6 +74,8 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
       // Un código atado a UNA patente ya es de un uso: la regla solo tiene
       // sentido en uno abierto (ver el checkbox en CrearDescuentoForm).
       unUsoPorPatente: dAbierto && dUnUsoPorPatente,
+      validoDesde: dValidoDesde ? inicioDelDiaSantiago(dValidoDesde) : undefined,
+      diasSemana: dDiasSemana.length && dDiasSemana.length < 7 ? dDiasSemana : undefined,
     };
 
     const ok = await commit({ cupones: [nuevo, ...data.cupones] });
@@ -92,6 +100,8 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
     setDSoloNuevos(false);
     setDUnUsoPorPatente(false);
     setDCanal("ambos");
+    setDValidoDesde("");
+    setDDiasSemana([]);
   };
 
   return {
@@ -107,6 +117,10 @@ export function useCrearDescuento(refs: CrearDescuentoRefs) {
     setDUnUsoPorPatente,
     dCanal,
     setDCanal,
+    dValidoDesde,
+    setDValidoDesde,
+    dDiasSemana,
+    setDDiasSemana,
     errDescuento,
     crearDescuento,
   };

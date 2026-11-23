@@ -3,6 +3,7 @@
 import type { RefObject } from "react";
 import DatosTransferencia from "@/components/DatosTransferencia";
 import PriceInput from "@/components/PriceInput";
+import VigenciaDiasFields from "./VigenciaDiasFields";
 import type { useGenerarCupones } from "./useGenerarCupones";
 
 type Props = ReturnType<typeof useGenerarCupones> & {
@@ -106,6 +107,12 @@ export default function GenerarCuponesForm({
         <label>Válido hasta (incluido)</label>
         <input ref={caducidadRef} type="date" />
       </div>
+      <VigenciaDiasFields
+        validoDesde={p.validoDesde}
+        setValidoDesde={p.setValidoDesde}
+        diasSemana={p.diasSemana}
+        setDiasSemana={p.setDiasSemana}
+      />
       <div className="field">
         <label>Tipo de documento</label>
         <select value={p.tipoDoc} onChange={(e) => p.setTipoDoc(e.target.value as "Boleta" | "Factura")}>

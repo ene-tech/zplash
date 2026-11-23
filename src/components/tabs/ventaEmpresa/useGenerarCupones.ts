@@ -2,7 +2,7 @@
 
 import { useState, type RefObject } from "react";
 import { useAppData } from "@/context/AppContext";
-import { PATENTE_FORMATO_MSG, RUT_FORMATO_MSG, fmtCLP, formatRut, generarCodigoCupon, isValidPatente, isValidRut, parsearPatentes, uid } from "@/lib/helpers";
+import { PATENTE_FORMATO_MSG, RUT_FORMATO_MSG, fmtCLP, formatRut, generarCodigoCupon, inicioDelDiaSantiago, isValidPatente, isValidRut, parsearPatentes, uid } from "@/lib/helpers";
 import type { Cupon, Empresa, Venta } from "@/types";
 
 type GenerarCuponesRefs = {
@@ -37,6 +37,8 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
   const [patentesAbierto, setPatentesAbierto] = useState(true);
   const [patentesTexto, setPatentesTexto] = useState("");
   const [unCuponPorPatente, setUnCuponPorPatente] = useState(false);
+  const [validoDesde, setValidoDesde] = useState("");
+  const [diasSemana, setDiasSemana] = useState<number[]>([]);
 
   // El RUT manda: al salir del campo se busca en la ficha de Empresas; si ya
   // existe una con ese RUT se traen sus datos en vez de tipearlos de nuevo.
@@ -62,6 +64,10 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
     const fechaCaducidad = caducidadRef.current?.value || "";
     if (!nombreLote || !cantidad || cantidad < 1 || !fechaCaducidad) {
       setErr({ msg: "Completa nombre, cantidad y fecha de caducidad", ok: false });
+      return null;
+    }
+    if (validoDesde && validoDesde > fechaCaducidad) {
+      setErr({ msg: "\"Válido desde\" no puede ser después de la fecha de caducidad", ok: false });
       return null;
     }
     if (cantidad > 500) {
@@ -142,6 +148,8 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
         unCuponPorPatente,
         patenteAsignada: cliente?.patente || undefined,
         email: cliente?.email?.trim() || undefined,
+        validoDesde: validoDesde ? inicioDelDiaSantiago(validoDesde) : undefined,
+        diasSemana: diasSemana.length && diasSemana.length < 7 ? diasSemana : undefined,
       });
     }
 
@@ -217,6 +225,8 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
     setPatentesAbierto(true);
     setPatentesTexto("");
     setUnCuponPorPatente(false);
+    setValidoDesde("");
+    setDiasSemana([]);
     setTipoDoc("Boleta");
     setHayValor(false);
     setMetodoPago(null);
@@ -245,6 +255,10 @@ export function useGenerarCupones(refs: GenerarCuponesRefs, cliente?: { patente:
     setPatentesTexto,
     unCuponPorPatente,
     setUnCuponPorPatente,
+    validoDesde,
+    setValidoDesde,
+    diasSemana,
+    setDiasSemana,
     onRutBlur,
     generar,
   };

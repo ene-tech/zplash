@@ -2,6 +2,7 @@
 
 import type { RefObject } from "react";
 import PriceInput from "@/components/PriceInput";
+import VigenciaDiasFields from "./VigenciaDiasFields";
 import type { useCrearDescuento } from "./useCrearDescuento";
 
 type Props = ReturnType<typeof useCrearDescuento> & {
@@ -80,6 +81,12 @@ export default function CrearDescuentoForm({ dNombreRef, dCaducidadRef, dPatente
         <label>Válido hasta (incluido)</label>
         <input ref={dCaducidadRef} type="date" />
       </div>
+      <VigenciaDiasFields
+        validoDesde={p.dValidoDesde}
+        setValidoDesde={p.setDValidoDesde}
+        diasSemana={p.dDiasSemana}
+        setDiasSemana={p.setDDiasSemana}
+      />
       <div className="field">
         <label>
           <input type="checkbox" checked={p.dAbierto} onChange={(e) => p.setDAbierto(e.target.checked)} /> Abierto

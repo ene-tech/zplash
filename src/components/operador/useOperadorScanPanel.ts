@@ -18,8 +18,10 @@ import {
   esAdministracionOGerencia,
   puedeRegistrarIngresos,
   cuponDescuentoDePatente,
+  descuentoNoUsableHoy,
   patenteAutorizadaParaCupon,
   resolverDescuento,
+  restriccionDeUso,
   ticketsVigentesDePatente,
   uid,
 } from "@/lib/helpers";
@@ -186,6 +188,11 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
       setCuponErr({ msg: "Este cupón está caducado", ok: false });
       return;
     }
+    const restriccion = restriccionDeUso(cupon);
+    if (restriccion) {
+      setCuponErr({ msg: restriccion, ok: false });
+      return;
+    }
     if (!patenteAutorizadaParaCupon(cupon, patente)) {
       setCuponErr({ msg: "Este ticket fue contratado para otra patente", ok: false });
       return;
@@ -280,10 +287,16 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
   // tipear el código (canjearCupon): se valida contra la regla vigente en la
   // base y queda esperando los datos del cliente. true = se hizo cargo.
   const ticketDeFlotaSinFicha = async (patente: string): Promise<boolean> => {
-    const tickets = ticketsVigentesDePatente(data.cupones, patente).filter(
+    const vivos = ticketsVigentesDePatente(data.cupones, patente).filter(
       (t) => !cuponDelLoteUsadoPorPatente(t, patente, data.cupones)
     );
-    if (!tickets.length) return false;
+    // Los que hoy no sirven (todavía no empiezan o no es su día) no se
+    // ofrecen: se le dice al operador desde cuándo, para que se lo cuente.
+    const tickets = vivos.filter((t) => !restriccionDeUso(t));
+    if (!tickets.length) {
+      if (vivos.length) setCuponErr({ msg: restriccionDeUso(vivos[0])!, ok: false });
+      return false;
+    }
     if (patenteYaPasoHoy(data.ingresos, patente)) {
       // Se avisa, pero sigue al resultado normal: igual puede pagar un lavado.
       setCuponErr({ msg: `${MSG_TICKET_YA_PASO_HOY} (le quedan ${tickets.length} ticket${tickets.length === 1 ? "" : "s"})`, ok: false });
@@ -351,7 +364,9 @@ export function useOperadorScanPanel(refs: ScanPanelRefs) {
         setCuponErr({ msg: "Descuento vigente detectado para esta patente", ok: true });
         setCodigoDescuento(autoDescuento.codigo);
       } else {
-        setCuponErr(null);
+        // Tiene uno pero hoy no sirve: se dice por qué, para contárselo.
+        const noHoy = descuentoNoUsableHoy(data.cupones, patente);
+        setCuponErr(noHoy ? { msg: noHoy.motivo, ok: false } : null);
         setCodigoDescuento("");
       }
     }
