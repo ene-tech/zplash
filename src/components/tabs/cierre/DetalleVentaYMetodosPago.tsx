@@ -12,6 +12,10 @@ type Props = Pick<
   "filasVenta" | "totalCantidadVentas" | "totalMontoVentas" | "modificacionesAdmin" | "otrasVentas" | "metodosPago" | "totalCantidadMetodosPago" | "totalMontoMetodosPago"
 >;
 
+// Filas de la web propia: todo se cobra con tarjeta por Transbank, así que
+// el desglose útil es por tipo de venta (Oneclick vs Webpay, qué pack).
+const FILAS_POR_TIPO_VENTA = new Set(["venta-nueva-web", "plan-x5-web-nuevo", "plan-x5-web-renovacion", "plan-x3-web"]);
+
 // "Detalle de venta del período" (expandible por medio de pago) y "Métodos
 // de pago" — el estado de qué fila está expandida es puramente de UI, vive
 // acá y no en useCierreData.
@@ -60,11 +64,11 @@ export function DetalleVentaYMetodosPago(p: Props) {
               monto={f.monto}
               expandida={filaExpandida === f.tipo}
               onToggle={() => setFilaExpandida(filaExpandida === f.tipo ? null : f.tipo)}
-              columnaDesglose={f.tipo === "venta-nueva-web" ? "Tipo de venta" : "Medio de pago"}
+              columnaDesglose={FILAS_POR_TIPO_VENTA.has(f.tipo) ? "Tipo de venta" : "Medio de pago"}
               desglose={
                 f.tipo === "ingreso-modulo-contabilidad"
                   ? desglosePagoContables(f.items as MovimientoContable[])
-                  : f.tipo === "venta-nueva-web"
+                  : FILAS_POR_TIPO_VENTA.has(f.tipo)
                     ? desglosePorTipoVenta(f.items as Venta[])
                     : desglosePagoVentas(f.items as Venta[])
               }

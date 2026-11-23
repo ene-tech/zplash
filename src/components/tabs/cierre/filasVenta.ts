@@ -1,4 +1,4 @@
-import { esVentaNuevaWeb, inRange, PLAN_X3, TIPO_VENTA_REEMBOLSO } from "@/lib/helpers";
+import { esVentaNuevaWeb, inRange, PLAN_X3, TIPO_VENTA_REEMBOLSO, TIPOS_VENTA_PLAN } from "@/lib/helpers";
 import type { Cliente, MovimientoContable, Venta } from "@/types";
 import { GRUPOS_CIERRE, PRODUCTOS_CIERRE, type GrupoCierre } from "./productos";
 
@@ -45,8 +45,23 @@ export function calcularFilasVentaCierre(
   // distingue. Va en su propia fila (más abajo) en vez de quedar escondido
   // dentro de "Venta nueva web".
   const esPlanX3Web = (v: Venta) => esVentaNuevaWeb(v.creadoPor) && v.plan === PLAN_X3 && !esReembolso(v);
+  // Cobros del Plan X5 (y del Ilimitado antiguo) por la web propia: Oneclick
+  // y Webpay. Se separan en "nuevo" = el primer cobro X5 web que tuvo
+  // esa patente en toda la historia (las altas web no se graban como "Plan
+  // nuevo", se graban igual que una renovación), y "renovación" = el resto.
+  const esPlanWeb = (v: Venta) =>
+    esVentaNuevaWeb(v.creadoPor) && TIPOS_VENTA_PLAN.has(v.tipo) && !esReembolso(v) && !esUpgradePlan(v) && !esNuevoClienteAdmin(v);
+  const esPlanX5Web = (v: Venta) => esPlanWeb(v) && !esPlanX3Web(v);
+  const primerCobroPlanWeb = new Map<string, Venta>();
+  // Solo cobros del X5: quien venía del X3 y se pasa al X5 cuenta como X5 nuevo.
+  for (const v of ventas) {
+    if (!esPlanX5Web(v)) continue;
+    const previo = primerCobroPlanWeb.get(v.patente);
+    if (!previo || v.fecha < previo.fecha) primerCobroPlanWeb.set(v.patente, v);
+  }
+  const esPlanWebNuevo = (v: Venta) => primerCobroPlanWeb.get(v.patente)?.id === v.id;
   const ventaNuevaWebItems = ventasPeriodo.filter(
-    (v) => esVentaNuevaWeb(v.creadoPor) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v) && !esReembolso(v) && !esPlanX3Web(v)
+    (v) => esVentaNuevaWeb(v.creadoPor) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v) && !esReembolso(v) && !esPlanX3Web(v) && !esPlanX5Web(v)
   );
   const ventasPeriodoBase = ventasPeriodo.filter((v) => !esVentaNuevaWeb(v.creadoPor));
 
@@ -100,10 +115,30 @@ export function calcularFilasVentaCierre(
   const ventaNuevaWebRow = {
     tipo: "venta-nueva-web",
     grupo: "Venta Nueva Web" as GrupoCierre,
-    label: "Venta nueva web",
+    label: "Lavados y packs de tickets (Web)",
     cantidad: ventaNuevaWebItems.reduce((s, v) => s + (v.cantidadItems ?? 1), 0),
     monto: ventaNuevaWebItems.reduce((s, v) => s + (v.precio || 0), 0),
     items: ventaNuevaWebItems,
+  };
+
+  const planX5Items = ventasPeriodo.filter(esPlanX5Web);
+  const planX5NuevoItems = planX5Items.filter(esPlanWebNuevo);
+  const planX5RenovacionItems = planX5Items.filter((v) => !esPlanWebNuevo(v));
+  const planX5NuevoRow = {
+    tipo: "plan-x5-web-nuevo",
+    grupo: "Venta Nueva Web" as GrupoCierre,
+    label: "Plan X5 nuevo (primer cobro web)",
+    cantidad: planX5NuevoItems.length,
+    monto: planX5NuevoItems.reduce((s, v) => s + (v.precio || 0), 0),
+    items: planX5NuevoItems,
+  };
+  const planX5RenovacionRow = {
+    tipo: "plan-x5-web-renovacion",
+    grupo: "Venta Nueva Web" as GrupoCierre,
+    label: "Plan X5 renovación (cobro automático web)",
+    cantidad: planX5RenovacionItems.length,
+    monto: planX5RenovacionItems.reduce((s, v) => s + (v.precio || 0), 0),
+    items: planX5RenovacionItems,
   };
 
   const planX3Items = ventasPeriodo.filter((v) => esPlanX3Web(v) && !esNuevoClienteAdmin(v) && !esUpgradePlan(v));
@@ -145,8 +180,10 @@ export function calcularFilasVentaCierre(
   const filasVenta = [
     ...ventasPorTipo,
     serviciosAdicionalesRow,
-    ventaNuevaWebRow,
+    planX5NuevoRow,
+    planX5RenovacionRow,
     planX3Row,
+    ventaNuevaWebRow,
     upgradePlanRow,
     ...(reembolsoItems.length ? [reembolsosRow] : []),
     ingresoModuloContabilidadRow,
@@ -162,6 +199,7 @@ export function calcularFilasVentaCierre(
     ...ventasPorTipo.flatMap((f) => f.items),
     ...serviciosAdicionalesItemsBase,
     ...ventaNuevaWebItems,
+    ...planX5Items,
     ...planX3Items,
     ...upgradePlanItems,
     ...reembolsoItems,
