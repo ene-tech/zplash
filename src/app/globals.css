@@ -2946,6 +2946,34 @@ body:has(.aviso-cookies) #app {
   background: var(--bg);
   color: var(--white);
   font-family: var(--font-jakarta), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* Letra ~10% más grande en todo el sitio público (pedido del dueño, nov-2026:
+     "el texto es muy chico"). Casi todos los tamaños están en px fijos, y
+     muchos inline, así que zoom es la única palanca que los mueve todos
+     juntos. zoom también escala vh: se compensa abajo para que las páginas
+     cortas no queden con scroll de más. El panel (/admin) no tiene esta
+     clase, así que no lo toca. */
+  zoom: 1.1;
+  min-height: calc(100vh / 1.1);
+}
+:root.tema-claro #app {
+  min-height: calc(100vh / 1.1);
+}
+/* Con el zoom el menú horizontal del SiteNav necesita ~1250px reales y no
+   900: entre 901 y 1240 se usa el mismo menú hamburguesa que bajo 900 (copia
+   de esas reglas; las media queries no se pueden encadenar a una clase). */
+@media (min-width: 901px) and (max-width: 1240px) {
+  :root.tema-claro .site-nav-links {
+    display: none;
+  }
+  :root.tema-claro .site-nav-toggle {
+    display: inline-flex;
+  }
+  :root.tema-claro .btn.ghost.btn-mi-cuenta {
+    display: none;
+  }
+  :root.tema-claro .site-nav-mobile {
+    display: flex;
+  }
 }
 .tema-claro :is(h1, h2, h3, h4, .display, .section-title, .site-nav-link, .site-nav-mobile-link) {
   font-family: var(--font-jakarta), "Helvetica Neue", Helvetica, Arial, sans-serif;

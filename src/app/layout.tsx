@@ -39,7 +39,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${outfit.variable} ${jakarta.variable} tema-claro`}>
+    // suppressHydrationWarning: el panel (/admin) le saca "tema-claro" a <html>
+    // antes de hidratar (ver admin/layout.tsx), y la clase ya no coincide.
+    <html lang="es" className={`${outfit.variable} ${jakarta.variable} tema-claro`} suppressHydrationWarning>
       <body>
         {children}
         <Toaster />

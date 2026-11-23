@@ -32,7 +32,7 @@ export default function HubView() {
   return (
     <div className="login-screen">
       <div className="brand">
-        <Image src="/logo-oscuro.png" alt="ZPlash" width={176} height={44} className="brand-logo logo-recortado" />
+        <Image src="/logo.png" alt="ZPlash" width={200} height={76} className="brand-logo" />
         <div className="sub">Hola, {ui.perfilActual?.nombre}</div>
       </div>
       {esGerencia && (

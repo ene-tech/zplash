@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import TemaOscuroAdmin from "@/components/TemaOscuroAdmin";
 
 // El layout raíz ahora lleva metadata pública (landing en "/"); acá
 // recuperamos el título/descripción que tenía el panel cuando vivía en "/".
@@ -14,6 +15,21 @@ export const metadata: Metadata = {
   },
 };
 
+// Barra del navegador/PWA del color del panel oscuro (el sitio público es claro).
+export const viewport: Viewport = {
+  themeColor: "#262320",
+};
+
+// Saca "tema-claro" de <html> antes del primer pintado, sin esperar a que
+// hidrate React (si no, el panel parpadea en claro al abrir). Ver TemaOscuroAdmin.
+const SIN_TEMA_CLARO = 'document.documentElement.classList.remove("tema-claro")';
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: SIN_TEMA_CLARO }} />
+      <TemaOscuroAdmin />
+      {children}
+    </>
+  );
 }
