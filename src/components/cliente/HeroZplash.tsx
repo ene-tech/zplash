@@ -9,6 +9,7 @@ export default function HeroZplash() {
     <GoRide
       conMenu={false}
       conSplash={false}
+      fondo="/tunel/prelavado-portada3.jpg"
       theme={{ accent: "#FFC72C", accentSoft: "#FFF1C7" }}
       brand={{ name: "Zplash", href: "/" }}
       copy={{

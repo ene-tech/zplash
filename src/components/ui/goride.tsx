@@ -164,6 +164,8 @@ export interface GorideProps {
   conMenu?: boolean
   /** Zplash: false quita la pantalla de carga amarilla. */
   conSplash?: boolean
+  /** Zplash: foto de fondo del hero, detrás del celular (tapa el mapa grande, se funde hacia el texto). */
+  fondo?: string
   /** Colour roles written to the `--gr-*` variables; any omitted role keeps its default. */
   theme?: Partial< typeof THEME >
   /** Brand name and link. */
@@ -210,6 +212,7 @@ const DEFAULT_CONTENT = {
   reducedMotion: undefined as boolean | undefined,
   conMenu: true,
   conSplash: true,
+  fondo: '',
   cuenta: {
     lugarRotulo: 'Tu lavado',
     lugar: 'Zplash · Prieto Norte 71',
@@ -230,9 +233,9 @@ type GorideContent = typeof DEFAULT_CONTENT
 const GorideContext = createContext< GorideContent >(DEFAULT_CONTENT)
 
 const useGoride = () => {
-  const { brand: BRAND, nav: NAV, copy: COPY, live: LIVE, driver: DRIVER, payment: PAYMENT, tagline: TAGLINE, reducedMotion, cuenta: CUENTA, conMenu: CON_MENU, conSplash: CON_SPLASH } = useContext(GorideContext)
+  const { brand: BRAND, nav: NAV, copy: COPY, live: LIVE, driver: DRIVER, payment: PAYMENT, tagline: TAGLINE, reducedMotion, cuenta: CUENTA, conMenu: CON_MENU, conSplash: CON_SPLASH, fondo: FONDO } = useContext(GorideContext)
 
-  return { BRAND, NAV, COPY, LIVE, DRIVER, PAYMENT, TAGLINE, reducedMotion, CUENTA, CON_MENU, CON_SPLASH }
+  return { BRAND, NAV, COPY, LIVE, DRIVER, PAYMENT, TAGLINE, reducedMotion, CUENTA, CON_MENU, CON_SPLASH, FONDO }
 }
 
 // An explicit `reducedMotion` prop wins; otherwise the visitor's system setting decides
@@ -1708,6 +1711,7 @@ const pathFrom = (points: PointType[]) =>
  * phone stays put while the car drives out of its screen and across the page to the drop-off
  */
 const CityStage = ({ reduceMotion, start }: CityStageProps) => {
+  const { FONDO } = useGoride()
   // States
   const [city, setCity] = useState< CityType | null >(null)
   const [status, setStatus] = useState< Status >('idle')
@@ -2115,6 +2119,12 @@ const CityStage = ({ reduceMotion, start }: CityStageProps) => {
   return (
     // Zplash: sin clic ni puntero sobre el mapa (marcaba un destino con tarifa, propio de una app de viajes)
     <div ref={stageRef} className='absolute inset-0'>
+      {FONDO && (
+        <div aria-hidden className='gr-fondo pointer-events-none absolute inset-0 z-[15]'>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={FONDO} alt='' fetchPriority='high' className='size-full object-cover' />
+        </div>
+      )}
       {city && (
         <>
           {/* The city draws itself outward from the phone, after the screen has come on */}
@@ -2623,7 +2633,7 @@ const HeroSection = () => {
       <CityStage reduceMotion={reduceMotion} start={start} />
 
       {/* Frame and inset together, the same as the nav, so the copy lines up with the logo */}
-      <div className='gr-frame gr-layout pointer-events-none relative'>
+      <div className='gr-frame gr-layout pointer-events-none relative z-[16]'>
         <div className='gr-inset w-full'>
           <div ref={copyRef} className='gr-container'>
             <HeroCopy reduceMotion={reduceMotion} start={start} />
@@ -3069,6 +3079,20 @@ const BLOCK_CSS = `@layer theme, base, components, utilities;
   /* On phones the phone sits under the copy: the panel grows to hold both, from the measured copy */
   min-height: calc(var(--gr-copy-bottom, 600px) + 40px + var(--gr-phone) * 2.07 + 36px);
   border-radius: 0 0 28px 28px;
+}
+
+/* Zplash: foto de fondo detrás del celular; el color del panel la cubre bajo el texto */
+.gr-fondo::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--gr-panel) 0%, var(--gr-panel) calc(var(--gr-copy-bottom, 600px) - 40px), transparent calc(var(--gr-copy-bottom, 600px) + 120px));
+  content: '';
+}
+
+@media (min-width: 768px) {
+  .gr-fondo::after {
+    background: linear-gradient(90deg, var(--gr-panel) 0%, var(--gr-panel) 34%, color-mix(in srgb, var(--gr-panel) 55%, transparent) 50%, transparent 66%);
+  }
 }
 
 /* Paper grain over the city, so the cream reads as printed stock rather than a flat fill */
@@ -3732,7 +3756,8 @@ const GoRide = ({
   reducedMotion,
   cuenta,
   conMenu = true,
-  conSplash = true
+  conSplash = true,
+  fondo = ''
 }: GorideProps) => {
   const content = useMemo< GorideContent >(
     () => ({
@@ -3746,9 +3771,10 @@ const GoRide = ({
       reducedMotion,
       cuenta: { ...DEFAULT_CONTENT.cuenta, ...cuenta },
       conMenu,
-      conSplash
+      conSplash,
+      fondo
     }),
-    [brand, nav, copy, live, driver, payment, tagline, reducedMotion, cuenta, conMenu, conSplash]
+    [brand, nav, copy, live, driver, payment, tagline, reducedMotion, cuenta, conMenu, conSplash, fondo]
   )
 
   // Theme roles become --gr-* variables, so the CSS and the SVG map read one palette
