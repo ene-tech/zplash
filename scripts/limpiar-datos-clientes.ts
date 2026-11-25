@@ -64,10 +64,13 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { eq } from "drizzle-orm";
 import { auditoria, clientes } from "@/db/schema";
+import { isValidRut, limpiarRut } from "@/lib/helpers/validadores";
 import {
   type Cliente,
   type Hallazgo,
+  RUTS_FALSOS,
   conPatenteTexto,
+  dvCorrecto,
   formatTelefono,
   revisarCliente,
   sugerirDominio,
@@ -79,7 +82,7 @@ const NOMBRE_VACIO = "Sin nombre";
 // Qué hacer con cada chequeo de la auditoría. Lo que no está en este mapa se
 // deja intacto a propósito (ver el encabezado): que un chequeo exista no
 // significa que se pueda arreglar solo.
-type Accion = "borrar-telefono" | "normalizar-telefono" | "borrar-email" | "corregir-dominio" | "quitar-tildes-email" | "minusculas-email" | "borrar-nombre";
+type Accion = "borrar-telefono" | "normalizar-telefono" | "borrar-email" | "corregir-dominio" | "quitar-tildes-email" | "minusculas-email" | "borrar-nombre" | "borrar-rut";
 
 const ACCION_POR_CHEQUEO: Record<string, Accion> = {
   "telefono-sin-digitos": "borrar-telefono",
@@ -103,14 +106,21 @@ const ACCION_POR_CHEQUEO: Record<string, Accion> = {
   "nombre-corto": "borrar-nombre",
   "nombre-sin-letras": "borrar-nombre",
   "nombre-placeholder-abonado": "borrar-nombre",
+  "nombre-invitado": "borrar-nombre",
+  // RUT inválido (24-nov-2026): con ese RUT el SII rechaza la factura, así que
+  // se borra y el mesón lo vuelve a pedir. Razón social, giro y dirección se
+  // dejan: suelen estar bien y el operador solo tiene que poner el RUT.
+  "rut-falso": "borrar-rut",
+  "rut-invalido": "borrar-rut",
+  "rut-dv-invalido": "borrar-rut",
   // Deliberadamente fuera: telefono-sospechoso (puede ser real, hay que
-  // preguntarle al cliente), patente-*, rut-*, factura-*, vehiculo-*, fecha-*
+  // preguntarle al cliente), patente-*, factura-*, vehiculo-*, fecha-*
   // y visitas-* — ver el encabezado.
 };
 
 type Cambio = {
   cliente: Cliente;
-  campo: "telefono" | "email" | "nombre";
+  campo: "telefono" | "email" | "nombre" | "rut";
   antes: string;
   despues: string | null;
   accion: Accion;
@@ -155,6 +165,9 @@ function planificar(c: Cliente, hallazgos: Hallazgo[]): Cambio[] {
       case "borrar-nombre":
         cambios.push({ cliente: c, campo: "nombre", antes: c.nombre, despues: NOMBRE_VACIO, accion, chequeo: h.chequeo });
         break;
+      case "borrar-rut":
+        cambios.push({ cliente: c, campo: "rut", antes: c.rut || "", despues: null, accion, chequeo: h.chequeo });
+        break;
     }
   }
   // Un mismo campo puede caer en dos chequeos (un correo de relleno que además
@@ -177,7 +190,56 @@ const ETIQUETA: Record<Accion, string> = {
   "quitar-tildes-email": "saca las tildes del correo",
   "minusculas-email": "pasa el correo a minúsculas",
   "borrar-nombre": "deja el nombre como «Sin nombre»",
+  "borrar-rut": "borra el RUT",
 };
+
+// Comilla simple SQL: el valor viaja como literal en el VALUES.
+const lit = (v: string | null) => (v === null ? "null" : `'${v.replace(/'/g, "''")}'`);
+
+/**
+ * El SQL que el usuario pega en el SQL Editor de Supabase (desde acá no se
+ * escribe a producción). Un bloque por campo: cada UPDATE solo pisa la ficha
+ * si el campo sigue teniendo el valor malo que se vio al generar (si alguien
+ * lo corrigió entretanto, no se toca), y lo que realmente cambió queda en
+ * `auditoria` con el valor anterior. Re-pegarlo no hace nada: el valor malo ya
+ * no está.
+ */
+function generarSql(cambios: Cambio[], empresasMalas: { id: string; rut: string; razon_social: string }[], fecha: string): string {
+  const partes = [`-- Limpieza de datos de clientes ${fecha} (scripts/limpiar-datos-clientes.ts --sql)`, "begin;"];
+  for (const campo of ["nombre", "telefono", "email", "rut"] as const) {
+    const suyos = cambios.filter((x) => x.campo === campo);
+    if (!suyos.length) continue;
+    const filas = suyos.map((x) => `  (${lit(x.cliente.id)}, ${lit(x.antes)}, ${lit(x.despues)}, ${lit(`limpieza de datos: ${x.chequeo}`)})`).join(",\n");
+    partes.push(
+      `\n-- ${campo}: ${suyos.length} fichas
+with v(id, antes, despues, motivo) as (values
+${filas}
+), u as (
+  update clientes c set ${campo} = v.despues
+  from v where c.id = v.id and btrim(coalesce(c.${campo}, '')) = btrim(v.antes)
+  returning c.id, v.antes, v.despues, v.motivo
+)
+insert into auditoria (tabla, registro_id, accion, datos_anteriores, datos_nuevos, usuario)
+select 'clientes', id, 'update', jsonb_build_object('${campo}', antes), jsonb_build_object('${campo}', despues, 'motivo', motivo), 'limpieza-datos' from u;`
+    );
+  }
+  if (empresasMalas.length) {
+    // empresas.rut es obligatorio: una empresa con RUT inválido no se puede
+    // dejar sin RUT, se borra (nada la referencia; la vuelve a crear el mesón
+    // cuando se carga el RUT bueno).
+    partes.push(
+      `\n-- empresas con RUT inválido: ${empresasMalas.length}
+with d as (
+  delete from empresas where id in (${empresasMalas.map((e) => lit(e.id)).join(", ")})
+  returning *
+)
+insert into auditoria (tabla, registro_id, accion, datos_anteriores, datos_nuevos, usuario)
+select 'empresas', id, 'delete', to_jsonb(d), jsonb_build_object('motivo', 'limpieza de datos: rut inválido'), 'limpieza-datos' from d;`
+    );
+  }
+  partes.push("\ncommit;");
+  return partes.join("\n") + "\n";
+}
 
 async function main() {
   const aplicar = process.argv.includes("--aplicar");
@@ -248,6 +310,17 @@ async function main() {
   writeFileSync(rutaRespaldo, "﻿" + respaldo.join("\n"), "utf8");
   console.log(`\nRespaldo de las ${afectadas.length} fichas afectadas escrito en ${rutaRespaldo}`);
 
+  if (process.argv.includes("--sql")) {
+    const filasEmp = (await client`select id, rut, razon_social from empresas`) as unknown as { id: string; rut: string; razon_social: string }[];
+    const empresasMalas = filasEmp.filter((e) => !isValidRut(e.rut) || !dvCorrecto(limpiarRut(e.rut)) || RUTS_FALSOS.has(limpiarRut(e.rut)));
+    for (const e of empresasMalas) console.log(`  borra la empresa ${e.razon_social} (${e.rut})`);
+    const rutaSql = `limpieza-clientes-${ahora.toISOString().slice(0, 10)}.sql`;
+    writeFileSync(rutaSql, generarSql(cambios, empresasMalas, ahora.toISOString().slice(0, 10)), "utf8");
+    console.log(`\nSQL escrito en ${rutaSql} (no se escribió nada en la base).`);
+    await client.end();
+    return;
+  }
+
   if (!aplicar) {
     console.log("\nSimulación: no se escribió nada. Volvé a correr con --aplicar para hacerlo efectivo.");
     await client.end();
@@ -262,7 +335,7 @@ async function main() {
   for (const c of afectadas) {
     const suyos = cambios.filter((x) => x.cliente.id === c.id);
     // `nombre` es notNull en el esquema: nunca va a null, va al centinela.
-    const patch: Partial<Pick<Cliente, "telefono" | "email" | "nombre">> = {};
+    const patch: Partial<Pick<Cliente, "telefono" | "email" | "nombre" | "rut">> = {};
     for (const x of suyos) {
       if (x.campo === "nombre") patch.nombre = x.despues ?? NOMBRE_VACIO;
       else patch[x.campo] = x.despues;

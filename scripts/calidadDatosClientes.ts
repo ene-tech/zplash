@@ -369,6 +369,11 @@ export function revisarCliente(c: Cliente, ahora: Date): Hallazgo[] {
     add("nombre", nombre, "nombre-corto", "baja", "Menos de 3 caracteres");
   } else if (!/[a-záéíóúñ]/i.test(nombre)) {
     add("nombre", nombre, "nombre-sin-letras", "media", "No contiene letras");
+  } else if (tokenizar(nombre).startsWith("invitad")) {
+    // Desde el 24-nov-2026 "Invitado" se borra en todas las fichas, no solo en
+    // las de abonados (pedido del dueño): con "Sin nombre" el mesón muestra el
+    // input y el operador lo pide la próxima vez que pasa el auto.
+    add("nombre", nombre, "nombre-invitado", "media", "Registrado como «Invitado»: falta el nombre real");
   } else if (NOMBRES_PLACEHOLDER.has(tokenizar(nombre)) && c.vencimiento && new Date(c.vencimiento) > ahora) {
     // "Invitado" está bien para el que pasa una vez, pero este tiene plan
     // vigente: se le cobra todos los meses y se le manda correo empezando por
