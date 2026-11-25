@@ -4,9 +4,8 @@ import { fmtCLP } from "@/lib/helpers";
 import type { PreciosPublicos } from "@/components/cliente/types";
 
 // Lo que trae cada pase por el túnel, igual en las tres opciones.
-const INCLUYE_LAVADO = [
-  "Prelavado Hidrolavadora",
-  "Jabón SnowFoam Ph Neutro",
+export const INCLUYE_LAVADO = [
+  "Prelavado según temporada",
   "Cepillos libres de Rayas",
   "Enjuague, Cera y Secado",
   "Aspirado sin límite de tiempo",
@@ -63,7 +62,7 @@ type Opcion = {
 // haga sola. Los precios salen siempre de la base (getPreciosPublicos), los
 // mismos que cobra webpay/crear; un pack en $0 está apagado y no se muestra.
 // La usan la landing (/) y la landing para compartir (/tickets). Va en dos
-// bloques: el lavado suelto solo y "Promociones" con los packs de 2 y 4.
+// bloques: el lavado suelto solo y los packs de 2 y 4.
 export default function EscaleraTickets({ precios }: { precios: PreciosPublicos }) {
   const unitario = precios.lavadoUnico.precio;
   const opciones: Opcion[] = [
@@ -108,12 +107,12 @@ export default function EscaleraTickets({ precios }: { precios: PreciosPublicos 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginBottom: 22 }}>
       {suelto.length > 0 && (
-        <Bloque titulo={null} tarjetas={suelto.length}>
+        <Bloque tarjetas={suelto.length}>
           {suelto.map((o) => tarjeta(o))}
         </Bloque>
       )}
       {promociones.length > 0 && (
-        <Bloque titulo="Promociones" tarjetas={promociones.length}>
+        <Bloque tarjetas={promociones.length}>
           {promociones.map((o) => tarjeta(o))}
         </Bloque>
       )}
@@ -179,18 +178,16 @@ export default function EscaleraTickets({ precios }: { precios: PreciosPublicos 
 
 // Columnas más angostas que el card-grid común (260px) para que las tarjetas
 // (suelto, 2 y 4) quepan en una fila. Cada bloque crece en
-// proporción a sus tarjetas, así todas quedan del mismo ancho, y lleva su
-// título encima; el del suelto va vacío (pero ocupa el alto) para que las
-// tarjetas partan alineadas. En pantallas angostas los bloques bajan de línea.
+// proporción a sus tarjetas, así todas quedan del mismo ancho. Sin título:
+// el grupo ya lo nombra el subtítulo "Lavado único y promociones" de
+// TiposLavadoTab. En pantallas angostas los bloques bajan de línea.
 const MIN_TARJETA = 190;
 const GAP = 18;
 
 function Bloque({
-  titulo,
   tarjetas,
   children,
 }: {
-  titulo: string | null;
   tarjetas: number;
   children: React.ReactNode;
 }) {
@@ -206,22 +203,6 @@ function Bloque({
         flexDirection: "column",
       }}
     >
-      {/* Alto fijo de dos líneas, texto pegado abajo: si un título ocupa
-          dos líneas las tarjetas igual parten parejas. */}
-      <h3
-        style={{
-          margin: "8px 0 12px",
-          minHeight: "2.5em",
-          lineHeight: 1.25,
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "center",
-          textAlign: "center",
-        }}
-        aria-hidden={titulo ? undefined : true}
-      >
-        {titulo ?? " "}
-      </h3>
       <div
         className="card-grid"
         style={{

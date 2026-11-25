@@ -1,16 +1,12 @@
-import Link from "next/link";
-import { Car, Wind, Check } from "lucide-react";
-import { PASES_INCLUIDOS_X3, fmtCLP } from "@/lib/helpers";
 import type { PreciosPublicos } from "./types";
-import TicketsCard from "./tiposLavado/TicketsCard";
-import EscaleraTickets from "./tiposLavado/EscaleraTickets";
+import { TarjetaAspirado, TarjetaEmpresa, TarjetasPlanes, TarjetasUnicoYPromos } from "./tiposLavado/PreciosLavados";
 
-// Dos formas de comprar el mismo lavado: arriba los tickets de pago único por
-// Webpay (EscaleraTickets: 1, 2 o 4, para quien no quiere un plan) y abajo los
-// planes mensuales con cobro automático Oneclick (X3 y X5, uno al lado del
-// otro). El Pack de Tickets 10/+ va después, a lo ancho, como venta empresa.
+// Sección Lavados de la landing, en orden de prioridad: lavado único y
+// promociones (1, 2 y 4 tickets por Webpay, sin plan), planes mensuales con
+// cobro automático Oneclick (X3 y X5), venta empresa (Pack 10/+) y otras
+// opciones. Las tarjetas son de PreciosLavados (diseño pricing de 21st.dev).
+// Cada grupo lleva su <Subtitulo>; el de lavado único y promociones, destacado.
 export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos | null }) {
-
   return (
     <div className="relative isolate">
       <div
@@ -31,122 +27,39 @@ export default function TiposLavadoTab({ precios }: { precios: PreciosPublicos |
         <br />
         <span className="section-title-indent">+ aspirado autoservicio sin límite de tiempo</span>
       </h2>
-      <p style={{ color: "var(--gray)", fontSize: 14, margin: "-6px 0 18px" }}>
-        Compra tus tickets de una vez, sin plan: mientras más llevas, menos pagas por cada lavado.
-      </p>
-      {precios && <EscaleraTickets precios={precios} />}
+      <Subtitulo
+        destacado
+        titulo="Lavado único y promociones"
+        bajada="Sin plan ni inscripción: pagas una vez y, mientras más llevas, menos pagas por cada lavado."
+      />
+      {precios && <TarjetasUnicoYPromos precios={precios} />}
 
       {precios && (
         <>
-          <h3 style={{ margin: "8px 0 4px" }}>Planes mensuales · cobro automático</h3>
-          <p style={{ color: "var(--gray)", fontSize: 14, margin: "0 0 12px" }}>
-            ¿Lavas todos los meses? Elige cuántos lavados quieres y se renueva solo con tu tarjeta.
-          </p>
-          <div className="card-grid" style={{ marginBottom: 22 }}>
-            {precios.planX3Oneclick.precio > 0 && <PlanX3Card precios={precios} />}
-            <PlanX5Card precios={precios} />
-          </div>
+          <Subtitulo
+            titulo="Planes mensuales · cobro automático"
+            bajada="¿Lavas todos los meses? Elige cuántos lavados quieres y se renueva solo con tu tarjeta."
+          />
+          <TarjetasPlanes precios={precios} />
         </>
       )}
 
-      <h3 style={{ margin: "8px 0 12px" }}>Venta empresa, convenios, familias</h3>
-      <div style={{ marginBottom: 22 }}>
-        <TicketsCard precios={precios} />
-      </div>
+      <Subtitulo titulo="Venta empresa, convenios y familias" bajada="Packs de 10 tickets o más para tu flota o tu familia." />
+      <TarjetaEmpresa precios={precios} />
 
-      <h3 style={{ margin: "8px 0 12px" }}>Otras opciones</h3>
-      <div className="card-grid" style={{ marginBottom: 22 }}>
-        <div className="card pricing-card">
-          <div className="card-icon-title">
-            <span className="icon-chip">
-              <Wind />
-            </span>
-            <h3>Zona Aspirado Autoservicio</h3>
-          </div>
-          <p className="desc">
-            Uso único de estación de aspirado autoservicio para el interior de tu auto, cuando no
-            necesitas lavar el exterior de tu auto.
-          </p>
-          <div className="price-row">
-            <span className="new">{precios ? fmtCLP(precios.zonaAspirado.precio) : "..."}</span>
-          </div>
-          <ul className="pricing-card-features">
-            <li>
-              <Check /> Sin límite de tiempo por uso
-            </li>
-          </ul>
-          <Link href="/servicios/zona-aspirado" className="btn secondary">
-            Ver detalles
-          </Link>
-        </div>
-      </div>
+      <Subtitulo titulo="Otras opciones" />
+      <TarjetaAspirado precios={precios} />
     </div>
   );
 }
 
-// Mismo formato que PlanX5Card. No tiene página de detalle propia: el botón
-// va directo a /pagar con el X3 ya elegido.
-function PlanX3Card({ precios }: { precios: PreciosPublicos }) {
+// Título de cada grupo de la sección (barra dorada a la izquierda). El primero
+// (lavado único y promociones) va destacado: es lo que más se vende.
+function Subtitulo({ titulo, bajada, destacado = false }: { titulo: string; bajada?: string; destacado?: boolean }) {
   return (
-    <div className="card pricing-card">
-      <div className="card-icon-title">
-        <span className="icon-chip">
-          <Car />
-        </span>
-        <h3>Plan X3 · cobro automático</h3>
-      </div>
-      <p className="desc">
-        {PASES_INCLUIDOS_X3} lavados por el túnel cada mes con aspirado autoservicio, sin preocuparte de volver a
-        comprar: se cobra solo a tu tarjeta con Oneclick.
-      </p>
-      <div className="price-row" style={{ marginTop: 14, marginBottom: 4 }}>
-        <span className="new">{fmtCLP(precios.planX3Oneclick.precio)}</span>
-        <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
-      </div>
-      <ul className="pricing-card-features" style={{ marginTop: 10 }}>
-        <li>
-          <Check /> Renovación automática con tu tarjeta
-        </li>
-        <li>
-          <Check /> Te avisamos antes de que venza
-        </li>
-      </ul>
-      <Link href="/pagar?item=plan_x3" className="btn" style={{ textDecoration: "none" }}>
-        Activar plan
-      </Link>
-    </div>
-  );
-}
-
-function PlanX5Card({ precios }: { precios: PreciosPublicos }) {
-  return (
-    <div className="card pricing-card pricing-card--featured">
-      <span className="pricing-card-badge">¿Lavas todos los meses?</span>
-      <div className="card-icon-title">
-        <span className="icon-chip">
-          <Car />
-        </span>
-        <h3>Plan X5 · cobro automático</h3>
-      </div>
-      <p className="desc">
-        5 lavados por el túnel cada mes, sin preocuparte de volver a comprar: se cobra solo a tu tarjeta con
-        Oneclick.
-      </p>
-      <div className="price-row" style={{ marginTop: 14, marginBottom: 4 }}>
-        <span className="new">{fmtCLP(precios.planOneclick.precio)}</span>
-        <span style={{ color: "var(--gray)", fontSize: 12.5 }}>/ mes</span>
-      </div>
-      <ul className="pricing-card-features" style={{ marginTop: 10 }}>
-        <li>
-          <Check /> Renovación automática con tu tarjeta
-        </li>
-        <li>
-          <Check /> Te avisamos antes de que venza
-        </li>
-      </ul>
-      <Link href="/servicios/plan-mensual" className="btn" style={{ textDecoration: "none" }}>
-        Activar plan
-      </Link>
+    <div className={destacado ? "lavados-sub destacado" : "lavados-sub"}>
+      <h3>{titulo}</h3>
+      {bajada && <p>{bajada}</p>}
     </div>
   );
 }

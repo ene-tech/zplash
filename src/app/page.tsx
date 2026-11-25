@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
 import Link from "next/link";
 import AnnounceBar from "@/components/cliente/AnnounceBar";
 import DescuentoBienvenidaModal from "@/components/cliente/DescuentoBienvenidaModal";
@@ -9,7 +7,8 @@ import TiposLavadoTab from "@/components/cliente/TiposLavadoTab";
 import DetailingTab from "@/components/cliente/DetailingTab";
 import FaqTab from "@/components/cliente/FaqTab";
 import UbicacionTab from "@/components/cliente/UbicacionTab";
-import LandingHero, { ComoFunciona, WhatsAppFlotante } from "@/components/cliente/LandingHero";
+import { ComoFunciona, WhatsAppFlotante } from "@/components/cliente/LandingHero";
+import HeroZplash from "@/components/cliente/HeroZplash";
 import { getPreciosPublicos } from "@/lib/preciosPublicos";
 
 // Única puerta pública del sitio (reemplazo del home de WordPress): todo el
@@ -19,9 +18,6 @@ import { getPreciosPublicos } from "@/lib/preciosPublicos";
 // garantiza la invalidación por tag de getPreciosPublicos (ver
 // TAG_CONTENIDO_PUBLICO) y no una lectura a la base por visitante.
 export const dynamic = "force-dynamic";
-
-// Subir un video a public/tunel/hero.mp4 lo pone de fondo en la portada.
-const HAY_VIDEO_HERO = existsSync(path.join(process.cwd(), "public/tunel/hero.mp4"));
 
 // Ficha del negocio para Google (datos estructurados schema.org). Tiene que
 // coincidir con la ficha de Google Maps y con UbicacionTab: misma dirección,
@@ -56,7 +52,7 @@ export default async function LandingPage() {
       <DescuentoBienvenidaModal valor={precios.descuentoBienvenida.valor} dias={precios.descuentoBienvenida.diasValidez} />
       <AnnounceBar />
       <SiteNav detailing={precios.servicios.length > 0} />
-      <LandingHero precios={precios} video={HAY_VIDEO_HERO} />
+      <HeroZplash />
       <WhatsAppFlotante />
 
       <div className="content">

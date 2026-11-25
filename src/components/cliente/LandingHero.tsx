@@ -19,8 +19,8 @@ const PASOS = [
   },
   {
     src: "/tunel/espuma-volvo.jpg",
-    titulo: "Prelavado y espuma",
-    detalle: "Hidrolavadora a presión y SnowFoam pH neutro que suelta la suciedad.",
+    titulo: "Prelavado",
+    detalle: "Prelavado para retirar la suciedad más pesada, según temporada.",
   },
   {
     src: "/tunel/camioneta-tunel.jpg",

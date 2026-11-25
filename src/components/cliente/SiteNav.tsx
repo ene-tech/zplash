@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Archivo_Black } from "next/font/google";
 import { Menu, X } from "lucide-react";
 import CarritoBadge from "@/components/cliente/CarritoBadge";
+import RedesSociales from "@/components/cliente/RedesSociales";
 
 // Segunda prueba: Anton (tan condensada que a 16px las letras se pegaban y
 // se hacían ilegibles) se cambió por Archivo Black — mismo peso pesado
@@ -83,6 +84,7 @@ export default function SiteNav({ detailing = false }: { detailing?: boolean }) 
           <Link href="/cliente?registro=1" className="site-nav-mobile-link" onClick={() => setOpen(false)}>
             Registrarme
           </Link>
+          <RedesSociales className="redes-sociales site-nav-mobile-redes" />
         </div>
       )}
     </nav>

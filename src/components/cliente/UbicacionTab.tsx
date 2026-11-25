@@ -23,10 +23,10 @@ export default function UbicacionTab() {
         <p style={{ color: "var(--gray)", fontSize: 14 }}>{DIRECCION}</p>
         <div className="map-actions">
           <a href={MAPS_URL} target="_blank" rel="noopener noreferrer" className="btn secondary">
-            Abrir en Google Maps
+            <span className="hidden sm:inline">Abrir en </span>Google Maps
           </a>
           <a href={WAZE_URL} target="_blank" rel="noopener noreferrer" className="btn ghost">
-            Abrir en Waze
+            <span className="hidden sm:inline">Abrir en </span>Waze
           </a>
         </div>
       </div>
@@ -57,7 +57,7 @@ export default function UbicacionTab() {
         <p style={{ color: "var(--gray)", fontSize: 14, marginBottom: 16 }}>
           Escríbenos por WhatsApp o llámanos si tienes dudas sobre tu plan o un lavado.
         </p>
-        <div className="map-actions">
+        <div className="map-actions map-actions-una">
           <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn">
             WhatsApp: +56 9 5796 9446
           </a>

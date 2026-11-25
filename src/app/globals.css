@@ -2062,6 +2062,41 @@ tr:hover td {
   }
 }
 
+/* Subtítulos de grupo dentro de Lavados (TiposLavadoTab): lavado único y
+   promociones (destacado), planes mensuales, venta empresa, otras opciones. */
+.lavados-sub {
+  margin: 34px 0 16px;
+  padding-left: 14px;
+  border-left: 4px solid var(--gold-relleno);
+}
+.lavados-sub h3 {
+  font-family: var(--font-outfit), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+.lavados-sub p {
+  color: var(--gray);
+  font-size: 14px;
+  margin: 4px 0 0;
+}
+.lavados-sub.destacado {
+  margin-top: 8px;
+  border-left-width: 6px;
+}
+.lavados-sub.destacado h3 {
+  font-size: 32px;
+}
+@media (max-width: 640px) {
+  .lavados-sub h3 {
+    font-size: 20px;
+  }
+  .lavados-sub.destacado h3 {
+    font-size: 25px;
+  }
+}
+
 /* .section-title-indent alineaba la 2ª línea del hero de Lavados bajo
    "TUNEL" con un marginLeft fijo — pensado para título alineado a la
    izquierda. Ahora que .section-title está centrado, ese offset ya no
@@ -3032,6 +3067,38 @@ body:has(.aviso-cookies) #app {
 .site-footer-link:hover {
   color: var(--gold);
 }
+/* Íconos de redes (RedesSociales): fila propia arriba en el pie, y al final
+   del menú del celular. */
+.redes-sociales {
+  display: flex;
+  gap: 10px;
+}
+.redes-sociales a {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--silver);
+  transition: color 0.15s, border-color 0.15s;
+}
+.redes-sociales a:hover {
+  color: var(--gold);
+  border-color: var(--gold-relleno);
+}
+.redes-sociales svg {
+  width: 20px;
+  height: 20px;
+}
+.site-footer-redes {
+  flex-basis: 100%;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+.site-nav-mobile-redes {
+  padding: 10px 8px 0;
+}
 
 /* ---------- TEMA "DÍA CLARO" (html.tema-claro, ver app/layout.tsx) ----------
    Propuesta B del rediseño (nov-2026): sitio público, portal y mesón/admin.
@@ -3045,10 +3112,11 @@ body:has(.aviso-cookies) #app {
    - Los tokens de shadcn (--background, --card…) se resuelven en :root, así
      que hay que repetirlos acá: no heredan el cambio de --bg solos. */
 :root.tema-claro {
-  --bg: #fafaf7;
+  /* Gris cálido (25-nov-2026, opción B): las tarjetas blancas resaltan sobre el fondo */
+  --bg: #ece9e1;
   --bg-panel: #ffffff;
   --bg-card: #ffffff;
-  --border: #e4e1d8;
+  --border: #d9d4c7;
   --white: #1a1815; /* "white" = color de texto principal en toda la hoja */
   --silver: #3d3a34;
   --gray: #5f5b53;
@@ -3065,17 +3133,17 @@ body:has(.aviso-cookies) #app {
   --card-foreground: var(--white);
   --popover: var(--bg-panel);
   --popover-foreground: var(--white);
-  --secondary: #f2f1ec;
+  --secondary: #f4f2ec;
   --secondary-foreground: var(--white);
-  --muted: #f2f1ec;
+  --muted: #f4f2ec;
   --muted-foreground: var(--gray);
-  --accent: #f2f1ec;
+  --accent: #f4f2ec;
   --accent-foreground: var(--white);
   --destructive: var(--red);
   --input: var(--border);
   --sidebar: var(--bg-panel);
   --sidebar-foreground: var(--white);
-  --sidebar-accent: #f2f1ec;
+  --sidebar-accent: #f4f2ec;
   --sidebar-accent-foreground: var(--white);
   --sidebar-border: var(--border);
   --chart-1: #ffc72c;
@@ -3099,6 +3167,59 @@ body:has(.aviso-cookies) #app {
 }
 :root.tema-claro #app {
   min-height: calc(100vh / 1.1);
+}
+/* En celular el +10% se veía abultado (botones y tarjetas enormes, pedido del
+   dueño 25-nov-2026): bajo 640px vuelve al tamaño normal. */
+@media (max-width: 640px) {
+  :root.tema-claro body {
+    zoom: 1;
+    min-height: 100vh;
+  }
+  :root.tema-claro #app {
+    min-height: 100vh;
+  }
+  /* Portada (HeroZplash/goride): mismo margen de 16px que el resto de la
+     página; el componente trae 12 + 20 = 32px. */
+  :root.tema-claro .gr-root .gr-frame {
+    padding-inline: 0;
+  }
+  :root.tema-claro .gr-root .gr-inset {
+    padding-inline: 16px;
+  }
+  /* Tarjetas del sitio público con menos relleno (26px las hacía gruesas) */
+  :root.tema-claro .card {
+    padding: 18px;
+  }
+  /* Google Maps y Waze: dos botones del mismo ancho, lado a lado */
+  :root.tema-claro .map-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  :root.tema-claro .map-actions .btn {
+    justify-content: center;
+    text-align: center;
+    padding-inline: 8px;
+  }
+  /* Fila con un solo botón (WhatsApp del contacto): a lo ancho */
+  :root.tema-claro .map-actions-una {
+    grid-template-columns: 1fr;
+  }
+}
+/* Portada (goride) con el zoom 1.1 de arriba de 640px: sus alturas en dvh se
+   escalan igual que el body, así que se dividen por 1.1 para que la portada
+   quepa en una pantalla y el celular no quede bajo el borde. */
+@media (min-width: 641px) {
+  :root.tema-claro .gr-root {
+    min-height: calc(100dvh / 1.1);
+  }
+}
+@media (min-width: 768px) {
+  :root.tema-claro .gr-root {
+    --gr-phone: clamp(236px, calc((100dvh / 1.1 - var(--gr-nav) - 140px) * 0.47), 268px);
+  }
+  :root.tema-claro .gr-root .gr-panel {
+    height: calc(100dvh / 1.1);
+  }
 }
 /* Con el zoom el menú horizontal del SiteNav necesita ~1250px reales y no
    900: entre 901 y 1240 se usa el mismo menú hamburguesa que bajo 900 (copia
