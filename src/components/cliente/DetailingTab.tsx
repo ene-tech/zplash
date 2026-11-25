@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import { CATEGORIA_DETAILING, fmtCLP } from "@/lib/helpers";
-import { useTamanoVehiculo } from "@/hooks/useTamanoVehiculo";
 import DetailingQuickView, { type DetailingServicioPreview } from "@/components/cliente/DetailingQuickView";
-import { TAMANOS_VEHICULO, TAMANO_LABEL, TAMANO_DESCRIPCION, TAMANO_EJEMPLOS } from "@/types";
+import { TAMANO_LABEL, TAMANO_DESCRIPCION, TAMANO_EJEMPLOS, type TamanoVehiculo } from "@/types";
 import type { PreciosPublicos } from "./types";
+
+// Tamaños agrupados de a dos en la tarjeta de precios (25-nov-2026): S/M y L/XL
+const GRUPOS_TAMANO: TamanoVehiculo[][] = [
+  ["s", "m"],
+  ["l", "xl"],
+];
 
 export default function DetailingTab({ precios }: { precios: PreciosPublicos | null }) {
   const [seleccionado, setSeleccionado] = useState<DetailingServicioPreview | null>(null);
-  const { tamano, elegir, limpiar } = useTamanoVehiculo();
 
   // La tabla `servicios` no tiene orden propio (getPreciosPublicos la lee sin
   // ORDER BY), así que el orden de categorías queda a merced de cómo haya
@@ -20,68 +24,77 @@ export default function DetailingTab({ precios }: { precios: PreciosPublicos | n
     a === CATEGORIA_DETAILING ? -1 : b === CATEGORIA_DETAILING ? 1 : 0
   );
 
-  // Solo Lavado Completo Detailing tiene precio por tamaño (ver
-  // PRECIOS_TAMANO_DEFAULT); esto es lo que decide si vale la pena pedirle
-  // el tamaño al cliente antes de mostrar la sección, o si se salta directo
-  // a los precios (p.ej. si algún día el catálogo queda solo con
-  // Adicionales de precio flat).
-  const hayServicioConTamano = (precios?.servicios ?? []).some((s) => s.preciosTamano);
-
   return (
     <div>
       <h2 className="section-title">Lavado de chasis</h2>
 
       {!precios ? (
         <div className="empty">Cargando servicios...</div>
-      ) : hayServicioConTamano && !tamano ? (
-        <div className="card">
-          <h3 className="tamano-titulo">Selecciona el tamaño de tu vehículo:</h3>
-          <div className="tamano-grid">
-            {TAMANOS_VEHICULO.map((t) => (
-              <button key={t} type="button" className="tamano-btn" onClick={() => elegir(t)}>
-                <div className="letra">{TAMANO_LABEL[t]}</div>
-                <div className="detalle">{TAMANO_DESCRIPCION[t]}</div>
-                <div className="ejemplos">{TAMANO_EJEMPLOS[t]}</div>
-              </button>
-            ))}
-          </div>
-        </div>
       ) : (
-        <>
-          {hayServicioConTamano && tamano && (
-            <div className="tamano-actual">
-              Tamaño de vehículo: <strong>{TAMANO_LABEL[tamano]}</strong> · {TAMANO_DESCRIPCION[tamano]}
-              <button type="button" onClick={limpiar}>
-                Cambiar
-              </button>
-            </div>
-          )}
-          {categorias.map((cat) => (
+        categorias.map((cat) => {
+          const servicios = precios.servicios.filter((s) => (s.categoria || "Otros") === cat);
+          // Desde 25-nov-2026 los precios por tamaño se muestran todos de una,
+          // sin pedir antes el tamaño del vehículo (pedido del dueño).
+          const porTamano = servicios.filter((s) => s.preciosTamano);
+          const planos = servicios.filter((s) => !s.preciosTamano);
+          return (
             <div key={cat} style={{ marginBottom: 22 }}>
               {/* Con una sola categoría (hoy solo queda el chasis) el título de
                   la sección ya la nombra; repetirla debajo sobra. */}
               {categorias.length > 1 && <h3 style={{ marginBottom: 12 }}>{cat}</h3>}
-              <div className="service-grid">
-                {precios.servicios
-                  .filter((s) => (s.categoria || "Otros") === cat)
-                  .map((s) => {
-                    const precio = s.preciosTamano && tamano ? s.preciosTamano[tamano] : s.precio;
-                    return (
-                      <button
-                        type="button"
-                        className="service-btn"
-                        key={s.id}
-                        onClick={() => setSeleccionado({ id: s.id, nombre: s.nombre, precio })}
-                      >
-                        <div className="nombre">{s.nombre}</div>
-                        <div className="precio">{fmtCLP(precio)}</div>
-                      </button>
-                    );
-                  })}
-              </div>
+              {porTamano.map((s) => (
+                <div key={s.id} className="card" style={{ marginBottom: 12 }}>
+                  <h3 className="tamano-titulo">{s.nombre}: precio según el tamaño de tu vehículo</h3>
+                  <div className="tamano-grid">
+                    {GRUPOS_TAMANO.map((grupo) => {
+                      // Un tamaño sin precio cargado no cuenta; si el par no tiene ninguno, no se muestra
+                      const precios = grupo.map((t) => s.preciosTamano![t]).filter((p) => typeof p === "number" && p > 0);
+                      if (precios.length === 0) return null;
+                      const precio = Math.min(...precios);
+                      const label = grupo.map((t) => TAMANO_LABEL[t]).join(" / ");
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          className="tamano-btn"
+                          onClick={() => setSeleccionado({ id: s.id, nombre: `${s.nombre} · Tamaño ${label}`, precio })}
+                        >
+                          <div className="letra">{label}</div>
+                          {/* Si algún día S y M (o L y XL) no cuestan lo mismo, se muestra el menor como "desde" */}
+                          <div className="precio">
+                            {precios.every((p) => p === precio) ? "" : "Desde "}
+                            {fmtCLP(precio)}
+                          </div>
+                          {grupo.map((t) => (
+                            <div key={t} style={{ marginBottom: 6 }}>
+                              <div className="detalle">{TAMANO_DESCRIPCION[t]}</div>
+                              <div className="ejemplos">{TAMANO_EJEMPLOS[t]}</div>
+                            </div>
+                          ))}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              {planos.length > 0 && (
+                <div className="service-grid servicios-chasis">
+                  {planos.map((s) => (
+                    <button
+                      type="button"
+                      className="service-btn"
+                      key={s.id}
+                      onClick={() => setSeleccionado({ id: s.id, nombre: s.nombre, precio: s.precio })}
+                    >
+                      <div className="nombre">{s.nombre}</div>
+                      <div className="precio">{fmtCLP(s.precio)}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-        </>
+          );
+        })
       )}
 
       <DetailingQuickView servicio={seleccionado} onClose={() => setSeleccionado(null)} />
