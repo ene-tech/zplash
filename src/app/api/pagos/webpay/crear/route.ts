@@ -12,6 +12,7 @@ import {
   isValidEmail,
   isValidPatente,
   isValidRut,
+  isValidTelefono,
   MENSAJE_PAGO_NON_GRATO,
   normPlate,
   precioLavadoUnicoWeb,
@@ -138,7 +139,11 @@ export async function POST(request: NextRequest) {
     const patenteDelLink = link?.patente === patente;
 
     const { telefono, error: errorTelefono } =
-      patenteDelLink && !body.telefono ? { telefono: link.telefono, error: undefined } : await telefonoDeCompra(body.telefono, patente);
+      patenteDelLink && !body.telefono
+        ? // El del SMS llegó a ese celular; el de Instagram puede traer uno
+          // malo de la ficha: ese no se arrastra (como con sesión, va null).
+          { telefono: link.telefono && isValidTelefono(link.telefono) ? link.telefono : null, error: undefined }
+        : await telefonoDeCompra(body.telefono, patente);
     if (errorTelefono) {
       return NextResponse.json({ error: errorTelefono }, { status: 400 });
     }

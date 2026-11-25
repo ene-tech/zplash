@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq, gte, like } from "drizzle-orm";
 import { urlLinkSms } from "@/lib/sms/texto";
 import { getDb } from "@/db";
-import { clientes, cupones, mensajesSms, precios } from "@/db/schema";
+import { clientes, cupones, cuponesInstagram, mensajesSms, precios } from "@/db/schema";
 import { cuponFromRow } from "@/lib/dataAccess/cupones";
 import { obtenerSuscripcionOneclickCobrablePorPatente } from "@/lib/dataAccess/oneclick";
 import { linkYaPagado } from "@/lib/pagos/cobrarLavadoOneclick";
@@ -22,6 +22,12 @@ import type { Precios } from "@/types";
 
 /** Días que el link sigue abriendo la oferta después de mandado el SMS. */
 export const DIAS_VIGENCIA_LINK_SMS = 45;
+
+/** Link del descuento de Instagram (ver @/lib/instagram/cuponSeguidor). A
+ * diferencia del SMS, que solo le llega al celular del dueño, a este lo activa
+ * cualquiera que escriba una patente: no cobra la tarjeta guardada con un
+ * toque, solo deja pagar por Webpay con el descuento. */
+export const CAMPANA_LINK_INSTAGRAM = "Instagram";
 
 export function codigoLinkValido(codigo: string): boolean {
   return /^[A-Z0-9]{8}$/.test(codigo);
@@ -68,8 +74,36 @@ export async function resolverLinkSms(codigoCrudo: string | null | undefined): P
       )
     )
     .limit(1);
-  if (!fila?.patente) return null;
-  return { codigo, ...fila, patente: fila.patente, nombre: fila.nombre || "" };
+  if (fila?.patente) return { codigo, ...fila, patente: fila.patente, nombre: fila.nombre || "" };
+
+  // El link del descuento de Instagram (zplash.cl/ig/CODIGO), una vez activado
+  // con una patente, abre el mismo pago (ver @/lib/instagram/cuponSeguidor).
+  const [ig] = await getDb()
+    .select({
+      clienteId: clientes.id,
+      patente: clientes.patente,
+      nombre: clientes.nombre,
+      telefono: clientes.telefono,
+      nonGrato: clientes.nonGrato,
+      activadoEn: cuponesInstagram.activadoEn,
+    })
+    .from(cuponesInstagram)
+    .innerJoin(clientes, eq(clientes.id, cuponesInstagram.clienteId))
+    .where(and(eq(cuponesInstagram.codigo, codigo), gte(cuponesInstagram.activadoEn, desde)))
+    .limit(1);
+  if (!ig?.patente || !ig.activadoEn) return null;
+  // Quien activó el link pudo escribir una patente ajena: sin el nombre del
+  // dueño en la página y sin cobro de un toque (ver CAMPANA_LINK_INSTAGRAM).
+  return {
+    codigo,
+    campana: CAMPANA_LINK_INSTAGRAM,
+    clienteId: ig.clienteId,
+    patente: ig.patente,
+    nombre: "",
+    telefono: ig.telefono,
+    nonGrato: ig.nonGrato,
+    enviadoEn: ig.activadoEn,
+  };
 }
 
 export interface OfertaLinkSms {
@@ -110,9 +144,10 @@ export async function ofertaLinkSms(link: LinkSms): Promise<OfertaLinkSms> {
     cuponWeb: web ? { codigo: web.codigo, caduca: web.fechaCaducidad } : undefined,
     // Con el precio del mesón, que es donde se cobra ese descuento.
     cuponSoloLocal: local ? { precio: precioConCupon(precioLavadoUnico(preciosMap), local), caduca: local.fechaCaducidad } : undefined,
-    tarjeta: suscripcion
-      ? { tipo: suscripcion.cardTipo || "Tarjeta", ultimos: suscripcion.cardUltimosDigitos || "" }
-      : undefined,
+    tarjeta:
+      suscripcion && link.campana !== CAMPANA_LINK_INSTAGRAM
+        ? { tipo: suscripcion.cardTipo || "Tarjeta", ultimos: suscripcion.cardUltimosDigitos || "" }
+        : undefined,
     yaPagado: pagado,
   };
 }

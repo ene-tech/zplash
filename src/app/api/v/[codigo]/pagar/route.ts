@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolverLinkSms } from "@/lib/linkSms";
+import { CAMPANA_LINK_INSTAGRAM, resolverLinkSms } from "@/lib/linkSms";
 import { cobrarLavadoOneclick, ErrorCompraOneclick } from "@/lib/pagos";
 import { clienteIp, rateLimited } from "@/lib/rateLimit";
 
@@ -28,6 +28,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const link = await resolverLinkSms(codigo);
     if (!link) return NextResponse.json({ error: "Este link ya no está disponible" }, { status: 404 });
+    // Ver CAMPANA_LINK_INSTAGRAM: ese link no cobra la tarjeta guardada.
+    if (link.campana === CAMPANA_LINK_INSTAGRAM) {
+      return NextResponse.json({ error: "Paga con tu tarjeta en Webpay" }, { status: 400 });
+    }
 
     try {
       const { estado } = await cobrarLavadoOneclick(link);
