@@ -44,7 +44,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No configurado" }, { status: 500 });
   }
   const rawBody = await request.text();
+  // Rastro en rate_limits (los logs de Vercel no se leen desde el repo): deja
+  // ver con scripts/q.mts si Meta manda eventos y si la firma calza.
+  const rastro = (que: string) => rateLimited(`instagram-webhook:${que}`, 1_000_000, 30 * 24 * 60 * 60 * 1000).catch(() => false);
   if (!firmaValida(rawBody, request.headers.get("x-hub-signature-256"), secreto)) {
+    await rastro("firma-mala");
     console.error("Firma inválida en webhook de Instagram");
     return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
   }
@@ -55,6 +59,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
+  await rastro(`objeto-${payload.object ?? "ninguno"}`);
   if (payload.object !== "instagram") return NextResponse.json({ ok: true });
 
   for (const entry of payload.entry || []) {
