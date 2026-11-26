@@ -2487,6 +2487,87 @@ tr:hover td {
   }
 }
 
+/* Opciones de compra de una patente sin plan (VehiculoCard, "Contrata tu
+   plan"): renglones con qué se compra a la izquierda y precio a la derecha.
+   Los planes van destacados en dorado; packs y lavado suelto, neutros. */
+.opciones-compra {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.opcion-compra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--white);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.opcion-compra:hover:not(:disabled) {
+  border-color: var(--gold);
+}
+.opcion-compra:active:not(:disabled) {
+  transform: scale(0.99);
+}
+.opcion-compra:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.opcion-compra--plan {
+  border: 1.5px solid var(--gold-relleno);
+  background: rgba(255, 199, 44, 0.16);
+}
+.opcion-compra .oc-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.opcion-compra .oc-titulo {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.25;
+}
+.opcion-compra .oc-sub {
+  font-size: 12px;
+  color: var(--gray);
+  line-height: 1.3;
+}
+.opcion-compra .oc-precio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: 16px;
+  white-space: nowrap;
+  color: var(--white);
+}
+.opcion-compra--plan .oc-precio {
+  color: var(--gold);
+}
+.opcion-compra .oc-precio small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--gray);
+}
+.opciones-compra-sep {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray);
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);

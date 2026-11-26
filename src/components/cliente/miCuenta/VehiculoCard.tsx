@@ -458,33 +458,53 @@ export function VehiculoCard({
               otras ofertas de esta tarjeta. Llamar a registrarTarjeta siempre
               le dejaba la tarjeta activa en "pendiente" al cliente que
               abandonaba Transbank. */}
-          <div className="offer-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="btn secondary" onClick={() => pedir("contratacion")} disabled={ocupado}>
-            {inscribiendo
-              ? "Redirigiendo..."
-              : `Contratar ${PLANES[0]} — ${PASES_INCLUIDOS_X5} lavados al mes (${fmtCLP(oferta.contratacion.primerCobro)}, cargo mensual automático)`}
-          </button>
-          <button className="btn secondary" onClick={() => pedir("contratacion_x3")} disabled={ocupado}>
-            {inscribiendo
-              ? "Redirigiendo..."
-              : `Contratar ${PLAN_X3} — ${PASES_INCLUIDOS_X3} lavados al mes (${fmtCLP(oferta.contratacion.primerCobroX3)}, cargo mensual automático)`}
-          </button>
-          {/* Alternativa sin compromiso, por Webpay: pagar un lavado suelto
-              para esta misma patente sin tener que ir a /pagar a tipearla de
-              nuevo. El precio ya viene con el cupón restado (ofertaConCupon),
-              igual que lo cobra /api/pagos/webpay/crear. */}
-          <button className="btn ghost" onClick={comprarLavadoUnico} disabled={ocupado}>
-            {pagando === "lavado_unico"
-              ? "Redirigiendo..."
-              : `Solo un lavado full túnel (${fmtCLP(oferta.contratacion.lavadoUnico)})`}
-          </button>
-          {/* Los packs de tickets de /tickets, también por Webpay y sin
-              cupón (el precio que se ve es el que cobra webpay/crear). */}
-          {oferta.contratacion.packs.map((p) => (
-            <button key={p.id} className="btn ghost" onClick={() => comprarPackLavados(p.id)} disabled={ocupado}>
-              {pagando === p.id ? "Redirigiendo..." : `${p.lavados} lavados full túnel (${fmtCLP(p.precio)})`}
+          {/* Cada opción es un renglón: qué compra a la izquierda, precio a
+              la derecha. Antes eran botones-pastilla con todo el texto
+              centrado, que en mobile saltaba a 3 líneas y no se leía. */}
+          <div className="opciones-compra">
+            <button className="opcion-compra opcion-compra--plan" onClick={() => pedir("contratacion")} disabled={ocupado}>
+              <span className="oc-texto">
+                <span className="oc-titulo">{inscribiendo ? "Redirigiendo..." : `Contratar ${PLANES[0]}`}</span>
+                <span className="oc-sub">{PASES_INCLUIDOS_X5} lavados al mes · cargo automático</span>
+              </span>
+              <span className="oc-precio">
+                {fmtCLP(oferta.contratacion.primerCobro)}
+                <small>{oferta.contratacion.primerCobro < oferta.contratacion.mensual ? "1er mes" : "/mes"}</small>
+              </span>
             </button>
-          ))}
+            <button className="opcion-compra opcion-compra--plan" onClick={() => pedir("contratacion_x3")} disabled={ocupado}>
+              <span className="oc-texto">
+                <span className="oc-titulo">{inscribiendo ? "Redirigiendo..." : `Contratar ${PLAN_X3}`}</span>
+                <span className="oc-sub">{PASES_INCLUIDOS_X3} lavados al mes · cargo automático</span>
+              </span>
+              <span className="oc-precio">
+                {fmtCLP(oferta.contratacion.primerCobroX3)}
+                <small>{oferta.contratacion.primerCobroX3 < oferta.contratacion.mensualX3 ? "1er mes" : "/mes"}</small>
+              </span>
+            </button>
+            <div className="opciones-compra-sep">O sin suscripción</div>
+            {/* Alternativa sin compromiso, por Webpay: pagar un lavado suelto
+                para esta misma patente sin tener que ir a /pagar a tipearla de
+                nuevo. El precio ya viene con el cupón restado (ofertaConCupon),
+                igual que lo cobra /api/pagos/webpay/crear. */}
+            <button className="opcion-compra" onClick={comprarLavadoUnico} disabled={ocupado}>
+              <span className="oc-texto">
+                <span className="oc-titulo">{pagando === "lavado_unico" ? "Redirigiendo..." : "1 lavado Full Túnel"}</span>
+                <span className="oc-sub">Pago único</span>
+              </span>
+              <span className="oc-precio">{fmtCLP(oferta.contratacion.lavadoUnico)}</span>
+            </button>
+            {/* Los packs de tickets de /tickets, también por Webpay y sin
+                cupón (el precio que se ve es el que cobra webpay/crear). */}
+            {oferta.contratacion.packs.map((p) => (
+              <button key={p.id} className="opcion-compra" onClick={() => comprarPackLavados(p.id)} disabled={ocupado}>
+                <span className="oc-texto">
+                  <span className="oc-titulo">{pagando === p.id ? "Redirigiendo..." : `${p.lavados} lavados Full Túnel`}</span>
+                  <span className="oc-sub">Pack · {fmtCLP(Math.round(p.precio / p.lavados))} c/u</span>
+                </span>
+                <span className="oc-precio">{fmtCLP(p.precio)}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
