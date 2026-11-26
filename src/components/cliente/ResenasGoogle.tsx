@@ -1,5 +1,6 @@
 import type { ResenaGoogle, ResenasGoogle as Datos } from "@/lib/resenasGoogle";
 import { getResenasGoogle } from "@/lib/resenasGoogle";
+import { RESENAS_FIJAS, haceCuanto } from "@/lib/resenasGoogleFijas";
 
 // Cinta de reseñas de Google entre la portada y los lavados (26-nov-2026).
 // Calificación y comentarios reales de la ficha (ver lib/resenasGoogle); sin
@@ -91,7 +92,15 @@ export function CintaResenas({ datos }: { datos: Datos }) {
         <h2 id="resenas-titulo">Lo que dicen nuestros clientes</h2>
       </div>
 
-      {datos.resenas.length > 0 && (
+      {/* Con menos de 3 comentarios no hay cinta que correr: quedan quietos y centrados */}
+      {datos.resenas.length > 0 && datos.resenas.length < 3 && (
+        <div className="resenas-quietas">
+          {datos.resenas.map((r, i) => (
+            <Tarjeta key={i} r={r} />
+          ))}
+        </div>
+      )}
+      {datos.resenas.length >= 3 && (
         <div className="resenas-cinta">
           <div className="resenas-pista">
             <div className="resenas-grupo">
@@ -125,5 +134,10 @@ export function CintaResenas({ datos }: { datos: Datos }) {
 export default async function ResenasGoogle() {
   const datos = await getResenasGoogle();
   if (!datos) return null;
-  return <CintaResenas datos={datos} />;
+  // Google no entrega los comentarios de esta ficha: se usan los copiados a
+  // mano (reales) mientras la API no traiga ninguno
+  const resenas = datos.resenas.length
+    ? datos.resenas
+    : RESENAS_FIJAS.map((r) => ({ autor: r.autor, estrellas: r.estrellas, texto: r.texto, hace: haceCuanto(r.fecha) }));
+  return <CintaResenas datos={{ ...datos, resenas }} />;
 }

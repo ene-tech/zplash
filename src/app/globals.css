@@ -3653,6 +3653,13 @@ body:has(.aviso-cookies) #app {
     display: none;
   }
 }
+.resenas-quietas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 16px;
+}
 .resena-tarjeta {
   display: flex;
   flex-direction: column;
@@ -3708,7 +3715,7 @@ body:has(.aviso-cookies) #app {
   font-size: 13.5px;
   line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
