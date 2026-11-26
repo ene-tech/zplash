@@ -3561,3 +3561,177 @@ body:has(.aviso-cookies) #app {
     padding: 10px;
   }
 }
+
+/* ---------- Cinta de reseñas de Google en la portada (26-nov-2026) ---------- */
+.resenas-google {
+  padding: 22px 0 22px;
+  overflow: hidden;
+}
+.resenas-cabeza {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 16px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+.resenas-cabeza h2 {
+  margin: 0;
+  font-family: var(--font-outfit), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: clamp(19px, 2vw, 24px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.resenas-nota {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.resenas-numero {
+  font-size: clamp(32px, 3.4vw, 40px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.resenas-nota > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.resenas-estrellas {
+  display: inline-flex;
+  gap: 2px;
+}
+.resenas-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+.resenas-total:hover {
+  text-decoration: underline;
+}
+/* La cinta corre sola de derecha a izquierda; se detiene al pasar el mouse
+   o al tocarla, y con "reducir movimiento" queda quieta y se desliza a mano */
+.resenas-cinta {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.resenas-pista {
+  display: flex;
+  width: max-content;
+  animation: resenas-correr 70s linear infinite;
+}
+.resenas-cinta:hover .resenas-pista,
+.resenas-cinta:focus-within .resenas-pista,
+.resenas-cinta:active .resenas-pista {
+  animation-play-state: paused;
+}
+.resenas-grupo {
+  display: flex;
+  gap: 16px;
+  padding-right: 16px;
+}
+@keyframes resenas-correr {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .resenas-cinta {
+    overflow-x: auto;
+  }
+  .resenas-pista {
+    animation: none;
+  }
+  .resenas-grupo[aria-hidden] {
+    display: none;
+  }
+}
+.resena-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 300px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-elevated);
+}
+.resena-autor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.resena-autor img,
+.resena-inicial {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+.resena-inicial {
+  display: grid;
+  place-items: center;
+  background: var(--gold-relleno, #ffc72c);
+  color: #1a1815;
+  font-weight: 800;
+}
+.resena-autor > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.resena-autor a,
+.resena-autor strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.resena-autor small {
+  font-size: 12px;
+  color: var(--gray);
+}
+.resena-tarjeta blockquote {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.resenas-pie {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+  padding: 0 16px;
+}
+.resenas-llegar {
+  padding: 10px 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+@media (max-width: 640px) {
+  .resenas-google {
+    padding: 18px 0 18px;
+  }
+  .resena-tarjeta {
+    width: 250px;
+    padding: 12px 14px;
+  }
+}

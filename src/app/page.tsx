@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import Link from "next/link";
+import ResenasGoogle from "@/components/cliente/ResenasGoogle";
 import AnnounceBar from "@/components/cliente/AnnounceBar";
 import DescuentoBienvenidaModal from "@/components/cliente/DescuentoBienvenidaModal";
 import SiteNav from "@/components/cliente/SiteNav";
@@ -54,6 +56,10 @@ export default async function LandingPage() {
       <SiteNav detailing={precios.servicios.length > 0} />
       <HeroZplash />
       <WhatsAppFlotante />
+      {/* Reseñas reales de Google; sin clave o si Google falla no ocupa espacio */}
+      <Suspense fallback={null}>
+        <ResenasGoogle />
+      </Suspense>
 
       <div className="content">
         <div id="lavados" className="anchor-section">
