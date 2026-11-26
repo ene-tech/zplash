@@ -57,13 +57,7 @@ function Tarjeta({ r }: { r: ResenaGoogle }) {
           </span>
         )}
         <span>
-          {r.autorUrl ? (
-            <a href={r.autorUrl} target="_blank" rel="noopener noreferrer">
-              {r.autor}
-            </a>
-          ) : (
-            <strong>{r.autor}</strong>
-          )}
+          <strong>{r.autor}</strong>
           <small>{r.hace}</small>
         </span>
       </figcaption>
@@ -76,17 +70,28 @@ function Tarjeta({ r }: { r: ResenaGoogle }) {
 export function CintaResenas({ datos }: { datos: Datos }) {
   const llegar = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(DIRECCION)}&destination_place_id=${encodeURIComponent(datos.placeId)}`;
   const nota = datos.rating.toLocaleString("es-CL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  // Toda la cinta (nota + comentarios) es un solo enlace a la ficha de Google
+  // Maps, con la pestaña "Opiniones" a un toque (26-nov-2026, pedido del dueño)
+  const verResenas = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent("Zplash AutoLavado")}&query_place_id=${encodeURIComponent(datos.placeId)}`;
+  const total = datos.total.toLocaleString("es-CL");
 
   return (
     <section className="resenas-google" aria-labelledby="resenas-titulo">
+      <a
+        href={verResenas}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="resenas-enlace"
+        aria-label={`Ver las ${total} reseñas de Zplash en Google (${nota} de 5 estrellas)`}
+      >
       <div className="resenas-cabeza">
         <div className="resenas-nota">
           <strong className="resenas-numero">{nota}</strong>
           <div>
             <Estrellas valor={datos.rating} tam={22} />
-            <a href={datos.fichaUrl} target="_blank" rel="noopener noreferrer" className="resenas-total">
-              <LogoGoogle /> {datos.total.toLocaleString("es-CL")} reseñas en Google
-            </a>
+            <span className="resenas-total">
+              <LogoGoogle /> {total} reseñas en Google <span aria-hidden>›</span>
+            </span>
           </div>
         </div>
         <h2 id="resenas-titulo">Lo que dicen nuestros clientes</h2>
@@ -117,6 +122,7 @@ export function CintaResenas({ datos }: { datos: Datos }) {
           </div>
         </div>
       )}
+      </a>
 
       <div className="resenas-pie">
         <a href={llegar} target="_blank" rel="noopener noreferrer" className="btn resenas-llegar">

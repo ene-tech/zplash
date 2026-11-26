@@ -3613,8 +3613,23 @@ body:has(.aviso-cookies) #app {
   color: inherit;
   text-decoration: none;
 }
-.resenas-total:hover {
+.resenas-enlace {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.resenas-enlace:hover .resenas-total,
+.resenas-enlace:focus-visible .resenas-total {
   text-decoration: underline;
+}
+.resenas-enlace:hover .resena-tarjeta {
+  border-color: var(--gold);
+}
+.resenas-enlace:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+  border-radius: 20px;
 }
 /* La cinta corre sola de derecha a izquierda; se detiene al pasar el mouse
    o al tocarla, y con "reducir movimiento" queda quieta y se desliza a mano */
