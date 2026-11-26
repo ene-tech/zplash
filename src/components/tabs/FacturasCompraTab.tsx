@@ -6,6 +6,7 @@ import {
   clasificarFacturaCompra,
   listarFacturasCompra,
   marcarFacturaCompra,
+  pdfFacturaCompra,
   revisarCorreoCompras,
   xmlFacturaCompra,
 } from "@/lib/serverActions";
@@ -14,7 +15,10 @@ import {
   egresoDesdeDocumento,
   egresoExistente,
   esEgresoDeFacturaCompra,
+  esFormaPagoCompra,
   esNotaCredito,
+  FORMAS_PAGO_COMPRA,
+  type FormaPagoCompra,
   nombreTipoDte,
 } from "@/lib/dteCompra";
 import { limpiarRut } from "@/lib/helpers/validadores";
@@ -90,12 +94,32 @@ async function descargarXml(d: DocumentoCompra) {
   URL.revokeObjectURL(url);
 }
 
+async function descargarPdf(d: DocumentoCompra) {
+  const b64 = await pdfFacturaCompra(d.id);
+  if (!b64) return alert("No se pudo armar el PDF");
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${nombreTipoDte(d.tipoDte).replace(/\s/g, "_")}_${d.folio}_${d.rutEmisor}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const OPCIONES_PAGO: OpcionSelect[] = FORMAS_PAGO_COMPRA.map((f) => ({
+  value: f.value,
+  label: f.label,
+}));
+const etiquetaPago = (estado: string | undefined) =>
+  FORMAS_PAGO_COMPRA.find((f) => f.value === estado)?.label;
+
 export default function FacturasCompraTab() {
   const { data, ui, patchUi, commit, guardando } = useApp();
   const [docs, setDocs] = useState<DocumentoCompra[] | null>(null);
   const [errorCarga, setErrorCarga] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>("pendiente");
   const [eleccion, setEleccion] = useState<Record<string, string>>({});
+  const [pagoElegido, setPagoElegido] = useState<Record<string, string>>({});
   const [editando, setEditando] = useState<string | null>(null);
   const [abierto, setAbierto] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -217,7 +241,20 @@ export default function FacturasCompraTab() {
       (prev || []).map((d) => (d.id === id ? { ...d, ...cambios } : d)),
     );
 
-  const contabilizar = async (d: DocumentoCompra, valor: string) => {
+  // Egreso que ya respalda al documento: el vinculado en una clasificación
+  // anterior o, si no, el cargado a mano para la misma factura. Sirve para
+  // mostrar y proponer cómo se pagó sin pisar un pago ya registrado.
+  const egresoDe = (d: DocumentoCompra) =>
+    d.movimientoContableId
+      ? data.movimientosContables.find((m) => m.id === d.movimientoContableId)
+      : egresoExistente(d, data.movimientosContables);
+
+  const contabilizar = async (
+    d: DocumentoCompra,
+    valor: string,
+    /** null = el usuario no eligió: el egreso existente conserva su estado. */
+    pago: FormaPagoCompra | null,
+  ) => {
     const [tipo, ...resto] = valor.split(":");
     const categoria = resto.join(":");
     if (!categoria) return;
@@ -239,14 +276,17 @@ export default function FacturasCompraTab() {
       if (clasificacion === "gasto") {
         if (vinculable) {
           movimientoId = vinculable.id;
-          if (vinculable.categoria !== categoria) {
+          if (
+            vinculable.categoria !== categoria ||
+            (pago && vinculable.estado !== pago)
+          ) {
+            const estado = pago ?? vinculable.estado;
             const ok = await commit({
               movimientosContables: data.movimientosContables.map((m) =>
-                m.id === vinculable.id ? { ...m, categoria } : m,
+                m.id === vinculable.id ? { ...m, categoria, estado } : m,
               ),
             });
-            if (!ok)
-              return alert("No se pudo actualizar la categoría del egreso");
+            if (!ok) return alert("No se pudo actualizar el egreso");
           }
         } else {
           const nuevo = egresoDesdeDocumento(
@@ -255,6 +295,7 @@ export default function FacturasCompraTab() {
             uidMovimientoContable(),
             usuario,
             ahora,
+            pago ?? "pendiente_pago",
           );
           const ok = await commit({
             movimientosContables: [nuevo, ...data.movimientosContables],
@@ -342,6 +383,20 @@ export default function FacturasCompraTab() {
       eleccion[d.id] ??
       (d.estado === "contabilizado" ? valorDe(d) : sugerencia(d));
     const valor = valoresValidos.has(propuesto) ? propuesto : "";
+    const esGasto = valor.startsWith("g:");
+    const previo = esGasto ? egresoDe(d) : undefined;
+    const elegido = pagoElegido[d.id];
+    const pagoElegidoValido =
+      elegido && esFormaPagoCompra(elegido) ? elegido : null;
+    const pago =
+      pagoElegidoValido ??
+      (previo && esFormaPagoCompra(previo.estado) ? previo.estado : "");
+    // Un egreso que ya estaba pagado (p. ej. en efectivo) no obliga a elegir:
+    // se deja como está salvo que se cambie a propósito.
+    const pagoPendiente =
+      esGasto &&
+      !pagoElegidoValido &&
+      (!previo || previo.estado === "pendiente_pago");
     const bloqueado = ocupado === d.id || guardando;
     return (
       <span
@@ -356,10 +411,26 @@ export default function FacturasCompraTab() {
           disabled={bloqueado}
           className="w-[220px]"
         />
+        {esGasto && (
+          <SelectFab
+            value={pago}
+            onChange={(v) => setPagoElegido((p) => ({ ...p, [d.id]: v }))}
+            opciones={OPCIONES_PAGO}
+            placeholder={
+              previo && !pago && previo.estado !== "pendiente_pago"
+                ? "Dejar como está"
+                : "¿Cómo se pagó?"
+            }
+            disabled={bloqueado}
+            className="w-[220px]"
+          />
+        )}
         <Button
           size="sm"
-          disabled={!valor || bloqueado}
-          onClick={() => contabilizar(d, valor)}
+          disabled={!valor || pagoPendiente || bloqueado}
+          onClick={() =>
+            contabilizar(d, valor, esGasto ? pagoElegidoValido : null)
+          }
         >
           {ocupado === d.id ? "Guardando…" : "Contabilizar"}
         </Button>
@@ -415,6 +486,12 @@ export default function FacturasCompraTab() {
             {d.clasificacion === "activo" ? "Activo · " : "Gasto · "}
           </span>
           {d.categoria}
+          {d.clasificacion === "gasto" && etiquetaPago(egresoDe(d)?.estado) && (
+            <span className="text-xs text-muted-foreground">
+              {" · "}
+              {etiquetaPago(egresoDe(d)?.estado)}
+            </span>
+          )}
         </span>
         <Button size="sm" variant="ghost" onClick={() => setEditando(d.id)}>
           Cambiar
@@ -450,7 +527,10 @@ export default function FacturasCompraTab() {
           ? " · Egreso creado/vinculado en Contabilidad"
           : ""}
       </div>
-      <div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={() => descargarPdf(d)}>
+          <FileDown className="size-4" /> Bajar PDF
+        </Button>
         <Button size="sm" variant="outline" onClick={() => descargarXml(d)}>
           <FileDown className="size-4" /> Bajar XML
         </Button>

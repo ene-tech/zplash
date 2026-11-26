@@ -6,6 +6,7 @@ import {
   type ResultadoRecepcionCompras,
 } from "@/lib/comprasRecepcion";
 import { CATEGORIAS_ACTIVO } from "@/lib/dteCompra";
+import { pdfDocumentoCompra } from "@/lib/pdf/pdfDocumentoCompra";
 import { sesionActual, tieneModulo } from "@/lib/session";
 import type { DocumentoCompra } from "@/types";
 
@@ -36,6 +37,14 @@ export async function revisarCorreoCompras(): Promise<ResultadoRecepcionCompras>
 export async function xmlFacturaCompra(id: string): Promise<string | null> {
   if (!(await tieneModulo("contabilidad"))) return null;
   return dataAccess.xmlDocumentoCompra(String(id));
+}
+
+/** PDF armado con los datos del XML, en base64 para bajarlo desde el navegador. */
+export async function pdfFacturaCompra(id: string): Promise<string | null> {
+  if (!(await tieneModulo("contabilidad"))) return null;
+  const doc = await dataAccess.obtenerDocumentoCompra(String(id));
+  if (!doc) return null;
+  return pdfDocumentoCompra(doc).toString("base64");
 }
 
 /** Guarda la clasificación. Para un gasto, el egreso ya lo creó o vinculó la

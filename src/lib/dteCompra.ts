@@ -199,12 +199,26 @@ export function parsearDtes(xml: string): DteParseado[] {
  * gasto. El monto va con IVA, igual que los egresos que se cargan a mano (es
  * lo que se le paga al proveedor y lo que muestra Cuentas por Pagar); la nota
  * de crédito va en negativo. Queda "pendiente_pago" hasta que se pague. */
+/** Cómo se pagó una factura al contabilizarla: queda como estado del egreso.
+ * "Por pagar a JNF" es una rendición (la pagó él y se le devuelve), así que
+ * aparece en Cuentas por Pagar → X Rendir. */
+export const FORMAS_PAGO_COMPRA = [
+  { value: "pagado_cc", label: "Cuenta corriente Santander" },
+  { value: "x_rendir", label: "Por pagar a JNF" },
+] as const;
+export type FormaPagoCompra =
+  | (typeof FORMAS_PAGO_COMPRA)[number]["value"]
+  | "pendiente_pago";
+export const esFormaPagoCompra = (v: string): v is FormaPagoCompra =>
+  FORMAS_PAGO_COMPRA.some((f) => f.value === v);
+
 export function egresoDesdeDocumento(
   doc: DocumentoCompra,
   categoria: string,
   id: string,
   usuario: string | undefined,
   ahora: string,
+  estado: FormaPagoCompra = "pendiente_pago",
 ): MovimientoContable {
   const signo = esNotaCredito(doc.tipoDte) ? -1 : 1;
   const primerItem = doc.detalle[0]?.nombre;
@@ -230,7 +244,7 @@ export function egresoDesdeDocumento(
     numeroFactura: String(doc.folio),
     tipoDocumento: esBoleta(doc.tipoDte) ? "Boleta" : "Factura",
     monto: signo * doc.montoTotal,
-    estado: "pendiente_pago",
+    estado,
     notas: `${PREFIJO_NOTA_EGRESO} Neto ${doc.montoNeto}, exento ${doc.montoExento}, IVA ${doc.iva}.`,
     creadoEn: ahora,
     creadoPor: usuario,
