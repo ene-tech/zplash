@@ -37,6 +37,7 @@ import {
   MobileRecordAvatar,
 } from "@/components/MobileRecordCard";
 import { Button } from "@/components/ui/button";
+import SelectFab, { type OpcionSelect } from "@/components/tabs/fabricacion/SelectFab";
 import { FileDown, Inbox, RefreshCw } from "lucide-react";
 import type { DocumentoCompra } from "@/types";
 
@@ -129,16 +130,29 @@ export default function FacturasCompraTab() {
       })).filter((g) => g.categorias.length),
     [data.categoriasGasto],
   );
+  const opcionesCuenta = useMemo<OpcionSelect[]>(
+    () => [
+      ...categoriasPorGrupo.flatMap((g) =>
+        g.categorias.map((c) => ({
+          value: `g:${c}`,
+          label: c,
+          grupo: `Gasto · ${g.grupo}`,
+        })),
+      ),
+      ...CATEGORIAS_ACTIVO.map((c) => ({
+        value: `a:${c}`,
+        label: c,
+        grupo: "Activo fijo (no va al EERR)",
+      })),
+    ],
+    [categoriasPorGrupo],
+  );
   // Valores que el selector puede mostrar: una sugerencia o clasificación
   // fuera de esta lista (p. ej. una categoría ya desactivada) se trata como
   // "sin elegir", para no contabilizar algo que no se ve en pantalla.
   const valoresValidos = useMemo(
-    () =>
-      new Set([
-        ...categoriasPorGrupo.flatMap((g) => g.categorias.map((c) => `g:${c}`)),
-        ...CATEGORIAS_ACTIVO.map((c) => `a:${c}`),
-      ]),
-    [categoriasPorGrupo],
+    () => new Set(opcionesCuenta.map((o) => o.value)),
+    [opcionesCuenta],
   );
 
   // Sugerencia para un documento sin clasificar: lo último que se eligió para
@@ -334,32 +348,14 @@ export default function FacturasCompraTab() {
         className="inline-flex flex-wrap items-center gap-2"
         onClick={(e) => e.stopPropagation()}
       >
-        <select
+        <SelectFab
           value={valor}
-          onChange={(e) =>
-            setEleccion((p) => ({ ...p, [d.id]: e.target.value }))
-          }
+          onChange={(v) => setEleccion((p) => ({ ...p, [d.id]: v }))}
+          opciones={opcionesCuenta}
+          placeholder="Elegir cuenta…"
           disabled={bloqueado}
-          className="max-w-[220px]"
-        >
-          <option value="">Elegir cuenta…</option>
-          {categoriasPorGrupo.map((g) => (
-            <optgroup key={g.grupo} label={`Gasto · ${g.grupo}`}>
-              {g.categorias.map((c) => (
-                <option key={c} value={`g:${c}`}>
-                  {c}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-          <optgroup label="Activo fijo (no va al EERR)">
-            {CATEGORIAS_ACTIVO.map((c) => (
-              <option key={c} value={`a:${c}`}>
-                {c}
-              </option>
-            ))}
-          </optgroup>
-        </select>
+          className="w-[220px]"
+        />
         <Button
           size="sm"
           disabled={!valor || bloqueado}

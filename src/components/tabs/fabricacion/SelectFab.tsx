@@ -22,6 +22,7 @@ export default function SelectFab({
   opciones,
   placeholder,
   className = "w-full",
+  disabled,
 }: {
   id?: string;
   value: string;
@@ -30,6 +31,7 @@ export default function SelectFab({
   /** Texto para "sin elegir"; si no viene, no se ofrece esa opción. */
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const items: Record<string, string> = {};
   if (placeholder) items[VACIO] = placeholder;
@@ -43,7 +45,7 @@ export default function SelectFab({
   }
 
   return (
-    <Select items={items} value={value || (placeholder ? VACIO : value)} onValueChange={(v) => onChange(!v || v === VACIO ? "" : v)}>
+    <Select items={items} value={value || (placeholder ? VACIO : value)} onValueChange={(v) => onChange(!v || v === VACIO ? "" : v)} disabled={disabled}>
       <SelectTrigger id={id} className={className}>
         <SelectValue />
       </SelectTrigger>
