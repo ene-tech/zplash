@@ -482,7 +482,7 @@ export function VehiculoCard({
                 <small>{oferta.contratacion.primerCobroX3 < oferta.contratacion.mensualX3 ? "1er mes" : "/mes"}</small>
               </span>
             </button>
-            <div className="opciones-compra-sep">O sin suscripción</div>
+            <div className="opciones-compra-sep">O sin suscripción (válido 30 días)</div>
             {/* Alternativa sin compromiso, por Webpay: pagar un lavado suelto
                 para esta misma patente sin tener que ir a /pagar a tipearla de
                 nuevo. El precio ya viene con el cupón restado (ofertaConCupon),
