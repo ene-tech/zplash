@@ -3345,3 +3345,219 @@ body:has(.aviso-cookies) #app {
 .topbar-logo.logo-recortado {
   height: 20px;
 }
+
+/* ---------- Mi Cuenta web con look "vidrio" (25-nov-2026, pedido del dueño) ----------
+   Foto del túnel desenfocada detrás y paneles translúcidos encima. Sin
+   backdrop-filter en los paneles a propósito: crearía un bloque contenedor
+   para los modales (position: fixed) que viven dentro de las tarjetas y los
+   dejaría cortados; el desenfoque va una sola vez, en la foto. */
+#app:has(.cuenta-glass)::before {
+  content: "";
+  position: fixed;
+  inset: -40px;
+  z-index: -1;
+  background:
+    linear-gradient(116deg, rgb(73 48 37 / 30%), transparent 45%, rgb(162 120 63 / 22%) 78%, transparent),
+    linear-gradient(0deg, rgb(53 33 25 / 28%), transparent 60%),
+    url("/tunel/espuma-volvo.jpg") center 60% / cover no-repeat;
+  filter: blur(14px) saturate(0.85) brightness(0.92);
+  pointer-events: none;
+}
+.cuenta-glass {
+  --cg-rim: rgb(255 253 246 / 62%);
+  --cg-luz: rgb(255 254 247 / 85%);
+  --cg-sombra: rgb(57 40 28 / 18%);
+  --cg-brillo: rgb(255 251 242 / 45%);
+  --cg-panel: rgb(250 244 235 / 58%);
+  --cg-tarjeta: rgb(255 251 245 / 72%);
+  --cg-interior: rgb(255 250 245 / 55%);
+  --cg-linea: rgb(74 49 33 / 14%);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.cuenta-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 7px 9px 7px 9px;
+  border: 1px solid var(--cg-rim);
+  border-radius: 999px;
+  background: linear-gradient(165deg, var(--cg-brillo), transparent 32% 73%, var(--cg-brillo)), rgb(241 228 214 / 70%);
+  box-shadow: inset 1px 1px 1px var(--cg-luz), inset -1px -1px 1px var(--cg-sombra), 0 7px 20px rgb(35 21 14 / 16%);
+}
+.cuenta-top-quien {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.cuenta-top-quien strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cuenta-top-quien small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #5a4a40;
+}
+.cuenta-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--gold-relleno, #ffc72c);
+  color: #1a1815;
+  font-weight: 850;
+  font-size: 16px;
+  box-shadow: inset 0 0 0 1px var(--cg-brillo), 0 2px 7px rgb(35 21 14 / 14%);
+}
+.cuenta-glass .logout-btn {
+  border-radius: 999px;
+  background: var(--cg-interior);
+  border-color: var(--cg-linea);
+  color: #3d322c;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 8px 16px;
+}
+.cuenta-stage {
+  border: 1px solid var(--cg-rim);
+  border-radius: 34px;
+  background:
+    linear-gradient(148deg, var(--cg-brillo), transparent 19% 77%, rgb(255 251 242 / 22%)),
+    var(--cg-panel);
+  box-shadow: inset 1px 1px 1px var(--cg-luz), inset -1px -1px 1px var(--cg-sombra), inset 0 0 7px var(--cg-brillo),
+    0 1px 3px rgb(35 21 14 / 16%), 0 22px 72px rgb(35 21 14 / 22%);
+  padding: clamp(18px, 2.4vw, 36px) clamp(16px, 3vw, 46px) 34px;
+}
+.cuenta-stage-cabeza {
+  margin-bottom: 18px;
+}
+.cuenta-stage-cabeza h1 {
+  margin: 0;
+  font-size: clamp(30px, 3.4vw, 48px);
+  font-weight: 800;
+  line-height: 1.03;
+  letter-spacing: -0.055em;
+}
+.cuenta-stage-cabeza p {
+  margin: 8px 0 0;
+  color: #5a4a40;
+  font-size: 14px;
+}
+.cuenta-resumen {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 6px;
+  margin-bottom: 22px;
+  border: 1px solid var(--cg-rim);
+  border-radius: 22px;
+  background: var(--cg-interior);
+}
+.cuenta-metrica {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 112px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--cg-rim);
+  border-radius: 16px;
+  background: linear-gradient(144deg, rgb(255 251 245 / 50%), transparent 66%), var(--cg-tarjeta);
+  box-shadow: inset 0 1px 1px var(--cg-luz), inset 0 -1px 1px var(--cg-sombra), 0 6px 18px rgb(35 21 14 / 8%);
+}
+.cuenta-metrica.destacada {
+  color: #1a1815;
+  border-color: rgb(255 236 170 / 70%);
+  background: radial-gradient(ellipse at 5% -20%, #ffe28a, transparent 68%), linear-gradient(145deg, #ffcf3f, #e9a800);
+  box-shadow: inset 0 1px 2px rgb(255 248 220 / 70%), 0 6px 14px rgb(150 100 0 / 18%);
+}
+.cuenta-metrica-titulo {
+  font-size: 12px;
+  font-weight: 750;
+}
+.cuenta-metrica-valor {
+  display: block;
+  margin: 4px 0 6px;
+  font-size: clamp(24px, 2.3vw, 34px);
+  font-weight: 820;
+  line-height: 1.05;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+.cuenta-metrica-detalle {
+  font-size: 11.5px;
+  color: #5a4a40;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cuenta-metrica.destacada .cuenta-metrica-detalle {
+  color: #3d2f00;
+}
+/* Tarjetas, vehículos y tabla de la cuenta: vidrio claro sobre el panel */
+.cuenta-glass .card,
+.cuenta-glass .vehicle-card {
+  border: 1px solid var(--cg-rim);
+  border-radius: 20px;
+  background: linear-gradient(144deg, rgb(255 251 245 / 45%), transparent 66%), var(--cg-tarjeta);
+  box-shadow: inset 0 1px 1px var(--cg-luz), inset 0 -1px 1px var(--cg-sombra), 0 6px 18px rgb(35 21 14 / 8%);
+}
+.cuenta-glass .offer-card {
+  border-radius: 16px;
+}
+.cuenta-glass h3 {
+  font-weight: 810;
+  letter-spacing: -0.02em;
+}
+.cuenta-glass .btn {
+  border-radius: 999px;
+}
+.cuenta-glass .btn.ghost,
+.cuenta-glass .btn.secondary {
+  background: var(--cg-interior);
+  border-color: var(--cg-rim);
+}
+.cuenta-glass .table-scroll {
+  border: 1px solid var(--cg-rim);
+  border-radius: 18px;
+  background: var(--cg-tarjeta);
+  padding: 4px 8px;
+}
+.cuenta-glass .table-scroll th {
+  background: transparent;
+}
+.cuenta-glass .field input,
+.cuenta-glass .field select,
+.cuenta-glass .field textarea {
+  background: rgb(255 255 255 / 70%);
+  border-radius: 12px;
+}
+@media (max-width: 760px) {
+  .cuenta-top {
+    border-radius: 22px;
+  }
+  .cuenta-stage {
+    border-radius: 24px;
+  }
+  .cuenta-resumen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 5px;
+  }
+  .cuenta-metrica {
+    min-height: 96px;
+    padding: 10px;
+  }
+}

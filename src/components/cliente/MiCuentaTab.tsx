@@ -60,11 +60,34 @@ const sinCambios = () => () => {};
 
 function CuentaBar({ email, onLogout }: { email: string; onLogout: () => void }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22, flexWrap: "wrap", gap: 10 }}>
-      <span style={{ fontSize: 13 }}>{email}</span>
+    <header className="cuenta-top">
+      <div className="cuenta-top-quien">
+        <span className="cuenta-avatar" aria-hidden>
+          {email.trim().charAt(0).toUpperCase() || "Z"}
+        </span>
+        <div>
+          <strong>{email}</strong>
+          <small>Tu cuenta Zplash</small>
+        </div>
+      </div>
       <button type="button" className="logout-btn" onClick={onLogout}>
         Cerrar sesión
       </button>
+    </header>
+  );
+}
+
+// Resumen de arriba de Mi Cuenta web (look "vidrio", 25-nov-2026)
+function ResumenCuenta({ items }: { items: { titulo: string; valor: string; detalle: string; destacado?: boolean }[] }) {
+  return (
+    <div className="cuenta-resumen">
+      {items.map((it) => (
+        <article key={it.titulo} className={it.destacado ? "cuenta-metrica destacada" : "cuenta-metrica"}>
+          <span className="cuenta-metrica-titulo">{it.titulo}</span>
+          <strong className="cuenta-metrica-valor">{it.valor}</strong>
+          <span className="cuenta-metrica-detalle">{it.detalle}</span>
+        </article>
+      ))}
     </div>
   );
 }
@@ -399,12 +422,33 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
     );
   }
 
+  const alDia = sesion.vehiculos.filter((v) => v.estado.cls === "ok").length;
+  const conCobro = tarjetas.filter((t) => t.estado === "activa").length;
+  const ultima = compras[0];
+  const resumen = [
+    {
+      titulo: "Vehículos",
+      valor: String(sesion.vehiculos.length),
+      detalle: sesion.vehiculos.length === 0 ? "Agrega tu patente" : `${alDia} con plan al día`,
+      destacado: true,
+    },
+    { titulo: "Tickets y cupones", valor: String(cupones.length), detalle: cupones.length ? "Listos para usar" : "Sin tickets por ahora" },
+    { titulo: "Tarjetas", valor: String(tarjetas.length), detalle: conCobro ? "Renovación automática activa" : "Sin cobro automático" },
+    { titulo: "Última compra", valor: ultima ? fmtCLP(ultima.monto) : "—", detalle: ultima ? `${ultima.tipo} · ${fmtFecha(ultima.fecha)}` : "Aún no hay compras" },
+  ];
+
   return (
-    <div>
+    <div className="cuenta-glass">
       <CuentaBar email={sesion.email} onLogout={cerrar} />
+      <main className="cuenta-stage">
+      <div className="cuenta-stage-cabeza">
+        <h1>Mi cuenta</h1>
+        <p>Tus vehículos, planes, tickets y compras en un solo lugar.</p>
+      </div>
+      <ResumenCuenta items={resumen} />
       {avisosArriba}
       {tickets}
-      {invitar(false)}
+      {/* "Regala y gana" sacado de Mi Cuenta web el 25-nov-2026 (pedido del dueño); sigue en la pestaña Invita de la app */}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <h3 style={{ margin: 0 }}>Mis vehículos</h3>
@@ -425,6 +469,7 @@ export default function MiCuentaTab({ registro = false }: { registro?: boolean }
       <div style={{ marginTop: 10 }}>
         <EliminarCuenta onEliminada={refrescar} />
       </div>
+      </main>
     </div>
   );
 }
