@@ -39,11 +39,11 @@ export function AvisoPoliticas({ onAceptado }: { onAceptado: () => void }) {
       }}
     >
       <div style={{ fontSize: 13, color: "var(--gray)" }}>
-        <strong style={{ color: "var(--gold)" }}>Revisa y acepta nuestras políticas.</strong> Antes de seguir usando tu cuenta, lee las{" "}
+        <strong style={{ color: "var(--gold)" }}>Hemos actualizado nuestras Políticas de Funcionamiento.</strong> Antes de seguir usando tu cuenta, revisa y acepta las{" "}
         <a href="/politicas" target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)" }}>
           Políticas de Funcionamiento y Garantía
         </a>{" "}
-        (plan, uso del túnel, garantía de relavado, pagos y renovación automática).
+        (planes X5 y X3, uso del túnel, garantía de relavado, pagos y renovación automática).
         {error && <span style={{ color: "var(--red)" }}> No pudimos registrar tu aceptación, intenta de nuevo.</span>}
       </div>
       <button type="button" className="btn" style={{ marginTop: 0, flexShrink: 0 }} disabled={enviando} onClick={aceptar}>

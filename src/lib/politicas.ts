@@ -8,7 +8,7 @@
 // aparecer y se pide aceptar la versión nueva, sin borrar el registro de
 // haber aceptado la anterior. Súbela cuando cambie algo que le importe al
 // cliente (plazos, garantía, cobros), no por una corrección de redacción.
-export const POLITICAS_VERSION = "2026-09-27";
+export const POLITICAS_VERSION = "2026-11-26";
 
 // A propósito sin cifras que sean configurables desde Configuración
 // (horasBloqueoReingresoPlan, vigenciaDiasPackEmpresa, tramos de promoción):
@@ -27,12 +27,14 @@ export const POLITICAS_VERSION = "2026-09-27";
 // una cosa y el sistema le cobra otra.
 export const POLITICAS: { titulo: string; puntos: string[] }[] = [
   {
-    titulo: "1. Plan X5",
+    titulo: "1. Planes X5 y X3",
     puntos: [
-      "Tiene una vigencia de un mes: va desde la fecha de contratación hasta el día anterior en el mes siguiente (contratado el 23, es válido hasta el 22 incluido). En ZPlash toda fecha “válido hasta” incluye ese día completo.",
-      "Incluye 5 lavados Full Túnel dentro de ese período, con un máximo de un ingreso cada 24 horas.",
-      "Usadas las 5 pasadas, el lavado Full Túnel adicional tiene un precio preferencial de $3.990 por lo que queda del período. Ese valor es exclusivo para el vehículo que tiene el plan.",
-      "Incluye el uso de las máquinas aspiradoras de autoservicio sin límite de tiempo, después de cada uno de los 5 lavados del plan. El aspirado va asociado a la pasada por el túnel, no es un acceso libre aparte.",
+      "El Plan X5 incluye 5 lavados Full Túnel por período y el Plan X3 incluye 3. Todo lo que sigue aplica a los dos planes.",
+      "Los planes se contratan solo en la web, con cobro automático a una tarjeta inscrita (Oneclick). En el local no se venden ni se renuevan planes. Una patente puede tener el Plan X5 o el Plan X3, no los dos a la vez.",
+      "Cada plan tiene una vigencia de un mes: va desde la fecha de contratación hasta el día anterior en el mes siguiente (contratado el 23, es válido hasta el 22 incluido). En ZPlash toda fecha “válido hasta” incluye ese día completo.",
+      "Los lavados del plan se usan dentro de ese período, con un máximo de un ingreso cada 24 horas. Los que no se usen no se acumulan para el período siguiente.",
+      "Usados los lavados del plan, el lavado Full Túnel adicional tiene un precio preferencial de $3.990 por lo que queda del período. Ese valor es exclusivo para el vehículo que tiene el plan.",
+      "Incluye el uso de las máquinas aspiradoras de autoservicio sin límite de tiempo, después de cada lavado del plan. El aspirado va asociado a la pasada por el túnel, no es un acceso libre aparte.",
       "Es válido para una sola patente y es personal e intransferible: no puede usarse para lavar otro vehículo.",
       "El cambio de patente se solicita desde Mi Cuenta y se aplica al inicio del período siguiente, no durante el período vigente.",
       "Está destinado a vehículos de uso particular o de empresa. No aplica a taxis, colectivos, transporte público ni vehículos de aplicaciones de transporte.",
@@ -77,13 +79,14 @@ export const POLITICAS: { titulo: string; puntos: string[] }[] = [
   {
     titulo: "6. Pagos, renovación y cobro automático",
     puntos: [
-      "En el local aceptamos efectivo, tarjeta y transferencia bancaria. Por la web, tarjetas de crédito o débito a través de Webpay Plus.",
-      "Al inscribir una tarjeta con Oneclick autorizas el cobro automático del plan al vencimiento de cada período, al precio vigente en ese momento.",
+      "Los planes se pagan solo por la web, con tarjeta de crédito o débito a través de Webpay. Los demás servicios se pagan en el local con efectivo, tarjeta o transferencia bancaria.",
+      "Al contratar un plan inscribes tu tarjeta con Oneclick y autorizas el cobro automático del plan al vencimiento de cada período, al precio vigente en ese momento.",
       "El plan tiene una duración de 1 mes y cada renovación es un período nuevo de 1 mes.",
       "Puedes pausar la renovación automática desde Mi Cuenta sin eliminar tu tarjeta, y reanudarla cuando quieras.",
       "Puedes darlo de baja cuando quieras, eliminando la tarjeta inscrita desde Mi Cuenta o simplemente no renovando. El cobro automático se detiene desde el período siguiente y el plan que ya pagaste sigue vigente hasta su fecha de vencimiento.",
       "Así como tú puedes decidir no renovar, ZPlash también puede decidir no renovar el plan al término de un período. En ese caso no se realiza el cobro automático y el plan que ya pagaste sigue vigente hasta su fecha de vencimiento.",
-      "Puedes renovar hasta 15 días después del vencimiento conservando tu precio. El período nuevo se cuenta desde tu fecha de contratación y no desde el día en que pagas: los días que estuviste sin pagar quedan bloqueados, no se recuperan, y para lavar durante ese tiempo tienes que pagar un Lavado Único.",
+      "Si un cobro automático es rechazado, lo reintentamos durante 21 días y te avisamos para que actualices tu tarjeta. Si el último intento también falla, el plan se da de baja y la tarjeta se elimina.",
+      "Puedes renovar por la web hasta 15 días después del vencimiento conservando tu precio. El período nuevo se cuenta desde tu fecha de contratación y no desde el día en que pagas: los días que estuviste sin pagar quedan bloqueados, no se recuperan, y para lavar durante ese tiempo tienes que pagar un Lavado Único.",
       "Pasados los 15 días el plan se da de baja automáticamente. Volver a tenerlo es una contratación nueva: se cobra al precio vigente y el período parte desde ese día.",
       "Si das de baja tu plan, al volver a contratarlo no recuperas el precio promocional: se cobra el precio vigente en ese momento.",
       "Las promociones que te correspondan se muestran en Mi Cuenta solo mientras están disponibles, cada una con su vigencia.",
@@ -108,7 +111,7 @@ export const POLITICAS: { titulo: string; puntos: string[] }[] = [
   {
     titulo: "9. Datos personales y comunicaciones",
     puntos: [
-      "Usamos tu correo, teléfono y patente únicamente para gestionar tu plan, emitir tus documentos tributarios y avisarte de vencimientos, renovaciones y promociones.",
+      "Usamos tu correo, teléfono y patente únicamente para gestionar tu plan, emitir tus documentos tributarios y avisarte de vencimientos, renovaciones y promociones por correo, SMS o WhatsApp.",
       "Puedes desactivar las notificaciones del navegador cuando quieras, y pedir la baja de nuestros correos respondiendo cualquiera de ellos.",
     ],
   },

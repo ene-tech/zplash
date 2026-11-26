@@ -9,7 +9,7 @@ import { POLITICAS, POLITICAS_VERSION } from "@/lib/politicas";
 // el correo o WhatsApp. Contenido estático — no necesita force-dynamic.
 export const metadata: Metadata = {
   title: "Políticas de Funcionamiento y Garantía | ZPlash",
-  description: "Condiciones del Plan X5, uso del túnel, garantía de relavado, pagos y renovación automática en ZPlash.",
+  description: "Condiciones de los planes X5 y X3, uso del túnel, garantía de relavado, pagos y renovación automática en ZPlash.",
 };
 
 export default function PoliticasPage() {
