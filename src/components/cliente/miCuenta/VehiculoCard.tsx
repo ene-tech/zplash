@@ -427,20 +427,6 @@ export function VehiculoCard({
             <h4>Contrata tu plan</h4>
           </div>
           <div className="msg">Lavados Full Túnel sin filas y sin tocar el auto, con cobro automático mensual. Elige cuántos al mes:</div>
-          {/* Un renglón por plan: nombre, lavados del mes y precio (tachado el
-              de lista cuando el cupón rebaja el primer cobro). */}
-          {[
-            { plan: PLANES[0], pases: PASES_INCLUIDOS_X5, primer: oferta.contratacion.primerCobro, mensual: oferta.contratacion.mensual },
-            { plan: PLAN_X3, pases: PASES_INCLUIDOS_X3, primer: oferta.contratacion.primerCobroX3, mensual: oferta.contratacion.mensualX3 },
-          ].map((o) => (
-            <div key={o.plan} className="price-row" style={{ alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontWeight: 700 }}>{o.plan}</span>
-              <span style={{ color: "var(--gray)", fontSize: 13 }}>{o.pases} lavados al mes</span>
-              {o.primer < o.mensual && <span className="old">{fmtCLP(o.mensual)}</span>}
-              <span className="new">{fmtCLP(o.primer)}</span>
-              <span style={{ color: "var(--gray)", fontSize: 12 }}>{o.primer < o.mensual ? "el primer mes" : "/mes"}</span>
-            </div>
-          ))}
           <div className="hint" style={{ color: "var(--gray)", fontSize: 12, lineHeight: 1.5, marginBottom: 8 }}>
             Cargo mensual automático a tu tarjeta.
           </div>
