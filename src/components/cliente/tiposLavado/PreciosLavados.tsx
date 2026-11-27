@@ -28,6 +28,8 @@ type Tarjeta = {
   // Línea bajo el precio ("$7.995 por lavado") y el ahorro, en verde
   detalle?: string;
   ahorro?: number;
+  // Vencimiento de los tickets ("Vencen 1 mes después de la compra")
+  vence?: string;
   etiqueta?: string;
   destacada?: boolean;
   boton: { texto: string; href: string };
@@ -95,6 +97,7 @@ function TarjetaPrecio({ t, i }: { t: Tarjeta; i: number }) {
             {t.detalle && t.ahorro && t.ahorro > 0 ? " · " : null}
             {t.ahorro && t.ahorro > 0 ? <span className="font-semibold text-[var(--green)]">Ahorras {fmtCLP(t.ahorro)}</span> : null}
           </p>
+          {t.vence && <p className="mt-0.5 text-[13px] text-neutral-600 md:-mt-4 md:mb-5 md:text-sm">{t.vence}</p>}
         </div>
         <Link
           href={t.boton.href}
@@ -147,6 +150,9 @@ function IncluyeCelular({ titulo, items }: { titulo: string; items: string[] }) 
   );
 }
 
+// 30 días se lee "1 mes"; otra vigencia, en días
+const textoVence = (dias: number) => `Vencen ${dias === 30 ? "1 mes" : `${dias} días`} después de la compra`;
+
 export function TarjetasUnicoYPromos({ precios }: { precios: PreciosPublicos }) {
   const unitario = precios.lavadoUnico.precio;
   const p2 = precios.promo2Lavados;
@@ -170,6 +176,7 @@ export function TarjetasUnicoYPromos({ precios }: { precios: PreciosPublicos }) 
       sufijo: "pago único",
       detalle: `${fmtCLP(Math.round(p2.precio / p2.lavados))} por lavado`,
       ahorro: unitario * p2.lavados - p2.precio,
+      vence: textoVence(p2.vigenciaDias),
       boton: { texto: "Comprar", href: "/pagar?item=promo_2_lavados" },
       incluyeTitulo: "Cada lavado incluye",
       incluye: [`Válidos ${p2.vigenciaDias} días desde la compra`, "Uso en 1 patente", ...INCLUYE_LAVADO],
@@ -182,6 +189,7 @@ export function TarjetasUnicoYPromos({ precios }: { precios: PreciosPublicos }) 
       sufijo: "pago único",
       detalle: `${fmtCLP(Math.round(p4.precio / p4.lavados))} por lavado`,
       ahorro: unitario * p4.lavados - p4.precio,
+      vence: textoVence(p4.vigenciaDias),
       etiqueta: "Más conveniente",
       destacada: true,
       boton: { texto: "Comprar", href: "/pagar?item=promo_5_lavados" },
