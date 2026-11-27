@@ -9,11 +9,11 @@ const isDev = process.env.NODE_ENV === "development";
 // Nonces" en node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md.
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://eu-assets.i.posthog.com${isDev ? " 'unsafe-eval'" : ""};
+  script-src 'self' 'unsafe-inline' https://eu-assets.i.posthog.com https://connect.facebook.net${isDev ? " 'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline';
-  img-src 'self' data: https://*.supabase.co;
+  img-src 'self' data: https://*.supabase.co https://www.facebook.com;
   font-src 'self';
-  connect-src 'self' https://eu.i.posthog.com https://eu-assets.i.posthog.com;
+  connect-src 'self' https://eu.i.posthog.com https://eu-assets.i.posthog.com https://connect.facebook.net https://www.facebook.com;
   worker-src 'self' blob:;
   form-action 'self' https://webpay3g.transbank.cl https://webpay3gint.transbank.cl;
   object-src 'none';

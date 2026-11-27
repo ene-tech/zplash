@@ -34,8 +34,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     try {
-      const { estado } = await cobrarLavadoOneclick(link);
-      return NextResponse.json({ ok: true, estado });
+      const { estado, buyOrder } = await cobrarLavadoOneclick(link);
+      // buyOrder: la página lo manda como Purchase al pixel de Meta.
+      return NextResponse.json({ ok: true, estado, buyOrder });
     } catch (error) {
       // Solo los mensajes pensados para el cliente; un error de la base o del
       // SDK de Transbank no se le muestra tal cual.

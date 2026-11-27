@@ -39,6 +39,7 @@ const SECCIONES: { id?: string; titulo: string; puntos: React.ReactNode[] }[] = 
       "Ubicación (solo en la app y solo si das el permiso): tu teléfono revisa si entras a una zona de unos 400 metros alrededor del local para avisarte si tienes un descuento. No recibimos ni guardamos tu ubicación ni tus recorridos: solo nos llega el aviso de que entraste a esa zona. Puedes quitar el permiso cuando quieras en los ajustes del teléfono.",
       "Foto de la fila: los clientes con plan vigente pueden ver una imagen de la entrada del local que se actualiza cada pocos segundos. No se usa para identificar personas.",
       "Analítica del sitio web: solo si la aceptas en el aviso de cookies, medimos cómo se usa el sitio (PostHog, con servidores en la Unión Europea). En Mi Cuenta los textos e ingresos de datos van ocultos en esas mediciones.",
+      "Publicidad: solo si aceptas las cookies, el píxel de Meta registra las páginas que visitas, si inicias un pago y si lo completas (monto y número de orden), para medir y mostrar nuestros anuncios en Facebook e Instagram. Esos avisos de pago también se los enviamos a Meta desde nuestro servidor junto con tu dirección IP y tu navegador; no le enviamos tu nombre, patente, correo ni teléfono.",
     ],
   },
   {
@@ -58,7 +59,7 @@ const SECCIONES: { id?: string; titulo: string; puntos: React.ReactNode[] }[] = 
       "Supabase (base de datos) y Vercel (alojamiento del sitio).",
       "Transbank (pagos) y SimpleFactura (boletas y facturas electrónicas).",
       "Resend (correo), LabsMobile (SMS), Meta (WhatsApp) y Google Firebase (notificaciones de la app).",
-      "Anthropic (inteligencia artificial del asistente de WhatsApp) y PostHog (analítica del sitio, si la aceptas).",
+      "Anthropic (inteligencia artificial del asistente de WhatsApp), PostHog (analítica del sitio, si la aceptas) y Meta (píxel de anuncios, si lo aceptas).",
       "Autoridades, cuando la ley lo exige.",
     ],
   },

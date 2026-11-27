@@ -161,7 +161,7 @@ export async function linkYaPagado(db: DbOrTx, link: Pick<LinkSms, "codigo" | "p
  * reconciliarComprasEnCurso), monto recalculado acá y un solo lavado pagado
  * por link.
  */
-export async function cobrarLavadoOneclick(link: LinkSms): Promise<{ estado: "aprobada" | "rechazada" }> {
+export async function cobrarLavadoOneclick(link: LinkSms): Promise<{ estado: "aprobada" | "rechazada"; buyOrder?: string }> {
   if (link.nonGrato) throw new ErrorCompraOneclick(MENSAJE_PAGO_NON_GRATO);
   const suscripcion = await obtenerSuscripcionOneclickCobrablePorPatente(link.patente);
   if (!suscripcion?.tbkUser) throw new ErrorCompraOneclick("Esta patente no tiene una tarjeta guardada activa");
@@ -231,6 +231,6 @@ export async function cobrarLavadoOneclick(link: LinkSms): Promise<{ estado: "ap
         ventaId,
       })
       .where(eq(comprasOneclick.id, buyOrder));
-    return { estado: aprobada ? ("aprobada" as const) : ("rechazada" as const) };
+    return { estado: aprobada ? ("aprobada" as const) : ("rechazada" as const), buyOrder };
   });
 }

@@ -168,7 +168,7 @@ export function VehiculoCard({
         setInscribiendo(false);
         return;
       }
-      redirigirAInscripcionOneclick(data.url, data.token);
+      redirigirAInscripcionOneclick(data.url, data.token, !soloGuardar);
     } catch {
       setErrInscripcion("Sin conexión. Intenta de nuevo.");
       setInscribiendo(false);

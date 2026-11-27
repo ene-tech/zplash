@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Patente from "@/components/cliente/Patente";
 import { fmtCLP } from "@/lib/helpers";
+import { trackCompraMeta } from "@/lib/metaPixel";
 import { redirigirAWebpay } from "@/lib/webpayClient";
 
 // Botones de pago de /v/[codigo]. Con tarjeta guardada cobra con un toque
@@ -33,6 +34,9 @@ export default function PagoLinkSms({
       if (!res.ok) {
         setErr(data.error || "No se pudo cobrar la tarjeta");
       } else if (data.estado === "aprobada") {
+        // El monto que ve el pixel es el del botón; el servidor (Conversions
+        // API) lo vuelve a leer de la compra aprobada.
+        if (data.buyOrder) trackCompraMeta(precio, data.buyOrder);
         setListo(true);
       } else {
         setErr("El banco rechazó el cobro. Prueba con otra tarjeta.");

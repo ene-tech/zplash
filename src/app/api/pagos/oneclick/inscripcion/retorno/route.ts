@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { clientes, cobrosOneclick, suscripcionesOneclick, ventas } from "@/db/schema";
 import {
@@ -19,9 +19,11 @@ import { oneclickInscription } from "@/lib/transbank";
 
 export const runtime = "nodejs";
 
-function redirectResultado(origin: string, estado: string): NextResponse {
+function redirectResultado(origin: string, estado: string, buyOrder?: string): NextResponse {
   const url = new URL("/pagar/resultado", origin);
   url.searchParams.set("estado", estado);
+  // Con el buyOrder la página de resultado manda la compra al pixel de Meta.
+  if (buyOrder) url.searchParams.set("buyOrder", buyOrder);
   return NextResponse.redirect(url, { status: 303 });
 }
 
@@ -212,18 +214,27 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
         // cobrarSuscripcion, opción reiniciarCiclo): la recontratación parte
         // hoy, no en el aniversario del plan que se suspendió.
         await cobrarSuscripcion(activada, { reiniciarCiclo: suscripcion.estado === "suspendida" });
-    if (estado === "aprobada" && suscripcion.operadorQr) {
-      // Venta que acaba de dejar este primer cobro: se le anota el operador
-      // del QR para el ranking de ventas. Aparte y sin frenar nada, igual que
-      // el ticket de abajo: el cargo ya está hecho.
+    // El cobro que acaba de quedar aprobado: su id (buyOrder) va a la página de
+    // resultado para el pixel de Meta, y su venta se le anota al operador del
+    // QR para el ranking de ventas. Aparte y sin frenar nada, igual que el
+    // ticket de abajo: el cargo ya está hecho.
+    let buyOrderCobro: string | undefined;
+    if (estado === "aprobada") {
       try {
         const [cobro] = await db
-          .select({ ventaId: cobrosOneclick.ventaId })
+          .select({
+            id: cobrosOneclick.id,
+            ventaId: cobrosOneclick.ventaId,
+            // El cobro recién hecho, no uno viejo de la misma suscripción (si
+            // esta vuelta aprobó sin dejar fila nueva, a Meta no va nada).
+            recien: sql<boolean>`${cobrosOneclick.creadoEn} > now() - interval '10 minutes'`,
+          })
           .from(cobrosOneclick)
           .where(and(eq(cobrosOneclick.suscripcionId, suscripcion.id), eq(cobrosOneclick.estado, "aprobada")))
           .orderBy(desc(cobrosOneclick.creadoEn))
           .limit(1);
-        if (cobro?.ventaId) {
+        if (cobro?.recien) buyOrderCobro = cobro.id;
+        if (suscripcion.operadorQr && cobro?.ventaId) {
           await db.update(ventas).set({ operadorQr: suscripcion.operadorQr }).where(eq(ventas.id, cobro.ventaId));
         }
       } catch (error) {
@@ -248,7 +259,7 @@ async function procesarRetorno(origin: string, tbkToken: string | null): Promise
         console.error("No se pudo emitir el ticket de la promo de reactivación", suscripcion.patente, error);
       }
     }
-    return redirectResultado(origin, estado === "aprobada" ? "ok" : "error");
+    return redirectResultado(origin, estado === "aprobada" ? "ok" : "error", buyOrderCobro);
   } catch (error) {
     console.error("Error en el primer cobro tras inscripción Oneclick", error);
     return redirectResultado(origin, "error");

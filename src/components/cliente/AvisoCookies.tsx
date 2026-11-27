@@ -61,7 +61,8 @@ export default function AvisoCookies() {
   return (
     <div className="aviso-cookies" role="region" aria-label="Aviso de cookies">
       <p>
-        Usamos cookies de analítica para ver cómo se usa el sitio y mejorarlo. Solo se activan si usted las acepta.
+        Usamos cookies de analítica y publicidad (Meta) para ver cómo se usa el sitio, mejorarlo y medir nuestros
+        anuncios. Solo se activan si usted las acepta.
       </p>
       <div className="aviso-cookies-botones">
         <button type="button" className="aviso-cookies-btn" onClick={() => decidir("rechazado")}>

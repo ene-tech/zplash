@@ -1,4 +1,6 @@
+import CompraMetaPixel from "@/components/cliente/CompraMetaPixel";
 import VolverBoton from "@/components/cliente/VolverBoton";
+import { montoCompraAprobada } from "@/lib/pagos/montoAprobado";
 
 const MENSAJES: Record<string, { titulo: string; texto: string; cls: "ok" | "warn" | "bad"; volverHref: string; volverLabel: string }> = {
   ok: { titulo: "¡Pago exitoso!", texto: "Tu pago se procesó correctamente.", cls: "ok", volverHref: "/pagar", volverLabel: "Volver" },
@@ -41,9 +43,11 @@ export default async function ResultadoPage({
   // este `origen`.
   const { volverHref, volverLabel } =
     origen === "cuenta" ? { volverHref: "/cliente", volverLabel: "Volver a Mi Cuenta" } : info;
+  const monto = estado === "ok" && buyOrder ? await montoCompraAprobada(buyOrder) : null;
 
   return (
     <div className="content" style={{ maxWidth: 480 }}>
+      {monto !== null && buyOrder && <CompraMetaPixel valor={monto} buyOrder={buyOrder} />}
       <VolverBoton href="/" label="Volver a Inicio" />
       <div className={`result-card ${info.cls === "ok" ? "found" : "notfound"}`}>
         <div className="result-head">

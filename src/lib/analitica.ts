@@ -1,4 +1,5 @@
 import posthog from "posthog-js";
+import { detenerPixelMeta, iniciarPixelMeta } from "@/lib/metaPixel";
 
 // Analítica de producto (PostHog: embudos, grabaciones de sesión, mapas de
 // calor) solo para el sitio público, y solo después de que el visitante la
@@ -68,9 +69,11 @@ export function guardarConsentimiento(valor: Consentimiento): void {
   else detenerAnalitica();
 }
 
-/** Inicializa PostHog si hay analítica disponible y todavía no está cargado. */
+/** Inicializa PostHog (y el pixel de Meta, ver @/lib/metaPixel) si hay
+ * analítica disponible y todavía no está cargado. */
 export function iniciarAnalitica(): void {
   if (!KEY || !analiticaDisponible()) return;
+  iniciarPixelMeta();
   try {
     if (posthog.__loaded) {
       // Había rechazado después de aceptar en esta misma visita.
@@ -102,6 +105,7 @@ export function iniciarAnalitica(): void {
 
 /** Rechazó (o cambió de opinión): deja de capturar y de grabar. */
 export function detenerAnalitica(): void {
+  detenerPixelMeta();
   try {
     if (posthog.__loaded) posthog.opt_out_capturing();
   } catch (error) {

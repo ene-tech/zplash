@@ -193,7 +193,7 @@ export function usePagarForm() {
         setInscribiendo(false);
         return;
       }
-      redirigirAInscripcionOneclick(data.url, data.token);
+      redirigirAInscripcionOneclick(data.url, data.token, true);
     } catch {
       setErr("Sin conexión. Intenta de nuevo.");
       setInscribiendo(false);
